@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}API Studio Demo{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <h1 class="mb-3">API Studio Bundle — Demo</h1>
+    <p class="lead">Catálogo interno tipo Postman / Apidog para documentar y probar APIs REST, SOAP y GraphQL.</p>
+
+    <div class="mb-4">
+        <a class="btn btn-primary btn-lg" href="{{ path('nowo_api_studio_dashboard') }}">Abrir API Studio</a>
+    </div>
+
+    <h2 class="h5">APIs de referencia incluidas en el seed</h2>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 card-title">JSONPlaceholder <span class="badge bg-success">ejecutable</span></h3>
+                    <p class="card-text small">REST público sin credenciales. Ideal para probar el request console en vivo.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 card-title">LinkedIn API v2</h3>
+                    <p class="card-text small">Perfil, publicaciones UGC y búsqueda de organizaciones. OAuth Bearer + ejemplos 200/401.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 card-title">Google Cloud Translation</h3>
+                    <p class="card-text small">Traducir, detectar idioma y listar idiomas soportados. API key en entorno.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 card-title">Catastro (España) <span class="badge bg-info">SOAP</span></h3>
+                    <p class="card-text small">Sede Electrónica del Catastro: Consulta_CPMRC y Consulta_DNPRC con envelopes XML y respuestas de ejemplo.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 card-title">Catastro — consulta HTTP</h3>
+                    <p class="card-text small">Variantes GET documentadas por referencia catastral y coordenadas (administración pública).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-4">
+
+    <p class="text-muted small mb-1">Primera vez en este entorno:</p>
+    <pre class="bg-dark text-light p-3 rounded small"><code>php bin/console nowo:api-studio:sync-schema
+php bin/console nowo:api-studio:seed-demo
+php bin/console nowo:api-studio:seed-demo --fresh
+php bin/console assets:install</code></pre>
+</div>
+{% endblock %}

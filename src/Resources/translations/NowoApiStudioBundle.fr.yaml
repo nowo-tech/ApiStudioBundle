@@ -1,0 +1,192 @@
+brand: API Studio
+title_suffix: API Studio
+page.dashboard: Tableau de bord
+page.workspaces: Espaces de travail
+page.new_workspace: Nouvel espace de travail
+page.edit_workspace: Modifier l'espace de travail
+page.new_service: Nouveau service
+page.edit_service: Modifier le service
+page.new_environment: Nouvel environnement
+page.edit_environment: Modifier l'environnement
+page.new_endpoint: Nouveau point de terminaison
+page.edit_endpoint: Modifier le point de terminaison
+nav.dashboard: Tableau de bord
+nav.workspaces: Espaces
+nav.rail: Navigation principale
+nav.toggle: Basculer la navigation
+sidebar.endpoints: Points de terminaison
+sidebar.filter: Filtrer les points de terminaison…
+sidebar.navigation: Navigation API
+theme.toggle: Basculer le thème clair / sombre
+theme.light: Clair
+theme.dark: Sombre
+dashboard.projects: Projets
+env.default: par défaut
+action.save: Enregistrer
+action.cancel: Annuler
+tester.tab.body: Corps
+tester.tab.params: Paramètres
+tester.tab.docs: Documentation
+tester.params_hint: Paramètres de requête définis pour ce point de terminaison.
+tester.params_editable_hint: Modifiez les paramètres de requête ici. Les valeurs acceptent {{variables}}. Les lignes désactivées ne sont pas envoyées. L'aperçu de l'URL se met à jour en direct.
+tester.add_param: Ajouter un paramètre
+tester.response_placeholder: En attente de réponse
+tester.response_hint: Envoyez une requête pour voir la réponse ici.
+tester.send: Envoyer
+tester.http_method: Méthode HTTP
+tester.format_body: Formater
+tester.validate_body: Valider
+tester.body_format: 'Format : %format%'
+tester.body_valid_json: JSON valide
+tester.body_valid_json_vars: JSON valide (avec {{variables}} non résolues)
+tester.body_valid_xml: XML valide
+tester.body_valid_xml_vars: XML valide (avec {{variables}} non résolues)
+tester.body_empty: Corps vide
+tester.tab.headers: En-têtes
+tester.tab.variables: Variables
+tester.variables_hint: Utilisez {{variable_name}} dans le corps, l'URL, les en-têtes, les paramètres de requête et la config auth. Les valeurs proviennent de l'environnement sélectionné.
+tester.variables_scope: Variables d'environnement de l'espace de travail — disponibles dans chaque point de terminaison de ce service (URL de base, chemin, en-têtes, corps, auth).
+tester.headers_hint: En-têtes par défaut du service + en-têtes du point de terminaison. Les en-têtes d'authentification sont appliqués à l'envoi.
+tester.headers_editable_hint: Modifiez les en-têtes de requête ici. Les valeurs acceptent {{variables}}. Les lignes désactivées ne sont pas envoyées.
+tester.add_header: Ajouter un en-tête
+field.headers: En-têtes (JSON)
+field.query_params: Paramètres de requête (JSON)
+field.default_headers: En-têtes par défaut (JSON)
+tester.auth_hint: Le type d'auth « %type% » est résolu côté serveur avec les variables d'environnement.
+tester.resolved: Résolu
+tester.unresolved_vars: Certaines {{variables}} n'ont pas pu être résolues — sélectionnez un environnement ou définissez les clés manquantes.
+tester.tab.pre_script: Pre-request
+tester.tab.post_script: Post-request
+tester.tab.script_console: Console
+tester.pre_script_hint: S'exécute dans le navigateur avant l'envoi. Utilisez pm.environment.set('key', value) pour modifier les variables pour cette requête.
+tester.post_script_hint: S'exécute dans le navigateur après la réponse. Extrayez des valeurs et mettez à jour les variables pour la requête suivante.
+tester.service_pre_script: Pre-script du service
+tester.service_post_script: Post-script du service
+tester.service_script_readonly: s'exécute automatiquement depuis la config du service
+tester.persist_variables: Enregistrer les modifications de variables
+field.pre_request_script: Script pre-request (navigateur)
+field.post_request_script: Script post-request (navigateur)
+variables.syntax: Placeholder
+variables.section_title: Variables d'environnement
+variables.key_syntax_hint: Définissez chaque variable comme {{variable_name}}. Utilisez la même syntaxe {{…}} dans les URL de base, chemins, en-têtes, paramètres de requête et corps de requête.
+field.variable_key: Placeholder
+field.base_url_help: URL de base avec placeholders {{variable_name}} résolus depuis l'environnement actif.
+variables.workspace_title: Variables d'environnement (espace de travail)
+variables.service_scope: Tous les points de terminaison de ce service héritent des variables de l'espace de travail via les placeholders {{name}} dans l'URL de base, le chemin, les en-têtes, le corps et l'auth.
+variables.manage: Gérez les valeurs par environnement dans
+field.description: Description
+dashboard.subtitle: Gérez, documentez et testez vos API REST, SOAP et GraphQL.
+dashboard.stat.workspaces: Espaces
+dashboard.stat.services: Services
+dashboard.stat.endpoints: Points de terminaison
+dashboard.recent_workspaces: Espaces de travail
+section.services: Services
+section.environments: Environnements
+section.endpoints: Points de terminaison
+section.request_examples: Exemples de requête
+section.response_examples: Exemples de réponse
+examples.save_request: Enregistrer la requête
+examples.save_response: Enregistrer la réponse
+examples.name_label: Nom de l'exemple
+examples.docs_hint: Envoyez une requête et enregistrez-la comme exemple nommé. Les exemples appartiennent à ce point de terminaison.
+examples.load: Charger
+examples.empty_request: Aucun exemple de requête — envoyez une requête et utilisez Enregistrer la requête.
+examples.empty_response: Aucun exemple de réponse — envoyez une requête et utilisez Enregistrer la réponse.
+examples.confirm_delete: Supprimer cet exemple ?
+examples.use_cases: Requêtes enregistrées
+examples.expand_endpoint: Afficher les requêtes enregistrées
+examples.list_hint: Développez un point de terminaison pour parcourir les exemples de requête nommés (cas d'usage). Enregistrez les requêtes depuis le testeur avec un nom personnalisé.
+examples.save_request_title: Enregistrer un exemple de requête
+section.history: Exécutions récentes
+field.name: Nom
+field.slug: Slug
+field.protocol: Protocole
+field.base_url: URL de base
+field.path: Chemin
+field.key: Clé
+field.value: Valeur
+field.secret: Secret
+field.variables: Variables
+action.new_workspace: Nouvel espace
+action.new_service: Nouveau service
+action.new_environment: Nouvel environnement
+action.new_endpoint: Nouveau point de terminaison
+action.add: Ajouter
+action.edit: Modifier
+action.export: Exporter
+action.import: Importer
+action.delete: Supprimer
+action.close: Fermer
+action.view_all: Tout afficher
+action.open_service: Ouvrir le service
+action.view_endpoints: Voir tous les points de terminaison
+actions.more_options: Plus d'options
+service.collection_expand: Développer ou réduire le service
+service.collections_hint: Développez chaque service pour parcourir les points de terminaison et cas d'usage. Utilisez ⋮ pour importer, exporter ou gérer les collections.
+service.export_title: Exporter le service
+service.import_title: Importer dans le service
+service.delete_title: Supprimer le service
+service.delete_warning: 'Cela supprimera définitivement « %name% » et tous ses points de terminaison. Cette action est irréversible.'
+service.delete_confirm_label: 'Saisissez %name% pour confirmer'
+service.delete_confirmation_mismatch: Le nom de confirmation ne correspond pas. Le service n'a pas été supprimé.
+io.format: Format
+export.format.openapi: OpenAPI (JSON)
+import.format.openapi: OpenAPI / Swagger
+import.format.postman: Collection Postman
+confirm.delete: Supprimer cet élément ?
+empty.workspaces: Aucun espace de travail pour l'instant.
+empty.services: Aucun service pour l'instant.
+empty.environments: Aucun environnement pour l'instant.
+empty.endpoints: Aucun point de terminaison pour l'instant.
+empty.variables: Aucune variable définie.
+endpoint.no_translation: Aucune documentation pour la langue « %locale% ».
+endpoint.doc_edit: Modifier la documentation
+endpoint.doc_title: Titre
+endpoint.doc_description: Description
+endpoint.doc_description_placeholder: Décrivez ce que fait ce point de terminaison, les paramètres, les réponses attendues…
+endpoint.doc_empty: Aucune description — cliquez sur Modifier la documentation pour en ajouter une.
+endpoint.doc_locale_hint: Documentation en %locale% (correspond au sélecteur de langue dans la barre supérieure).
+endpoint.doc_tabs_hint: Chaque onglet correspond à une langue configurée dans nowo_api_studio.ui.locales.
+endpoint.doc_languages: Langues de documentation
+endpoint.doc_summary: Documentation du point de terminaison
+endpoint.translations: Traductions
+tester.title: Console de requêtes
+tester.environment: Environnement
+tester.no_environment: Sans variables d'environnement
+tester.request_body: Corps de la requête
+flash.created: Créé avec succès.
+flash.updated: Mis à jour avec succès.
+flash.deleted: Supprimé avec succès.
+flash.imported: 'Importation terminée : %services% service(s), %endpoints% point(s) de terminaison, %variables_new% nouvelle(s) variable(s), %variables_updated% variable(s) mise(s) à jour, %environments% environnement(s).'
+import_export.hub_title: Importer / Exporter
+import_export.hub_subtitle: OpenAPI, collections Postman et variables d'environnement.
+import_export.import_title: Importer
+import_export.export_title: Exporter
+import_export.service_io: Importer / exporter ce service
+import.file: Fichier
+import.mode: Mode d'importation
+import.mode.merge: Fusionner (mettre à jour les clés existantes)
+import.mode.replace: Remplacer (supprimer d'abord les variables existantes)
+import.postman_variables: Importer les variables de la collection Postman dans l'environnement de l'espace de travail
+import.submit: Importer
+import.help: Téléversez JSON, YAML ou .env (variables uniquement). OpenAPI 3.x et Swagger 2.0 pris en charge pour l'import API.
+import.error: Échec de l'importation. Vérifiez le format du fichier et réessayez.
+import.openapi.title: Importer OpenAPI / Swagger
+import.openapi.service_title: Importer OpenAPI dans le service
+import.openapi.service_short: Importer OpenAPI
+import.postman.title: Importer une collection Postman
+import.postman.service_title: Importer Postman dans le service
+import.postman.service_short: Importer Postman
+import.variables.workspace_title: Importer les variables de l'espace de travail
+import.variables.environment_title: Importer les variables d'environnement
+import.variables.environment_short: Importer les variables
+export.openapi.workspace: Exporter OpenAPI de l'espace de travail (JSON)
+export.openapi.service: Exporter OpenAPI du service (JSON)
+export.variables.workspace_json: Exporter toutes les variables (JSON)
+export.variables.workspace_yaml: Exporter toutes les variables (YAML)
+export.variables.workspace_env: Exporter toutes les variables (.env)
+locale.en: English
+locale.es: Español
+locale.fr: Français
+locale.it: Italiano
+locale.ca: Català

@@ -1,0 +1,19 @@
+<section class="as-form-panel" style="margin-top:24px">
+    <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.export_title'|trans({}, 'nowo_api_studio') }}</h2>
+    <div class="as-io-links">
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_openapi_workspace', {workspaceId: workspace.id}) }}">{{ 'export.openapi.workspace'|trans({}, 'nowo_api_studio') }}</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'json'}) }}">JSON</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'yaml'}) }}">YAML</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'env'}) }}">.env</a>
+    </div>
+</section>
+
+<section class="as-form-panel" style="margin-top:16px">
+    <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.import_title'|trans({}, 'nowo_api_studio') }}</h2>
+    <div class="as-io-links">
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}">{{ 'import_export.hub_title'|trans({}, 'nowo_api_studio') }}</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_openapi', {workspaceId: workspace.id}) }}">OpenAPI</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_postman', {workspaceId: workspace.id}) }}">Postman</a>
+        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_variables_workspace', {workspaceId: workspace.id}) }}">{{ 'section.environments'|trans({}, 'nowo_api_studio') }}</a>
+    </div>
+</section>

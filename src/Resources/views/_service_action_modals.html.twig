@@ -1,0 +1,74 @@
+{# Shared modals for service export, import and delete. #}
+<div id="as-service-export-modal" class="as-modal" hidden>
+    <div class="as-modal-backdrop" data-modal-close></div>
+    <div class="as-modal-card" role="dialog" aria-labelledby="as-service-export-title">
+        <h3 id="as-service-export-title" class="as-modal-title">{{ 'service.export_title'|trans({}, 'nowo_api_studio') }}</h3>
+        <p id="as-service-export-subtitle" class="as-modal-subtitle"></p>
+        <fieldset class="as-format-options">
+            <legend class="as-modal-label">{{ 'io.format'|trans({}, 'nowo_api_studio') }}</legend>
+            <label class="as-format-option">
+                <input type="radio" name="as-export-format" value="openapi" checked>
+                {{ 'export.format.openapi'|trans({}, 'nowo_api_studio') }}
+            </label>
+        </fieldset>
+        <div class="as-form-actions">
+            <button type="button" id="as-service-export-confirm" class="as-btn as-btn-primary">{{ 'action.export'|trans({}, 'nowo_api_studio') }}</button>
+            <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'nowo_api_studio') }}</button>
+        </div>
+    </div>
+</div>
+
+<div id="as-service-import-modal" class="as-modal" hidden>
+    <div class="as-modal-backdrop" data-modal-close></div>
+    <div class="as-modal-card as-modal-card-wide" role="dialog" aria-labelledby="as-service-import-title">
+        <h3 id="as-service-import-title" class="as-modal-title">{{ 'service.import_title'|trans({}, 'nowo_api_studio') }}</h3>
+        <p id="as-service-import-subtitle" class="as-modal-subtitle"></p>
+        <form id="as-service-import-form" method="post" enctype="multipart/form-data" class="as-form">
+            <input type="hidden" name="import_file_form[_token]" value="{{ csrf_token('import_file_form') }}">
+            <fieldset class="as-format-options">
+                <legend class="as-modal-label">{{ 'io.format'|trans({}, 'nowo_api_studio') }}</legend>
+                <label class="as-format-option">
+                    <input type="radio" name="as-import-format" value="openapi" checked>
+                    {{ 'import.format.openapi'|trans({}, 'nowo_api_studio') }}
+                </label>
+                <label class="as-format-option">
+                    <input type="radio" name="as-import-format" value="postman">
+                    {{ 'import.format.postman'|trans({}, 'nowo_api_studio') }}
+                </label>
+            </fieldset>
+            <label class="as-modal-label" for="as-service-import-file">{{ 'import.file'|trans({}, 'nowo_api_studio') }}</label>
+            <input type="file" id="as-service-import-file" name="import_file_form[file]" class="as-input as-input-file" accept=".json,.yaml,.yml" required>
+            <label id="as-import-postman-vars" class="as-checkbox-label" hidden>
+                <input type="checkbox" name="import_file_form[importVariables]" value="1" checked>
+                {{ 'import.postman_variables'|trans({}, 'nowo_api_studio') }}
+            </label>
+            <p class="as-hint as-modal-hint">{{ 'import.help'|trans({}, 'nowo_api_studio') }}</p>
+            <div class="as-form-actions">
+                <button type="submit" class="as-btn as-btn-primary">{{ 'import.submit'|trans({}, 'nowo_api_studio') }}</button>
+                <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'nowo_api_studio') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="as-service-delete-modal"
+     class="as-modal"
+     hidden
+     data-warning-template="{{ 'service.delete_warning'|trans({}, 'nowo_api_studio')|e('html_attr') }}"
+     data-confirm-template="{{ 'service.delete_confirm_label'|trans({}, 'nowo_api_studio')|e('html_attr') }}">
+    <div class="as-modal-backdrop" data-modal-close></div>
+    <div class="as-modal-card" role="dialog" aria-labelledby="as-service-delete-title">
+        <h3 id="as-service-delete-title" class="as-modal-title">{{ 'service.delete_title'|trans({}, 'nowo_api_studio') }}</h3>
+        <p id="as-service-delete-warning" class="as-modal-warning"></p>
+        <form id="as-service-delete-form" method="post">
+            <input type="hidden" name="_token" id="as-service-delete-csrf" value="">
+            <input type="hidden" name="redirect" id="as-service-delete-redirect" value="">
+            <label class="as-modal-label" for="as-service-delete-input" id="as-service-delete-label"></label>
+            <input type="text" id="as-service-delete-input" name="confirmation" class="as-input" autocomplete="off" spellcheck="false">
+            <div class="as-form-actions">
+                <button type="submit" id="as-service-delete-submit" class="as-btn as-btn-danger" disabled>{{ 'action.delete'|trans({}, 'nowo_api_studio') }}</button>
+                <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'nowo_api_studio') }}</button>
+            </div>
+        </form>
+    </div>
+</div>

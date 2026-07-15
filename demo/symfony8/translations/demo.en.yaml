@@ -1,0 +1,19 @@
+brand: 'API Studio Demo'
+title: 'API Studio Bundle Demo'
+lead: 'Document and test REST, SOAP and GraphQL APIs — your internal Postman / Apidog.'
+
+nav:
+  home: Home
+  dashboard: Dashboard
+  workspaces: Workspaces
+  toggle: 'Toggle navigation'
+
+home:
+  dashboard:
+    title: 'API Studio dashboard'
+    text: 'Browse workspaces, services, environments and endpoints. Run live requests from the console.'
+    action: 'Open dashboard'
+  catalog:
+    title: 'Reference API catalog'
+    text: 'Seeded examples include JSONPlaceholder, LinkedIn, Google Translate and Catastro (REST + SOAP).'
+    action: 'View workspaces'

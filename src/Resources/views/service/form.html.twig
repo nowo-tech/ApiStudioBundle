@@ -1,0 +1,25 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }} · {{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-form-panel">
+        {{ form_start(form, {attr: {class: 'as-form'}}) }}
+        {{ form_widget(form) }}
+        <div class="as-form-actions">
+            <button type="submit" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
+            <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
+        </div>
+        {{ form_end(form) }}
+    </div>
+    {% if service is defined and service.id %}
+        <form method="post" action="{{ path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}) }}" class="as-delete-form" onsubmit="return confirm('{{ 'confirm.delete'|trans({}, 'NowoApiStudioBundle') }}');">
+            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ service.id) }}">
+            <button type="submit" class="as-btn as-btn-danger">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}

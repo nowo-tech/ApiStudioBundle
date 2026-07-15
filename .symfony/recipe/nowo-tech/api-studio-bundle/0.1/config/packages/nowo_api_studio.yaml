@@ -1,0 +1,6 @@
+nowo_api_studio:
+    enabled: true
+    ui:
+        path: '/api-studio'
+        default_locale: en
+        locales: [en, es]

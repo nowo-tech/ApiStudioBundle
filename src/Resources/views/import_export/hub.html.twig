@@ -1,0 +1,32 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ 'import_export.hub_title'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <p class="as-hint">{{ 'import_export.hub_subtitle'|trans({}, 'NowoApiStudioBundle') }}</p>
+
+    <div class="as-io-grid">
+        <section class="as-form-panel">
+            <h2>{{ 'import_export.import_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+            <ul class="as-io-list">
+                <li><a href="{{ path('nowo_api_studio_io_import_openapi', {workspaceId: workspace.id}) }}">{{ 'import.openapi.title'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+                <li><a href="{{ path('nowo_api_studio_io_import_postman', {workspaceId: workspace.id}) }}">{{ 'import.postman.title'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+                <li><a href="{{ path('nowo_api_studio_io_import_variables_workspace', {workspaceId: workspace.id}) }}">{{ 'import.variables.workspace_title'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+            </ul>
+        </section>
+
+        <section class="as-form-panel">
+            <h2>{{ 'import_export.export_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+            <ul class="as-io-list">
+                <li><a href="{{ path('nowo_api_studio_io_export_openapi_workspace', {workspaceId: workspace.id}) }}">{{ 'export.openapi.workspace'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+                <li><a href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'json'}) }}">{{ 'export.variables.workspace_json'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+                <li><a href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'yaml'}) }}">{{ 'export.variables.workspace_yaml'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+                <li><a href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'env'}) }}">{{ 'export.variables.workspace_env'|trans({}, 'NowoApiStudioBundle') }}</a></li>
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

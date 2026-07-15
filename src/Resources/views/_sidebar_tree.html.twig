@@ -1,0 +1,32 @@
+<aside class="as-sidebar" id="as-sidebar">
+    <div class="as-sidebar-head">
+        <h2>{{ 'sidebar.endpoints'|trans({}, 'NowoApiStudioBundle') }}</h2>
+        <input type="search" class="as-sidebar-search" id="as-tree-filter" placeholder="{{ 'sidebar.filter'|trans({}, 'NowoApiStudioBundle') }}" autocomplete="off">
+    </div>
+    <nav class="as-sidebar-tree" id="as-nav-tree" aria-label="{{ 'sidebar.navigation'|trans({}, 'NowoApiStudioBundle') }}">
+        {% set active_ws = as_active_workspace|default(null) %}
+        {% set active_svc = as_active_service|default(null) %}
+        {% set active_ep = as_active_endpoint|default(null) %}
+        {% for ws in nowo_api_studio_nav_tree %}
+            <div class="as-tree-group{% if active_ws == ws.id %} is-open{% endif %}" data-tree-group>
+                <div class="as-tree-label{% if active_ws == ws.id %} is-active{% endif %}" data-tree-toggle role="button" tabindex="0">
+                    <span class="as-tree-chevron">▶</span>
+                    <a href="{{ ws.url }}">{{ ws.name }}</a>
+                </div>
+                <div class="as-tree-children">
+                    {% for svc in ws.services %}
+                        <div class="as-tree-svc{% if active_svc == svc.id %} is-active{% endif %}">
+                            <span class="as-method as-method-default" style="font-size:9px;padding:1px 4px;min-width:auto">{{ svc.protocol|upper }}</span>
+                            <a href="{{ svc.url }}">{{ svc.name }}</a>
+                        </div>
+                        {% include '@NowoApiStudioBundle/_sidebar_endpoints.html.twig' %}
+                    {% else %}
+                        <div class="as-tree-endpoint" style="padding-left:28px;color:var(--as-text-muted)">{{ 'empty.services'|trans({}, 'NowoApiStudioBundle') }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <p style="padding:16px;color:var(--as-text-muted);font-size:13px">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
+        {% endfor %}
+    </nav>
+</aside>

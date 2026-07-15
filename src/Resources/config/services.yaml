@@ -1,0 +1,33 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Nowo\ApiStudioBundle\:
+        resource: '../../'
+        exclude:
+            - '../../DependencyInjection/'
+            - '../../Entity/'
+            - '../../Model/'
+            - '../../EventSubscriber/'
+            - '../../ApiStudioBundle.php'
+
+    Nowo\ApiStudioBundle\Repository\:
+        resource: '../../Repository/'
+
+    Nowo\ApiStudioBundle\Command\:
+        resource: '../../Command/'
+        tags: ['console.command']
+
+    Nowo\ApiStudioBundle\Service\LocaleManager:
+        arguments:
+            $enabledLocales: '%nowo_api_studio.ui.locales%'
+            $defaultLocale: '%nowo_api_studio.ui.default_locale%'
+
+    Nowo\ApiStudioBundle\Service\RequestExecutor:
+        arguments:
+            $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
+
+    Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
+        arguments:
+            $tablePrefix: '%nowo_api_studio.table_prefix%'

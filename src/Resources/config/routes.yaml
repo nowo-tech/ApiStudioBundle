@@ -1,0 +1,51 @@
+nowo_api_studio_dashboard:
+    resource: '../../Controller/DashboardController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_workspaces:
+    resource: '../../Controller/ApiWorkspaceController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_services:
+    resource: '../../Controller/ApiServiceController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_environments:
+    resource: '../../Controller/ApiEnvironmentController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_environment_sync:
+    resource: '../../Controller/EnvironmentVariablesController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_endpoints:
+    resource: '../../Controller/ApiEndpointController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_endpoint_examples:
+    resource: '../../Controller/EndpointExamplesController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_execute:
+    resource: '../../Controller/ApiExecuteController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'
+
+nowo_api_studio_locale_switch:
+    path: '%nowo_api_studio.ui.path%/locale/{_locale}'
+    controller: Nowo\ApiStudioBundle\Controller\LocaleController::switch
+    methods: [GET]
+    requirements:
+        _locale: '%nowo_api_studio.ui.locales_requirement%'
+
+nowo_api_studio_import_export:
+    resource: '../../Controller/ImportExportController.php'
+    type: attribute
+    prefix: '%nowo_api_studio.ui.path%'

@@ -1,0 +1,192 @@
+brand: API Studio
+title_suffix: API Studio
+page.dashboard: Paneel
+page.workspaces: Werkruimten
+page.new_workspace: Nieuwe werkruimte
+page.edit_workspace: Werkruimte bewerken
+page.new_service: Nieuwe service
+page.edit_service: Service bewerken
+page.new_environment: Nieuwe omgeving
+page.edit_environment: Omgeving bewerken
+page.new_endpoint: Nieuw endpoint
+page.edit_endpoint: Endpoint bewerken
+nav.dashboard: Paneel
+nav.workspaces: Werkruimten
+nav.rail: Hoofdnavigatie
+nav.toggle: Navigatie in-/uitschakelen
+sidebar.endpoints: Endpoints
+sidebar.filter: Endpoints filteren…
+sidebar.navigation: API-navigatie
+theme.toggle: Licht / donker thema wisselen
+theme.light: Licht
+theme.dark: Donker
+dashboard.projects: Projecten
+env.default: standaard
+action.save: Opslaan
+action.cancel: Annuleren
+tester.tab.body: Inhoud
+tester.tab.params: Parameters
+tester.tab.docs: Documentatie
+tester.params_hint: Queryparameters gedefinieerd voor dit endpoint.
+tester.params_editable_hint: Bewerk queryparameters hier. Waarden ondersteunen {{variables}}. Uitgeschakelde rijen worden niet verzonden. URL-voorbeeld wordt live bijgewerkt.
+tester.add_param: Parameter toevoegen
+tester.response_placeholder: Wachten op antwoord
+tester.response_hint: Stuur een verzoek om het antwoord hier te zien.
+tester.send: Verzenden
+tester.http_method: HTTP-methode
+tester.format_body: Formatteren
+tester.validate_body: Valideren
+tester.body_format: 'Formaat: %format%'
+tester.body_valid_json: Geldige JSON
+tester.body_valid_json_vars: Geldige JSON (met onopgeloste {{variables}})
+tester.body_valid_xml: Geldige XML
+tester.body_valid_xml_vars: Geldige XML (met onopgeloste {{variables}})
+tester.body_empty: Lege body
+tester.tab.headers: Headers
+tester.tab.variables: Variabelen
+tester.variables_hint: Gebruik {{variable_name}} in body, URL, headers, queryparameters en auth-configuratie. Waarden komen uit de geselecteerde omgeving.
+tester.variables_scope: Omgevingsvariabelen van de werkruimte — beschikbaar in elk endpoint van deze service (basis-URL, pad, headers, body, auth).
+tester.headers_hint: Standaard headers van de service + endpoint-headers. Auth-headers worden toegepast bij verzenden.
+tester.headers_editable_hint: Bewerk verzoekheaders hier. Waarden ondersteunen {{variables}}. Uitgeschakelde rijen worden niet verzonden.
+tester.add_header: Header toevoegen
+field.headers: Headers (JSON)
+field.query_params: Queryparameters (JSON)
+field.default_headers: Standaard headers (JSON)
+tester.auth_hint: Auth-type "%type%" wordt server-side opgelost met omgevingsvariabelen.
+tester.resolved: Opgelost
+tester.unresolved_vars: Sommige {{variables}} konden niet worden opgelost — selecteer een omgeving of definieer ontbrekende sleutels.
+tester.tab.pre_script: Pre-request
+tester.tab.post_script: Post-request
+tester.tab.script_console: Console
+tester.pre_script_hint: Wordt in de browser uitgevoerd vóór verzenden. Gebruik pm.environment.set('key', value) om variabelen voor dit verzoek te wijzigen.
+tester.post_script_hint: Wordt in de browser uitgevoerd na het antwoord. Extraheer waarden en werk variabelen bij voor het volgende verzoek.
+tester.service_pre_script: Pre-script van de service
+tester.service_post_script: Post-script van de service
+tester.service_script_readonly: wordt automatisch uitgevoerd vanuit serviceconfiguratie
+tester.persist_variables: Variabelenwijzigingen opslaan
+field.pre_request_script: Pre-request-script (browser)
+field.post_request_script: Post-request-script (browser)
+variables.syntax: Placeholder
+variables.section_title: Omgevingsvariabelen
+variables.key_syntax_hint: Definieer elke variabele als {{variable_name}}. Gebruik dezelfde {{…}}-syntaxis in basis-URL's, paden, headers, queryparameters en verzoekbodies.
+field.variable_key: Placeholder
+field.base_url_help: Basis-URL met {{variable_name}}-placeholders opgelost vanuit de actieve omgeving.
+variables.workspace_title: Omgevingsvariabelen (werkruimte)
+variables.service_scope: Alle endpoints in deze service erven werkruimtevariabelen via {{name}}-placeholders in basis-URL, pad, headers, body en auth.
+variables.manage: Beheer waarden per omgeving in
+field.description: Beschrijving
+dashboard.subtitle: Beheer, documenteer en test uw REST-, SOAP- en GraphQL-API's.
+dashboard.stat.workspaces: Werkruimten
+dashboard.stat.services: Diensten
+dashboard.stat.endpoints: Endpoints
+dashboard.recent_workspaces: Werkruimten
+section.services: Diensten
+section.environments: Omgevingen
+section.endpoints: Endpoints
+section.request_examples: Verzoekvoorbeelden
+section.response_examples: Antwoordvoorbeelden
+examples.save_request: Verzoek opslaan
+examples.save_response: Antwoord opslaan
+examples.name_label: Voorbeeldnaam
+examples.docs_hint: Stuur een verzoek en sla het op als een benoemd voorbeeld. Voorbeelden horen bij dit endpoint.
+examples.load: Laden
+examples.empty_request: Nog geen verzoekvoorbeelden — stuur een verzoek en gebruik Verzoek opslaan.
+examples.empty_response: Nog geen antwoordvoorbeelden — stuur een verzoek en gebruik Antwoord opslaan.
+examples.confirm_delete: Dit voorbeeld verwijderen?
+examples.use_cases: Opgeslagen verzoeken
+examples.expand_endpoint: Opgeslagen verzoeken tonen
+examples.list_hint: Vouw een endpoint uit om benoemde verzoekvoorbeelden (use cases) te bekijken. Sla verzoeken op vanuit de tester met een aangepaste naam.
+examples.save_request_title: Verzoekvoorbeeld opslaan
+section.history: Recente uitvoeringen
+field.name: Naam
+field.slug: Slug
+field.protocol: Protocol
+field.base_url: Basis-URL
+field.path: Pad
+field.key: Sleutel
+field.value: Waarde
+field.secret: Geheim
+field.variables: Variabelen
+action.new_workspace: Nieuwe werkruimte
+action.new_service: Nieuwe service
+action.new_environment: Nieuwe omgeving
+action.new_endpoint: Nieuw endpoint
+action.add: Toevoegen
+action.edit: Bewerken
+action.export: Exporteren
+action.import: Importeren
+action.delete: Verwijderen
+action.close: Sluiten
+action.view_all: Alles bekijken
+action.open_service: Service openen
+action.view_endpoints: Alle endpoints bekijken
+actions.more_options: Meer opties
+service.collection_expand: Service uit-/inklappen
+service.collections_hint: Vouw elke service uit om endpoints en use cases te bekijken. Gebruik ⋮ om te importeren, exporteren of collecties te beheren.
+service.export_title: Service exporteren
+service.import_title: Importeren in service
+service.delete_title: Service verwijderen
+service.delete_warning: 'Dit verwijdert "%name%" en al zijn endpoints permanent. Deze actie kan niet ongedaan worden gemaakt.'
+service.delete_confirm_label: 'Typ %name% ter bevestiging'
+service.delete_confirmation_mismatch: Bevestigingsnaam komt niet overeen. Service is niet verwijderd.
+io.format: Formaat
+export.format.openapi: OpenAPI (JSON)
+import.format.openapi: OpenAPI / Swagger
+import.format.postman: Postman-collectie
+confirm.delete: Dit item verwijderen?
+empty.workspaces: Nog geen werkruimten.
+empty.services: Nog geen services.
+empty.environments: Nog geen omgevingen.
+empty.endpoints: Nog geen endpoints.
+empty.variables: Geen variabelen gedefinieerd.
+endpoint.no_translation: Geen documentatie voor taal "%locale%".
+endpoint.doc_edit: Documentatie bewerken
+endpoint.doc_title: Titel
+endpoint.doc_description: Beschrijving
+endpoint.doc_description_placeholder: Beschrijf wat dit endpoint doet, parameters, verwachte antwoorden…
+endpoint.doc_empty: Nog geen beschrijving — klik op Documentatie bewerken om er een toe te voegen.
+endpoint.doc_locale_hint: Documentatie in %locale% (komt overeen met de taalkiezer in de bovenbalk).
+endpoint.doc_tabs_hint: Elk tabblad komt overeen met een taal geconfigureerd in nowo_api_studio.ui.locales.
+endpoint.doc_languages: Documentatietalen
+endpoint.doc_summary: Endpoint-documentatie
+endpoint.translations: Vertalingen
+tester.title: Verzoekconsole
+tester.environment: Omgeving
+tester.no_environment: Zonder omgevingsvariabelen
+tester.request_body: Verzoekbody
+flash.created: Succesvol aangemaakt.
+flash.updated: Succesvol bijgewerkt.
+flash.deleted: Succesvol verwijderd.
+flash.imported: 'Import voltooid: %services% service(s), %endpoints% endpoint(s), %variables_new% nieuwe variabele(n), %variables_updated% bijgewerkte variabele(n), %environments% omgeving(en).'
+import_export.hub_title: Importeren / Exporteren
+import_export.hub_subtitle: OpenAPI, Postman-collecties en omgevingsvariabelen.
+import_export.import_title: Importeren
+import_export.export_title: Exporteren
+import_export.service_io: Deze service importeren / exporteren
+import.file: Bestand
+import.mode: Importmodus
+import.mode.merge: Samenvoegen (bestaande sleutels bijwerken)
+import.mode.replace: Vervangen (bestaande variabelen eerst verwijderen)
+import.postman_variables: Postman-collectievariabelen importeren in werkruimteomgeving
+import.submit: Importeren
+import.help: Upload JSON, YAML of .env (alleen variabelen). OpenAPI 3.x en Swagger 2.0 ondersteund voor API-import.
+import.error: Import mislukt. Controleer het bestandsformaat en probeer opnieuw.
+import.openapi.title: OpenAPI / Swagger importeren
+import.openapi.service_title: OpenAPI importeren in service
+import.openapi.service_short: OpenAPI importeren
+import.postman.title: Postman-collectie importeren
+import.postman.service_title: Postman importeren in service
+import.postman.service_short: Postman importeren
+import.variables.workspace_title: Werkruimtevariabelen importeren
+import.variables.environment_title: Omgevingsvariabelen importeren
+import.variables.environment_short: Variabelen importeren
+export.openapi.workspace: OpenAPI van werkruimte exporteren (JSON)
+export.openapi.service: OpenAPI van service exporteren (JSON)
+export.variables.workspace_json: Alle variabelen exporteren (JSON)
+export.variables.workspace_yaml: Alle variabelen exporteren (YAML)
+export.variables.workspace_env: Alle variabelen exporteren (.env)
+locale.en: English
+locale.es: Español
+locale.fr: Français
+locale.it: Italiano
+locale.ca: Català

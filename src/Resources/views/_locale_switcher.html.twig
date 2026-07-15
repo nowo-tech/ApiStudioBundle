@@ -1,0 +1,16 @@
+{% if nowo_api_studio_locales|length > 1 %}
+<div class="as-locale-menu" id="as-locale-menu">
+    <button type="button" class="as-btn as-btn-ghost" id="as-locale-btn" aria-haspopup="true">
+        {{ ('locale.' ~ app.request.locale)|trans({}, 'NowoApiStudioBundle') }}
+    </button>
+    <ul class="as-locale-dropdown" role="menu">
+        {% for locale in nowo_api_studio_locales %}
+            <li>
+                <a href="{{ path('nowo_api_studio_locale_switch', {_locale: locale}) }}" class="{% if app.request.locale == locale %}is-active{% endif %}" role="menuitem">
+                    {{ ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle') }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}

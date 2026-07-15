@@ -1,0 +1,41 @@
+{# Expandable endpoint rows with named request examples (use cases). #}
+<div class="as-endpoint-list">
+    {% for endpoint in endpoints %}
+        {% set example_names = endpoint.requestExamples|map(e => e.name|lower)|join(' ') %}
+        <div class="as-endpoint-block has-cases{% if endpoint.requestExamples|length > 0 %} has-examples{% endif %}"
+             data-endpoint-block
+             data-endpoint-search="{{ (endpoint.name ~ ' ' ~ endpoint.method.value ~ ' ' ~ endpoint.path ~ ' ' ~ example_names)|lower }}">
+            <div class="as-endpoint-row">
+                <button type="button"
+                        class="as-endpoint-expand"
+                        data-endpoint-toggle
+                        aria-expanded="false"
+                        aria-label="{{ 'examples.expand_endpoint'|trans({}, 'nowo_api_studio') }}">
+                    <span class="as-tree-chevron" aria-hidden="true">▶</span>
+                </button>
+                <span class="as-method {{ api_studio_method_class(endpoint.method.value) }}">{{ endpoint.method.value }}</span>
+                <a href="{{ path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}) }}" class="as-endpoint-name">{{ endpoint.name }}</a>
+                <code class="as-endpoint-path">{{ endpoint.path }}</code>
+                {% if endpoint.requestExamples|length > 0 %}
+                    <span class="as-endpoint-badge" title="{{ 'examples.use_cases'|trans({}, 'nowo_api_studio') }}">{{ endpoint.requestExamples|length }}</span>
+                {% endif %}
+            </div>
+            <div class="as-endpoint-cases" hidden>
+                <p class="as-endpoint-cases-label">{{ 'examples.use_cases'|trans({}, 'nowo_api_studio') }}</p>
+                {% for example in endpoint.requestExamples %}
+                    <a href="{{ path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id, request_example: example.id}) }}"
+                       class="as-use-case-row">
+                        <span class="as-use-case-name">{{ example.name }}</span>
+                        {% if example.requestBody %}
+                            <code class="as-use-case-snippet">{{ example.requestBody|length > 60 ? example.requestBody|slice(0, 60) ~ '…' : example.requestBody }}</code>
+                        {% endif %}
+                    </a>
+                {% else %}
+                    <p class="as-examples-empty as-endpoint-cases-empty">{{ 'examples.empty_request'|trans({}, 'nowo_api_studio') }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <p class="as-empty as-endpoint-list-empty">{{ 'empty.endpoints'|trans({}, 'nowo_api_studio') }}</p>
+    {% endfor %}
+</div>

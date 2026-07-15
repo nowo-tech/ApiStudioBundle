@@ -1,0 +1,192 @@
+brand: API Studio
+title_suffix: API Studio
+page.dashboard: Dashboard
+page.workspaces: Workspaces
+page.new_workspace: New workspace
+page.edit_workspace: Edit workspace
+page.new_service: New service
+page.edit_service: Edit service
+page.new_environment: New environment
+page.edit_environment: Edit environment
+page.new_endpoint: New endpoint
+page.edit_endpoint: Edit endpoint
+nav.dashboard: Dashboard
+nav.workspaces: Workspaces
+nav.rail: Main navigation
+nav.toggle: Toggle navigation
+sidebar.endpoints: Endpoints
+sidebar.filter: Filter endpoints…
+sidebar.navigation: API navigation
+theme.toggle: Toggle dark / light theme
+theme.light: Light
+theme.dark: Dark
+dashboard.projects: Projects
+env.default: default
+action.save: Save
+action.cancel: Cancel
+tester.tab.body: Body
+tester.tab.params: Params
+tester.tab.docs: Docs
+tester.params_hint: Query parameters defined for this endpoint.
+tester.params_editable_hint: Edit query parameters here. Values support {{variables}}. Disabled rows are not sent. The URL preview updates live.
+tester.add_param: Add parameter
+tester.response_placeholder: Awaiting response
+tester.response_hint: Send a request to see the response here.
+tester.send: Send
+tester.http_method: HTTP method
+tester.format_body: Format
+tester.validate_body: Validate
+tester.body_format: 'Format: %format%'
+tester.body_valid_json: Valid JSON
+tester.body_valid_json_vars: Valid JSON (with unresolved {{variables}})
+tester.body_valid_xml: Valid XML
+tester.body_valid_xml_vars: Valid XML (with unresolved {{variables}})
+tester.body_empty: Empty body
+tester.tab.headers: Headers
+tester.tab.variables: Variables
+tester.variables_hint: Use {{variable_name}} in body, URL, headers, query params and auth config. Values come from the selected environment.
+tester.variables_scope: Workspace environment variables — available in every endpoint of this service (base URL, path, headers, body, auth).
+tester.headers_hint: Service default headers + endpoint headers. Auth headers are applied when sending.
+tester.headers_editable_hint: Edit request headers here. Values support {{variables}}. Disabled rows are not sent.
+tester.add_header: Add header
+field.headers: Headers (JSON)
+field.query_params: Query params (JSON)
+field.default_headers: Default headers (JSON)
+tester.auth_hint: Auth type "%type%" is resolved server-side with environment variables.
+tester.resolved: Resolved
+tester.unresolved_vars: Some {{variables}} could not be resolved — select an environment or define missing keys.
+tester.tab.pre_script: Pre-request
+tester.tab.post_script: Post-request
+tester.tab.script_console: Console
+tester.pre_script_hint: Runs in the browser before sending. Use pm.environment.set('key', value) to change variables for this request.
+tester.post_script_hint: Runs in the browser after the response. Extract values and update variables for the next request.
+tester.service_pre_script: Service pre-script
+tester.service_post_script: Service post-script
+tester.service_script_readonly: runs automatically from service config
+tester.persist_variables: Persist variable changes
+field.pre_request_script: Pre-request script (browser)
+field.post_request_script: Post-request script (browser)
+variables.syntax: Placeholder
+variables.section_title: Environment variables
+variables.key_syntax_hint: Define each variable as {{variable_name}}. Use the same {{…}} syntax in base URLs, paths, headers, query params and request bodies.
+field.variable_key: Placeholder
+field.base_url_help: Base URL with {{variable_name}} placeholders resolved from the active environment.
+variables.workspace_title: Environment variables (workspace)
+variables.service_scope: All endpoints in this service inherit workspace variables via {{name}} placeholders in base URL, path, headers, body and auth.
+variables.manage: Manage values per environment in
+field.description: Description
+dashboard.subtitle: Manage, document and test your REST, SOAP and GraphQL APIs.
+dashboard.stat.workspaces: Workspaces
+dashboard.stat.services: Services
+dashboard.stat.endpoints: Endpoints
+dashboard.recent_workspaces: Workspaces
+section.services: Services
+section.environments: Environments
+section.endpoints: Endpoints
+section.request_examples: Request examples
+section.response_examples: Response examples
+examples.save_request: Save request
+examples.save_response: Save response
+examples.name_label: Example name
+examples.docs_hint: Send a request and save it as a named example. Examples belong to this endpoint.
+examples.load: Load
+examples.empty_request: No request examples yet — send a request and use Save request.
+examples.empty_response: No response examples yet — send a request and use Save response.
+examples.confirm_delete: Delete this example?
+examples.use_cases: Saved requests
+examples.expand_endpoint: Show saved requests
+examples.list_hint: Expand an endpoint to browse named request examples (use cases). Save requests from the tester with a custom name.
+examples.save_request_title: Save request example
+section.history: Recent executions
+field.name: Name
+field.slug: Slug
+field.protocol: Protocol
+field.base_url: Base URL
+field.path: Path
+field.key: Key
+field.value: Value
+field.secret: Secret
+field.variables: Variables
+action.new_workspace: New workspace
+action.new_service: New service
+action.new_environment: New environment
+action.new_endpoint: New endpoint
+action.add: Add
+action.edit: Edit
+action.export: Export
+action.import: Import
+action.delete: Delete
+action.close: Close
+action.view_all: View all
+action.open_service: Open service
+action.view_endpoints: View all endpoints
+actions.more_options: More options
+service.collection_expand: Expand or collapse service
+service.collections_hint: Expand each service to browse endpoints and use cases. Use ⋮ to import, export or manage collections.
+service.export_title: Export service
+service.import_title: Import into service
+service.delete_title: Delete service
+service.delete_warning: 'This will permanently delete "%name%" and all its endpoints. This action cannot be undone.'
+service.delete_confirm_label: 'Type %name% to confirm'
+service.delete_confirmation_mismatch: Confirmation name does not match. Service was not deleted.
+io.format: Format
+export.format.openapi: OpenAPI (JSON)
+import.format.openapi: OpenAPI / Swagger
+import.format.postman: Postman collection
+confirm.delete: Delete this item?
+empty.workspaces: No workspaces yet.
+empty.services: No services yet.
+empty.environments: No environments yet.
+empty.endpoints: No endpoints yet.
+empty.variables: No variables defined.
+endpoint.no_translation: No documentation for locale "%locale%".
+endpoint.doc_edit: Edit documentation
+endpoint.doc_title: Title
+endpoint.doc_description: Description
+endpoint.doc_description_placeholder: Describe what this endpoint does, parameters, expected responses…
+endpoint.doc_empty: No description yet — click Edit documentation to add one.
+endpoint.doc_locale_hint: Documentation in %locale% (matches the language switcher in the top bar).
+endpoint.doc_tabs_hint: Each tab matches a language configured in nowo_api_studio.ui.locales.
+endpoint.doc_languages: Documentation languages
+endpoint.doc_summary: Endpoint documentation
+endpoint.translations: Translations
+tester.title: Request console
+tester.environment: Environment
+tester.no_environment: Without environment variables
+tester.request_body: Request body
+flash.created: Created successfully.
+flash.updated: Updated successfully.
+flash.deleted: Deleted successfully.
+flash.imported: 'Import complete: %services% service(s), %endpoints% endpoint(s), %variables_new% new variable(s), %variables_updated% updated variable(s), %environments% environment(s).'
+import_export.hub_title: Import / Export
+import_export.hub_subtitle: OpenAPI, Postman collections, and environment variables.
+import_export.import_title: Import
+import_export.export_title: Export
+import_export.service_io: Import / export this service
+import.file: File
+import.mode: Import mode
+import.mode.merge: Merge (update existing keys)
+import.mode.replace: Replace (remove existing variables first)
+import.postman_variables: Import Postman collection variables into workspace environment
+import.submit: Import
+import.help: Upload JSON, YAML, or .env (variables only). OpenAPI 3.x and Swagger 2.0 supported for API import.
+import.error: Import failed. Check file format and try again.
+import.openapi.title: Import OpenAPI / Swagger
+import.openapi.service_title: Import OpenAPI into service
+import.openapi.service_short: Import OpenAPI
+import.postman.title: Import Postman collection
+import.postman.service_title: Import Postman into service
+import.postman.service_short: Import Postman
+import.variables.workspace_title: Import workspace variables
+import.variables.environment_title: Import environment variables
+import.variables.environment_short: Import variables
+export.openapi.workspace: Export workspace OpenAPI (JSON)
+export.openapi.service: Export service OpenAPI (JSON)
+export.variables.workspace_json: Export all variables (JSON)
+export.variables.workspace_yaml: Export all variables (YAML)
+export.variables.workspace_env: Export all variables (.env)
+locale.en: English
+locale.es: Español
+locale.fr: Français
+locale.it: Italiano
+locale.ca: Català

@@ -1,0 +1,30 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-form-panel">
+        <h1 style="margin:0 0 8px;font-size:18px">{{ title|trans({}, 'NowoApiStudioBundle') }}</h1>
+        <p class="as-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
+
+        {{ form_start(form, {attr: {class: 'as-form', enctype: 'multipart/form-data'}}) }}
+        {{ form_row(form.file) }}
+        {% if form.mode is defined %}{{ form_row(form.mode) }}{% endif %}
+        {% if form.importVariables is defined %}{{ form_row(form.importVariables) }}{% endif %}
+        <div class="as-form-actions">
+            {{ form_widget(form.submit) }}
+            {% if service is defined and service %}
+                <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
+            {% elseif environment is defined and environment %}
+                <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
+            {% else %}
+                <a href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
+            {% endif %}
+        </div>
+        {{ form_end(form) }}
+    </div>
+</div>
+{% endblock %}

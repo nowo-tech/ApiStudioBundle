@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         executionOrder="depends,defects"
+         beStrictAboutOutputDuringTests="true"
+         failOnRisky="true"
+         failOnWarning="false"
+         displayDetailsOnTestsThatTriggerWarnings="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">
+        <include>
+            <directory>src</directory>
+        </include>
+        <exclude>
+            <directory>src/Resources</directory>
+            <directory>src/Controller</directory>
+            <directory>src/Repository</directory>
+            <directory>src/Form</directory>
+            <directory>src/Command</directory>
+            <directory>src/Twig</directory>
+            <directory>src/EventListener</directory>
+            <directory>src/Entity</directory>
+            <directory>src/EventSubscriber</directory>
+            <directory>src/Enum</directory>
+            <directory>src/DependencyInjection/Compiler</directory>
+            <!-- HTTP execution and schema sync require live kernel/HTTP fixtures (demo/symfony8). -->
+            <directory>src/DependencyInjection</directory>
+            <file>src/Service/LocaleManager.php</file>
+            <file>src/Service/StudioNavigationProvider.php</file>
+            <file>src/Service/RequestExecutor.php</file>
+            <file>src/Service/SchemaSyncService.php</file>
+            <file>src/Service/ImportExport/PostmanCollectionImporter.php</file>
+            <file>src/Service/ImportExport/OpenApiExporter.php</file>
+            <file>src/Service/ImportExport/EnvironmentVariableExporter.php</file>
+            <file>src/Service/ImportExport/EnvironmentVariableImporter.php</file>
+            <file>src/Service/ImportExport/OpenApiImporter.php</file>
+            <file>src/Service/EnvironmentContextBuilder.php</file>
+            <file>src/Service/DemoSeedService.php</file>
+            <file>src/Doctrine/TablePrefixSubscriber.php</file>
+            <file>src/Security/ApiStudioAccessCheckerInterface.php</file>
+        </exclude>
+    </source>
+
+    <coverage>
+        <report>
+            <html outputDirectory="coverage"/>
+            <clover outputFile="coverage.xml"/>
+        </report>
+    </coverage>
+</phpunit>

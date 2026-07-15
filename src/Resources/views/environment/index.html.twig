@@ -1,0 +1,32 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_environment_new', {workspaceId: workspace.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_environment'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-data-table-wrap">
+        <table class="as-data-table">
+            <thead><tr><th>{{ 'field.name'|trans({}, 'NowoApiStudioBundle') }}</th><th>{{ 'field.variables'|trans({}, 'NowoApiStudioBundle') }}</th></tr></thead>
+            <tbody>
+            {% for environment in environments %}
+                <tr>
+                    <td>
+                        <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>
+                        {% if environment.isDefault %}<span class="as-topbar-badge">{{ 'env.default'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}
+                    </td>
+                    <td>{{ environment.variables|length }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="2" class="as-empty">{{ 'empty.environments'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

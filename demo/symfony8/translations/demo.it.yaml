@@ -1,0 +1,9 @@
+brand: 'API Studio Demo'
+title: 'API Studio Bundle Demo'
+lead: 'Document and test REST, SOAP and GraphQL APIs.'
+
+nav:
+  home: Home
+  dashboard: Dashboard
+  workspaces: Workspaces
+  toggle: 'Toggle navigation'

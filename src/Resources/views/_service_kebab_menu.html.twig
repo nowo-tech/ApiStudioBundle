@@ -1,0 +1,56 @@
+{# Kebab menu for a service collection. Requires service, workspace. #}
+{% set delete_redirect = delete_redirect|default(path('nowo_api_studio_workspace_show', {id: workspace.id})) %}
+<div class="as-kebab-menu" data-kebab-menu>
+    <button type="button"
+            class="as-kebab-btn"
+            data-kebab-toggle
+            aria-haspopup="menu"
+            aria-expanded="false"
+            title="{{ 'actions.more_options'|trans({}, 'nowo_api_studio') }}">⋮</button>
+    <div class="as-kebab-panel" role="menu" hidden>
+        <button type="button"
+                class="as-kebab-item"
+                role="menuitem"
+                data-service-action="export"
+                data-service-name="{{ service.name|e('html_attr') }}"
+                data-export-openapi-url="{{ path('nowo_api_studio_io_export_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
+            {{ 'action.export'|trans({}, 'nowo_api_studio') }}
+        </button>
+        <button type="button"
+                class="as-kebab-item"
+                role="menuitem"
+                data-service-action="import"
+                data-service-name="{{ service.name|e('html_attr') }}"
+                data-import-openapi-url="{{ path('nowo_api_studio_io_import_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}"
+                data-import-postman-url="{{ path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
+            {{ 'action.import'|trans({}, 'nowo_api_studio') }}
+        </button>
+        <span class="as-kebab-separator" role="separator"></span>
+        <a role="menuitem"
+           class="as-kebab-item"
+           href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}">
+            {{ 'action.open_service'|trans({}, 'nowo_api_studio') }}
+        </a>
+        <a role="menuitem"
+           class="as-kebab-item"
+           href="{{ path('nowo_api_studio_endpoint_index', {workspaceId: workspace.id, serviceId: service.id}) }}">
+            {{ 'action.view_endpoints'|trans({}, 'nowo_api_studio') }}
+        </a>
+        <a role="menuitem"
+           class="as-kebab-item"
+           href="{{ path('nowo_api_studio_service_edit', {workspaceId: workspace.id, id: service.id}) }}">
+            {{ 'action.edit'|trans({}, 'nowo_api_studio') }}
+        </a>
+        <span class="as-kebab-separator" role="separator"></span>
+        <button type="button"
+                class="as-kebab-item as-kebab-item-danger"
+                role="menuitem"
+                data-service-action="delete"
+                data-service-name="{{ service.name|e('html_attr') }}"
+                data-delete-url="{{ path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}) }}"
+                data-delete-token="{{ csrf_token('delete' ~ service.id) }}"
+                data-delete-redirect="{{ delete_redirect|e('html_attr') }}">
+            {{ 'action.delete'|trans({}, 'nowo_api_studio') }}
+        </button>
+    </div>
+</div>

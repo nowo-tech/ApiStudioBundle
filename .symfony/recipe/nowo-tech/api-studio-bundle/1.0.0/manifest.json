@@ -1,0 +1,14 @@
+{
+    "version": "1.0.0",
+    "bundles": {
+        "Nowo\\ApiStudioBundle\\ApiStudioBundle": ["all"]
+    },
+    "copy": {
+        "config/packages/nowo_api_studio.yaml": "%CONFIG_DIR%/packages/nowo_api_studio.yaml",
+        "config/routes/nowo_api_studio.yaml": "%CONFIG_DIR%/routes/nowo_api_studio.yaml"
+    },
+    "gitignore": [
+        "/config/packages/nowo_api_studio.yaml",
+        "/config/routes/nowo_api_studio.yaml"
+    ]
+}

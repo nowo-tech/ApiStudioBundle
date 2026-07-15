@@ -1,0 +1,41 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ environment.name }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }} / {{ environment.name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_io_import_variables_environment', {workspaceId: workspace.id, environmentId: environment.id}) }}" class="as-btn">{{ 'import.variables.environment_short'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_environment_edit', {workspaceId: workspace.id, id: environment.id}) }}" class="as-btn">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <p style="color:var(--as-text-muted);margin:0 0 16px"><code>{{ environment.slug }}</code></p>
+    <div class="as-data-table-wrap">
+        <table class="as-data-table">
+            <thead><tr><th>{{ 'variables.syntax'|trans({}, 'NowoApiStudioBundle') }}</th><th>{{ 'field.value'|trans({}, 'NowoApiStudioBundle') }}</th><th>{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</th></tr></thead>
+            <tbody>
+            {% for variable in environment.variables %}
+                <tr>
+                    <td><code class="as-var">{{ api_studio_var(variable.variableKey) }}</code></td>
+                    <td>{% if variable.secret %}••••••{% else %}{{ variable.value }}{% endif %}</td>
+                    <td>{{ variable.secret ? 'yes' : 'no' }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3" class="as-empty">{{ 'empty.variables'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <section class="as-form-panel" style="margin-top:20px">
+        <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.export_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+        <div class="as-io-links">
+            <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_environment', {workspaceId: workspace.id, environmentId: environment.id, format: 'json'}) }}">JSON</a>
+            <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_environment', {workspaceId: workspace.id, environmentId: environment.id, format: 'yaml'}) }}">YAML</a>
+            <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_environment', {workspaceId: workspace.id, environmentId: environment.id, format: 'env'}) }}">.env</a>
+        </div>
+    </section>
+</div>
+{% endblock %}

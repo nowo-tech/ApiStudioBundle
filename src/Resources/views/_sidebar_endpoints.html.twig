@@ -1,0 +1,38 @@
+                        {% for ep in svc.endpoints %}
+                            {% set ep_search = (ep.name ~ ' ' ~ ep.method)|lower %}
+                            {% for ex in ep.request_examples %}
+                                {% set ep_search = ep_search ~ ' ' ~ ex.name|lower %}
+                            {% endfor %}
+                            <div class="as-tree-endpoint-group{% if active_ep == ep.id %} is-open{% endif %}"
+                                 data-tree-endpoint-group
+                                 data-tree-search="{{ ep_search }}">
+                                <div class="as-tree-endpoint{% if active_ep == ep.id %} is-active{% endif %}">
+                                    {% if ep.request_examples|length > 0 %}
+                                        <button type="button"
+                                                class="as-tree-ep-toggle"
+                                                data-tree-ep-toggle
+                                                aria-expanded="{{ active_ep == ep.id ? 'true' : 'false' }}"
+                                                aria-label="{{ 'examples.expand_endpoint'|trans({}, 'nowo_api_studio') }}">
+                                            <span class="as-tree-chevron" aria-hidden="true">▶</span>
+                                        </button>
+                                    {% else %}
+                                        <span class="as-tree-ep-spacer" aria-hidden="true"></span>
+                                    {% endif %}
+                                    <span class="as-method {{ api_studio_method_class(ep.method) }}">{{ ep.method }}</span>
+                                    <a href="{{ ep.url }}">{{ ep.name }}</a>
+                                    {% if ep.request_examples|length > 0 %}
+                                        <span class="as-tree-ep-badge">{{ ep.request_examples|length }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if ep.request_examples|length > 0 %}
+                                    <div class="as-tree-use-cases"{% if active_ep != ep.id %} hidden{% endif %}>
+                                        {% for ex in ep.request_examples %}
+                                            <a href="{{ ex.url }}"
+                                               class="as-tree-use-case{% if app.request.query.get('request_example') == ex.id %} is-active{% endif %}">
+                                                {{ ex.name }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}

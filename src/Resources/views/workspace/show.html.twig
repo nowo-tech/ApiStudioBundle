@@ -1,0 +1,37 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ workspace.name }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'import_export.hub_title'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_service_new', {workspaceId: workspace.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_service'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_environment_new', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'action.new_environment'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_workspace_edit', {id: workspace.id}) }}" class="as-btn">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    {% if workspace.description %}<p style="color:var(--as-text-secondary);margin:0 0 20px">{{ workspace.description }}</p>{% endif %}
+
+    <div class="as-stats" style="margin-bottom:20px">
+        <div class="as-stat-card">
+            <div class="as-stat-label">{{ 'section.services'|trans({}, 'NowoApiStudioBundle') }}</div>
+            <div class="as-stat-value">{{ workspace.services|length }}</div>
+        </div>
+        <div class="as-stat-card">
+            <div class="as-stat-label">{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}</div>
+            <div class="as-stat-value">{{ workspace.environments|length }}</div>
+        </div>
+    </div>
+
+    <h2 style="font-size:15px;margin:0 0 12px">{{ 'section.services'|trans({}, 'NowoApiStudioBundle') }}</h2>
+    <p class="as-hint" style="margin:0 0 12px">{{ 'service.collections_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+    <div style="margin-bottom:28px">
+        {% include '@NowoApiStudioBundle/_service_collection_list.html.twig' with {services: workspace.services} %}
+    </div>
+
+    {% include '@NowoApiStudioBundle/import_export/_workspace_panel.html.twig' %}
+</div>
+{% endblock %}

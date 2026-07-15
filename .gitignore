@@ -1,0 +1,31 @@
+# Dependencies
+/vendor/
+
+# PHPUnit / coverage
+/.phpunit.cache/
+/coverage/
+/coverage.xml
+/coverage-php.txt
+
+# PHP tools cache
+/.php-cs-fixer.cache/
+
+# IDE / OS
+/.idea/
+/.vscode/
+*.swp
+.DS_Store
+
+# Archives (REQ-GITIGNORE-001)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Frontend build
+/node_modules/
+# Cursor local sandbox (machine-specific; REQ-IDE-005)
+.cursor/sandbox.json
+

@@ -1,0 +1,37 @@
+{# Collapsible service (endpoint collection) with kebab export/import menu. #}
+<div class="as-service-collections">
+    {% for service in services %}
+        <div class="as-service-collection{% if loop.first %} is-open{% endif %}"
+             data-service-collection
+             data-collection-search="{{ (service.name ~ ' ' ~ service.protocol.value ~ ' ' ~ service.baseUrl ~ ' ' ~ service.slug)|lower }}">
+            <div class="as-service-collection-head">
+                <button type="button"
+                        class="as-service-collection-toggle"
+                        data-service-collection-toggle
+                        aria-expanded="{{ loop.first ? 'true' : 'false' }}"
+                        aria-label="{{ 'service.collection_expand'|trans({}, 'NowoApiStudioBundle') }}">
+                    <span class="as-tree-chevron" aria-hidden="true">▶</span>
+                </button>
+                <span class="as-method as-method-default as-service-protocol">{{ service.protocol.value|upper }}</span>
+                <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}"
+                   class="as-service-collection-name">{{ service.name }}</a>
+                <code class="as-service-collection-url">{{ service.baseUrl }}</code>
+                <span class="as-endpoint-badge" title="{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}">{{ service.endpoints|length }}</span>
+                {% include '@NowoApiStudioBundle/_service_kebab_menu.html.twig' %}
+            </div>
+            <div class="as-service-collection-body"{% if not loop.first %} hidden{% endif %}>
+                {% if service.endpoints|length > 0 %}
+                    {% include '@NowoApiStudioBundle/_endpoint_expandable_list.html.twig' with {
+                        endpoints: service.endpoints,
+                        service: service,
+                        workspace: workspace,
+                    } %}
+                {% else %}
+                    <p class="as-empty as-endpoint-list-empty">{{ 'empty.endpoints'|trans({}, 'NowoApiStudioBundle') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <p class="as-empty">{{ 'empty.services'|trans({}, 'NowoApiStudioBundle') }}</p>
+    {% endfor %}
+</div>

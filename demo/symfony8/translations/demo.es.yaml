@@ -1,0 +1,19 @@
+brand: 'API Studio Demo'
+title: 'Demo API Studio Bundle'
+lead: 'Documenta y prueba APIs REST, SOAP y GraphQL — tu Postman / Apidog interno.'
+
+nav:
+  home: Inicio
+  dashboard: Panel
+  workspaces: Espacios de trabajo
+  toggle: 'Alternar navegación'
+
+home:
+  dashboard:
+    title: 'Panel API Studio'
+    text: 'Explora espacios, servicios, entornos y endpoints. Ejecuta peticiones desde la consola.'
+    action: 'Abrir panel'
+  catalog:
+    title: 'Catálogo de APIs de referencia'
+    text: 'Incluye JSONPlaceholder, LinkedIn, Google Translate y Catastro (REST + SOAP).'
+    action: 'Ver espacios de trabajo'

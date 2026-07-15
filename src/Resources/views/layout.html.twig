@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="{{ app.request.locale }}" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ 'page.dashboard'|trans({}, 'NowoApiStudioBundle') }}{% endblock %} · {{ 'title_suffix'|trans({}, 'NowoApiStudioBundle') }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('api-studio-theme.css', 'nowo_api_studio') }}">
+    <style>
+        body.api-studio-app { background: #f6f8fb; }
+    </style>
+    <script>
+        (function () {
+            var t = localStorage.getItem('nowo_api_studio_theme');
+            if (t === 'light' || t === 'dark') {
+                document.documentElement.setAttribute('data-theme', t);
+            }
+        })();
+    </script>
+    {% block stylesheets %}{% endblock %}
+</head>
+<body class="api-studio-app">
+{% set current_route = app.request.attributes.get('_route') %}
+{% set rail_dashboard_active = current_route == 'nowo_api_studio_dashboard' %}
+<div class="as-shell">
+    <aside class="as-rail" aria-label="{{ 'nav.rail'|trans({}, 'NowoApiStudioBundle') }}">
+        <a class="as-rail-logo" href="{{ path('nowo_api_studio_dashboard') }}" title="{{ 'brand'|trans({}, 'NowoApiStudioBundle') }}">AS</a>
+        <a class="as-rail-btn{% if rail_dashboard_active %} is-active{% endif %}" href="{{ path('nowo_api_studio_dashboard') }}" title="{{ 'nav.dashboard'|trans({}, 'NowoApiStudioBundle') }}">⌂</a>
+        <a class="as-rail-btn{% if not rail_dashboard_active %} is-active{% endif %}" href="{{ path('nowo_api_studio_workspace_index') }}" title="{{ 'nav.workspaces'|trans({}, 'NowoApiStudioBundle') }}">▦</a>
+        <span class="as-rail-spacer"></span>
+        <button type="button" class="as-rail-btn" id="as-theme-toggle" title="{{ 'theme.toggle'|trans({}, 'NowoApiStudioBundle') }}" aria-label="{{ 'theme.toggle'|trans({}, 'NowoApiStudioBundle') }}">◐</button>
+    </aside>
+
+    {% include '@NowoApiStudioBundle/_sidebar_tree.html.twig' %}
+
+    <div class="as-main">
+        <header class="as-topbar">
+            <h1 class="as-topbar-title">{% block topbar_title %}{{ 'brand'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}</h1>
+            {% block topbar_badge %}{% endblock %}
+            <span class="as-topbar-spacer"></span>
+            <div class="as-topbar-actions">
+                {% block topbar_actions %}{% endblock %}
+                {% include '@NowoApiStudioBundle/_locale_switcher.html.twig' %}
+            </div>
+        </header>
+
+        <div class="as-content">
+            {% for label, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="as-flash as-flash-{{ label == 'error' ? 'error' : 'success' }}" role="alert">
+                        {{ message|trans({}, 'NowoApiStudioBundle') }}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+            {% block body %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% include '@NowoApiStudioBundle/_service_action_modals.html.twig' %}
+<script src="{{ asset('api-studio-shell.js', 'nowo_api_studio') }}"></script>
+{% block javascripts %}{% endblock %}
+</body>
+</html>

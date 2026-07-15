@@ -1,0 +1,46 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+{% set as_active_service = service.id %}
+
+{% block title %}{{ service.name }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }} / {{ service.name }}{% endblock %}
+{% block topbar_badge %}<span class="as-topbar-badge">{{ service.protocol.value|upper }}</span>{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_endpoint_new', {workspaceId: workspace.id, serviceId: service.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_endpoint'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_environment_index', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_service_edit', {workspaceId: workspace.id, id: service.id}) }}" class="as-btn">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <p style="color:var(--as-text-muted);font-family:var(--as-mono);font-size:13px;margin:0 0 8px"><code>{{ service.baseUrl }}</code> · {{ service.authType.value }}</p>
+    <p class="as-hint" style="margin:0 0 20px">{{ 'variables.service_scope'|trans({}, 'NowoApiStudioBundle') }}</p>
+
+    <h2 style="font-size:15px;margin:0 0 12px">{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}</h2>
+    <div class="as-service-collection as-service-collection-standalone is-open" data-service-collection>
+        <div class="as-service-collection-head as-service-collection-head-compact">
+            <span class="as-method as-method-default as-service-protocol">{{ service.protocol.value|upper }}</span>
+            <strong class="as-service-collection-name">{{ service.name }}</strong>
+            {% include '@NowoApiStudioBundle/_service_kebab_menu.html.twig' with {
+                delete_redirect: path('nowo_api_studio_workspace_show', {id: workspace.id}),
+            } %}
+        </div>
+        <div class="as-service-collection-body">
+            <p class="as-hint">{{ 'examples.list_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+            {% include '@NowoApiStudioBundle/_endpoint_expandable_list.html.twig' with {endpoints: service.endpoints} %}
+        </div>
+    </div>
+
+    <h2 style="font-size:15px;margin:24px 0 12px">{{ 'variables.workspace_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+    {% include '@NowoApiStudioBundle/_variable_catalog.html.twig' with {variableCatalog: variableCatalog, environments: environments, workspace: workspace} %}
+
+    <section class="as-form-panel" style="margin-top:24px">
+        <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.import_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+        <div class="as-io-links">
+            <a class="as-btn" href="{{ path('nowo_api_studio_io_import_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}">{{ 'import.openapi.service_short'|trans({}, 'NowoApiStudioBundle') }}</a>
+            <a class="as-btn" href="{{ path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}) }}">{{ 'import.postman.service_short'|trans({}, 'NowoApiStudioBundle') }}</a>
+        </div>
+    </section>
+</div>
+{% endblock %}

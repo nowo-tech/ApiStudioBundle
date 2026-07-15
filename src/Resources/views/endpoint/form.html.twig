@@ -1,0 +1,67 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+{% set as_active_service = service.id %}
+
+{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ service.name }} · {{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-form-panel">
+        {{ form_start(form, {attr: {class: 'as-form'}}) }}
+        {% for child in form %}
+            {% if child.vars.name != 'translations' %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+
+        <fieldset class="as-form-section as-translations-section">
+            <legend class="as-form-section-title">{{ 'endpoint.translations'|trans({}, 'NowoApiStudioBundle') }}</legend>
+            {% if enabledLocales|length > 1 %}
+            <div class="as-locale-tabs" id="endpoint-form-locale-tabs" role="tablist" aria-label="{{ 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle') }}">
+                {% for locale in enabledLocales %}
+                    <button type="button"
+                            class="as-locale-tab{% if locale == currentLocale %} is-active{% endif %}"
+                            role="tab"
+                            data-form-locale="{{ locale }}"
+                            aria-selected="{{ locale == currentLocale ? 'true' : 'false' }}">
+                        {{ ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle') }}
+                    </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <p class="as-hint">{{ 'endpoint.doc_tabs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+            {% for locale in enabledLocales %}
+                {% for translationForm in form.translations %}
+                    {% if translationForm.vars.data.locale == locale %}
+                        <div class="as-locale-tab-panel{% if locale == currentLocale %} is-active{% endif %}"
+                             data-form-locale-panel="{{ locale }}"
+                             {% if locale != currentLocale %}hidden{% endif %}>
+                            {{ form_widget(translationForm.locale) }}
+                            {{ form_row(translationForm.title) }}
+                            {{ form_row(translationForm.description) }}
+                            {{ form_row(translationForm.notes) }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </fieldset>
+
+        <div class="as-form-actions">
+            <button type="submit" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
+            <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
+        </div>
+        {{ form_end(form, {render_rest: false}) }}
+    </div>
+    {% if endpoint is defined and endpoint.id %}
+        <form method="post" action="{{ path('nowo_api_studio_endpoint_delete', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}) }}" class="as-delete-form" onsubmit="return confirm('{{ 'confirm.delete'|trans({}, 'NowoApiStudioBundle') }}');">
+            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ endpoint.id) }}">
+            <button type="submit" class="as-btn as-btn-danger">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="{{ asset('api-form-locale-tabs.js', 'nowo_api_studio') }}"></script>
+{% endblock %}

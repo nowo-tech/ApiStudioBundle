@@ -1,0 +1,7 @@
+ API Studio Bundle installed.
+
+ Next steps:
+  * Run php bin/console nowo:api-studio:sync-schema to create tables
+  * Run php bin/console assets:install to publish bundle assets
+  * Configure security.access_roles in config/packages/nowo_api_studio.yaml
+  * Dashboard: /api-studio

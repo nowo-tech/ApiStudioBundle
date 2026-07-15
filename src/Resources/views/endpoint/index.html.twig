@@ -1,0 +1,29 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+{% set as_active_service = service.id %}
+
+{% block title %}{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ service.name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_endpoint_new', {workspaceId: workspace.id, serviceId: service.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_endpoint'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-service-collection as-service-collection-standalone is-open" data-service-collection>
+        <div class="as-service-collection-head as-service-collection-head-compact">
+            <span class="as-method as-method-default as-service-protocol">{{ service.protocol.value|upper }}</span>
+            <strong class="as-service-collection-name">{{ service.name }}</strong>
+            <code class="as-service-collection-url">{{ service.baseUrl }}</code>
+            {% include '@NowoApiStudioBundle/_service_kebab_menu.html.twig' with {
+                delete_redirect: path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}),
+            } %}
+        </div>
+        <div class="as-service-collection-body">
+            <p class="as-hint">{{ 'examples.list_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+            {% include '@NowoApiStudioBundle/_endpoint_expandable_list.html.twig' with {endpoints: endpoints} %}
+        </div>
+    </div>
+</div>
+{% endblock %}

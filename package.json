@@ -1,0 +1,14 @@
+{
+  "name": "@nowo/api-studio-bundle-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "typecheck": "tsc --noEmit",
+    "watch": "node scripts/build-assets.mjs --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

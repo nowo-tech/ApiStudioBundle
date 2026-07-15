@@ -1,0 +1,2 @@
+nowo_api_studio:
+    resource: '@NowoApiStudioBundle/Resources/config/routes.yaml'

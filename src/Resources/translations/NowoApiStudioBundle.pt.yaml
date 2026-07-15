@@ -1,0 +1,192 @@
+brand: API Studio
+title_suffix: API Studio
+page.dashboard: Painel
+page.workspaces: Espaços de trabalho
+page.new_workspace: Novo espaço de trabalho
+page.edit_workspace: Editar espaço de trabalho
+page.new_service: Novo serviço
+page.edit_service: Editar serviço
+page.new_environment: Novo ambiente
+page.edit_environment: Editar ambiente
+page.new_endpoint: Novo endpoint
+page.edit_endpoint: Editar endpoint
+nav.dashboard: Painel
+nav.workspaces: Espaços
+nav.rail: Navegação principal
+nav.toggle: Alternar navegação
+sidebar.endpoints: Endpoints
+sidebar.filter: Filtrar endpoints…
+sidebar.navigation: Navegação API
+theme.toggle: Alternar tema claro / escuro
+theme.light: Claro
+theme.dark: Escuro
+dashboard.projects: Projetos
+env.default: predefinido
+action.save: Guardar
+action.cancel: Cancelar
+tester.tab.body: Corpo
+tester.tab.params: Parâmetros
+tester.tab.docs: Documentação
+tester.params_hint: Parâmetros de consulta definidos para este endpoint.
+tester.params_editable_hint: Edite os parâmetros de consulta aqui. Os valores suportam {{variables}}. As linhas desativadas não são enviadas. A pré-visualização do URL atualiza-se em tempo real.
+tester.add_param: Adicionar parâmetro
+tester.response_placeholder: A aguardar resposta
+tester.response_hint: Envie um pedido para ver a resposta aqui.
+tester.send: Enviar
+tester.http_method: Método HTTP
+tester.format_body: Formatar
+tester.validate_body: Validar
+tester.body_format: 'Formato: %format%'
+tester.body_valid_json: JSON válido
+tester.body_valid_json_vars: JSON válido (com {{variables}} por resolver)
+tester.body_valid_xml: XML válido
+tester.body_valid_xml_vars: XML válido (com {{variables}} por resolver)
+tester.body_empty: Corpo vazio
+tester.tab.headers: Cabeçalhos
+tester.tab.variables: Variáveis
+tester.variables_hint: Use {{variable_name}} no corpo, URL, cabeçalhos, parâmetros de consulta e configuração de auth. Os valores vêm do ambiente selecionado.
+tester.variables_scope: Variáveis de ambiente do espaço de trabalho — disponíveis em cada endpoint deste serviço (URL base, caminho, cabeçalhos, corpo, auth).
+tester.headers_hint: Cabeçalhos predefinidos do serviço + cabeçalhos do endpoint. Os cabeçalhos de autenticação são aplicados ao enviar.
+tester.headers_editable_hint: Edite os cabeçalhos do pedido aqui. Os valores suportam {{variables}}. As linhas desativadas não são enviadas.
+tester.add_header: Adicionar cabeçalho
+field.headers: Cabeçalhos (JSON)
+field.query_params: Parâmetros de consulta (JSON)
+field.default_headers: Cabeçalhos predefinidos (JSON)
+tester.auth_hint: O tipo de auth "%type%" é resolvido no servidor com variáveis de ambiente.
+tester.resolved: Resolvido
+tester.unresolved_vars: Algumas {{variables}} não puderam ser resolvidas — selecione um ambiente ou defina as chaves em falta.
+tester.tab.pre_script: Pre-request
+tester.tab.post_script: Post-request
+tester.tab.script_console: Consola
+tester.pre_script_hint: Executa no navegador antes de enviar. Use pm.environment.set('key', value) para alterar variáveis para este pedido.
+tester.post_script_hint: Executa no navegador após a resposta. Extraia valores e atualize variáveis para o próximo pedido.
+tester.service_pre_script: Pre-script do serviço
+tester.service_post_script: Post-script do serviço
+tester.service_script_readonly: executa automaticamente a partir da configuração do serviço
+tester.persist_variables: Guardar alterações de variáveis
+field.pre_request_script: Script pre-request (navegador)
+field.post_request_script: Script post-request (navegador)
+variables.syntax: Placeholder
+variables.section_title: Variáveis de ambiente
+variables.key_syntax_hint: Defina cada variável como {{variable_name}}. Use a mesma sintaxe {{…}} em URLs base, caminhos, cabeçalhos, parâmetros de consulta e corpos de pedido.
+field.variable_key: Placeholder
+field.base_url_help: URL base com placeholders {{variable_name}} resolvidos a partir do ambiente ativo.
+variables.workspace_title: Variáveis de ambiente (espaço de trabalho)
+variables.service_scope: Todos os endpoints deste serviço herdam variáveis do espaço de trabalho via placeholders {{name}} na URL base, caminho, cabeçalhos, corpo e auth.
+variables.manage: Gerir valores por ambiente em
+field.description: Descrição
+dashboard.subtitle: Gira, documente e teste as suas APIs REST, SOAP e GraphQL.
+dashboard.stat.workspaces: Espaços
+dashboard.stat.services: Serviços
+dashboard.stat.endpoints: Endpoints
+dashboard.recent_workspaces: Espaços de trabalho
+section.services: Serviços
+section.environments: Ambientes
+section.endpoints: Endpoints
+section.request_examples: Exemplos de pedido
+section.response_examples: Exemplos de resposta
+examples.save_request: Guardar pedido
+examples.save_response: Guardar resposta
+examples.name_label: Nome do exemplo
+examples.docs_hint: Envie um pedido e guarde-o como exemplo com nome. Os exemplos pertencem a este endpoint.
+examples.load: Carregar
+examples.empty_request: Sem exemplos de pedido — envie um pedido e use Guardar pedido.
+examples.empty_response: Sem exemplos de resposta — envie um pedido e use Guardar resposta.
+examples.confirm_delete: Eliminar este exemplo?
+examples.use_cases: Pedidos guardados
+examples.expand_endpoint: Mostrar pedidos guardados
+examples.list_hint: Expanda um endpoint para ver exemplos de pedido com nome (casos de uso). Guarde pedidos a partir do tester com um nome personalizado.
+examples.save_request_title: Guardar exemplo de pedido
+section.history: Execuções recentes
+field.name: Nome
+field.slug: Slug
+field.protocol: Protocolo
+field.base_url: URL base
+field.path: Caminho
+field.key: Chave
+field.value: Valor
+field.secret: Segredo
+field.variables: Variáveis
+action.new_workspace: Novo espaço
+action.new_service: Novo serviço
+action.new_environment: Novo ambiente
+action.new_endpoint: Novo endpoint
+action.add: Adicionar
+action.edit: Editar
+action.export: Exportar
+action.import: Importar
+action.delete: Eliminar
+action.close: Fechar
+action.view_all: Ver tudo
+action.open_service: Abrir serviço
+action.view_endpoints: Ver todos os endpoints
+actions.more_options: Mais opções
+service.collection_expand: Expandir ou recolher serviço
+service.collections_hint: Expanda cada serviço para ver endpoints e casos de uso. Use ⋮ para importar, exportar ou gerir coleções.
+service.export_title: Exportar serviço
+service.import_title: Importar para o serviço
+service.delete_title: Eliminar serviço
+service.delete_warning: 'Isto eliminará permanentemente "%name%" e todos os seus endpoints. Esta ação não pode ser desfeita.'
+service.delete_confirm_label: 'Escreva %name% para confirmar'
+service.delete_confirmation_mismatch: O nome de confirmação não corresponde. O serviço não foi eliminado.
+io.format: Formato
+export.format.openapi: OpenAPI (JSON)
+import.format.openapi: OpenAPI / Swagger
+import.format.postman: Coleção Postman
+confirm.delete: Eliminar este item?
+empty.workspaces: Ainda não há espaços de trabalho.
+empty.services: Ainda não há serviços.
+empty.environments: Ainda não há ambientes.
+empty.endpoints: Ainda não há endpoints.
+empty.variables: Nenhuma variável definida.
+endpoint.no_translation: Sem documentação para o idioma "%locale%".
+endpoint.doc_edit: Editar documentação
+endpoint.doc_title: Título
+endpoint.doc_description: Descrição
+endpoint.doc_description_placeholder: Descreva o que este endpoint faz, parâmetros, respostas esperadas…
+endpoint.doc_empty: Sem descrição — clique em Editar documentação para adicionar uma.
+endpoint.doc_locale_hint: Documentação em %locale% (corresponde ao seletor de idioma na barra superior).
+endpoint.doc_tabs_hint: Cada separador corresponde a um idioma configurado em nowo_api_studio.ui.locales.
+endpoint.doc_languages: Idiomas da documentação
+endpoint.doc_summary: Documentação do endpoint
+endpoint.translations: Traduções
+tester.title: Consola de pedidos
+tester.environment: Ambiente
+tester.no_environment: Sem variáveis de ambiente
+tester.request_body: Corpo do pedido
+flash.created: Criado com sucesso.
+flash.updated: Atualizado com sucesso.
+flash.deleted: Eliminado com sucesso.
+flash.imported: 'Importação concluída: %services% serviço(s), %endpoints% endpoint(s), %variables_new% nova(s) variável(eis), %variables_updated% variável(eis) atualizada(s), %environments% ambiente(s).'
+import_export.hub_title: Importar / Exportar
+import_export.hub_subtitle: OpenAPI, coleções Postman e variáveis de ambiente.
+import_export.import_title: Importar
+import_export.export_title: Exportar
+import_export.service_io: Importar / exportar este serviço
+import.file: Ficheiro
+import.mode: Modo de importação
+import.mode.merge: Fundir (atualizar chaves existentes)
+import.mode.replace: Substituir (remover variáveis existentes primeiro)
+import.postman_variables: Importar variáveis da coleção Postman para o ambiente do espaço de trabalho
+import.submit: Importar
+import.help: Carregue JSON, YAML ou .env (apenas variáveis). OpenAPI 3.x e Swagger 2.0 suportados para importação de API.
+import.error: Falha na importação. Verifique o formato do ficheiro e tente novamente.
+import.openapi.title: Importar OpenAPI / Swagger
+import.openapi.service_title: Importar OpenAPI para o serviço
+import.openapi.service_short: Importar OpenAPI
+import.postman.title: Importar coleção Postman
+import.postman.service_title: Importar Postman para o serviço
+import.postman.service_short: Importar Postman
+import.variables.workspace_title: Importar variáveis do espaço de trabalho
+import.variables.environment_title: Importar variáveis de ambiente
+import.variables.environment_short: Importar variáveis
+export.openapi.workspace: Exportar OpenAPI do espaço de trabalho (JSON)
+export.openapi.service: Exportar OpenAPI do serviço (JSON)
+export.variables.workspace_json: Exportar todas as variáveis (JSON)
+export.variables.workspace_yaml: Exportar todas as variáveis (YAML)
+export.variables.workspace_env: Exportar todas as variáveis (.env)
+locale.en: English
+locale.es: Español
+locale.fr: Français
+locale.it: Italiano
+locale.ca: Català

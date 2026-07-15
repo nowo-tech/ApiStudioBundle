@@ -1,0 +1,192 @@
+brand: API Studio
+title_suffix: API Studio
+page.dashboard: Übersicht
+page.workspaces: Arbeitsbereiche
+page.new_workspace: Neuer Arbeitsbereich
+page.edit_workspace: Arbeitsbereich bearbeiten
+page.new_service: Neuer Dienst
+page.edit_service: Dienst bearbeiten
+page.new_environment: Neue Umgebung
+page.edit_environment: Umgebung bearbeiten
+page.new_endpoint: Neuer Endpunkt
+page.edit_endpoint: Endpunkt bearbeiten
+nav.dashboard: Übersicht
+nav.workspaces: Arbeitsbereiche
+nav.rail: Hauptnavigation
+nav.toggle: Navigation umschalten
+sidebar.endpoints: Endpunkte
+sidebar.filter: Endpunkte filtern…
+sidebar.navigation: API-Navigation
+theme.toggle: Helles / dunkles Theme umschalten
+theme.light: Hell
+theme.dark: Dunkel
+dashboard.projects: Projekte
+env.default: Standard
+action.save: Speichern
+action.cancel: Abbrechen
+tester.tab.body: Körper
+tester.tab.params: Parameter
+tester.tab.docs: Dokumentation
+tester.params_hint: Für diesen Endpunkt definierte Abfrageparameter.
+tester.params_editable_hint: Abfrageparameter hier bearbeiten. Werte unterstützen {{variables}}. Deaktivierte Zeilen werden nicht gesendet. Die URL-Vorschau aktualisiert sich live.
+tester.add_param: Parameter hinzufügen
+tester.response_placeholder: Warte auf Antwort
+tester.response_hint: Senden Sie eine Anfrage, um die Antwort hier zu sehen.
+tester.send: Senden
+tester.http_method: HTTP-Methode
+tester.format_body: Formatieren
+tester.validate_body: Validieren
+tester.body_format: 'Format: %format%'
+tester.body_valid_json: Gültiges JSON
+tester.body_valid_json_vars: Gültiges JSON (mit unaufgelösten {{variables}})
+tester.body_valid_xml: Gültiges XML
+tester.body_valid_xml_vars: Gültiges XML (mit unaufgelösten {{variables}})
+tester.body_empty: Leerer Body
+tester.tab.headers: Header
+tester.tab.variables: Variablen
+tester.variables_hint: Verwenden Sie {{variable_name}} in Body, URL, Header, Abfrageparametern und Auth-Konfiguration. Werte stammen aus der gewählten Umgebung.
+tester.variables_scope: Umgebungsvariablen des Arbeitsbereichs — in jedem Endpunkt dieses Dienstes verfügbar (Basis-URL, Pfad, Header, Body, Auth).
+tester.headers_hint: Standard-Header des Dienstes + Endpunkt-Header. Auth-Header werden beim Senden angewendet.
+tester.headers_editable_hint: Anfrage-Header hier bearbeiten. Werte unterstützen {{variables}}. Deaktivierte Zeilen werden nicht gesendet.
+tester.add_header: Header hinzufügen
+field.headers: Header (JSON)
+field.query_params: Abfrageparameter (JSON)
+field.default_headers: Standard-Header (JSON)
+tester.auth_hint: Auth-Typ „%type%“ wird serverseitig mit Umgebungsvariablen aufgelöst.
+tester.resolved: Aufgelöst
+tester.unresolved_vars: Einige {{variables}} konnten nicht aufgelöst werden — wählen Sie eine Umgebung oder definieren Sie fehlende Schlüssel.
+tester.tab.pre_script: Pre-request
+tester.tab.post_script: Post-request
+tester.tab.script_console: Konsole
+tester.pre_script_hint: Wird im Browser vor dem Senden ausgeführt. Verwenden Sie pm.environment.set('key', value), um Variablen für diese Anfrage zu ändern.
+tester.post_script_hint: Wird im Browser nach der Antwort ausgeführt. Werte extrahieren und Variablen für die nächste Anfrage aktualisieren.
+tester.service_pre_script: Pre-Skript des Dienstes
+tester.service_post_script: Post-Skript des Dienstes
+tester.service_script_readonly: wird automatisch aus der Dienstkonfiguration ausgeführt
+tester.persist_variables: Variablenänderungen speichern
+field.pre_request_script: Pre-request-Skript (Browser)
+field.post_request_script: Post-request-Skript (Browser)
+variables.syntax: Placeholder
+variables.section_title: Umgebungsvariablen
+variables.key_syntax_hint: Definieren Sie jede Variable als {{variable_name}}. Verwenden Sie dieselbe {{…}}-Syntax in Basis-URLs, Pfaden, Headern, Abfrageparametern und Anfrage-Bodies.
+field.variable_key: Placeholder
+field.base_url_help: Basis-URL mit {{variable_name}}-Platzhaltern, aufgelöst aus der aktiven Umgebung.
+variables.workspace_title: Umgebungsvariablen (Arbeitsbereich)
+variables.service_scope: Alle Endpunkte dieses Dienstes erben Arbeitsbereichsvariablen über {{name}}-Platzhalter in Basis-URL, Pfad, Headern, Body und Auth.
+variables.manage: Werte pro Umgebung verwalten in
+field.description: Beschreibung
+dashboard.subtitle: Verwalten, dokumentieren und testen Sie Ihre REST-, SOAP- und GraphQL-APIs.
+dashboard.stat.workspaces: Arbeitsbereiche
+dashboard.stat.services: Dienste
+dashboard.stat.endpoints: Endpunkte
+dashboard.recent_workspaces: Arbeitsbereiche
+section.services: Dienste
+section.environments: Umgebungen
+section.endpoints: Endpunkte
+section.request_examples: Anfragebeispiele
+section.response_examples: Antwortbeispiele
+examples.save_request: Anfrage speichern
+examples.save_response: Antwort speichern
+examples.name_label: Beispielname
+examples.docs_hint: Senden Sie eine Anfrage und speichern Sie sie als benanntes Beispiel. Beispiele gehören zu diesem Endpunkt.
+examples.load: Laden
+examples.empty_request: Noch keine Anfragebeispiele — senden Sie eine Anfrage und verwenden Sie Anfrage speichern.
+examples.empty_response: Noch keine Antwortbeispiele — senden Sie eine Anfrage und verwenden Sie Antwort speichern.
+examples.confirm_delete: Dieses Beispiel löschen?
+examples.use_cases: Gespeicherte Anfragen
+examples.expand_endpoint: Gespeicherte Anfragen anzeigen
+examples.list_hint: Endpunkt erweitern, um benannte Anfragebeispiele (Anwendungsfälle) zu durchsuchen. Anfragen aus dem Tester mit einem benutzerdefinierten Namen speichern.
+examples.save_request_title: Anfragebeispiel speichern
+section.history: Letzte Ausführungen
+field.name: Name
+field.slug: Slug
+field.protocol: Protokoll
+field.base_url: Basis-URL
+field.path: Pfad
+field.key: Schlüssel
+field.value: Wert
+field.secret: Geheimnis
+field.variables: Variablen
+action.new_workspace: Neuer Arbeitsbereich
+action.new_service: Neuer Dienst
+action.new_environment: Neue Umgebung
+action.new_endpoint: Neuer Endpunkt
+action.add: Hinzufügen
+action.edit: Bearbeiten
+action.export: Exportieren
+action.import: Importieren
+action.delete: Löschen
+action.close: Schließen
+action.view_all: Alle anzeigen
+action.open_service: Dienst öffnen
+action.view_endpoints: Alle Endpunkte anzeigen
+actions.more_options: Weitere Optionen
+service.collection_expand: Dienst erweitern oder einklappen
+service.collections_hint: Jeden Dienst erweitern, um Endpunkte und Anwendungsfälle zu durchsuchen. ⋮ für Import, Export oder Sammlungsverwaltung verwenden.
+service.export_title: Dienst exportieren
+service.import_title: In Dienst importieren
+service.delete_title: Dienst löschen
+service.delete_warning: 'Dies löscht „%name%“ und alle zugehörigen Endpunkte dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.'
+service.delete_confirm_label: 'Geben Sie %name% zur Bestätigung ein'
+service.delete_confirmation_mismatch: Bestätigungsname stimmt nicht überein. Dienst wurde nicht gelöscht.
+io.format: Format
+export.format.openapi: OpenAPI (JSON)
+import.format.openapi: OpenAPI / Swagger
+import.format.postman: Postman-Sammlung
+confirm.delete: Dieses Element löschen?
+empty.workspaces: Noch keine Arbeitsbereiche.
+empty.services: Noch keine Dienste.
+empty.environments: Noch keine Umgebungen.
+empty.endpoints: Noch keine Endpunkte.
+empty.variables: Keine Variablen definiert.
+endpoint.no_translation: Keine Dokumentation für Sprache „%locale%“.
+endpoint.doc_edit: Dokumentation bearbeiten
+endpoint.doc_title: Titel
+endpoint.doc_description: Beschreibung
+endpoint.doc_description_placeholder: Beschreiben Sie, was dieser Endpunkt tut, Parameter, erwartete Antworten…
+endpoint.doc_empty: Noch keine Beschreibung — klicken Sie auf Dokumentation bearbeiten, um eine hinzuzufügen.
+endpoint.doc_locale_hint: Dokumentation in %locale% (entspricht dem Sprachumschalter in der oberen Leiste).
+endpoint.doc_tabs_hint: Jeder Tab entspricht einer in nowo_api_studio.ui.locales konfigurierten Sprache.
+endpoint.doc_languages: Dokumentationssprachen
+endpoint.doc_summary: Endpunkt-Dokumentation
+endpoint.translations: Übersetzungen
+tester.title: Anfragekonsole
+tester.environment: Umgebung
+tester.no_environment: Ohne Umgebungsvariablen
+tester.request_body: Anfrage-Body
+flash.created: Erfolgreich erstellt.
+flash.updated: Erfolgreich aktualisiert.
+flash.deleted: Erfolgreich gelöscht.
+flash.imported: 'Import abgeschlossen: %services% Dienst(e), %endpoints% Endpunkt(e), %variables_new% neue Variable(n), %variables_updated% aktualisierte Variable(n), %environments% Umgebung(en).'
+import_export.hub_title: Importieren / Exportieren
+import_export.hub_subtitle: OpenAPI, Postman-Sammlungen und Umgebungsvariablen.
+import_export.import_title: Importieren
+import_export.export_title: Exportieren
+import_export.service_io: Diesen Dienst importieren / exportieren
+import.file: Datei
+import.mode: Importmodus
+import.mode.merge: Zusammenführen (bestehende Schlüssel aktualisieren)
+import.mode.replace: Ersetzen (bestehende Variablen zuerst entfernen)
+import.postman_variables: Postman-Sammlungsvariablen in Arbeitsbereichsumgebung importieren
+import.submit: Importieren
+import.help: JSON, YAML oder .env hochladen (nur Variablen). OpenAPI 3.x und Swagger 2.0 für API-Import unterstützt.
+import.error: Import fehlgeschlagen. Dateiformat prüfen und erneut versuchen.
+import.openapi.title: OpenAPI / Swagger importieren
+import.openapi.service_title: OpenAPI in Dienst importieren
+import.openapi.service_short: OpenAPI importieren
+import.postman.title: Postman-Sammlung importieren
+import.postman.service_title: Postman in Dienst importieren
+import.postman.service_short: Postman importieren
+import.variables.workspace_title: Arbeitsbereichsvariablen importieren
+import.variables.environment_title: Umgebungsvariablen importieren
+import.variables.environment_short: Variablen importieren
+export.openapi.workspace: OpenAPI des Arbeitsbereichs exportieren (JSON)
+export.openapi.service: OpenAPI des Dienstes exportieren (JSON)
+export.variables.workspace_json: Alle Variablen exportieren (JSON)
+export.variables.workspace_yaml: Alle Variablen exportieren (YAML)
+export.variables.workspace_env: Alle Variablen exportieren (.env)
+locale.en: English
+locale.es: Español
+locale.fr: Français
+locale.it: Italiano
+locale.ca: Català

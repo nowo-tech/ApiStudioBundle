@@ -1,0 +1,16 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% set as_active_workspace = workspace.id %}
+
+{% block title %}{{ 'section.services'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_service_new', {workspaceId: workspace.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_service'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <p class="as-hint">{{ 'service.collections_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+    {% include '@NowoApiStudioBundle/_service_collection_list.html.twig' with {services: services} %}
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+<div class="as-data-table-wrap">
+    <table class="as-data-table as-var-table">
+        <thead>
+            <tr>
+                <th>{{ 'variables.syntax'|trans({}, 'nowo_api_studio') }}</th>
+                <th>{{ 'field.description'|trans({}, 'nowo_api_studio') }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in variableCatalog %}
+            <tr>
+                <td><code class="as-var">{{ api_studio_var(item.key) }}</code></td>
+                <td>{{ item.description ?? '—' }}</td>
+                <td>{% if item.secret %}<span class="as-topbar-badge">{{ 'field.secret'|trans({}, 'nowo_api_studio') }}</span>{% endif %}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="3" class="as-empty">{{ 'empty.variables'|trans({}, 'nowo_api_studio') }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+    {% if environments|length > 0 %}
+<p class="as-hint" style="margin-top:12px">
+    {{ 'variables.manage'|trans({}, 'nowo_api_studio') }}
+    {% for environment in environments %}
+        <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+</p>
+{% endif %}

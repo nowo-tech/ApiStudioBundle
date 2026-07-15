@@ -1,0 +1,35 @@
+{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+
+{% block title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block topbar_title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('nowo_api_studio_workspace_new') }}" class="as-btn as-btn-primary">+ {{ 'action.new_workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="as-content-inner">
+    <div class="as-data-table-wrap">
+        <table class="as-data-table">
+            <thead>
+                <tr>
+                    <th>{{ 'field.name'|trans({}, 'NowoApiStudioBundle') }}</th>
+                    <th>{{ 'field.slug'|trans({}, 'NowoApiStudioBundle') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for workspace in workspaces %}
+                <tr>
+                    <td><a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}">{{ workspace.name }}</a></td>
+                    <td><code>{{ workspace.slug }}</code></td>
+                    <td class="as-table-actions"><a class="as-btn" href="{{ path('nowo_api_studio_workspace_edit', {id: workspace.id}) }}">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3" class="as-empty">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
