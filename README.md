@@ -1,6 +1,6 @@
 # API Studio Bundle
 
-[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%2B%20%7C%208.0%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/api-studio-bundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7%2B%20%7C%208%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/api-studio-bundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
 
 Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboard — your own Postman / Apidog inside Symfony.
 
@@ -59,7 +59,7 @@ Service-level import adds endpoints to an existing service. Workspace-level impo
 ## Requirements
 
 - PHP >= 8.2 < 8.6
-- Symfony 7.4+ or 8.x
+- Symfony 7.0+ or 8.x
 - Doctrine ORM
 - `ext-json`
 - `ext-soap` (optional, for SOAP execution)

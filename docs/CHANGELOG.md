@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Minimum supported Symfony version is **7.0** (`^7.0 || ^8.0`); PHP remains `>=8.2 <8.6`.
+
 ## [1.0.0] - 2026-07-16
 
 First stable release of **Api Studio Bundle** — manage, document, and test REST, SOAP, and GraphQL APIs from a built-in Symfony dashboard.
@@ -35,7 +39,7 @@ First stable release of **Api Studio Bundle** — manage, document, and test RES
 ### Compatibility
 
 - PHP `>=8.2 <8.6`
-- Symfony `^7.4 || ^8.0`
+- Symfony `^7.0 || ^8.0`
 - Doctrine ORM `^2.15 || ^3.0` / DoctrineBundle `^2.10 || ^3.0`
 
 See [Upgrading](UPGRADING.md) and [Release](RELEASE.md).
