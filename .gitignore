@@ -1,3 +1,9 @@
+# Local env / secrets
+.env
+.env.*
+!.env.dist
+!.env.example
+
 # Dependencies
 /vendor/
 

@@ -48,6 +48,7 @@ class ApiService
     #[ORM\Column(name: 'auth_type', type: Types::STRING, length: 32, enumType: AuthType::class)]
     private AuthType $authType = AuthType::None;
 
+    /** @var array<string, mixed> */
     #[ORM\Column(name: 'auth_config', type: Types::JSON)]
     private array $authConfig = [];
 

@@ -32,6 +32,12 @@ final class DocumentParserTest extends TestCase
         (new DocumentParser())->parse('   ');
     }
 
+    public function testRejectsNonObjectJsonDocument(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new DocumentParser())->parse('"just-a-string"', 'doc.json');
+    }
+
     public function testEncodeJsonAndYaml(): void
     {
         $parser = new DocumentParser();

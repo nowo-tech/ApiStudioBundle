@@ -61,7 +61,7 @@ final class EnvironmentContextBuilder
 
         usort($catalog, static fn (array $a, array $b): int => strcmp($a['key'], $b['key']));
 
-        return array_values($catalog);
+        return $catalog;
     }
 
     /** @return array<string, string> */

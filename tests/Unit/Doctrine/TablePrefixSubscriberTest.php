@@ -31,6 +31,8 @@ final class TablePrefixSubscriberTest extends TestCase
         ));
 
         self::assertSame('myapp_api_workspace', $metadata->getTableName());
+        self::assertArrayHasKey('uniqueConstraints', $metadata->table);
+        self::assertIsArray($metadata->table['uniqueConstraints']);
         self::assertArrayHasKey('myapp_api_uniq_workspace_slug', $metadata->table['uniqueConstraints']);
     }
 

@@ -73,8 +73,6 @@ final class LocaleManager
             return null;
         }
 
-        $session = $request->getSession();
-
-        return $session instanceof SessionInterface ? $session : null;
+        return $request->getSession();
     }
 }

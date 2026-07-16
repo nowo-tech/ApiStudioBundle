@@ -141,7 +141,9 @@ final class EndpointExamplesController extends AbstractController
         return is_array($payload) ? $payload : [];
     }
 
-    /** @param mixed $raw @return array<string, string> */
+    /**
+     * @return array<string, string>
+     */
     private function stringMap(mixed $raw): array
     {
         if (!is_array($raw)) {

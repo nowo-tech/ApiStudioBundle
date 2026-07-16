@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Service;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Service\PayloadBodyHelper;
 use PHPUnit\Framework\TestCase;
-use InvalidArgumentException;
+use ReflectionMethod;
 
 final class PayloadBodyHelperTest extends TestCase
 {
@@ -70,13 +71,39 @@ final class PayloadBodyHelperTest extends TestCase
     public function testEmptyBodyValidationAndFormatting(): void
     {
         self::assertSame('empty', $this->helper->validateJson('   ')['message']);
+        self::assertSame('empty', $this->helper->validateXml('   ')['message']);
         self::assertSame('', $this->helper->formatJson(''));
         self::assertSame('', $this->helper->formatXml(''));
+    }
+
+    public function testValidateXmlWithMaskedTagPlaceholder(): void
+    {
+        $validation = $this->helper->validateXml('<{{tag}}/>');
+
+        self::assertTrue($validation['valid']);
+        self::assertTrue($validation['with_variables']);
+        self::assertSame('valid_xml_with_variables', $validation['message']);
     }
 
     public function testFormatXmlThrowsOnInvalidBody(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->helper->formatXml('<broken>');
+    }
+
+    public function testInvalidXmlMessageComesFromLibxml(): void
+    {
+        $validation = $this->helper->validateXml('<broken>');
+
+        self::assertFalse($validation['valid']);
+        self::assertNotSame('Invalid XML.', $validation['message']);
+        self::assertNotSame('', $validation['message']);
+    }
+
+    public function testLastXmlErrorReturnsNullBeforeAnyLoad(): void
+    {
+        $method = new ReflectionMethod(PayloadBodyHelper::class, 'lastXmlError');
+
+        self::assertNull($method->invoke($this->helper));
     }
 }

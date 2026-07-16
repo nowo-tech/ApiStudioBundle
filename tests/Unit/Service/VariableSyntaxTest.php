@@ -37,8 +37,9 @@ final class VariableSyntaxTest extends TestCase
         self::assertFalse(VariableSyntax::isPlaceholder('base_url'));
     }
 
-    public function testFormatKeyEscapesEmptyName(): void
+    public function testFormatKeyRejectsEmptyName(): void
     {
-        self::assertSame('{{}}', VariableSyntax::formatKey(''));
+        $this->expectException(InvalidArgumentException::class);
+        VariableSyntax::formatKey('');
     }
 }

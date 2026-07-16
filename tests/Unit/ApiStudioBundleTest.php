@@ -6,13 +6,16 @@ namespace Nowo\ApiStudioBundle\Tests\Unit;
 
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 final class ApiStudioBundleTest extends TestCase
 {
     public function testTranslationDomainConstant(): void
     {
-        self::assertSame('NowoApiStudioBundle', ApiStudioBundle::TRANSLATION_DOMAIN);
+        $reflection = new ReflectionClass(ApiStudioBundle::class);
+
+        self::assertSame('NowoApiStudioBundle', $reflection->getConstant('TRANSLATION_DOMAIN'));
     }
 
     public function testBuildRegistersTwigPathsCompilerPass(): void

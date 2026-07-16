@@ -39,7 +39,9 @@ final class EnvironmentVariableImportExportTest extends TestCase
 
         self::assertSame(1, $result->variablesCreated);
         self::assertCount(1, $target->getVariables());
-        self::assertSame('api_key', $target->getVariables()->first()->getVariableKey());
+        $importedVariable = $target->getVariables()->first();
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $importedVariable);
+        self::assertSame('api_key', $importedVariable->getVariableKey());
     }
 
     public function testImportDotEnv(): void

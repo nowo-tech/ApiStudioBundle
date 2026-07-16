@@ -39,6 +39,7 @@ JSON;
         self::assertSame(2, $result->endpointsCreated);
         self::assertCount(1, $workspace->getServices());
         $service = $workspace->getServices()->first();
+        self::assertInstanceOf(\Nowo\ApiStudioBundle\Entity\ApiService::class, $service);
         self::assertSame('https://api.example.com', $service->getBaseUrl());
         self::assertCount(2, $service->getEndpoints());
     }

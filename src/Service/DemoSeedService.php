@@ -784,6 +784,7 @@ XML);
         }
     }
 
+    /** @param array<string, string> $headers */
     private function addRequestExample(
         ApiEndpoint $endpoint,
         string $name,

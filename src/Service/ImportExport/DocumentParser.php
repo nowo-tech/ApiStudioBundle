@@ -32,9 +32,6 @@ final class DocumentParser
             $data = Yaml::parse($content);
         } else {
             $data = json_decode($content, true);
-            if (!is_array($data) && ($extension === 'yaml' || $extension === 'yml')) {
-                $data = Yaml::parse($content);
-            }
         }
 
         if (!is_array($data)) {

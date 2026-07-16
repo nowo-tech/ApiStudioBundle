@@ -209,7 +209,10 @@ final class ImportExportController extends AbstractController
         return $this->downloadResponse($content, $environment->getSlug() . '-variables.' . $extension, $mime);
     }
 
-    /** @param callable(\Symfony\Component\Form\FormInterface): ImportResult $importer */
+    /**
+     * @param \Symfony\Component\Form\FormInterface<mixed> $form
+     * @param callable(\Symfony\Component\Form\FormInterface<mixed>): ImportResult $importer
+     */
     private function handleImport(
         Request $request,
         \Symfony\Component\Form\FormInterface $form,
@@ -261,6 +264,9 @@ final class ImportExportController extends AbstractController
         ]);
     }
 
+    /**
+     * @param \Symfony\Component\Form\FormInterface<mixed> $form
+     */
     private function readUploadedFile(\Symfony\Component\Form\FormInterface $form): string
     {
         /** @var UploadedFile $file */
@@ -269,7 +275,10 @@ final class ImportExportController extends AbstractController
         return $file->getContent();
     }
 
-    private function uploadedFilename(\Symfony\Component\Form\FormInterface $form): ?string
+    /**
+     * @param \Symfony\Component\Form\FormInterface<mixed> $form
+     */
+    private function uploadedFilename(\Symfony\Component\Form\FormInterface $form): string
     {
         /** @var UploadedFile $file */
         $file = $form->get('file')->getData();
@@ -277,7 +286,11 @@ final class ImportExportController extends AbstractController
         return $file->getClientOriginalName();
     }
 
-    /** @param list<string> $extensions */
+    /**
+     * @param list<string> $extensions
+     *
+     * @return \Symfony\Component\Form\FormInterface<mixed>
+     */
     private function createImportForm(
         string $kind,
         bool $showMode = false,

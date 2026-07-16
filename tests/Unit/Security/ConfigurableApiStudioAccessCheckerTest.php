@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Security;
 
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 final class ConfigurableApiStudioAccessCheckerTest extends TestCase
@@ -17,7 +18,7 @@ final class ConfigurableApiStudioAccessCheckerTest extends TestCase
             [],
         );
 
-        self::assertTrue($checker->canAccess(new \stdClass()));
+        self::assertTrue($checker->canAccess(new stdClass()));
     }
 
     public function testAllowsAccessWhenUserHasConfiguredRole(): void
@@ -30,7 +31,7 @@ final class ConfigurableApiStudioAccessCheckerTest extends TestCase
 
         $checker = new ConfigurableApiStudioAccessChecker($authorization, ['ROLE_API_STUDIO', 'ROLE_ADMIN']);
 
-        self::assertTrue($checker->canAccess(new \stdClass()));
+        self::assertTrue($checker->canAccess(new stdClass()));
     }
 
     public function testDeniesAccessWhenNoRoleMatches(): void
@@ -40,6 +41,6 @@ final class ConfigurableApiStudioAccessCheckerTest extends TestCase
 
         $checker = new ConfigurableApiStudioAccessChecker($authorization, ['ROLE_API_STUDIO']);
 
-        self::assertFalse($checker->canAccess(new \stdClass()));
+        self::assertFalse($checker->canAccess(new stdClass()));
     }
 }

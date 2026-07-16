@@ -90,7 +90,10 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         return Configuration::ALIAS;
     }
 
-    /** @param array<string, mixed> $security @param list<string> $legacyRequiredRoles */
+    /**
+     * @param array<string, mixed> $security
+     * @param list<string> $legacyRequiredRoles
+     */
     private function registerAccessChecker(ContainerBuilder $container, array $security, array $legacyRequiredRoles): void
     {
         $accessRoles = $security['access_roles'] !== [] ? $security['access_roles'] : $legacyRequiredRoles;

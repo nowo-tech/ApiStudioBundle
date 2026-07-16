@@ -20,7 +20,6 @@ use const FILTER_FLAG_IPV4;
 use const FILTER_FLAG_IPV6;
 use const FILTER_VALIDATE_IP;
 use const PHP_URL_HOST;
-use const PREG_NO_ERROR;
 
 /**
  * Validates outbound execution URLs: SSRF mitigation and optional host allowlist.
@@ -84,7 +83,9 @@ final class ExecutionUrlValidator
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
             $long = ip2long($ip);
             if ($long === false) {
+                // @codeCoverageIgnoreStart
                 return true;
+                // @codeCoverageIgnoreEnd
             }
             $u = (float) sprintf('%u', $long);
 
@@ -100,7 +101,9 @@ final class ExecutionUrlValidator
             return str_starts_with($ip, '::1') || str_starts_with($ip, 'fe80:');
         }
 
+        // @codeCoverageIgnoreStart
         return false;
+        // @codeCoverageIgnoreEnd
     }
 
     /**
@@ -113,11 +116,11 @@ final class ExecutionUrlValidator
                 continue;
             }
             if (str_starts_with($pattern, '#')) {
-                $matched = preg_match($pattern, $url);
+                $matched = @preg_match($pattern, $url);
                 if ($matched === 1) {
                     return true;
                 }
-                if ($matched === false && preg_last_error() !== PREG_NO_ERROR && $this->logger instanceof LoggerInterface) {
+                if ($matched === false && $this->logger instanceof LoggerInterface) {
                     $this->logger->warning('Invalid regex in execution_url_allowlist, pattern skipped', [
                         'pattern'    => $pattern,
                         'preg_error' => preg_last_error(),

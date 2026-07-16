@@ -20,6 +20,7 @@ final class SlugHelper
         return $slug !== '' ? substr($slug, 0, 128) : $fallback;
     }
 
+    /** @param array<int, string> $existing */
     public static function unique(string $base, array $existing): string
     {
         $slug = self::fromString($base);

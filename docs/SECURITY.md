@@ -63,18 +63,18 @@ Before each release, confirm:
 
 | Item | Status |
 | --- | --- |
-| `docs/SECURITY.md` and `.github/SECURITY.md` up to date | ☐ |
-| `.env` listed in `.gitignore`; no secrets in repo | ☐ |
-| Flex recipe / default config contain no secrets | ☐ |
-| `ui.required_roles` defaults to `ROLE_ADMIN` (or documented override) | ☐ |
-| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs | ☐ |
-| User input validated (forms + Symfony validator) | ☐ |
-| Output escaped (Twig templates) | ☐ |
-| `composer audit` run on bundle and demo | ☐ |
-| Logs/history do not dump credentials by default | ☐ |
-| Safe cryptography N/A (no custom crypto in bundle) | ☐ |
-| Permissions/exposure documented for integrators | ☐ |
-| DoS limits: request timeout configured | ☐ |
+| `docs/SECURITY.md` and `.github/SECURITY.md` up to date | ☑ |
+| `.env` listed in `.gitignore`; no secrets in repo | ☑ |
+| Flex recipe / default config contain no secrets | ☑ |
+| `security.access_roles` / `ui.required_roles` default to `ROLE_ADMIN` (or documented override) | ☑ |
+| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs | ☑ |
+| User input validated (forms + Symfony validator) | ☑ |
+| Output escaped (Twig templates) | ☑ |
+| `composer audit` run on bundle and demo | ☑ |
+| Logs/history do not dump credentials by default | ☑ |
+| Safe cryptography N/A (no custom crypto in bundle) | ☑ |
+| Permissions/exposure documented for integrators | ☑ |
+| DoS limits: request timeout configured | ☑ |
 
 ## Reporting
 

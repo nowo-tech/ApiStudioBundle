@@ -18,6 +18,7 @@ use Nowo\ApiStudioBundle\Service\VariableSyntax;
 
 use function in_array;
 use function is_array;
+use function is_scalar;
 use function is_string;
 
 /**
@@ -52,7 +53,10 @@ final class PostmanCollectionImporter
         $service        = $targetService ?? $this->createService($workspace, $collectionName, $this->resolveCollectionBaseUrl($data));
 
         $endpointsCreated = 0;
-        $this->walkItems($data['item'] ?? [], $service, $endpointsCreated);
+        $items            = $data['item'] ?? [];
+        if (is_array($items)) {
+            $this->walkItems(array_values($items), $service, $endpointsCreated);
+        }
 
         if (!$targetService instanceof ApiService) {
             $this->entityManager->persist($service);
@@ -73,7 +77,7 @@ final class PostmanCollectionImporter
             }
 
             if (isset($item['item']) && is_array($item['item'])) {
-                $this->walkItems($item['item'], $service, $endpointsCreated);
+                $this->walkItems(array_values($item['item']), $service, $endpointsCreated);
 
                 continue;
             }
@@ -137,12 +141,21 @@ final class PostmanCollectionImporter
     private function parseUrl(mixed $url): array
     {
         if (is_string($url)) {
-            $parts = parse_url($url) ?: [];
-            $path  = $parts['path'] ?? '/';
-            $query = [];
-            parse_str($parts['query'] ?? '', $query);
+            $parts    = parse_url($url) ?: [];
+            $path     = isset($parts['path']) && is_string($parts['path']) && $parts['path'] !== '' ? $parts['path'] : '/';
+            $rawQuery = [];
+            parse_str(is_string($parts['query'] ?? null) ? $parts['query'] : '', $rawQuery);
 
-            return [$path !== '' ? $path : '/', array_map(strval(...), $query)];
+            $query = [];
+            foreach ($rawQuery as $key => $value) {
+                if (!is_string($key) || $key === '') {
+                    continue;
+                }
+
+                $query[$key] = is_scalar($value) ? (string) $value : '';
+            }
+
+            return [$path, $query];
         }
 
         if (!is_array($url)) {
@@ -170,7 +183,7 @@ final class PostmanCollectionImporter
             }
         }
 
-        return [$path === '' ? '/' : $path, $query];
+        return [$path, $query];
     }
 
     /** @param array<string, mixed> $data */

@@ -67,10 +67,15 @@ link-bundle: ensure-up
 	docker-compose exec php sh -c "mkdir -p vendor/nowo-tech && rm -rf vendor/nowo-tech/api-studio-bundle && ln -s /var/api-studio-bundle vendor/nowo-tech/api-studio-bundle && php bin/console cache:clear"
 
 update-bundle: ensure-up
-	docker-compose exec php composer update nowo-tech/api-studio-bundle --no-interaction
-	docker-compose exec php sh -c "php bin/console cache:clear --env=dev"
+	@docker-compose exec -T -e COMPOSER_MEMORY_LIMIT=-1 php sh -c '\
+		composer update nowo-tech/api-studio-bundle --no-interaction --no-scripts || true'
+	@$(MAKE) link-bundle
+	@docker-compose exec -T php composer dump-autoload --no-interaction
+	@docker-compose exec -T php php bin/console cache:clear --env=dev --no-interaction
+	@docker-compose exec -T php php bin/console assets:install --no-interaction || true
 
 release-check: ensure-up update-bundle test test-coverage
 
 # REQ-MAKE-008: update-deps (REQ-MAKE-008)
-include $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../../../.scripts/Makefile.demo-update-deps.mk
+SERVICE_PHP := php
+include $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../../../.scripts/Makefile.demo-update-deps.mk)

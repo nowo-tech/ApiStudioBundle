@@ -30,7 +30,10 @@ final class ExecutionUrlValidatorTest extends TestCase
         yield 'private 192.168.x' => ['http://192.168.0.1/'];
         yield 'link-local' => ['http://169.254.169.254/latest/meta-data/'];
         yield 'empty host' => ['http:///path'];
+        yield 'empty bracket host' => ['http://[]/'];
         yield 'metadata hostname' => ['http://metadata.google.internal/'];
+        yield 'ipv6 loopback' => ['http://[::1]/'];
+        yield 'ipv6 link-local' => ['http://[fe80::1]/'];
     }
 
     public function testAllowlistRequiresMatchWhenConfigured(): void
@@ -72,6 +75,13 @@ final class ExecutionUrlValidatorTest extends TestCase
         $validator = new ExecutionUrlValidator([]);
 
         self::assertFalse($validator->isBlockedForSsrf('https://example.com/'));
+    }
+
+    public function testPublicIpv6IsAllowedForSsrfCheck(): void
+    {
+        $validator = new ExecutionUrlValidator([]);
+
+        self::assertFalse($validator->isBlockedForSsrf('https://[2001:db8::1]/'));
     }
 
     public function testSkipsEmptyAllowlistPattern(): void

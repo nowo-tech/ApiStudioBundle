@@ -25,6 +25,8 @@ final class PayloadBodyHelper
 {
     private const VAR_PATTERN = VariableSyntax::PLACEHOLDER_PATTERN;
 
+    private ?string $lastLoadXmlError = null;
+
     public function resolveBodyFormat(string $protocol, ?string $contentType = null): string
     {
         if ($protocol === 'soap') {
@@ -138,7 +140,7 @@ final class PayloadBodyHelper
         $dom->preserveWhiteSpace = false;
         $formatted               = $dom->saveXML();
         if ($formatted === false) {
-            throw new InvalidArgumentException('Unable to format XML.');
+            throw new InvalidArgumentException('Unable to format XML.'); // @codeCoverageIgnore
         }
 
         foreach ($tokens as $index => $original) {
@@ -180,32 +182,31 @@ final class PayloadBodyHelper
 
     private function loadXml(string $body): ?DOMDocument
     {
-        $previous = libxml_use_internal_errors(true);
+        $previous               = libxml_use_internal_errors(true);
+        $this->lastLoadXmlError = null;
         libxml_clear_errors();
 
         $dom                     = new DOMDocument('1.0');
         $dom->preserveWhiteSpace = false;
 
         if (@$dom->loadXML($body, LIBXML_NONET | LIBXML_NOERROR)) {
+            libxml_clear_errors();
             libxml_use_internal_errors($previous);
 
             return $dom;
         }
 
+        $errors = libxml_get_errors();
+        libxml_clear_errors();
         libxml_use_internal_errors($previous);
+        $this->lastLoadXmlError = $errors !== [] ? trim($errors[0]->message) : null;
 
         return null;
     }
 
     private function lastXmlError(): ?string
     {
-        $errors = libxml_get_errors();
-        libxml_clear_errors();
-        if ($errors === []) {
-            return null;
-        }
-
-        return trim($errors[0]->message);
+        return $this->lastLoadXmlError;
     }
 
     private function containsVariablePlaceholders(string $body): bool

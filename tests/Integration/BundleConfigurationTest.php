@@ -14,7 +14,6 @@ final class BundleConfigurationTest extends TestCase
         $bundle    = new ApiStudioBundle();
         $extension = $bundle->getContainerExtension();
 
-        self::assertNotNull($extension);
         self::assertSame('nowo_api_studio', $extension->getAlias());
     }
 }

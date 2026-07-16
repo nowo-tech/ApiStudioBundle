@@ -122,7 +122,11 @@ final class EnvironmentVariableExporter
         return implode("\n", $lines) . "\n";
     }
 
-    /** @param array<string, mixed> $variable */
+    /**
+     * @param array<string, mixed> $variable
+     *
+     * @return list<string>
+     */
     private function dotEnvLines(array $variable): array
     {
         try {
