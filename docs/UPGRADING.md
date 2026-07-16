@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.1](#to-101)
 - [To 1.0.0](#to-100)
 - [Database schema](#database-schema)
 
@@ -16,6 +17,21 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.1
+
+From **1.0.0** — backward compatible.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+No configuration or schema changes required.
+
+Composer constraints now accept **Symfony 7.0+** (`^7.0 || ^8.0`) in addition to Symfony 8. PHP remains `>=8.2 <8.6`.
+
+On Symfony 8, ensure Doctrine Bundle can resolve to `^3` (PHP 8.4+) if your application previously locked `doctrine/doctrine-bundle` 2.x.
 
 ## To 1.0.0
 

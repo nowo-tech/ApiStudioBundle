@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-16
+
 ### Changed
 
 - Minimum supported Symfony version is **7.0** (`^7.0 || ^8.0`); PHP remains `>=8.2 <8.6`.
+- CI matrix aligned to PHP 8.2+ × Symfony 7.0 / 7.4 / 8.0 / 8.1 (removed PHP 8.1 and Symfony 6.4).
+
+### Fixed
+
+- CI install for Symfony 8: keep `symfony/browser-kit` in `require-dev`, and run a full `composer update -W` so `doctrine/doctrine-bundle` can resolve to `^3` on Symfony 8 / PHP 8.4+.
+
+### Compatibility
+
+- PHP `>=8.2 <8.6`
+- Symfony `^7.0 || ^8.0`
+- Doctrine ORM `^2.15 || ^3.0` / DoctrineBundle `^2.10 || ^3.0`
+
+[1.0.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.1
 
 ## [1.0.0] - 2026-07-16
 
@@ -39,7 +54,7 @@ First stable release of **Api Studio Bundle** — manage, document, and test RES
 ### Compatibility
 
 - PHP `>=8.2 <8.6`
-- Symfony `^7.0 || ^8.0`
+- Symfony `^7.4 || ^8.0` (relaxed to `^7.0 || ^8.0` in 1.0.1)
 - Doctrine ORM `^2.15 || ^3.0` / DoctrineBundle `^2.10 || ^3.0`
 
 See [Upgrading](UPGRADING.md) and [Release](RELEASE.md).
