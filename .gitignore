@@ -7,8 +7,8 @@
 /coverage.xml
 /coverage-php.txt
 
-# PHP tools cache
-/.php-cs-fixer.cache/
+# PHP tools cache (REQ-GITIGNORE-002: file pattern, not directory-only)
+.php-cs-fixer.cache
 
 # IDE / OS
 /.idea/
@@ -28,4 +28,3 @@
 /node_modules/
 # Cursor local sandbox (machine-specific; REQ-IDE-005)
 .cursor/sandbox.json
-
