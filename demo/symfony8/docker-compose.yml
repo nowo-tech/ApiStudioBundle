@@ -20,6 +20,7 @@ services:
       COMPOSER_MEMORY_LIMIT: "-1"
       COMPOSER_MAX_PARALLEL_HTTP: "4"
       APP_ENV: dev
+      FRANKENPHP_MODE: ${FRANKENPHP_MODE:-worker}
       APP_DEBUG: "1"
       APP_SECRET: ${APP_SECRET:-demo-secret}
       # Override .env localhost URL — use internal Docker network host `database`.

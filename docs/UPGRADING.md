@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.2](#to-102)
 - [To 1.0.1](#to-101)
 - [To 1.0.0](#to-100)
 - [Database schema](#database-schema)
@@ -17,6 +18,18 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.2
+
+From **1.0.1** — backward compatible for integrators.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+No configuration or schema changes required for applications using the bundle.
+
+**Demo only:** the Symfony 8 FrankenPHP demo accepts `FRANKENPHP_MODE=worker|classic` (default `worker`). Copy from `.env.example` if needed and recreate containers after changing the mode. See [demo/README.md](../demo/README.md).
 
 ## To 1.0.1
 

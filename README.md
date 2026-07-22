@@ -135,6 +135,8 @@ make -C demo up-symfony8
 
 Default URL: http://localhost:8023 (override with `PORT`).
 
+Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/.env` (see [demo/README.md](demo/README.md)).
+
 ## Documentation
 
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
