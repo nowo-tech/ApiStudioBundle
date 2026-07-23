@@ -23,7 +23,7 @@ class ApiEndpoint
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    private ?int $id = null; // @phpstan-ignore property.unusedType (Doctrine UnitOfWork)
 
     #[ORM\ManyToOne(targetEntity: ApiService::class, inversedBy: 'endpoints')]
     #[ORM\JoinColumn(name: 'service_id', nullable: false, onDelete: 'CASCADE')]

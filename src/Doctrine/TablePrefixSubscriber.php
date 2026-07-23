@@ -39,6 +39,8 @@ final class TablePrefixSubscriber
      */
     private function applyPrefix(ClassMetadata $metadata): void
     {
+        // Runtime shape from Doctrine may be wider than ClassMetadata PHPDoc stubs.
+        /** @var array<string, mixed> $table */
         $table         = $metadata->table;
         $table['name'] = $this->tablePrefix . $table['name'];
 

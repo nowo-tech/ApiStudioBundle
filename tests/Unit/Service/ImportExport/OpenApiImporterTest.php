@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\Unit\Service\ImportExport;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Service\ImportExport\DocumentParser;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiImporter;
@@ -39,7 +40,7 @@ JSON;
         self::assertSame(2, $result->endpointsCreated);
         self::assertCount(1, $workspace->getServices());
         $service = $workspace->getServices()->first();
-        self::assertInstanceOf(\Nowo\ApiStudioBundle\Entity\ApiService::class, $service);
+        self::assertInstanceOf(ApiService::class, $service);
         self::assertSame('https://api.example.com', $service->getBaseUrl());
         self::assertCount(2, $service->getEndpoints());
     }

@@ -141,6 +141,8 @@ final class PostmanCollectionImporter
     private function parseUrl(mixed $url): array
     {
         if (is_string($url)) {
+            // parse_url() stub PHPDoc is stricter than runtime; keep defensive checks in code.
+            /** @var array<string, mixed> $parts */
             $parts    = parse_url($url) ?: [];
             $path     = isset($parts['path']) && is_string($parts['path']) && $parts['path'] !== '' ? $parts['path'] : '/';
             $rawQuery = [];

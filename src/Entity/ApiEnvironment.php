@@ -22,7 +22,7 @@ class ApiEnvironment
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    private ?int $id = null; // @phpstan-ignore property.unusedType (Doctrine UnitOfWork)
 
     #[ORM\ManyToOne(targetEntity: ApiWorkspace::class, inversedBy: 'environments')]
     #[ORM\JoinColumn(name: 'workspace_id', nullable: false, onDelete: 'CASCADE')]

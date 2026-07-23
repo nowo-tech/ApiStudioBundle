@@ -117,8 +117,10 @@ final class PayloadBodyHelper
             return $body;
         }
 
-        $masked    = $this->maskVariablesForJson($body);
-        $decoded   = json_decode($masked, true, 512, JSON_THROW_ON_ERROR);
+        $masked  = $this->maskVariablesForJson($body);
+        $decoded = json_decode($masked, true, 512, JSON_THROW_ON_ERROR);
+        // Document possible false for callers; keep defensive branch even with JSON_THROW_ON_ERROR.
+        /** @var false|non-empty-string $formatted */
         $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         return $formatted === false ? $body : $formatted . "\n";

@@ -22,7 +22,7 @@ class ApiWorkspace
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    private ?int $id = null; // @phpstan-ignore property.unusedType (Doctrine UnitOfWork)
 
     #[ORM\Column(type: Types::STRING, length: 128)]
     private string $name;

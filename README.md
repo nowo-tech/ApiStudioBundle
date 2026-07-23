@@ -4,6 +4,10 @@
 
 Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboard — your own Postman / Apidog inside Symfony.
 
+![FrankenPHP Friendly Worker Mode](docs/images/frankenphp-friendly.png)
+
+This bundle is **FrankenPHP worker mode friendly**.
+
 ## Features
 
 - **Workspaces** — group services, environments, and endpoints

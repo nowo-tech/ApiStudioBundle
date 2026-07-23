@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Service;
 
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Tools\SchemaTool;
 use Throwable;
 
@@ -201,14 +203,10 @@ final class SchemaSyncService
     {
         $schemaManager = $this->entityManager->getConnection()->createSchemaManager();
 
-        if (!method_exists($schemaManager, 'listSequences')) {
-            return [];
-        }
-
         try {
             return array_map(
-                static fn (string $name): string => strtolower($name),
-                $schemaManager->listSequences(),
+                static fn (Sequence $sequence): string => strtolower($sequence->getName()),
+                $schemaManager->introspectSequences(),
             );
         } catch (Throwable) {
             return [];
@@ -243,7 +241,7 @@ final class SchemaSyncService
     }
 
     /**
-     * @return list<\Doctrine\ORM\Mapping\ClassMetadata<object>>
+     * @return list<ClassMetadata<object>>
      */
     private function getBundleMetadata(): array
     {
@@ -251,7 +249,7 @@ final class SchemaSyncService
 
         return array_values(array_filter(
             $metadata,
-            static fn (\Doctrine\ORM\Mapping\ClassMetadata $classMetadata): bool => str_starts_with(
+            static fn (ClassMetadata $classMetadata): bool => str_starts_with(
                 $classMetadata->getName(),
                 self::ENTITY_NAMESPACE_PREFIX,
             ),

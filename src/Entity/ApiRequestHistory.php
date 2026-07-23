@@ -19,7 +19,7 @@ class ApiRequestHistory
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    private ?int $id = null; // @phpstan-ignore property.unusedType (Doctrine UnitOfWork)
 
     #[ORM\ManyToOne(targetEntity: ApiEndpoint::class)]
     #[ORM\JoinColumn(name: 'endpoint_id', nullable: false, onDelete: 'CASCADE')]

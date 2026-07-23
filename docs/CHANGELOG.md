@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-23
+
+### Added
+
+- Maintainer tooling: `nowo-tech/phpstan-frankenphp` (`require-dev`) with `ruleset-classic` + `ruleset-worker` in `phpstan.neon.dist` (REQ-CS-005).
+- README FrankenPHP Friendly Worker Mode banner (`docs/images/frankenphp-friendly.png`) and canonical worker-friendly claim (REQ-DOCS-017).
+
+### Changed
+
+- PHPStan: empty `ignoreErrors`, `treatPhpDocTypesAsCertain: true`, and PHPDoc local `@var` annotations so defensive runtime checks remain valid.
+- `SchemaSyncService` uses DBAL `introspectSequences()` instead of deprecated `listSequences()`.
+- PHP-CS-Fixer: `fully_qualified_strict_types.import_symbols` enabled.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.3]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.3
+
 ## [1.0.2] - 2026-07-22
 
 ### Changed

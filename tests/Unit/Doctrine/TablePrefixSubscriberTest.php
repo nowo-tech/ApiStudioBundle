@@ -31,9 +31,11 @@ final class TablePrefixSubscriberTest extends TestCase
         ));
 
         self::assertSame('myapp_api_workspace', $metadata->getTableName());
-        self::assertArrayHasKey('uniqueConstraints', $metadata->table);
-        self::assertIsArray($metadata->table['uniqueConstraints']);
-        self::assertArrayHasKey('myapp_api_uniq_workspace_slug', $metadata->table['uniqueConstraints']);
+        /** @var array<string, mixed> $table */
+        $table = $metadata->table;
+        self::assertArrayHasKey('uniqueConstraints', $table);
+        self::assertIsArray($table['uniqueConstraints']);
+        self::assertArrayHasKey('myapp_api_uniq_workspace_slug', $table['uniqueConstraints']);
     }
 
     public function testIgnoresEntitiesOutsideBundleNamespace(): void

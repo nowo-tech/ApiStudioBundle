@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Security;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 final class ExecutionUrlValidatorTest extends TestCase
 {
@@ -61,7 +62,7 @@ final class ExecutionUrlValidatorTest extends TestCase
 
     public function testLogsInvalidRegexPattern(): void
     {
-        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning');
 
         $invalidPattern = '#[unclosed';

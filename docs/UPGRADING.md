@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.3](#to-103)
 - [To 1.0.2](#to-102)
 - [To 1.0.1](#to-101)
 - [To 1.0.0](#to-100)
@@ -18,6 +19,18 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.3
+
+From **1.0.2** — backward compatible for integrators.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+No configuration or schema changes required.
+
+Maintainer-only: the package repo now requires `nowo-tech/phpstan-frankenphp` as a **dev** dependency when developing this bundle; consumers installing the Symfony bundle do not pull it transitively.
 
 ## To 1.0.2
 

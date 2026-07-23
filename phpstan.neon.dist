@@ -1,3 +1,7 @@
+includes:
+    - vendor/nowo-tech/phpstan-frankenphp/ruleset-classic.neon
+    - vendor/nowo-tech/phpstan-frankenphp/ruleset-worker.neon
+
 parameters:
     level: 8
     paths:
@@ -5,12 +9,6 @@ parameters:
         - tests
     excludePaths:
         - vendor/*
-    reportUnmatchedIgnoredErrors: false
-    treatPhpDocTypesAsCertain: false
-    ignoreErrors:
-        - '#Property .*::\$id \(int\|null\) is never assigned int#'
-        - '#extends generic class Symfony\\Component\\Form\\AbstractType#'
-        - '#Call to function method_exists\(\) with Doctrine\\DBAL\\Schema\\AbstractSchemaManager#'
-        - '~Parameter #1 \$callback of function array_map~'
-        - '#Call to static method .*assertInstanceOf\(\) with .* will always evaluate to true#'
-        - '#Cannot call method getAlias\(\) on Symfony\\Component\\DependencyInjection\\Extension\\ExtensionInterface\|null#'
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: true
+    ignoreErrors: []

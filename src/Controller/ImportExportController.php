@@ -19,6 +19,7 @@ use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\PostmanCollectionImporter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,7 +59,7 @@ final class ImportExportController extends AbstractController
         $workspace = $this->requireWorkspace($workspaceId);
         $form      = $this->createImportForm('openapi');
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($workspace): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
             return $this->openApiImporter->import(
                 $workspace,
                 $this->readUploadedFile($form),
@@ -73,7 +74,7 @@ final class ImportExportController extends AbstractController
         $workspace = $this->requireWorkspace($workspaceId);
         $form      = $this->createImportForm('postman', showPostmanVariables: true);
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($workspace): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
             $importVariables = $form->has('importVariables') ? (bool) $form->get('importVariables')->getData() : true;
 
             return $this->postmanImporter->import(
@@ -91,7 +92,7 @@ final class ImportExportController extends AbstractController
         $workspace = $this->requireWorkspace($workspaceId);
         $form      = $this->createImportForm('variables', showMode: true, extensions: ['json', 'yaml', 'yml', 'env']);
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($workspace): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
             $mode = $form->has('mode') ? (string) $form->get('mode')->getData() : 'merge';
 
             return $this->variableImporter->importIntoWorkspace(
@@ -134,7 +135,7 @@ final class ImportExportController extends AbstractController
         $service   = $this->requireService($serviceId, $workspace);
         $form      = $this->createImportForm('openapi');
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($workspace, $service): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace, $service): ImportResult {
             return $this->openApiImporter->import(
                 $workspace,
                 $this->readUploadedFile($form),
@@ -151,7 +152,7 @@ final class ImportExportController extends AbstractController
         $service   = $this->requireService($serviceId, $workspace);
         $form      = $this->createImportForm('postman', showPostmanVariables: true);
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($workspace, $service): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace, $service): ImportResult {
             $importVariables = $form->has('importVariables') ? (bool) $form->get('importVariables')->getData() : true;
 
             return $this->postmanImporter->import(
@@ -181,7 +182,7 @@ final class ImportExportController extends AbstractController
         $environment = $this->requireEnvironment($environmentId, $workspace);
         $form        = $this->createImportForm('variables', showMode: true, extensions: ['json', 'yaml', 'yml', 'env']);
 
-        return $this->handleImport($request, $form, function (\Symfony\Component\Form\FormInterface $form) use ($environment): ImportResult {
+        return $this->handleImport($request, $form, function (FormInterface $form) use ($environment): ImportResult {
             $mode = $form->has('mode') ? (string) $form->get('mode')->getData() : 'merge';
 
             return $this->variableImporter->importIntoEnvironment(
@@ -210,12 +211,12 @@ final class ImportExportController extends AbstractController
     }
 
     /**
-     * @param \Symfony\Component\Form\FormInterface<mixed> $form
-     * @param callable(\Symfony\Component\Form\FormInterface<mixed>): ImportResult $importer
+     * @param FormInterface<mixed> $form
+     * @param callable(FormInterface<mixed>): ImportResult $importer
      */
     private function handleImport(
         Request $request,
-        \Symfony\Component\Form\FormInterface $form,
+        FormInterface $form,
         callable $importer,
         ApiWorkspace $workspace,
         string $titleKey,
@@ -265,9 +266,9 @@ final class ImportExportController extends AbstractController
     }
 
     /**
-     * @param \Symfony\Component\Form\FormInterface<mixed> $form
+     * @param FormInterface<mixed> $form
      */
-    private function readUploadedFile(\Symfony\Component\Form\FormInterface $form): string
+    private function readUploadedFile(FormInterface $form): string
     {
         /** @var UploadedFile $file */
         $file = $form->get('file')->getData();
@@ -276,9 +277,9 @@ final class ImportExportController extends AbstractController
     }
 
     /**
-     * @param \Symfony\Component\Form\FormInterface<mixed> $form
+     * @param FormInterface<mixed> $form
      */
-    private function uploadedFilename(\Symfony\Component\Form\FormInterface $form): string
+    private function uploadedFilename(FormInterface $form): string
     {
         /** @var UploadedFile $file */
         $file = $form->get('file')->getData();
@@ -289,14 +290,14 @@ final class ImportExportController extends AbstractController
     /**
      * @param list<string> $extensions
      *
-     * @return \Symfony\Component\Form\FormInterface<mixed>
+     * @return FormInterface<mixed>
      */
     private function createImportForm(
         string $kind,
         bool $showMode = false,
         bool $showPostmanVariables = false,
         array $extensions = ['json', 'yaml', 'yml'],
-    ): \Symfony\Component\Form\FormInterface {
+    ): FormInterface {
         return $this->createForm(ImportFileFormType::class, null, [
             'import_kind'            => $kind,
             'allowed_extensions'     => $extensions,
