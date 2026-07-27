@@ -2,6 +2,7 @@
   "name": "@nowo/api-studio-bundle-assets",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.29.2",
   "scripts": {
     "build": "node scripts/build-assets.mjs",
     "typecheck": "tsc --noEmit",
@@ -10,5 +11,10 @@
   "devDependencies": {
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

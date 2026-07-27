@@ -32,5 +32,8 @@
 
 # Frontend build
 /node_modules/
+/package-lock.json
+/.pnpm-store/
+
 # Cursor local sandbox (machine-specific; REQ-IDE-005)
 .cursor/sandbox.json

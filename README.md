@@ -1,6 +1,8 @@
 # API Studio Bundle
 
-[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7%2B%20%7C%208%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/api-studio-bundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/api-studio-bundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+
+> ⭐ **Found this useful?** Install from [Packagist](https://packagist.org/packages/nowo-tech/api-studio-bundle) and give the repo a star on GitHub.
 
 Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboard — your own Postman / Apidog inside Symfony.
 
@@ -121,12 +123,12 @@ Open `/api-studio` in your browser.
 
 ## Frontend assets (TypeScript)
 
-Browser scripts live in `src/Resources/assets/src/` and compile to `src/Resources/public/`:
+Browser scripts live in `src/Resources/assets/src/` and compile to `src/Resources/public/` with **pnpm** + Vite:
 
 ```bash
-make assets          # npm install && npm run build
-npm run build        # compile only
-npx tsc --noEmit     # typecheck
+make assets          # pnpm install && pnpm run build (inside Docker)
+pnpm run build       # compile only (host, if pnpm is installed)
+pnpm run typecheck   # tsc --noEmit
 ```
 
 Entry points: `api-tester`, `api-body-tools`, `api-script-runtime`, `api-studio-shell`, `api-endpoint-doc`, `api-form-locale-tabs`.
@@ -139,11 +141,10 @@ make -C demo up-symfony8
 
 Default URL: http://localhost:8023 (override with `PORT`).
 
-Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/.env` (see [demo/README.md](demo/README.md)).
+Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/.env` (see [demo/README.md](demo/README.md) and [docs/DEMO-FRANKENPHP.md](docs/DEMO-FRANKENPHP.md)).
 
 ## Documentation
 
-- [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 - [Installation](docs/INSTALLATION.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Usage](docs/USAGE.md)
@@ -157,12 +158,21 @@ Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/
 - [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md)
 - [GitHub Spec Kit](docs/SPEC-KIT.md)
 
+### Additional documentation
+
+- [GitHub Actions CI requirements](docs/GITHUB_CI.md)
+- [Demo FrankenPHP](docs/DEMO-FRANKENPHP.md)
+
 ## Tests and coverage
 
 ```bash
 make test
 make test-coverage
 ```
+
+- PHP: **100%**
+- TS/JS: **N/A** (assets are built with Vite; no Vitest suite yet)
+- Python: **N/A**
 
 PHP coverage is reported in CI and via `make test-coverage` (see README badge and release-check).
 

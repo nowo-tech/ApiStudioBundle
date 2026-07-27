@@ -29,7 +29,14 @@ This project follows the [Contributor Covenant Code of Conduct](../CODE_OF_CONDU
    make cs-check
    make cs-fix
    make phpstan
+   make validate-translations
    make qa
+   ```
+
+4. Frontend assets (TypeScript → `src/Resources/public/`), via **pnpm** in Docker:
+
+   ```bash
+   make assets
    ```
 
 ## Pull requests

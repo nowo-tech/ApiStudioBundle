@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.4](#to-104)
 - [To 1.0.3](#to-103)
 - [To 1.0.2](#to-102)
 - [To 1.0.1](#to-101)
@@ -19,6 +20,22 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.4
+
+From **1.0.3** — backward compatible for integrators.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+No configuration or schema changes required for applications using the bundle.
+
+Optional docs: Twig overrides and i18n domain are documented in [USAGE.md](USAGE.md). Request-console timeout hierarchy and FrankenPHP demos: [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md) and [CONFIGURATION.md](CONFIGURATION.md) (`ui.request_timeout_seconds`).
+
+**Demo only:** default host port is **8023** (was mismatched as `8022` in `.env.example`). Copy or align `PORT` from `.env.example` if you still use an old local `.env`.
+
+**Maintainer-only:** frontend assets use **pnpm** (`make assets` / `pnpm-lock.yaml`). Contributors should use `make assets` (Docker) instead of npm/`package-lock.json`.
 
 ## To 1.0.3
 
@@ -42,7 +59,7 @@ composer update nowo-tech/api-studio-bundle
 
 No configuration or schema changes required for applications using the bundle.
 
-**Demo only:** the Symfony 8 FrankenPHP demo accepts `FRANKENPHP_MODE=worker|classic` (default `worker`). Copy from `.env.example` if needed and recreate containers after changing the mode. See [demo/README.md](../demo/README.md).
+**Demo only:** the Symfony 8 FrankenPHP demo accepts `FRANKENPHP_MODE=worker|classic` (default `worker`). Copy from `.env.example` if needed and recreate containers after changing the mode. See [demo/README.md](../demo/README.md) and [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md).
 
 ## To 1.0.1
 

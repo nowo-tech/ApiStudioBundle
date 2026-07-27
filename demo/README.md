@@ -30,3 +30,5 @@ docker compose exec php php bin/console assets:install
 ```
 
 Dashboard: http://localhost:8023/api-studio
+
+See [docs/DEMO-FRANKENPHP.md](../docs/DEMO-FRANKENPHP.md) for classic vs worker mode, timeouts, and troubleshooting.

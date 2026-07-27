@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-27
+
+### Added
+
+- `docs/DEMO-FRANKENPHP.md` — FrankenPHP classic/worker docs, timeout hierarchy for the request console (`ui.request_timeout_seconds`).
+- Makefile: `validate-translations` (YAML lint) included in `release-check`; `down-dev`.
+- Frontend toolchain: `packageManager` **pnpm**, `vite.config.ts`, `pnpm-lock.yaml`; root Docker image includes Node/pnpm for `make assets`.
+- GitHub: Dependabot, Copilot instructions, PR title lint, stale issues workflow; `.scrutinizer.yml`.
+- `docs/USAGE.md`: Twig override paths (`templates/bundles/NowoApiStudioBundle/`) and translation domain `NowoApiStudioBundle`.
+
+### Changed
+
+- Demo default `PORT` aligned to **8023** (`.env.example` / Compose).
+- README: Symfony badge `7.4 | 8.0 | 8.1+`, canonical `## Documentation` order, explicit PHP / TS/JS / Python coverage lines, FrankenPHP CTA.
+- Issue templates and `CODEOWNERS` renamed from leftover WorkflowBundle references to ApiStudioBundle.
+- Assets build via `pnpm install` + `pnpm run build` inside Docker (replaces npm / `package-lock.json`).
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.4]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.4
+
 ## [1.0.3] - 2026-07-23
 
 ### Added

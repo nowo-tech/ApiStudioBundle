@@ -33,7 +33,7 @@ nowo_api_studio:
 | `ui.path` | Dashboard base path (default `/api-studio`). |
 | `ui.default_locale` | Default UI/documentation locale (default `en`). |
 | `ui.locales` | Enabled UI/documentation locales. |
-| `ui.request_timeout_seconds` | HTTP client timeout for the request console (1–300, default `30`). |
+| `ui.request_timeout_seconds` | HTTP client / SOAP connection timeout for the request console (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
 | `ui.required_roles` | Legacy role list used when `security.access_roles` is empty. Empty disables bundle-level checks. |
 | `security.access_roles` | Preferred roles for Api Studio UI (user needs at least one). Empty disables bundle-level checks. Default `ROLE_ADMIN`. |
 | `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`. |

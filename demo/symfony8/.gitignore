@@ -13,6 +13,7 @@
 # Dependencies and build artifacts
 /vendor/
 /public/bundles/
+/.pnpm-store/
 
 # Runtime cache and logs
 /var/
