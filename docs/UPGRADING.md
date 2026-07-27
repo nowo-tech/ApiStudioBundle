@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.7](#to-107)
 - [To 1.0.6](#to-106)
 - [To 1.0.5](#to-105)
 - [To 1.0.4](#to-104)
@@ -22,6 +23,21 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.7
+
+From **1.0.6** — backward compatible bugfix release.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+No configuration or schema changes.
+
+**Twig / i18n:** remaining UI partials now use translation domain `NowoApiStudioBundle` (same as forms). If you overrode those partials and still pass `nowo_api_studio`, update them.
+
+**Layout:** shell theme CSS/JS live inside the `stylesheets` / `javascripts` blocks so host layouts that call `{{ parent() }}` keep Api Studio assets. Child templates that override those blocks must keep `{{ parent() }}`.
 
 ## To 1.0.6
 

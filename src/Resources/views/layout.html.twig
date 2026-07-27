@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     {% endif %}
+    {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('api-studio-theme.css', 'nowo_api_studio') }}">
     <style>
         body.api-studio-app { background: #f6f8fb; }
@@ -23,7 +24,7 @@
             }
         })();
     </script>
-    {% block stylesheets %}{% endblock %}
+    {% endblock %}
 </head>
 <body class="api-studio-app nowo-ui-app as-app">
 {% set current_route = app.request.attributes.get('_route') %}
@@ -65,7 +66,8 @@
     </div>
 </div>
 {% include '@NowoApiStudioBundle/_service_action_modals.html.twig' %}
+{% block javascripts %}
 <script src="{{ asset('api-studio-shell.js', 'nowo_api_studio') }}"></script>
-{% block javascripts %}{% endblock %}
+{% endblock %}
 </body>
 </html>

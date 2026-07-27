@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-07-27
+
+### Fixed
+
+- Twig partials use translation domain `NowoApiStudioBundle` (REQ-I18N-003 residual).
+- Shell CSS/JS moved into `stylesheets` / `javascripts` blocks for `{{ parent() }}` stacking (REQ-UI-001).
+- Demo Makefile: `setup` / `verify` targets (REQ-MAKE-003).
+- Root `release-check` runs `ensure-up` first (REQ-MAKE-002).
+- README documents PHP coverage exclusions (REQ-TEST-003 honesty).
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.7]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.7
+
 ## [1.0.6] - 2026-07-27
 
 ### Added

@@ -1,4 +1,4 @@
-.PHONY: help up down build install shell logs test test-coverage cache-clear reset-demo link-bundle update-bundle ensure-up restart release-check
+.PHONY: help up down build install shell logs test test-coverage cache-clear reset-demo link-bundle update-bundle ensure-up restart release-check setup verify
 
 help:
 	@echo "Symfony 8 Demo - API Studio Bundle"
@@ -72,6 +72,13 @@ update-bundle: ensure-up
 	@docker-compose exec -T php composer dump-autoload --no-interaction
 	@docker-compose exec -T php php bin/console cache:clear --env=dev --no-interaction
 	@docker-compose exec -T php php bin/console assets:install --no-interaction || true
+
+setup: ensure-up
+	@docker-compose exec -T php php bin/console nowo:api-studio:sync-schema
+	@docker-compose exec -T php php bin/console assets:install --no-interaction
+	@$(MAKE) reset-demo
+
+verify: release-check
 
 release-check: ensure-up update-bundle test test-coverage
 

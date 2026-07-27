@@ -170,7 +170,7 @@ make test
 make test-coverage
 ```
 
-- PHP: **100%**
+- PHP: **100%** of lines in the covered `src/` surface (`phpunit.xml.dist` excludes Controllers, Forms, Entities, and other DI/wiring justified as integration-heavy; see that file’s `<source><exclude>`)
 - TS/JS: **N/A** (assets are built with Vite; no Vitest suite yet)
 - Python: **N/A**
 

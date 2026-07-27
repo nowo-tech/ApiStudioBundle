@@ -6,7 +6,7 @@
             data-kebab-toggle
             aria-haspopup="menu"
             aria-expanded="false"
-            title="{{ 'actions.more_options'|trans({}, 'nowo_api_studio') }}">⋮</button>
+            title="{{ 'actions.more_options'|trans({}, 'NowoApiStudioBundle') }}">⋮</button>
     <div class="as-kebab-panel" role="menu" hidden>
         <button type="button"
                 class="as-kebab-item"
@@ -14,7 +14,7 @@
                 data-service-action="export"
                 data-service-name="{{ service.name|e('html_attr') }}"
                 data-export-openapi-url="{{ path('nowo_api_studio_io_export_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.export'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.export'|trans({}, 'NowoApiStudioBundle') }}
         </button>
         <button type="button"
                 class="as-kebab-item"
@@ -23,23 +23,23 @@
                 data-service-name="{{ service.name|e('html_attr') }}"
                 data-import-openapi-url="{{ path('nowo_api_studio_io_import_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}"
                 data-import-postman-url="{{ path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.import'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.import'|trans({}, 'NowoApiStudioBundle') }}
         </button>
         <span class="as-kebab-separator" role="separator"></span>
         <a role="menuitem"
            class="as-kebab-item"
            href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}">
-            {{ 'action.open_service'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.open_service'|trans({}, 'NowoApiStudioBundle') }}
         </a>
         <a role="menuitem"
            class="as-kebab-item"
            href="{{ path('nowo_api_studio_endpoint_index', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.view_endpoints'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.view_endpoints'|trans({}, 'NowoApiStudioBundle') }}
         </a>
         <a role="menuitem"
            class="as-kebab-item"
            href="{{ path('nowo_api_studio_service_edit', {workspaceId: workspace.id, id: service.id}) }}">
-            {{ 'action.edit'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}
         </a>
         <span class="as-kebab-separator" role="separator"></span>
         <button type="button"
@@ -50,7 +50,7 @@
                 data-delete-url="{{ path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}) }}"
                 data-delete-token="{{ csrf_token('delete' ~ service.id) }}"
                 data-delete-redirect="{{ delete_redirect|e('html_attr') }}">
-            {{ 'action.delete'|trans({}, 'nowo_api_studio') }}
+            {{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}
         </button>
     </div>
 </div>

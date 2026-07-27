@@ -81,7 +81,7 @@ validate: ensure-up
 validate-translations: ensure-up
 	@$(COMPOSE) exec -T $(SERVICE_PHP) php vendor/bin/yaml-lint src/Resources/translations
 
-release-check: check-no-cursor-coauthor check-open-prs ensure-up composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
+release-check: ensure-up check-no-cursor-coauthor check-open-prs composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
 
 release-check-demos:
 	@$(MAKE) -C demo release-verify
