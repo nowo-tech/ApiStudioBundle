@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-07-27
+
+### Added
+
+- `ui.layout_template` / `ui.css_framework` and Twig globals for host layout embedding (REQ-UI-001).
+- `security.allow_unauthenticated` (default `false`) with compile-time SecurityBundle guard (REQ-UI-002).
+- `make check-open-prs` in `release-check` (REQ-REL-003); `.scripts/check-open-prs.sh`.
+- Unit tests: `TwigPathsPassTest`, `RequestExecutorTimeoutTest` (REQ-TWIG-001 / REQ-RUNTIME-001).
+
+### Fixed
+
+- Asset package `base_path` aligned to `/bundles/apistudio` (matches `assets:install`; REQ-ASSETS-004).
+- Form `translation_domain` set to `NowoApiStudioBundle` (REQ-I18N-003).
+
+### Changed
+
+- Demo: `allow_unauthenticated: true`, documented `.env.example`, DNS comment, Makefile aliases; `make up` without image rebuild.
+- GitHub About: website + topics (REQ-DOCS-018).
+- Pages extend `nowo_api_studio_layout_template`; child `javascripts` blocks call `{{ parent() }}`.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.5]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.5
+
 ## [1.0.4] - 2026-07-27
 
 ### Added

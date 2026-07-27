@@ -1,4 +1,4 @@
-{% extends '@NowoApiStudioBundle/layout.html.twig' %}
+{% extends nowo_api_studio_layout_template %}
 {% set as_active_workspace = workspace.id %}
 {% set as_active_service = service.id %}
 {% set as_active_endpoint = endpoint.id %}
@@ -319,6 +319,7 @@
 {% endblock %}
 
 {% block javascripts %}
+    {{ parent() }}
     <script src="{{ asset('api-body-tools.js', 'nowo_api_studio') }}"></script>
     <script src="{{ asset('api-endpoint-doc.js', 'nowo_api_studio') }}"></script>
     <script src="{{ asset('api-script-runtime.js', 'nowo_api_studio') }}"></script>

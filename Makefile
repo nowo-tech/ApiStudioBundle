@@ -4,7 +4,7 @@ COMPOSE_FILE := docker-compose.yml
 COMPOSE     := docker-compose -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install assets test test-coverage cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor strip-cursor-coauthor-from-history setup-hooks
+.PHONY: help up down down-dev build shell install assets test test-coverage cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks
 
 help:
 	@echo "API Studio Bundle - Development Commands"
@@ -12,6 +12,7 @@ help:
 	@echo "  up down down-dev build shell install assets"
 	@echo "  test test-coverage cs-check cs-fix rector rector-dry phpstan qa"
 	@echo "  validate-translations release-check release-check-demos composer-sync"
+	@echo "  check-open-prs Fail if unresolved open GitHub PRs remain (REQ-REL-003)"
 	@echo "  down-dev      Stop root container (non-destructive; --remove-orphans)"
 	@echo ""
 	@echo "Demos: make -C demo up-symfony8"
@@ -80,7 +81,7 @@ validate: ensure-up
 validate-translations: ensure-up
 	@$(COMPOSE) exec -T $(SERVICE_PHP) php vendor/bin/yaml-lint src/Resources/translations
 
-release-check: check-no-cursor-coauthor ensure-up composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
+release-check: check-no-cursor-coauthor check-open-prs ensure-up composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
 
 release-check-demos:
 	@$(MAKE) -C demo release-verify
@@ -108,6 +109,10 @@ include $(BUNDLE_ROOT)/../.scripts/Makefile.update-deps.mk
 check-no-cursor-coauthor:
 	@chmod +x .scripts/check-no-cursor-coauthor.sh
 	@./.scripts/check-no-cursor-coauthor.sh HEAD
+
+check-open-prs:
+	@chmod +x .scripts/check-open-prs.sh
+	@bash .scripts/check-open-prs.sh
 
 strip-cursor-coauthor-from-history:
 	@chmod +x .scripts/strip-cursor-coauthor-from-history.sh

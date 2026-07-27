@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle;
 
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
+use Nowo\ApiStudioBundle\DependencyInjection\Compiler\ApiStudioSecurityPass;
 use Nowo\ApiStudioBundle\DependencyInjection\Compiler\TwigPathsPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
@@ -19,6 +20,7 @@ final class ApiStudioBundle extends Bundle
 
     public function build(ContainerBuilder $container): void
     {
+        $container->addCompilerPass(new ApiStudioSecurityPass());
         $container->addCompilerPass(new TwigPathsPass());
     }
 

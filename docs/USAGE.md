@@ -108,7 +108,9 @@ Example:
 
 Prefer extending or including the original `@NowoApiStudioBundle/...` templates so you keep assets and blocks stable.
 
-Protect the UI with Symfony `access_control` on the configured path (default `/api-studio`). See [CONFIGURATION.md](CONFIGURATION.md) (`security.access_roles`).
+Pages extend the configurable layout (`nowo_api_studio.ui.layout_template`, Twig global `nowo_api_studio_layout_template`). Child templates that override `javascripts` / `stylesheets` must call `{{ parent() }}` so host and bundle shell assets still load.
+
+Protect the UI with Symfony `access_control` on the configured path (default `/api-studio`). See [CONFIGURATION.md](CONFIGURATION.md) (`security.access_roles`, `security.allow_unauthenticated`).
 
 ## Translations (REQ-I18N)
 

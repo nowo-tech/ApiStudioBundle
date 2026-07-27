@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -30,7 +31,7 @@ final class ImportFileFormType extends AbstractType
         $builder
             ->add('file', FileType::class, [
                 'label'              => 'import.file',
-                'translation_domain' => 'nowo_api_studio',
+                'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
                 'constraints'        => [
                     new NotBlank(),
                     new File(maxSize: '8M', mimeTypes: $mimeTypes, extensions: $extensions),
@@ -40,7 +41,7 @@ final class ImportFileFormType extends AbstractType
         if ($options['show_mode']) {
             $builder->add('mode', ChoiceType::class, [
                 'label'              => 'import.mode',
-                'translation_domain' => 'nowo_api_studio',
+                'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
                 'choices'            => [
                     'import.mode.merge'   => 'merge',
                     'import.mode.replace' => 'replace',
@@ -52,7 +53,7 @@ final class ImportFileFormType extends AbstractType
         if ($options['show_postman_variables']) {
             $builder->add('importVariables', CheckboxType::class, [
                 'label'              => 'import.postman_variables',
-                'translation_domain' => 'nowo_api_studio',
+                'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
                 'required'           => false,
                 'data'               => true,
             ]);
@@ -60,7 +61,7 @@ final class ImportFileFormType extends AbstractType
 
         $builder->add('submit', SubmitType::class, [
             'label'              => 'import.submit',
-            'translation_domain' => 'nowo_api_studio',
+            'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
             'attr'               => ['class' => 'as-btn as-btn-primary'],
         ]);
     }

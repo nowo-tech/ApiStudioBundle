@@ -4,6 +4,10 @@ nowo_api_studio:
         path: '/api-studio'
         default_locale: en
         locales: [en, es]
+        layout_template: '@NowoApiStudioBundle/layout.html.twig'
+        css_framework: custom
+        # Demo-only: empty roles + allow_unauthenticated (never use in production).
         required_roles: []
     security:
         access_roles: []
+        allow_unauthenticated: true

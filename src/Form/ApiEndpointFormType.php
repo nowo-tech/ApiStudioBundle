@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
@@ -50,7 +51,7 @@ final class ApiEndpointFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'         => ApiEndpoint::class,
-            'translation_domain' => 'nowo_api_studio',
+            'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
     }
 }

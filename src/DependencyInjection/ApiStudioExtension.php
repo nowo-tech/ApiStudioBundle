@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
-use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
@@ -14,7 +13,6 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
-use Symfony\Component\DependencyInjection\Reference;
 
 use function is_string;
 
@@ -32,8 +30,8 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->prependExtensionConfig('framework', [
             'assets' => [
                 'packages' => [
-                    'nowo_api_studio' => [
-                        'base_path' => '/bundles/nowoapistudio',
+                    Configuration::ALIAS => [
+                        'base_path' => '/bundles/apistudio',
                     ],
                 ],
             ],
@@ -68,6 +66,8 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.connection', $config['connection']);
         $container->setParameter(Configuration::ALIAS . '.table_prefix', $config['table_prefix']);
         $container->setParameter(Configuration::ALIAS . '.ui.path', $config['ui']['path']);
+        $container->setParameter(Configuration::ALIAS . '.ui.layout_template', $config['ui']['layout_template']);
+        $container->setParameter(Configuration::ALIAS . '.ui.css_framework', $config['ui']['css_framework']);
         $container->setParameter(Configuration::ALIAS . '.ui.default_locale', $config['ui']['default_locale']);
         $container->setParameter(Configuration::ALIAS . '.ui.locales', $config['ui']['locales']);
         $container->setParameter(
@@ -78,6 +78,12 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.ui.required_roles', $config['ui']['required_roles']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', $config['execution_url_allowlist']);
         $container->setParameter(Configuration::ALIAS . '.security', $config['security']);
+        $container->setParameter(Configuration::ALIAS . '.security.access_roles', $config['security']['access_roles']);
+        $container->setParameter(Configuration::ALIAS . '.security.allow_unauthenticated', $config['security']['allow_unauthenticated']);
+        $container->setParameter(
+            Configuration::ALIAS . '.security.effective_access_roles',
+            $config['security']['access_roles'] !== [] ? $config['security']['access_roles'] : $config['ui']['required_roles'],
+        );
 
         $container->register(ExecutionUrlValidator::class)
             ->setArgument('$allowlist', $config['execution_url_allowlist']);
@@ -107,12 +113,5 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         }
 
         $container->setAlias(ApiStudioAccessCheckerInterface::class, $accessCheckerId);
-
-        if ($accessRoles !== [] && $container->has('security.authorization_checker')) {
-            $container->register(ApiStudioAccessSubscriber::class)
-                ->setArgument('$requiredRoles', $accessRoles)
-                ->setArgument('$authorizationChecker', new Reference('security.authorization_checker'))
-                ->addTag('kernel.event_subscriber');
-        }
     }
 }

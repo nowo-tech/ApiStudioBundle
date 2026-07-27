@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.5](#to-105)
 - [To 1.0.4](#to-104)
 - [To 1.0.3](#to-103)
 - [To 1.0.2](#to-102)
@@ -20,6 +21,26 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.5
+
+From **1.0.4** — mostly backward compatible; check the notes below if you customized assets or form translations.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console assets:install
+php bin/console cache:clear
+```
+
+No database schema changes.
+
+**Assets:** the named package `nowo_api_studio` now uses `base_path: /bundles/apistudio` (Symfony `assets:install` output). If you overrode `framework.assets.packages.nowo_api_studio.base_path` to `/bundles/nowoapistudio`, remove or update that override.
+
+**Forms / i18n:** form types use translation domain **`NowoApiStudioBundle`** (not `nowo_api_studio`). Move any app overrides from `translations/nowo_api_studio.*.yaml` to `translations/NowoApiStudioBundle.*.yaml`.
+
+**Security:** new key `security.allow_unauthenticated` (default `false`). Enabling the UI without SecurityBundle now fails container compilation unless this flag is `true` (dev/demo only). Prefer `security.access_roles` + host `access_control` on `ui.path` in production. See [CONFIGURATION.md](CONFIGURATION.md) and [SECURITY.md](SECURITY.md).
+
+**Optional UI:** `ui.layout_template` and `ui.css_framework` (`custom` default). Pages extend Twig global `nowo_api_studio_layout_template`. See [USAGE.md](USAGE.md).
 
 ## To 1.0.4
 

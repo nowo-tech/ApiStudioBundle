@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Minimal pre-commit hook (REQ-MAKE-006). Heavy checks run via make release-check.
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+if [[ -x "${root}/.scripts/check-no-cursor-coauthor.sh" ]]; then
+  "${root}/.scripts/check-no-cursor-coauthor.sh" HEAD
+fi

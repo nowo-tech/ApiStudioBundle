@@ -25,6 +25,7 @@ services:
       APP_SECRET: ${APP_SECRET:-demo-secret}
       # Override .env localhost URL — use internal Docker network host `database`.
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8
+    # Mitigate Docker/WSL DNS failures resolving repo.packagist.org (composer curl error 6).
     dns:
       - 8.8.8.8
       - 8.8.4.4

@@ -1,3 +1,8 @@
+/**
+ * Bootstrap the Api Studio request console (send, tabs, scripts, body tools).
+ *
+ * Uses `window.ApiStudioScriptRuntime` and `window.ApiStudioBodyTools` when present.
+ */
 import type { BodyValidationResult, EnvironmentMaps, ScriptContext, StringMap } from './types/global';
 import {
   escapeHtmlAttr,

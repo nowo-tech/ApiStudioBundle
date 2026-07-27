@@ -2,10 +2,21 @@ const STORAGE_KEY = 'nowo_api_studio_theme';
 
 type Theme = 'light' | 'dark';
 
+/**
+ * Read the current document theme from the root data attribute.
+ *
+ * @returns The active theme (`light` or `dark`).
+ */
 function getTheme(): Theme {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
+/**
+ * Persist and apply a theme to the document root and toggle button.
+ *
+ * @param theme Theme to apply.
+ * @returns void
+ */
 function setTheme(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem(STORAGE_KEY, theme);

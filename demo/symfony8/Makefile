@@ -5,10 +5,9 @@ help:
 
 up:
 	@if [ ! -f .env ]; then cp .env.example .env 2>/dev/null || true; fi
-	docker-compose build
 	docker-compose up -d
 	@echo "Waiting for database..."
-	@sleep 8
+	@sleep 5
 	@echo "Installing dependencies..."
 	@docker-compose exec -T -e COMPOSER_MEMORY_LIMIT=-1 php sh -c '\
 		if [ ! -f vendor/autoload.php ] || [ ! -d vendor/phpunit/phpunit/src ]; then \

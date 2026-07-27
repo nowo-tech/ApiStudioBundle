@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
@@ -38,7 +39,7 @@ final class ApiEnvironmentFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'         => ApiEnvironment::class,
-            'translation_domain' => 'nowo_api_studio',
+            'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
     }
 }
@@ -78,7 +79,7 @@ final class ApiEnvironmentVariableFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'         => ApiEnvironmentVariable::class,
-            'translation_domain' => 'nowo_api_studio',
+            'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
     }
 }

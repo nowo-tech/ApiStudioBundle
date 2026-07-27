@@ -16,9 +16,15 @@ use Twig\TwigFunction;
  */
 final class ApiStudioExtension extends AbstractExtension implements GlobalsInterface
 {
+    public const GLOBAL_LAYOUT_TEMPLATE = 'nowo_api_studio_layout_template';
+
+    public const GLOBAL_CSS_FRAMEWORK = 'nowo_api_studio_css_framework';
+
     public function __construct(
         private readonly LocaleManager $localeManager,
         private readonly StudioNavigationProvider $navigationProvider,
+        private readonly string $layoutTemplate,
+        private readonly string $cssFramework,
     ) {
     }
 
@@ -34,8 +40,10 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
     public function getGlobals(): array
     {
         return [
-            'nowo_api_studio_locales'  => $this->localeManager->getEnabledLocales(),
-            'nowo_api_studio_nav_tree' => $this->navigationProvider->buildTree(),
+            'nowo_api_studio_locales'    => $this->localeManager->getEnabledLocales(),
+            'nowo_api_studio_nav_tree'   => $this->navigationProvider->buildTree(),
+            self::GLOBAL_LAYOUT_TEMPLATE => $this->layoutTemplate,
+            self::GLOBAL_CSS_FRAMEWORK   => $this->cssFramework,
         ];
     }
 

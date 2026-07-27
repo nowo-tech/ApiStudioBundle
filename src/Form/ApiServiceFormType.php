@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
@@ -40,7 +41,7 @@ final class ApiServiceFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'         => ApiService::class,
-            'translation_domain' => 'nowo_api_studio',
+            'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
     }
 }

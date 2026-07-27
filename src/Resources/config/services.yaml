@@ -28,6 +28,11 @@ services:
         arguments:
             $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
 
+    Nowo\ApiStudioBundle\Twig\ApiStudioExtension:
+        arguments:
+            $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
+            $cssFramework: '%nowo_api_studio.ui.css_framework%'
+
     Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
         arguments:
             $tablePrefix: '%nowo_api_studio.table_prefix%'

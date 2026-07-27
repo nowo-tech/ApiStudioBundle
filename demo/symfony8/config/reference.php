@@ -1240,7 +1240,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     connection?: scalar|Param|null, // Default: "default"
  *     table_prefix?: scalar|Param|null, // Default: "api_studio_"
  *     ui?: array{
- *         path?: scalar|Param|null, // Default: "/api-studio"
+ *         path?: scalar|Param|null, // Dashboard path prefix (host should lock with security.access_control). // Default: "/api-studio"
+ *         layout_template?: scalar|Param|null, // Twig layout extended by all Api Studio pages (global nowo_api_studio_layout_template). Set to your app layout (or a one-file bridge) to embed the UI in host chrome. // Default: "@NowoApiStudioBundle/layout.html.twig"
+ *         css_framework?: "bootstrap5"|"tailwind"|"foundation"|"custom"|Param, // CSS stack hint: bootstrap5 | tailwind | foundation | custom. custom ships Tabler CDN + as-* classes (migrate toward nowo-ui-* when touching UI). Other values skip Tabler and expect host/nowo-ui styles. // Default: "custom"
  *         default_locale?: scalar|Param|null, // Default: "en"
  *         locales?: list<scalar|Param|null>,
  *         request_timeout_seconds?: int|Param, // Default: 30
@@ -1250,6 +1252,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     security?: array{
  *         access_checker?: scalar|Param|null, // Default: null
  *         access_roles?: list<scalar|Param|null>,
+ *         allow_unauthenticated?: bool|Param, // DEV/DEMO ONLY. When true, the UI may load without SecurityBundle / without login. Production MUST keep false. // Default: false
  *     },
  * }
  * @psalm-type NowoTwigInspectorConfig = array{

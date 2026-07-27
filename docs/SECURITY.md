@@ -43,11 +43,13 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 ## Application responsibilities
 
 - Configure Symfony Security (`security.yaml`) with firewall and `access_control` for the Api Studio path
-- Set `nowo_api_studio.ui.required_roles` appropriately (never leave empty in production unless intentionally public)
+- Keep `security.allow_unauthenticated: false` in production (demo-only footgun)
+- Set `nowo_api_studio.security.access_roles` appropriately (never leave empty in production unless intentionally public)
 - Configure `execution_url_allowlist` in production when targets are known
 - Run `composer audit` in the application
 - Do not commit `.env` or secrets; rotate env variables stored in Api Studio DB
 - Redact or disable request history for sensitive environments
+- Treat environment variables marked `secret` as sensitive; prefer encrypt-at-rest or an external secret store in the host app (the bundle stores values in the application database)
 
 ## Bundle responsibilities
 
