@@ -20,11 +20,16 @@ nowo_api_studio:
         access_roles: [ROLE_ADMIN]
         allow_unauthenticated: false
         # access_checker: App\Security\MyApiStudioAccessChecker
+    execution_url_allowlist_required: false
     execution_url_allowlist: []
     # Examples:
+    # execution_url_allowlist_required: true
     # execution_url_allowlist:
     #   - api.example.com
     #   - '#^https://staging\.example\.com/#'
+    secrets:
+        encrypt: true
+        # encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'
 ```
 
 | Option | Description |
@@ -43,7 +48,10 @@ nowo_api_studio:
 | `security.access_roles` | Preferred roles for Api Studio UI (user needs at least one). Empty disables bundle-level role checks. Default `ROLE_ADMIN`. |
 | `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`. |
 | `security.allow_unauthenticated` | **DEV/DEMO only.** When `true`, the UI may load without SecurityBundle / without login. Production **must** keep `false` (default). |
-| `execution_url_allowlist` | Optional allowlist for outbound URLs (substring or `#regex`). Empty = any public URL after SSRF checks. Prefer a non-empty allowlist in production. |
+| `execution_url_allowlist` | Optional allowlist for outbound URLs (substring or `#regex`). Empty = any public URL after SSRF checks unless `execution_url_allowlist_required` is true. |
+| `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
+| `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
+| `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. |
 
 ### Host `access_control` example
 

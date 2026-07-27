@@ -1,3 +1,9 @@
+/**
+ * Api Studio frontend module: api-script-runtime.
+ *
+ * @packageDocumentation
+ */
+
 import type {
   PmApi,
   PmCreateOptions,

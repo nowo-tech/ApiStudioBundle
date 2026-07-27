@@ -24,16 +24,16 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Outbound HTTP | REST/GraphQL via Symfony HttpClient; SOAP via `SoapClient` and WSDL URLs |
 | Database | Workspaces, services, endpoints, env variables (including `secret` flag), request history |
 | CLI | Schema sync, demo seed (operator-controlled) |
-| Configuration | `nowo_api_studio.ui.required_roles`, `execution_url_allowlist`, request timeout |
+| Configuration | `security.access_roles`, `execution_url_allowlist`, `secrets.encrypt`, request timeout |
 
 ## Threat model
 
 | Area | Risk | Mitigation |
 | --- | --- | --- |
-| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `ui.required_roles` (default `ROLE_ADMIN`); app `access_control` on `/api-studio` |
-| SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` blocks private/local IPs; optional `execution_url_allowlist` |
-| Secret storage | API keys/tokens in env variables persisted in DB | `secret` flag for UI masking; app should encrypt at rest or use external secret store |
-| Request history | Headers/bodies may contain tokens and PII | Retention policy in app; restrict dashboard roles |
+| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`); `allow_unauthenticated: false`; host `access_control` on `ui.path` |
+| SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` blocks private/local IPs; `execution_url_allowlist` + optional `execution_url_allowlist_required` |
+| Secret storage | API keys/tokens in env variables persisted in DB | Variables marked `secret` are encrypted at rest with sodium (`secrets.encrypt`, default `true`); UI masking; optional dedicated `secrets.encryption_key` |
+| Request history | Headers/bodies may contain tokens and PII | Retention policy in app; restrict dashboard roles (**residual**: history is not auto-redacted) |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
 | CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
@@ -45,19 +45,35 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - Configure Symfony Security (`security.yaml`) with firewall and `access_control` for the Api Studio path
 - Keep `security.allow_unauthenticated: false` in production (demo-only footgun)
 - Set `nowo_api_studio.security.access_roles` appropriately (never leave empty in production unless intentionally public)
-- Configure `execution_url_allowlist` in production when targets are known
+- In production set `execution_url_allowlist_required: true` and a non-empty `execution_url_allowlist`
+- Prefer a dedicated `secrets.encryption_key` (env) instead of relying solely on `kernel.secret` if you rotate app secrets often
 - Run `composer audit` in the application
 - Do not commit `.env` or secrets; rotate env variables stored in Api Studio DB
 - Redact or disable request history for sensitive environments
-- Treat environment variables marked `secret` as sensitive; prefer encrypt-at-rest or an external secret store in the host app (the bundle stores values in the application database)
 
 ## Bundle responsibilities
 
 - Block SSRF to private/local networks before outbound requests
-- Enforce role checks on Api Studio routes when `required_roles` is configured
+- Enforce role checks on Api Studio routes when access roles are configured
+- Encrypt `secret` environment variable values at rest when `secrets.encrypt` is true
 - CSRF protection on mutating controller actions
 - Validate `table_prefix` (alphanumeric + underscore only)
 - Document threat model and release checklist in this file
+
+## Residual risks (accepted for REQ-SEC-004 Medium / conditional Pass)
+
+- **Request history** may still store tokens present in executed requests/responses — host retention and role controls remain required.
+- **Empty allowlist** remains allowed when `execution_url_allowlist_required: false` (default for BC); production must enable the requirement.
+- Legacy plaintext secret rows decrypt as-is until the next save re-encrypts them.
+
+## AI security audit (REQ-SEC-004)
+
+| Field | Value |
+| --- | --- |
+| Date | 2026-07-27 |
+| Method | Maintainer remediation + static review (Cursor agent) |
+| Grade | **Pass (conditional)** — overall risk **Medium** |
+| Notes | Secrets-at-rest encryption + allowlist-required flag; residuals documented above |
 
 ## Release security checklist (12.4.1)
 
@@ -74,7 +90,7 @@ Before each release, confirm:
 | Output escaped (Twig templates) | ☑ |
 | `composer audit` run on bundle and demo | ☑ |
 | Logs/history do not dump credentials by default | ☑ |
-| Safe cryptography N/A (no custom crypto in bundle) | ☑ |
+| Secret variables encrypted at rest (`secrets.encrypt`) | ☑ |
 | Permissions/exposure documented for integrators | ☑ |
 | DoS limits: request timeout configured | ☑ |
 

@@ -48,6 +48,7 @@
             <file>src/Service/EnvironmentContextBuilder.php</file>
             <file>src/Service/DemoSeedService.php</file>
             <file>src/Doctrine/TablePrefixSubscriber.php</file>
+            <file>src/Doctrine/SecretVariableEncryptionListener.php</file>
             <file>src/Security/ApiStudioAccessCheckerInterface.php</file>
         </exclude>
     </source>

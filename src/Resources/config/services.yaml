@@ -36,3 +36,12 @@ services:
     Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
         arguments:
             $tablePrefix: '%nowo_api_studio.table_prefix%'
+
+    Nowo\ApiStudioBundle\Security\SecretValueCipher:
+        arguments:
+            $encryptionKeyMaterial: '%nowo_api_studio.secrets.encryption_key_material%'
+
+    Nowo\ApiStudioBundle\Doctrine\SecretVariableEncryptionListener:
+        arguments:
+            $cipher: '@Nowo\ApiStudioBundle\Security\SecretValueCipher'
+            $enabled: '%nowo_api_studio.secrets.encrypt%'

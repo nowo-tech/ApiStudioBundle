@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-07-27
+
+### Added
+
+- At-rest sodium encryption for environment variables marked `secret` (`secrets.encrypt`, default `true`).
+- `execution_url_allowlist_required` compile-time guard for production hardening.
+- REQ-SEC-004 Pass (conditional): Medium residual risk documented in `docs/SECURITY.md`.
+- Unit tests: `SecretValueCipherTest`, `ApiStudioSecurityPassTest` (allowlist-required).
+- English `@packageDocumentation` / JSDoc on remaining frontend TS entrypoints (REQ-ASSETS-002).
+
+### Changed
+
+- Flex recipe documents `secrets` and `execution_url_allowlist_required` (defaults remain BC-safe).
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.6]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.6
+
 ## [1.0.5] - 2026-07-27
 
 ### Added

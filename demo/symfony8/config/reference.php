@@ -1249,6 +1249,11 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         required_roles?: list<scalar|Param|null>,
  *     },
  *     execution_url_allowlist?: list<scalar|Param|null>,
+ *     execution_url_allowlist_required?: bool|Param, // When true, an empty execution_url_allowlist fails container compilation. Recommended true in production. // Default: false
+ *     secrets?: array{
+ *         encrypt?: bool|Param, // Encrypt environment variables marked secret at rest (sodium). Existing plaintext values remain readable and are re-encrypted on next save. // Default: true
+ *         encryption_key?: scalar|Param|null, // Optional key material for secret encryption. Defaults to kernel.secret when null. // Default: null
+ *     },
  *     security?: array{
  *         access_checker?: scalar|Param|null, // Default: null
  *         access_roles?: list<scalar|Param|null>,

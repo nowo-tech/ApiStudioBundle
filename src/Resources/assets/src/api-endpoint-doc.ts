@@ -1,3 +1,9 @@
+/**
+ * Api Studio frontend module: api-endpoint-doc.
+ *
+ * @packageDocumentation
+ */
+
 import type { DocumentationByLocale } from './types/global';
 
 function parseJson<T>(raw: string | undefined, fallback: T): T {

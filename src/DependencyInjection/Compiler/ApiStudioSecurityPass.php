@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Enforces SecurityBundle for Api Studio UI and registers the access subscriber (REQ-UI-002).
+ * Enforces SecurityBundle for Api Studio UI, allowlist policy, and access subscriber (REQ-UI-002 / REQ-SEC).
  */
 final class ApiStudioSecurityPass implements CompilerPassInterface
 {
@@ -23,6 +23,13 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
         }
         if (!$container->getParameter(Configuration::ALIAS . '.enabled')) {
             return;
+        }
+
+        /** @var list<string> $allowlist */
+        $allowlist         = $container->getParameter(Configuration::ALIAS . '.execution_url_allowlist');
+        $allowlistRequired = (bool) $container->getParameter(Configuration::ALIAS . '.execution_url_allowlist_required');
+        if ($allowlistRequired && $allowlist === []) {
+            throw new InvalidConfigurationException('nowo_api_studio.execution_url_allowlist_required is true but execution_url_allowlist is empty. Add host patterns (or set execution_url_allowlist_required: false for local demos only).');
         }
 
         $allowUnauthenticated = (bool) $container->getParameter(Configuration::ALIAS . '.security.allow_unauthenticated');

@@ -1,3 +1,9 @@
+/**
+ * Api Studio frontend module: api-body-tools.
+ *
+ * @packageDocumentation
+ */
+
 import type { BodyFormat, BodyValidationLabels, BodyValidationResult } from './types/global';
 
 const VAR_PATTERN = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;

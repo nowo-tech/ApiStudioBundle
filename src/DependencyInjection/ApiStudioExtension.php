@@ -77,6 +77,13 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.ui.request_timeout_seconds', $config['ui']['request_timeout_seconds']);
         $container->setParameter(Configuration::ALIAS . '.ui.required_roles', $config['ui']['required_roles']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', $config['execution_url_allowlist']);
+        $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist_required', $config['execution_url_allowlist_required']);
+        $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
+        $encryptionKey = $config['secrets']['encryption_key'];
+        $container->setParameter(
+            Configuration::ALIAS . '.secrets.encryption_key_material',
+            is_string($encryptionKey) && $encryptionKey !== '' ? $encryptionKey : '%kernel.secret%',
+        );
         $container->setParameter(Configuration::ALIAS . '.security', $config['security']);
         $container->setParameter(Configuration::ALIAS . '.security.access_roles', $config['security']['access_roles']);
         $container->setParameter(Configuration::ALIAS . '.security.allow_unauthenticated', $config['security']['allow_unauthenticated']);

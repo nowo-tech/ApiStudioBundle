@@ -4,5 +4,16 @@ nowo_api_studio:
         path: '/api-studio'
         default_locale: en
         locales: [en, es, fr, it]
+        layout_template: '@NowoApiStudioBundle/layout.html.twig'
+        css_framework: custom
     security:
         access_roles: [ROLE_ADMIN]
+        allow_unauthenticated: false
+    # Production: set execution_url_allowlist_required: true and list allowed hosts.
+    execution_url_allowlist_required: false
+    execution_url_allowlist: []
+    #    - api.example.com
+    #    - '#^https://staging\.example\.com/'
+    secrets:
+        encrypt: true
+        # encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'

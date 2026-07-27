@@ -1,3 +1,9 @@
+/**
+ * Api Studio frontend module: api-form-locale-tabs.
+ *
+ * @packageDocumentation
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
   const tabList = document.getElementById('endpoint-form-locale-tabs');
   if (!tabList) {

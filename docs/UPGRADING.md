@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.6](#to-106)
 - [To 1.0.5](#to-105)
 - [To 1.0.4](#to-104)
 - [To 1.0.3](#to-103)
@@ -21,6 +22,21 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.6
+
+From **1.0.5** — backward compatible; new security defaults encrypt secret env vars at rest.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+No database schema changes (ciphertext replaces plaintext in the existing `value` column on next save).
+
+**Secrets:** `secrets.encrypt` defaults to `true`. Values marked `secret` are encrypted with sodium (`nowo_as_enc_v1:` prefix). Legacy plaintext rows still load and are re-encrypted on the next persist/update. Set `secrets.encryption_key` (or `NOWO_API_STUDIO_SECRETS_KEY`) if you rotate `kernel.secret` often.
+
+**Allowlist:** `execution_url_allowlist_required` (default `false`) fails container compilation when the allowlist is empty. Set `true` in production with a non-empty `execution_url_allowlist`. See [SECURITY.md](SECURITY.md) and [CONFIGURATION.md](CONFIGURATION.md).
 
 ## To 1.0.5
 

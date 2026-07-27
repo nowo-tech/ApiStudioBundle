@@ -1,3 +1,9 @@
+/**
+ * Shared TypeScript types for Api Studio frontend modules.
+ *
+ * @packageDocumentation
+ */
+
 export type StringMap = Record<string, string>;
 
 export type BodyFormat = 'json' | 'xml';

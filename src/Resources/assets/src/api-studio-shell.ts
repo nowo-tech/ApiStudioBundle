@@ -1,3 +1,9 @@
+/**
+ * Api Studio shell UI: theme toggle, sidebar, and layout chrome helpers.
+ *
+ * @packageDocumentation
+ */
+
 const STORAGE_KEY = 'nowo_api_studio_theme';
 
 type Theme = 'light' | 'dark';
