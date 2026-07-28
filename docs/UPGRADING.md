@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.9](#to-109)
 - [To 1.0.8](#to-108)
 - [To 1.0.7](#to-107)
 - [To 1.0.6](#to-106)
@@ -24,6 +25,16 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.9
+
+From **1.0.8** — backward compatible maintainer/CI fix only.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+No application changes. Root/demo Makefiles skip monorepo `update-deps` includes when those shared scripts are absent (standalone GitHub checkout).
 
 ## To 1.0.8
 

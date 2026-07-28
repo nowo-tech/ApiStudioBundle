@@ -56,4 +56,7 @@ release-check:
 release-verify: release-check
 
 BUNDLE_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
-include $(BUNDLE_ROOT)/../.scripts/Makefile.demo-aggregate-update-deps.mk
+DEMO_AGG_UPDATE_MK := $(BUNDLE_ROOT)/../.scripts/Makefile.demo-aggregate-update-deps.mk
+ifneq (,$(wildcard $(DEMO_AGG_UPDATE_MK)))
+include $(DEMO_AGG_UPDATE_MK)
+endif

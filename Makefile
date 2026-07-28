@@ -114,9 +114,12 @@ setup-hooks:
 	@git config core.hooksPath .githooks
 	@echo "✅ Git hooks installed (.githooks — includes commit-msg for REQ-GIT-001)."
 
-# REQ-MAKE-008: update-deps (REQ-MAKE-008)
+# REQ-MAKE-008: update-deps (optional when cloned outside the bundles monorepo)
 BUNDLE_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-include $(BUNDLE_ROOT)/../.scripts/Makefile.update-deps.mk
+UPDATE_DEPS_MK := $(BUNDLE_ROOT)/../.scripts/Makefile.update-deps.mk
+ifneq (,$(wildcard $(UPDATE_DEPS_MK)))
+include $(UPDATE_DEPS_MK)
+endif
 check-no-cursor-coauthor:
 	@chmod +x .scripts/check-no-cursor-coauthor.sh
 	@./.scripts/check-no-cursor-coauthor.sh HEAD

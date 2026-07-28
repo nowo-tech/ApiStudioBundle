@@ -82,6 +82,9 @@ verify: release-check
 
 release-check: ensure-up update-bundle test test-coverage
 
-# REQ-MAKE-008: update-deps (REQ-MAKE-008)
+# REQ-MAKE-008: update-deps (optional outside monorepo)
 SERVICE_PHP := php
-include $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../../../.scripts/Makefile.demo-update-deps.mk)
+DEMO_UPDATE_DEPS_MK := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../../../.scripts/Makefile.demo-update-deps.mk)
+ifneq (,$(wildcard $(DEMO_UPDATE_DEPS_MK)))
+include $(DEMO_UPDATE_DEPS_MK)
+endif
