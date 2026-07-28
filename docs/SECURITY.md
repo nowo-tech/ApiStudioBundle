@@ -33,7 +33,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`); `allow_unauthenticated: false`; host `access_control` on `ui.path` |
 | SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` blocks private/local IPs; `execution_url_allowlist` + optional `execution_url_allowlist_required` |
 | Secret storage | API keys/tokens in env variables persisted in DB | Variables marked `secret` are encrypted at rest with sodium (`secrets.encrypt`, default `true`); UI masking; optional dedicated `secrets.encryption_key` |
-| Request history | Headers/bodies may contain tokens and PII | Retention policy in app; restrict dashboard roles (**residual**: history is not auto-redacted) |
+| Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist; retain role controls + retention policy |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
 | CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
@@ -62,7 +62,8 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 ## Residual risks (accepted for REQ-SEC-004 Medium / conditional Pass)
 
-- **Request history** may still store tokens present in executed requests/responses — host retention and role controls remain required.
+- **Request history** is sanitized on write (`HistorySanitizer`: sensitive headers → `[REDACTED]`; password/token/Bearer patterns in bodies). Residual: unusual header names or opaque binary bodies may still need host retention policy.
+- **Outbound HTTP** (`RequestExecutor`) logs start/finish/failure with method + host only (no Authorization / body dumps) via `LoggerInterface` (REQ-OBS-001).
 - **Empty allowlist** remains allowed when `execution_url_allowlist_required: false` (default for BC); production must enable the requirement.
 - Legacy plaintext secret rows decrypt as-is until the next save re-encrypts them.
 

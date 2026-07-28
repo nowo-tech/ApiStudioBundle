@@ -95,10 +95,14 @@ jobs:
           composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
 
       - name: Run tests
+        env:
+          SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
         run: composer test
 
       - name: Run tests with coverage (PHP 8.2 + Symfony 7.0 only)
         if: matrix.php == '8.2' && matrix.symfony == '7.0'
+        env:
+          SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
         run: composer test-coverage
 
   cs-check:

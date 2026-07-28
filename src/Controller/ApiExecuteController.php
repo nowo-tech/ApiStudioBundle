@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +33,7 @@ final class ApiExecuteController extends AbstractController
         private readonly ApiEndpointRepository $endpointRepository,
         private readonly ApiEnvironmentRepository $environmentRepository,
         private readonly RequestExecutor $requestExecutor,
+        private readonly HistorySanitizer $historySanitizer,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -123,11 +125,11 @@ final class ApiExecuteController extends AbstractController
         $history->setEnvironment($environment);
         $history->setRequestUrl($result->requestUrl);
         $history->setRequestMethod($result->requestMethod);
-        $history->setRequestHeaders($result->requestHeaders);
-        $history->setRequestBody($result->requestBody);
+        $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders));
+        $history->setRequestBody($this->historySanitizer->sanitizeBody($result->requestBody));
         $history->setResponseStatus($result->responseStatus);
-        $history->setResponseHeaders($result->responseHeaders);
-        $history->setResponseBody($result->responseBody);
+        $history->setResponseHeaders($this->historySanitizer->sanitizeHeaders($result->responseHeaders));
+        $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody));
         $history->setDurationMs($result->durationMs);
         $history->setSuccess($result->success);
         $history->setErrorMessage($result->errorMessage);

@@ -1,6 +1,6 @@
 # Usage
 
-## Contents
+## Table of contents
 
 - [Workspaces](#workspaces)
 - [Documenting endpoints](#documenting-endpoints)
@@ -45,6 +45,8 @@ Configure credentials in **Environments** before calling real APIs.
 ## Testing requests
 
 Open an endpoint detail page, pick an environment, edit the body if needed, and click **Send request**. Results and timing are shown inline; executions are stored in history.
+
+Before persistence, `HistorySanitizer` redacts sensitive headers (`Authorization`, API keys, cookies, …) and common secret patterns in bodies. See [SECURITY.md](SECURITY.md).
 
 Outbound calls use `nowo_api_studio.ui.request_timeout_seconds` (default **30**). See [CONFIGURATION.md](CONFIGURATION.md) and [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md).
 

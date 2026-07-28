@@ -5,7 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Table of contents
+
+- [[Unreleased]](#unreleased)
+- [[1.0.8] - 2026-07-28](#108-2026-07-28)
+- [[1.0.7] - 2026-07-27](#107-2026-07-27)
+- [[1.0.6] - 2026-07-27](#106-2026-07-27)
+- [[1.0.5] - 2026-07-27](#105-2026-07-27)
+- [[1.0.4] - 2026-07-27](#104-2026-07-27)
+- [[1.0.3] - 2026-07-23](#103-2026-07-23)
+- [[1.0.2] - 2026-07-22](#102-2026-07-22)
+- [[1.0.1] - 2026-07-16](#101-2026-07-16)
+- [[1.0.0] - 2026-07-16](#100-2026-07-16)
+
 ## [Unreleased]
+
+## [1.0.8] - 2026-07-28
+
+### Added
+
+- **`HistorySanitizer`**: redacts sensitive headers/bodies before request history persist (REQ-OBS-001).
+- **`make demo-smoke`** + `.github/workflows/demo-smoke.yml` (REQ-TEST-011).
+- `RequestExecutor` structured logging (start/finish/failure, host only) via `LoggerInterface` (REQ-OBS-001).
+
+### Changed
+
+- `SYMFONY_DEPRECATIONS_HELPER=max[direct]=0` in `phpunit.xml.dist` and CI (REQ-SF-005).
+- Long docs: Table of contents (REQ-DOCS-005).
+- `check-open-prs` resolves `owner/repo` from `origin` via `-R` when `gh` cannot map the SSH remote.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.8]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.8
 
 ## [1.0.7] - 2026-07-27
 

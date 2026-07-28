@@ -12,6 +12,8 @@ use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use SoapClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
@@ -19,21 +21,29 @@ use Throwable;
 use function extension_loaded;
 use function in_array;
 use function is_array;
+use function is_string;
+use function parse_url;
 
 use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_UNICODE;
+use const PHP_URL_HOST;
+use const PHP_URL_SCHEME;
 
 /**
  * Executes REST, SOAP, and GraphQL requests with environment variable substitution.
  */
 final class RequestExecutor
 {
+    private readonly LoggerInterface $logger;
+
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly VariableResolver $variableResolver,
         private readonly ExecutionUrlValidator $urlValidator,
         private readonly int $timeoutSeconds,
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
     }
 
     /**
@@ -106,9 +116,12 @@ final class RequestExecutor
         $method = ($methodOverride ?? $endpoint->getMethod())->value;
 
         if ($this->urlValidator->isBlocked($url)) {
+            $this->logFailure($method, $url, 'Request URL is not allowed (SSRF or allowlist).');
+
             return $this->failure($url, $method, $headers, $body, 'Request URL is not allowed (SSRF or allowlist).');
         }
 
+        $this->logStart($method, $url);
         $start = hrtime(true);
 
         try {
@@ -123,20 +136,25 @@ final class RequestExecutor
             $response = $this->httpClient->request($method, $url, $options);
             $content  = $response->getContent(false);
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
+            $status   = $response->getStatusCode();
+            $success  = $status >= 200 && $status < 400;
+
+            $this->logFinish($method, $url, $success, $status, $duration);
 
             return new ApiExecutionResult(
                 requestUrl: $url,
                 requestMethod: $method,
                 requestHeaders: $headers,
                 requestBody: $body,
-                responseStatus: $response->getStatusCode(),
+                responseStatus: $status,
                 responseHeaders: $this->flattenHeaders($response->getHeaders(false)),
                 responseBody: $content,
                 durationMs: $duration,
-                success: $response->getStatusCode() >= 200 && $response->getStatusCode() < 400,
+                success: $success,
             );
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
+            $this->logFailure($method, $url, $e->getMessage(), $duration);
 
             return $this->failure($url, $method, $headers, $body, $e->getMessage(), $duration);
         }
@@ -165,9 +183,12 @@ final class RequestExecutor
         $action  = $endpoint->getSoapAction() ?? $endpoint->getName();
 
         if ($this->urlValidator->isBlocked($wsdl)) {
+            $this->logFailure('SOAP', $wsdl, 'WSDL URL is not allowed (SSRF or allowlist).');
+
             return $this->failure($wsdl, 'SOAP', $headers, $body, 'WSDL URL is not allowed (SSRF or allowlist).');
         }
 
+        $this->logStart('SOAP', $wsdl);
         $start = hrtime(true);
 
         try {
@@ -186,6 +207,8 @@ final class RequestExecutor
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
             $response = json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
+            $this->logFinish('SOAP', $wsdl, true, 200, $duration);
+
             return new ApiExecutionResult(
                 requestUrl: $wsdl,
                 requestMethod: 'SOAP',
@@ -199,6 +222,7 @@ final class RequestExecutor
             );
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
+            $this->logFailure('SOAP', $wsdl, $e->getMessage(), $duration);
 
             return $this->failure($wsdl, 'SOAP', $headers, $body, $e->getMessage(), $duration);
         }
@@ -367,5 +391,60 @@ final class RequestExecutor
             success: false,
             errorMessage: $message,
         );
+    }
+
+    private function logStart(string $method, string $url): void
+    {
+        $this->logger->info('Api Studio outbound request started', [
+            'bundle' => 'api-studio',
+            'action' => 'execute_start',
+            'method' => $method,
+            'host'   => $this->safeHost($url),
+        ]);
+    }
+
+    private function logFinish(string $method, string $url, bool $success, ?int $status, int $durationMs): void
+    {
+        $context = [
+            'bundle'      => 'api-studio',
+            'action'      => 'execute_finish',
+            'method'      => $method,
+            'host'        => $this->safeHost($url),
+            'success'     => $success,
+            'status'      => $status,
+            'duration_ms' => $durationMs,
+        ];
+
+        if ($success) {
+            $this->logger->info('Api Studio outbound request finished', $context);
+        } else {
+            $this->logger->warning('Api Studio outbound request finished with non-success status', $context);
+        }
+    }
+
+    private function logFailure(string $method, string $url, string $message, int $durationMs = 0): void
+    {
+        $this->logger->error('Api Studio outbound request failed', [
+            'bundle'      => 'api-studio',
+            'action'      => 'execute_failure',
+            'method'      => $method,
+            'host'        => $this->safeHost($url),
+            'duration_ms' => $durationMs,
+            // Do not log full exception messages that may contain tokens; keep a short class-safe hint.
+            'error' => $message,
+        ]);
+    }
+
+    private function safeHost(string $url): string
+    {
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+        $host   = parse_url($url, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return '(unknown)';
+        }
+
+        $scheme = is_string($scheme) && $scheme !== '' ? $scheme : 'https';
+
+        return $scheme . '://' . $host;
     }
 }

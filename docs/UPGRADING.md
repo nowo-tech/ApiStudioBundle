@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.8](#to-108)
 - [To 1.0.7](#to-107)
 - [To 1.0.6](#to-106)
 - [To 1.0.5](#to-105)
@@ -23,6 +24,23 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.8
+
+From **1.0.7** — backward compatible; observability and history hygiene.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+No configuration or schema changes.
+
+**History:** new executions persist redacted headers/bodies via `HistorySanitizer` (Authorization, API-key headers, common password/token patterns). Existing history rows are unchanged. See [SECURITY.md](SECURITY.md) and [USAGE.md](USAGE.md).
+
+**Logging:** `RequestExecutor` logs start/finish/failure with method + host only (no bodies or Authorization). Wire a monolog channel if you want these messages in the app log.
+
+**CI / tests:** PHPUnit and CI set `SYMFONY_DEPRECATIONS_HELPER=max[direct]=0` (REQ-SF-005). Maintainer smoke: `make demo-smoke`.
 
 ## To 1.0.7
 

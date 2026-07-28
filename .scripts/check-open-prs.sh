@@ -22,7 +22,32 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-PRS_JSON="$(gh pr list --state open --limit 100 --json number,title,labels,body,url)"
+# Resolve owner/name when `gh` cannot map the git remote to a known host (SSH/WSL).
+resolve_repo() {
+  if [ -n "${GH_REPO:-}" ]; then
+    printf '%s\n' "${GH_REPO}"
+    return 0
+  fi
+  local url
+  url="$(git remote get-url origin 2>/dev/null || true)"
+  if [ -z "${url}" ]; then
+    return 1
+  fi
+  # git@github.com:owner/repo.git | https://github.com/owner/repo.git | ssh://git@github.com/owner/repo.git
+  printf '%s\n' "${url}" | sed -E \
+    -e 's#^git@[^:]+:##' \
+    -e 's#^ssh://git@[^/]+/##' \
+    -e 's#^https?://[^/]+/##' \
+    -e 's#\.git$##'
+}
+
+REPO="$(resolve_repo || true)"
+if [ -z "${REPO}" ]; then
+  echo "ERROR: could not resolve GitHub repo (set GH_REPO=owner/name) (REQ-REL-003)." >&2
+  exit 1
+fi
+
+PRS_JSON="$(gh pr list -R "${REPO}" --state open --limit 100 --json number,title,labels,body,url)"
 
 export PRS_JSON
 python3 <<'PY'

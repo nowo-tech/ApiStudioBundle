@@ -2,6 +2,17 @@
 
 This document describes how the bundle's demo applications run under **FrankenPHP** in Docker, and how to reproduce **development** (no cache, changes visible on refresh) and **production** (worker mode, cache enabled) configurations.
 
+## Table of contents
+
+- [Contents](#contents)
+- [Overview](#overview)
+- [Timeouts (REQ-RUNTIME-001)](#timeouts-req-runtime-001)
+- [What the demos include](#what-the-demos-include)
+- [Development configuration](#development-configuration)
+- [Production configuration](#production-configuration)
+- [Switching between development and production](#switching-between-development-and-production)
+- [Troubleshooting](#troubleshooting)
+
 ## Contents
 
 - [Overview](#overview)

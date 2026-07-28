@@ -4,18 +4,18 @@ COMPOSE_FILE := docker-compose.yml
 COMPOSE     := docker-compose -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install assets test test-coverage cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks
+.PHONY: help up down down-dev build shell install assets test test-coverage cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks demo-smoke
 
 help:
 	@echo "API Studio Bundle - Development Commands"
 	@echo ""
 	@echo "  up down down-dev build shell install assets"
-	@echo "  test test-coverage cs-check cs-fix rector rector-dry phpstan qa"
+	@echo "  test test-coverage demo-smoke cs-check cs-fix rector rector-dry phpstan qa"
 	@echo "  validate-translations release-check release-check-demos composer-sync"
 	@echo "  check-open-prs Fail if unresolved open GitHub PRs remain (REQ-REL-003)"
 	@echo "  down-dev      Stop root container (non-destructive; --remove-orphans)"
 	@echo ""
-	@echo "Demos: make -C demo up-symfony8"
+	@echo "Demos: make demo-smoke | make -C demo up-symfony8"
 
 build:
 	$(COMPOSE) build --no-cache
@@ -82,6 +82,17 @@ validate-translations: ensure-up
 	@$(COMPOSE) exec -T $(SERVICE_PHP) php vendor/bin/yaml-lint src/Resources/translations
 
 release-check: ensure-up check-no-cursor-coauthor check-open-prs composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
+
+# REQ-TEST-011 — boot demo stack and assert one HTTP 200
+demo-smoke:
+	@$(MAKE) -C demo/symfony8 up
+	@PORT=$$(grep "^PORT=" demo/symfony8/.env 2>/dev/null | cut -d= -f2 | tr -d '\r'); \
+	[ -z "$$PORT" ] && PORT=$$(grep "^PORT=" demo/symfony8/.env.example 2>/dev/null | cut -d= -f2 | tr -d '\r'); \
+	[ -z "$$PORT" ] && PORT=8023; \
+	echo "Smoke GET http://localhost:$$PORT/"; \
+	code=$$(curl -fsS -o /dev/null -w "%{http_code}" "http://localhost:$$PORT/" || true); \
+	if [ "$$code" != "200" ]; then echo "demo-smoke failed: HTTP $$code"; exit 1; fi; \
+	echo "demo-smoke OK (HTTP 200)"
 
 release-check-demos:
 	@$(MAKE) -C demo release-verify
