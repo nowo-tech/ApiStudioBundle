@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.10] - 2026-07-28](#1010-2026-07-28)
 - [[1.0.9] - 2026-07-28](#109-2026-07-28)
 - [[1.0.8] - 2026-07-28](#108-2026-07-28)
 - [[1.0.7] - 2026-07-27](#107-2026-07-27)
@@ -20,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.10] - 2026-07-28
+
+### Fixed
+
+- Demo Makefile / `demo-smoke` CI: use Compose V2 (`docker compose`) when `docker-compose` is absent.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.10]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.10
 
 ## [1.0.9] - 2026-07-28
 

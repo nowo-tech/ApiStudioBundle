@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.10](#to-1010)
 - [To 1.0.9](#to-109)
 - [To 1.0.8](#to-108)
 - [To 1.0.7](#to-107)
@@ -25,6 +26,16 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.10
+
+From **1.0.9** — CI/demo tooling only.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+No application changes. Demo Makefile prefers `docker compose` when the legacy `docker-compose` binary is missing.
 
 ## To 1.0.9
 

@@ -20,7 +20,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Docker Compose
-        run: docker compose version
+        run: |
+          docker compose version
+          if ! command -v docker-compose >/dev/null 2>&1; then
+            printf '%s\n' '#!/bin/sh' 'exec docker compose "$@"' | sudo tee /usr/local/bin/docker-compose >/dev/null
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          docker-compose version
 
       - name: Run demo smoke (REQ-TEST-011)
         run: make demo-smoke
