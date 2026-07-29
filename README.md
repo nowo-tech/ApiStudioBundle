@@ -23,53 +23,6 @@ This bundle is **FrankenPHP worker mode friendly**.
 - **Import / Export** — OpenAPI 3 & Swagger 2, Postman collections, environment variables (JSON/YAML/.env)
 - **Browser scripts** — pre/post-request JavaScript in the console (`pm.environment.set`, `pm.response.json`, tests)
 
-## Browser scripts (pre/post-request)
-
-Scripts run **in the browser** before and after each test request — ideal for chaining auth flows and updating environment variables without server-side code execution.
-
-```javascript
-// Pre-request — set timestamp or override token before send
-pm.environment.set('timestamp', Date.now().toString());
-
-// Post-request — extract token from response for next call
-const data = pm.response.json();
-if (data && data.data && data.data.token) {
-  pm.environment.set('access_token', data.data.token);
-}
-pm.test('Status is 200', function () {
-  pm.expect(pm.response.code).to.equal(200);
-});
-```
-
-- **Tabs**: Pre-request / Post-request in the endpoint console (editable per session; save via endpoint edit form to persist)
-- **Service scripts**: optional pre/post at service level (always run first/last)
-- **Runtime variables**: stored in `sessionStorage` for the tab session; preview URL updates immediately
-- **Persist**: checkbox **Persist variable changes** saves script-modified keys to the selected environment in the database
-
-API available: `pm.environment.get/set`, `pm.variables`, `pm.request.body`, `pm.response.json()`, `pm.test()`, `pm.console.log()`.
-
-## Import & Export
-
-From any workspace (`/api-studio/workspaces/{id}` → **Import / Export**):
-
-| Action | Formats |
-|--------|---------|
-| Import API spec | OpenAPI 3.x, Swagger 2.0 (`.json`, `.yaml`) |
-| Import Postman | Collection v2.x (`.json`), optional collection variables |
-| Import variables | JSON, YAML, `.env` (merge or replace) |
-| Export OpenAPI | Workspace or single service → JSON |
-| Export variables | Per environment or whole workspace → JSON, YAML, `.env` |
-
-Service-level import adds endpoints to an existing service. Workspace-level import creates a new REST service.
-
-## Requirements
-
-- PHP >= 8.2 < 8.6
-- Symfony 7.0+ or 8.x
-- Doctrine ORM
-- `ext-json`
-- `ext-soap` (optional, for SOAP execution)
-
 ## Installation
 
 ```bash
@@ -120,6 +73,53 @@ php bin/console assets:install
 ```
 
 Open `/api-studio` in your browser.
+
+## Requirements
+
+- PHP >= 8.2 < 8.6
+- Symfony 7.0+ or 8.x
+- Doctrine ORM
+- `ext-json`
+- `ext-soap` (optional, for SOAP execution)
+
+## Browser scripts (pre/post-request)
+
+Scripts run **in the browser** before and after each test request — ideal for chaining auth flows and updating environment variables without server-side code execution.
+
+```javascript
+// Pre-request — set timestamp or override token before send
+pm.environment.set('timestamp', Date.now().toString());
+
+// Post-request — extract token from response for next call
+const data = pm.response.json();
+if (data && data.data && data.data.token) {
+  pm.environment.set('access_token', data.data.token);
+}
+pm.test('Status is 200', function () {
+  pm.expect(pm.response.code).to.equal(200);
+});
+```
+
+- **Tabs**: Pre-request / Post-request in the endpoint console (editable per session; save via endpoint edit form to persist)
+- **Service scripts**: optional pre/post at service level (always run first/last)
+- **Runtime variables**: stored in `sessionStorage` for the tab session; preview URL updates immediately
+- **Persist**: checkbox **Persist variable changes** saves script-modified keys to the selected environment in the database
+
+API available: `pm.environment.get/set`, `pm.variables`, `pm.request.body`, `pm.response.json()`, `pm.test()`, `pm.console.log()`.
+
+## Import & Export
+
+From any workspace (`/api-studio/workspaces/{id}` → **Import / Export**):
+
+| Action | Formats |
+|--------|---------|
+| Import API spec | OpenAPI 3.x, Swagger 2.0 (`.json`, `.yaml`) |
+| Import Postman | Collection v2.x (`.json`), optional collection variables |
+| Import variables | JSON, YAML, `.env` (merge or replace) |
+| Export OpenAPI | Workspace or single service → JSON |
+| Export variables | Per environment or whole workspace → JSON, YAML, `.env` |
+
+Service-level import adds endpoints to an existing service. Workspace-level import creates a new REST service.
 
 ## Frontend assets (TypeScript)
 
@@ -175,10 +175,6 @@ make test-coverage
 - Python: **N/A**
 
 PHP coverage is reported in CI and via `make test-coverage` (see README badge and release-check).
-
-## Found this useful?
-
-If this bundle helps your project, consider starring the repository or opening an issue with feedback.
 
 ## License
 
