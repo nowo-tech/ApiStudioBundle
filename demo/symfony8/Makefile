@@ -3,7 +3,7 @@ DOCKER_BIN := $(shell command -v docker 2>/dev/null)
 ifeq ($(DOCKER_BIN),)
 COMPOSE ?= docker-compose
 else
-COMPOSE ?= $(DOCKER_BIN) compose
+COMPOSE ?= $(shell $(DOCKER_BIN) compose version >/dev/null 2>&1 && echo "$(DOCKER_BIN) compose" || echo "docker-compose")
 endif
 
 .PHONY: help up down build install shell logs test test-coverage cache-clear reset-demo link-bundle update-bundle ensure-up restart release-check setup verify

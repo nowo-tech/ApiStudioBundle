@@ -1,12 +1,12 @@
 # Makefile for API Studio Bundle
 
 COMPOSE_FILE := docker-compose.yml
-# Prefer Compose V2; use absolute docker path so a local ./docker/ dir cannot shadow the CLI (PATH has ".").
+# Prefer Compose V2 with absolute docker path (avoid ./docker/ shadowing when PATH has ".") (REQ-MAKE-010).
 DOCKER_BIN := $(shell command -v docker 2>/dev/null)
 ifeq ($(DOCKER_BIN),)
 COMPOSE_BIN := docker-compose
 else
-COMPOSE_BIN := $(DOCKER_BIN) compose
+COMPOSE_BIN := $(shell $(DOCKER_BIN) compose version >/dev/null 2>&1 && echo "$(DOCKER_BIN) compose" || echo "docker-compose")
 endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
