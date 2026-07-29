@@ -1,8 +1,9 @@
-# Prefer docker-compose v1 binary; fall back to Compose V2 plugin (GitHub Actions).
-ifeq ($(shell command -v docker-compose 2>/dev/null),)
-COMPOSE := docker compose
+# Prefer Compose V2; absolute docker path avoids shadowing by demo/symfony8/docker/ when PATH has "." (REQ-MAKE-010).
+DOCKER_BIN := $(shell command -v docker 2>/dev/null)
+ifeq ($(DOCKER_BIN),)
+COMPOSE ?= docker-compose
 else
-COMPOSE := docker-compose
+COMPOSE ?= $(DOCKER_BIN) compose
 endif
 
 .PHONY: help up down build install shell logs test test-coverage cache-clear reset-demo link-bundle update-bundle ensure-up restart release-check setup verify
