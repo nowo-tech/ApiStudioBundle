@@ -75,7 +75,8 @@ Symfony resolves application overrides **before** bundle defaults. Copy only the
 
 | Subpath | Purpose |
 | --- | --- |
-| `layout.html.twig` | Main dashboard shell (nav, assets) |
+| `base.html.twig` | Page shell: extends `nowo_api_studio_layout_template` and stacks Api Studio CSS/JS with `{{ parent() }}` |
+| `layout.html.twig` | Default full HTML chrome (rail, sidebar, topbar) when `ui.layout_template` points here |
 | `dashboard/index.html.twig` | Landing dashboard |
 | `workspace/index.html.twig` | Workspace list |
 | `workspace/show.html.twig` | Workspace detail |
@@ -110,7 +111,7 @@ Example:
 
 Prefer extending or including the original `@NowoApiStudioBundle/...` templates so you keep assets and blocks stable.
 
-Pages extend the configurable layout (`nowo_api_studio.ui.layout_template`, Twig global `nowo_api_studio_layout_template`). Child templates that override `javascripts` / `stylesheets` must call `{{ parent() }}` so host and bundle shell assets still load.
+**Layout chain (REQ-UI-001):** pages extend `@NowoApiStudioBundle/base.html.twig`, which extends the configurable layout (`nowo_api_studio.ui.layout_template` / Twig global `nowo_api_studio_layout_template`) and injects theme CSS/JS via `{{ parent() }}`. Child templates that override `javascripts` / `stylesheets` must call `{{ parent() }}` so host and Api Studio assets still load.
 
 Protect the UI with Symfony `access_control` on the configured path (default `/api-studio`). See [CONFIGURATION.md](CONFIGURATION.md) (`security.access_roles`, `security.allow_unauthenticated`).
 

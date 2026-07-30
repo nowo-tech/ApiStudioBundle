@@ -4,26 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ 'page.dashboard'|trans({}, 'NowoApiStudioBundle') }}{% endblock %} · {{ 'title_suffix'|trans({}, 'NowoApiStudioBundle') }}</title>
-    {% if nowo_api_studio_css_framework == 'custom' %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    {% endif %}
+    {# Demo root layout: no parent() (full HTML). Package assets stack in base.html.twig. #}
     {% block stylesheets %}
-    <link rel="stylesheet" href="{{ asset('api-studio-theme.css', 'nowo_api_studio') }}">
-    <style>
-        body.api-studio-app { background: #f6f8fb; }
-    </style>
-    <script>
-        (function () {
-            var t = localStorage.getItem('nowo_api_studio_theme');
-            if (t === 'light' || t === 'dark') {
-                document.documentElement.setAttribute('data-theme', t);
-            }
-        })();
-    </script>
+        {% if nowo_api_studio_css_framework == 'custom' %}
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+        {% endif %}
     {% endblock %}
 </head>
 <body class="api-studio-app nowo-ui-app as-app">
@@ -66,8 +55,6 @@
     </div>
 </div>
 {% include '@NowoApiStudioBundle/_service_action_modals.html.twig' %}
-{% block javascripts %}
-<script src="{{ asset('api-studio-shell.js', 'nowo_api_studio') }}"></script>
-{% endblock %}
+{% block javascripts %}{% endblock %}
 </body>
 </html>

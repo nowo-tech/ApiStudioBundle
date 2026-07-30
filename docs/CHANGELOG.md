@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.13] - 2026-07-30](#1013-2026-07-30)
 - [[1.0.12] - 2026-07-29](#1012-2026-07-29)
 - [[1.0.11] - 2026-07-29](#1011-2026-07-29)
 - [[1.0.10] - 2026-07-28](#1010-2026-07-28)
@@ -23,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.13] - 2026-07-30
+
+### Changed
+
+- Twig pages extend `@NowoApiStudioBundle/base.html.twig`, which stacks package CSS/JS with `{{ parent() }}` on top of `ui.layout_template` (REQ-UI-001).
+- README documentation section order and links refreshed.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+
+[1.0.13]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.13
 
 ## [1.0.12] - 2026-07-29
 

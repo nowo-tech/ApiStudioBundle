@@ -1,0 +1,27 @@
+{# Page shell (REQ-UI-001): extends configurable layout and stacks Api Studio assets with parent(). #}
+{% extends nowo_api_studio_layout_template %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% block nowo_ui_styles %}
+        <link rel="stylesheet" href="{{ asset('api-studio-theme.css', 'nowo_api_studio') }}">
+        <style>
+            body.api-studio-app { background: #f6f8fb; }
+        </style>
+        <script>
+            (function () {
+                var t = localStorage.getItem('nowo_api_studio_theme');
+                if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
+                }
+            })();
+        </script>
+    {% endblock %}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {% block nowo_ui_scripts %}
+        <script src="{{ asset('api-studio-shell.js', 'nowo_api_studio') }}"></script>
+    {% endblock %}
+{% endblock %}

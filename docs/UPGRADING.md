@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.13](#to-1013)
 - [To 1.0.12](#to-1012)
 - [To 1.0.11](#to-1011)
 - [To 1.0.10](#to-1010)
@@ -28,6 +29,19 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.13
+
+From **1.0.12** — backward compatible Twig layout chain.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+No configuration or schema changes.
+
+**Twig:** pages now extend `@NowoApiStudioBundle/base.html.twig` (which extends `ui.layout_template` / `nowo_api_studio_layout_template` and stacks theme assets with `{{ parent() }}`). If you overrode page templates and still `{% extends nowo_api_studio_layout_template %}`, switch to `@NowoApiStudioBundle/base.html.twig` (or keep calling `{{ parent() }}` in `stylesheets` / `javascripts`). See [USAGE.md](USAGE.md) and [CONFIGURATION.md](CONFIGURATION.md).
 
 ## To 1.0.12
 
