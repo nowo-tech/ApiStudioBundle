@@ -37,7 +37,8 @@ chmod -R 777 /app/var 2>/dev/null || true
 
 if [ ! -f /app/vendor/autoload_runtime.php ]; then
   i=0
-  until composer install --no-interaction --prefer-dist; do
+  # --no-scripts: Flex's symfony-cmd executor is unavailable in this image; Makefile runs console steps.
+  until composer install --no-interaction --prefer-dist --no-scripts; do
     i=$((i+1))
     if [ "$i" -ge 5 ]; then echo "composer install failed after 5 attempts" >&2; exit 1; fi
     echo "composer install failed, retry $$i in 8s..." >&2

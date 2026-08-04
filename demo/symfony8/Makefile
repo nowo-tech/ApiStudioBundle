@@ -27,8 +27,8 @@ up:
 			composer update --no-interaction --no-scripts; \
 		fi'
 	@$(MAKE) link-bundle
-	@$(COMPOSE) exec -T php composer run-script post-install-cmd --no-interaction
-	@$(COMPOSE) exec -T php php bin/console nowo:api-studio:sync-schema
+	@$(COMPOSE) exec -T php php bin/console cache:clear --no-interaction
+	@$(COMPOSE) exec -T php php bin/console nowo:api-studio:sync-schema --no-interaction
 	@$(COMPOSE) exec -T php php bin/console assets:install --no-interaction
 	@$(MAKE) reset-demo
 	@PORT=$$(grep "^PORT=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r'); \
@@ -50,7 +50,9 @@ ensure-up:
 install: ensure-up
 	@$(COMPOSE) exec -T -e COMPOSER_MEMORY_LIMIT=-1 php sh -c '\
 		if [ ! -f vendor/autoload.php ] || [ ! -d vendor/phpunit/phpunit/src ]; then rm -rf vendor; fi; \
-		composer install --no-interaction 2>/dev/null || composer update --no-interaction'
+		composer install --no-interaction --no-scripts 2>/dev/null || composer update --no-interaction --no-scripts; \
+		php bin/console cache:clear --no-interaction; \
+		php bin/console assets:install --no-interaction'
 
 shell: ensure-up
 	$(COMPOSE) exec php sh
