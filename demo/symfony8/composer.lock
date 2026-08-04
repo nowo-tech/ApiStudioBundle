@@ -934,7 +934,7 @@
             "dist": {
                 "type": "path",
                 "url": "/var/api-studio-bundle",
-                "reference": "019140b58ae66d9b4db386d5dd5f85c912214990"
+                "reference": "1ba90cccd650a220411ab7050056ec0a166e4b78"
             },
             "require": {
                 "doctrine/doctrine-bundle": "^2.10 || ^3.0",
