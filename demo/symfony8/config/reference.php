@@ -1260,6 +1260,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         allow_unauthenticated?: bool|Param, // DEV/DEMO ONLY. When true, the UI may load without SecurityBundle / without login. Production MUST keep false. // Default: false
  *     },
  * }
+ * @psalm-type NowoUiKitConfig = array{
+ *     css_framework?: "bootstrap"|"bootstrap5"|"bootstrap4"|"tailwind"|"foundation"|"custom"|"tabler"|"none"|Param, // Host CSS stack: bootstrap5|bootstrap4|tailwind|foundation|custom|none|tabler (bootstrap alias → bootstrap5). // Default: "bootstrap5"
+ *     icon_set?: "bootstrap-icons"|"tabler-icons"|"ux_icon"|"svg_inline"|"none"|Param, // Icon rendering: bootstrap-icons|tabler-icons|ux_icon|svg_inline|none. // Default: "bootstrap-icons"
+ * }
  * @psalm-type NowoTwigInspectorConfig = array{
  *     enabled_extensions?: list<scalar|Param|null>,
  *     excluded_templates?: list<scalar|Param|null>,
@@ -1285,6 +1289,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     doctrine?: DoctrineConfig,
  *     security?: SecurityConfig,
  *     nowo_api_studio?: NowoApiStudioConfig,
+ *     nowo_ui_kit?: NowoUiKitConfig,
  *     "when@dev"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
@@ -1295,6 +1300,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         doctrine?: DoctrineConfig,
  *         security?: SecurityConfig,
  *         nowo_api_studio?: NowoApiStudioConfig,
+ *         nowo_ui_kit?: NowoUiKitConfig,
  *         nowo_twig_inspector?: NowoTwigInspectorConfig,
  *     },
  *     "when@prod"?: array{
@@ -1306,6 +1312,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         doctrine?: DoctrineConfig,
  *         security?: SecurityConfig,
  *         nowo_api_studio?: NowoApiStudioConfig,
+ *         nowo_ui_kit?: NowoUiKitConfig,
  *     },
  *     "when@test"?: array{
  *         imports?: ImportsConfig,
@@ -1317,6 +1324,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         doctrine?: DoctrineConfig,
  *         security?: SecurityConfig,
  *         nowo_api_studio?: NowoApiStudioConfig,
+ *         nowo_ui_kit?: NowoUiKitConfig,
  *         nowo_twig_inspector?: NowoTwigInspectorConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias

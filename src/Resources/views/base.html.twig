@@ -1,9 +1,11 @@
 {# Page shell (REQ-UI-001): extends configurable layout and stacks Api Studio assets with parent(). #}
 {% extends nowo_api_studio_layout_template %}
+{% import '@NowoUiKitBundle/macros/ui.html.twig' as ui %}
 
 {% block stylesheets %}
     {{ parent() }}
     {% block nowo_ui_styles %}
+        <link rel="stylesheet" href="{{ asset('css/nowo-ui.css', 'nowo_ui_kit') }}">
         <link rel="stylesheet" href="{{ asset('api-studio-theme.css', 'nowo_api_studio') }}">
         <style>
             body.api-studio-app { background: #f6f8fb; }

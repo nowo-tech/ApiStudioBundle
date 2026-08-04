@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.14] - 2026-08-04](#1014-2026-08-04)
 - [[1.0.13] - 2026-07-30](#1013-2026-07-30)
 - [[1.0.12] - 2026-07-29](#1012-2026-07-29)
 - [[1.0.11] - 2026-07-29](#1011-2026-07-29)
@@ -24,6 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.14] - 2026-08-04
+
+### Added
+
+- Hard dependency on **[UiKitBundle](https://github.com/nowo-tech/UiKitBundle)** (`nowo-tech/ui-kit-bundle` `^1.4`) (REQ-UI-001-kit).
+- `ApiStudioExtension` seeds `nowo_ui_kit.css_framework` / `icon_set` from `ui.css_framework` when the host has not configured UiKit.
+
+### Changed
+
+- Admin `base.html.twig` loads `nowo-ui.css`; workspace list uses UiKit macros (`ui.btn`, `ui.table`, `ui.empty`).
+- Demo requires UiKit explicitly, registers the bundle, and uses the UiKit locale switcher on the host navbar (outside Bootstrap `.navbar-nav`).
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+- New Composer requirement: `nowo-tech/ui-kit-bundle` `^1.4`.
+
+[1.0.14]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.14
 
 ## [1.0.13] - 2026-07-30
 

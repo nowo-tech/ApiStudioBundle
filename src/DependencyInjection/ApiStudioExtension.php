@@ -14,6 +14,8 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
+use function array_key_exists;
+use function is_array;
 use function is_string;
 
 /**
@@ -23,22 +25,20 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 {
     public function prepend(ContainerBuilder $container): void
     {
-        if (!$container->hasExtension('framework')) {
-            return;
-        }
-
-        $container->prependExtensionConfig('framework', [
-            'assets' => [
-                'packages' => [
-                    Configuration::ALIAS => [
-                        'base_path' => '/bundles/apistudio',
+        if ($container->hasExtension('framework')) {
+            $container->prependExtensionConfig('framework', [
+                'assets' => [
+                    'packages' => [
+                        Configuration::ALIAS => [
+                            'base_path' => '/bundles/apistudio',
+                        ],
                     ],
                 ],
-            ],
-            'translator' => [
-                'paths' => [__DIR__ . '/../Resources/translations'],
-            ],
-        ]);
+                'translator' => [
+                    'paths' => [__DIR__ . '/../Resources/translations'],
+                ],
+            ]);
+        }
 
         if ($container->hasExtension('doctrine')) {
             $container->prependExtensionConfig('doctrine', [
@@ -52,6 +52,50 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
                 ],
             ]);
         }
+
+        $this->prependUiKitDefaults($container);
+    }
+
+    /**
+     * When UiKit is installed, seed nowo_ui_kit.css_framework / icon_set from
+     * ui.css_framework so kit macros resolve the same stack.
+     * Does not override keys the host already set under nowo_ui_kit.
+     */
+    private function prependUiKitDefaults(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('nowo_ui_kit')) {
+            return;
+        }
+
+        $hostHasCssFramework = false;
+        $hostHasIconSet      = false;
+        foreach ($container->getExtensionConfig('nowo_ui_kit') as $cfg) {
+            if (array_key_exists('css_framework', $cfg)) {
+                $hostHasCssFramework = true;
+            }
+            if (array_key_exists('icon_set', $cfg)) {
+                $hostHasIconSet = true;
+            }
+        }
+
+        if ($hostHasCssFramework && $hostHasIconSet) {
+            return;
+        }
+
+        $config   = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
+        $ui       = is_array($config['ui'] ?? null) ? $config['ui'] : [];
+        $defaults = [];
+
+        if (!$hostHasCssFramework) {
+            $fw                        = (string) ($ui['css_framework'] ?? 'custom');
+            $defaults['css_framework'] = $fw === 'bootstrap' ? 'bootstrap5' : $fw;
+        }
+        if (!$hostHasIconSet) {
+            $fw                   = (string) ($defaults['css_framework'] ?? $ui['css_framework'] ?? 'custom');
+            $defaults['icon_set'] = $fw === 'tabler' ? 'tabler-icons' : 'bootstrap-icons';
+        }
+
+        $container->prependExtensionConfig('nowo_ui_kit', $defaults);
     }
 
     public function load(array $configs, ContainerBuilder $container): void

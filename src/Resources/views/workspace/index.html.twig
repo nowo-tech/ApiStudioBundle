@@ -1,16 +1,17 @@
 {% extends '@NowoApiStudioBundle/base.html.twig' %}
+{% import '@NowoUiKitBundle/macros/ui.html.twig' as ui %}
 
 {% block title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
 {% block topbar_title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
 
 {% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_workspace_new') }}" class="as-btn as-btn-primary">+ {{ 'action.new_workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
+    <a href="{{ path('nowo_api_studio_workspace_new') }}" class="{{ ui.btn('primary', null, nowo_api_studio_css_framework) }} as-btn as-btn-primary">+ {{ 'action.new_workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
 {% endblock %}
 
 {% block body %}
 <div class="as-content-inner">
-    <div class="as-data-table-wrap">
-        <table class="as-data-table">
+    <div class="as-data-table-wrap nowo-ui-table-wrap">
+        <table class="as-data-table {{ ui.table(nowo_api_studio_css_framework) }}">
             <thead>
                 <tr>
                     <th>{{ 'field.name'|trans({}, 'NowoApiStudioBundle') }}</th>
@@ -23,10 +24,10 @@
                 <tr>
                     <td><a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}">{{ workspace.name }}</a></td>
                     <td><code>{{ workspace.slug }}</code></td>
-                    <td class="as-table-actions"><a class="as-btn" href="{{ path('nowo_api_studio_workspace_edit', {id: workspace.id}) }}">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a></td>
+                    <td class="as-table-actions"><a class="{{ ui.btn('secondary', 'sm', nowo_api_studio_css_framework) }} as-btn" href="{{ path('nowo_api_studio_workspace_edit', {id: workspace.id}) }}">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a></td>
                 </tr>
             {% else %}
-                <tr><td colspan="3" class="as-empty">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
+                <tr><td colspan="3" class="as-empty {{ ui.empty(nowo_api_studio_css_framework) }}">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
             {% endfor %}
             </tbody>
         </table>

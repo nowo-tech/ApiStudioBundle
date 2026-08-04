@@ -28,6 +28,9 @@
     "nowo-tech/twig-inspector-bundle": {
         "version": "v1.0.31"
     },
+    "nowo-tech/ui-kit-bundle": {
+        "version": "v1.4.0"
+    },
     "nowo-tech/workflow-bundle": {
         "version": "dev-main"
     },

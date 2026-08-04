@@ -1,5 +1,7 @@
 # Demo
 
+Host landing uses **[UiKitBundle](https://github.com/nowo-tech/UiKitBundle)** (`nowo-ui.css`, macros, locale switcher). Api Studio pages keep the package layout (`as-*` / `nowo-ui-*`).
+
 ```bash
 make up-symfony8
 ```

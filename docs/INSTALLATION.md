@@ -4,7 +4,14 @@
 composer require nowo-tech/api-studio-bundle
 ```
 
-Register `Nowo\ApiStudioBundle\ApiStudioBundle` in `config/bundles.php`.
+This also installs **[UiKitBundle](https://github.com/nowo-tech/UiKitBundle)** (`nowo-tech/ui-kit-bundle` `^1.4`).
+
+Register in `config/bundles.php` (Flex usually does this):
+
+```php
+Nowo\ApiStudioBundle\ApiStudioBundle::class => ['all' => true],
+Nowo\UiKitBundle\NowoUiKitBundle::class => ['all' => true],
+```
 
 Import routes from `@NowoApiStudioBundle/Resources/config/routes.yaml` (or use the Flex recipe).
 

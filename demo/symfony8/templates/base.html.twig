@@ -1,13 +1,53 @@
 <!DOCTYPE html>
-<html lang="{{ app.request.locale }}">
+<html lang="{{ app.request.locale }}" class="nowo-ui-root" data-css-framework="{{ nowo_ui_kit_css_framework|default('custom') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ 'title'|trans({}, 'demo') }}{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/nowo-ui.css', 'nowo_ui_kit') }}">
     {% block stylesheets %}{% endblock %}
+    <style>
+        /* Keep UiKit locale control outside .navbar-nav so nested <ul> is not restyled by Bootstrap. */
+        .demo-nav-end {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem 1rem;
+        }
+        @media (min-width: 992px) {
+            .demo-nav-end {
+                margin-left: auto;
+            }
+        }
+        .demo-locale-switcher {
+            position: relative;
+            z-index: 1030;
+            display: flex;
+            align-items: center;
+        }
+        .demo-locale-switcher .nowo-ui-locale-switcher__details:not([open]) > .nowo-ui-locale-switcher__menu {
+            display: none;
+        }
+        .demo-locale-switcher .nowo-ui-locale-switcher__menu {
+            z-index: 1050;
+        }
+        .demo-locale-switcher .nowo-ui-locale-switcher__option {
+            color: var(--nowo-ui-text, #0f172a) !important;
+            text-decoration: none !important;
+        }
+        .navbar-dark .demo-locale-switcher .nowo-ui-locale-switcher__summary {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.28);
+            color: #fff;
+        }
+        .navbar-dark .demo-locale-switcher .nowo-ui-locale-switcher__chevron {
+            border-color: currentColor;
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body class="bg-light nowo-ui-app">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
         <div class="container">
             <a class="navbar-brand fw-semibold" href="{{ path('demo_home') }}">{{ 'brand'|trans({}, 'demo') }}</a>
@@ -15,12 +55,31 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="demoNav">
-                <ul class="navbar-nav ms-auto align-items-lg-center">
-                    <li class="nav-item"><a class="nav-link" href="{{ path('demo_home') }}">{{ 'nav.home'|trans({}, 'demo') }}</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ path('nowo_api_studio_dashboard') }}">{{ 'nav.dashboard'|trans({}, 'demo') }}</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'nav.workspaces'|trans({}, 'demo') }}</a></li>
-                    {% include '@NowoApiStudioBundle/_locale_switcher.html.twig' %}
-                </ul>
+                <div class="demo-nav-end">
+                    <ul class="navbar-nav align-items-lg-center">
+                        <li class="nav-item"><a class="nav-link" href="{{ path('demo_home') }}">{{ 'nav.home'|trans({}, 'demo') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ path('nowo_api_studio_dashboard') }}">{{ 'nav.dashboard'|trans({}, 'demo') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'nav.workspaces'|trans({}, 'demo') }}</a></li>
+                    </ul>
+                    {% if nowo_api_studio_locales|length > 1 %}
+                        {% set demo_locales = [] %}
+                        {% for locale in nowo_api_studio_locales %}
+                            {% set demo_locales = demo_locales|merge([{
+                                code: locale,
+                                label: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle'),
+                                href: path('nowo_api_studio_locale_switch', {_locale: locale}),
+                                current: app.request.locale == locale
+                            }]) %}
+                        {% endfor %}
+                        <div class="demo-locale-switcher">
+                            {% include '@NowoUiKitBundle/partials/_locale_switcher.html.twig' with {
+                                compact: true,
+                                current: app.request.locale,
+                                locales: demo_locales
+                            } %}
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </nav>

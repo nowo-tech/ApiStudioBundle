@@ -4,6 +4,7 @@
 
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.14](#to-1014)
 - [To 1.0.13](#to-1013)
 - [To 1.0.12](#to-1012)
 - [To 1.0.11](#to-1011)
@@ -29,6 +30,22 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.14
+
+From **1.0.13** — adds required **UiKitBundle** dependency (REQ-UI-001-kit).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console assets:install
+php bin/console cache:clear
+```
+
+Composer pulls `nowo-tech/ui-kit-bundle` `^1.4`. Register `Nowo\UiKitBundle\NowoUiKitBundle` if Flex did not (see [INSTALLATION.md](INSTALLATION.md)).
+
+**Optional:** configure `nowo_ui_kit` in the host. If omitted, Api Studio seeds `css_framework` / `icon_set` from `nowo_api_studio.ui.css_framework`. Host values under `nowo_ui_kit` are not overwritten.
+
+No schema changes.
 
 ## To 1.0.13
 

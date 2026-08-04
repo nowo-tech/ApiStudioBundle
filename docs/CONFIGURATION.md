@@ -40,7 +40,7 @@ nowo_api_studio:
 | `environments` | Default environment names for new workspaces (default `dev`, `test`, `prod`). |
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
 | `ui.layout_template` | Twig layout extended by `@NowoApiStudioBundle/base.html.twig` (global `nowo_api_studio_layout_template`). Default is the bundle shell. Point to your app layout or a bridge that extends it to embed Api Studio in host chrome (REQ-UI-001). |
-| `ui.css_framework` | `bootstrap5` \| `tailwind` \| `foundation` \| `custom` (default). `custom` loads Tabler CDN + `as-*` / `nowo-ui-*` classes. Other values skip Tabler and expect host styles. |
+| `ui.css_framework` | `bootstrap5` \| `tailwind` \| `foundation` \| `custom` (default). `custom` loads Tabler CDN + `as-*` / `nowo-ui-*` classes. Other values skip Tabler and expect host styles. When UiKit is present and `nowo_ui_kit` is not set by the host, Api Studio seeds `nowo_ui_kit.css_framework` / `icon_set` from this value (REQ-UI-001-kit). |
 | `ui.default_locale` | Default UI/documentation locale (default `en`). |
 | `ui.locales` | Enabled UI/documentation locales. |
 | `ui.request_timeout_seconds` | HTTP client / SOAP connection timeout for the request console (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
@@ -76,6 +76,6 @@ Creates tables such as `acme_api_workspace`, `acme_api_endpoint`, etc. After cha
 ### Embedding in the host layout (REQ-UI-001)
 
 1. Set `ui.layout_template` to a Twig template that extends your project layout (e.g. `base.html.twig`) and maps Api Studio blocks (`body`, `topbar_title`, `stylesheets`, `javascripts`).
-2. Bundle pages extend `@NowoApiStudioBundle/base.html.twig`, which extends that layout and stacks Api Studio CSS/JS with `{{ parent() }}`.
+2. Bundle pages extend `@NowoApiStudioBundle/base.html.twig`, which extends that layout and stacks **UiKit** (`nowo-ui.css`) plus Api Studio CSS/JS with `{{ parent() }}`.
 3. In your bridge (or overrides of `stylesheets` / `javascripts`), keep `{{ parent() }}` so host and package assets still load.
 4. Or override `templates/bundles/NowoApiStudioBundle/layout.html.twig` / `base.html.twig` as needed.

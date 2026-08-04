@@ -1,4 +1,5 @@
 {% extends 'base.html.twig' %}
+{% import '@NowoUiKitBundle/macros/ui.html.twig' as ui %}
 
 {% block title %}API Studio Demo{% endblock %}
 
@@ -8,7 +9,7 @@
     <p class="lead">Catálogo interno tipo Postman / Apidog para documentar y probar APIs REST, SOAP y GraphQL.</p>
 
     <div class="mb-4">
-        <a class="btn btn-primary btn-lg" href="{{ path('nowo_api_studio_dashboard') }}">Abrir API Studio</a>
+        <a class="{{ ui.btn('primary', 'lg', 'bootstrap5') }}" href="{{ path('nowo_api_studio_dashboard') }}">Abrir API Studio</a>
     </div>
 
     <h2 class="h5">APIs de referencia incluidas en el seed</h2>
