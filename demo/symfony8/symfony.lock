@@ -25,6 +25,9 @@
     "nowo-tech/api-studio-bundle": {
         "version": "dev-main"
     },
+    "nowo-tech/form-kit-bundle": {
+        "version": "v2.0.20"
+    },
     "nowo-tech/twig-inspector-bundle": {
         "version": "v1.0.31"
     },
@@ -206,5 +209,8 @@
         "files": [
             "config/packages/workflow.yaml"
         ]
+    },
+    "twig/extra-bundle": {
+        "version": "v3.24.0"
     }
 }

@@ -25,6 +25,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 {
     public function prepend(ContainerBuilder $container): void
     {
+        $this->prependFormKitDefaults($container);
         if ($container->hasExtension('framework')) {
             $container->prependExtensionConfig('framework', [
                 'assets' => [
@@ -54,6 +55,76 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         }
 
         $this->prependUiKitDefaults($container);
+    }
+
+    /**
+     * When FormKit is installed, register the {@code api_studio} profile (labels domain +
+     * Bootstrap/UiKit-friendly field classes). Forms select it via {@code #[FormKitConfig]}.
+     * Does not change the host {@code default_profile}.
+     */
+    private function prependFormKitDefaults(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('nowo_form_kit')) {
+            return;
+        }
+
+        $hostHasCssFramework = false;
+        $hostHasProfile      = false;
+        foreach ($container->getExtensionConfig('nowo_form_kit') as $cfg) {
+            if (array_key_exists('css_framework', $cfg)) {
+                $hostHasCssFramework = true;
+            }
+            $profiles = $cfg['profiles'] ?? null;
+            if (is_array($profiles) && array_key_exists('api_studio', $profiles)) {
+                $hostHasProfile = true;
+            }
+        }
+
+        $seed = [];
+
+        if (!$hostHasCssFramework) {
+            $config = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
+            $ui     = $config['ui'];
+            $fw     = (string) ($ui['css_framework'] ?? 'custom');
+            // FormKit accepts only bootstrap|tailwind|foundation|none (not bootstrap5 / custom / …).
+            $seed['css_framework'] = match ($fw) {
+                'tailwind'   => 'tailwind',
+                'foundation' => 'foundation',
+                default      => 'bootstrap',
+            };
+        }
+
+        if (!$hostHasProfile) {
+            $seed['profiles'] = [
+                'api_studio' => [
+                    'alias'              => 'api_studio',
+                    'translation_domain' => 'NowoApiStudioBundle',
+                    'defaults'           => [
+                        'attr'     => ['class' => 'nowo-ui-input form-control'],
+                        'row_attr' => ['class' => 'mb-2'],
+                    ],
+                    'field_types' => [
+                        'checkbox' => [
+                            'attr'     => ['class' => 'form-check-input'],
+                            'row_attr' => ['class' => 'form-check mb-2'],
+                        ],
+                        'choice' => [
+                            'attr' => ['class' => 'form-select'],
+                        ],
+                        'file' => [
+                            'attr' => ['class' => 'nowo-ui-input form-control'],
+                        ],
+                        'textarea' => [
+                            'attr' => ['class' => 'nowo-ui-input form-control'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if ($seed !== []) {
+            $container->prependExtensionConfig('nowo_form_kit', $seed);
+        }
     }
 
     /**

@@ -29,11 +29,14 @@ This bundle is **FrankenPHP worker mode friendly**.
 composer require nowo-tech/api-studio-bundle
 ```
 
-Register the bundle:
+Register the bundle and hard dependencies (Flex usually does this):
 
 ```php
 // config/bundles.php
 Nowo\ApiStudioBundle\ApiStudioBundle::class => ['all' => true],
+Nowo\UiKitBundle\NowoUiKitBundle::class => ['all' => true],
+Nowo\FormKitBundle\NowoFormKitBundle::class => ['all' => true],
+Twig\Extra\TwigExtraBundle\TwigExtraBundle::class => ['all' => true],
 ```
 
 Install the Asset component (required for Twig `asset()` in the request console):
@@ -81,6 +84,9 @@ Open `/api-studio` in your browser.
 - Doctrine ORM
 - `ext-json`
 - `ext-soap` (optional, for SOAP execution)
+- [UiKitBundle](https://github.com/nowo-tech/UiKitBundle) `^1.4`
+- [FormKitBundle](https://github.com/nowo-tech/FormKitBundle) `^2.0`
+- `twig/extra-bundle` + `twig/string-extra` `^3.12` (REQ-TWIG-004)
 
 ## Browser scripts (pre/post-request)
 

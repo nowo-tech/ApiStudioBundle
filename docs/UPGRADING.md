@@ -2,8 +2,10 @@
 
 ## Table of contents
 
+- [Unreleased](#unreleased)
 - [General](#general)
 - [Before upgrading](#before-upgrading)
+- [To 1.0.15](#to-1015)
 - [To 1.0.14](#to-1014)
 - [To 1.0.13](#to-1013)
 - [To 1.0.12](#to-1012)
@@ -21,6 +23,8 @@
 - [To 1.0.0](#to-100)
 - [Database schema](#database-schema)
 
+## Unreleased
+
 ## General
 
 Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
@@ -30,6 +34,29 @@ Follow [CHANGELOG.md](CHANGELOG.md) for breaking changes between versions.
 1. Read the release notes on GitHub.
 2. Run your test suite and `composer audit`.
 3. Back up the database if you store Api Studio entities in production.
+
+## To 1.0.15
+
+From **1.0.14** — adds required **FormKitBundle** and **Twig Extra** (REQ-TWIG-004).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console assets:install
+php bin/console cache:clear
+```
+
+Composer pulls `nowo-tech/form-kit-bundle` `^2.0`, `twig/extra-bundle` `^3.12`, and `twig/string-extra` `^3.12`. Register if Flex did not:
+
+```php
+Nowo\FormKitBundle\NowoFormKitBundle::class => ['all' => true],
+Twig\Extra\TwigExtraBundle\TwigExtraBundle::class => ['all' => true],
+```
+
+Admin form types use profile `api_studio` via `#[FormKitConfig]`. The bundle prepends that profile (and aligns FormKit `css_framework` from `nowo_api_studio.ui.css_framework`) when the host has not defined those keys under `nowo_form_kit`. Host values are not overwritten.
+
+**Maintainers:** `composer twig:lint` / `composer twig:fix` use `.twig-cs-fixer.php`.
+
+No schema changes.
 
 ## To 1.0.14
 

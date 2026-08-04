@@ -10,6 +10,7 @@ services:
             - '../../Entity/'
             - '../../Model/'
             - '../../EventSubscriber/'
+            - '../../Form/'
             - '../../ApiStudioBundle.php'
 
     Nowo\ApiStudioBundle\Repository\:
@@ -45,3 +46,9 @@ services:
         arguments:
             $cipher: '@Nowo\ApiStudioBundle\Security\SecretValueCipher'
             $enabled: '%nowo_api_studio.secrets.encrypt%'
+
+    # Form Kit injects FormOptionsMerger into tagged form types (FormOptionsMergerInjectorCompilerPass).
+    Nowo\ApiStudioBundle\Form\:
+        resource: '../../Form/'
+        exclude: '../../Form/DataTransformer/'
+        tags: ['form.type']

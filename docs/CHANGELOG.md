@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.15] - 2026-08-04](#1015-2026-08-04)
 - [[1.0.14] - 2026-08-04](#1014-2026-08-04)
 - [[1.0.13] - 2026-07-30](#1013-2026-07-30)
 - [[1.0.12] - 2026-07-29](#1012-2026-07-29)
@@ -25,6 +26,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.15] - 2026-08-04
+
+### Changed
+
+- **FormKitBundle:** depend on [`nowo-tech/form-kit-bundle`](https://github.com/nowo-tech/FormKitBundle) ^2.0. Admin form types use `FormOptionsTrait` + profile `api_studio` (`#[FormKitConfig]`). Extension prepends that profile when missing; form types are tagged `form.type` so `FormOptionsMerger` is injected.
+
+### Added
+
+- **REQ-TWIG-004:** require `twig/extra-bundle` + `twig/string-extra`; `make check-twig-extra` in `release-check`; demos register `TwigExtraBundle`.
+- **Twig-CS-Fixer:** `vincentlanglet/twig-cs-fixer`, `.twig-cs-fixer.php`, `composer twig:lint` / `twig:fix`.
+
+### Compatibility
+
+- Unchanged: PHP `>=8.2 <8.6`, Symfony `^7.0 || ^8.0`.
+- New Composer requirements: `nowo-tech/form-kit-bundle` `^2.0`, `twig/extra-bundle` `^3.12`, `twig/string-extra` `^3.12`.
+
+[1.0.15]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.15
 
 ## [1.0.14] - 2026-08-04
 
