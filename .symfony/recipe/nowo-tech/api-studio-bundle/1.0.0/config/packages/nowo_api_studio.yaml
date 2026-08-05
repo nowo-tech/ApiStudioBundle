@@ -17,3 +17,8 @@ nowo_api_studio:
     secrets:
         encrypt: true
         # encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'
+
+when@prod:
+    nowo_api_studio:
+        execution_url_allowlist_required: true
+        # secrets.encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'

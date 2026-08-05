@@ -46,6 +46,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - Keep `security.allow_unauthenticated: false` in production (demo-only footgun)
 - Set `nowo_api_studio.security.access_roles` appropriately (never leave empty in production unless intentionally public)
 - In production set `execution_url_allowlist_required: true` and a non-empty `execution_url_allowlist`
+- The Flex recipe (`when@prod`) forces `execution_url_allowlist_required: true` in production; keep a non-empty allowlist.
 - Prefer a dedicated `secrets.encryption_key` (env) instead of relying solely on `kernel.secret` if you rotate app secrets often
 - Run `composer audit` in the application
 - Do not commit `.env` or secrets; rotate env variables stored in Api Studio DB
