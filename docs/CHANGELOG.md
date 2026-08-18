@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.16] - 2026-08-18](#1016-2026-08-18)
 - [[1.0.15] - 2026-08-04](#1015-2026-08-04)
 - [[1.0.14] - 2026-08-04](#1014-2026-08-04)
 - [[1.0.13] - 2026-07-30](#1013-2026-07-30)
@@ -26,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.16] - 2026-08-18
+
+### Changed
+
+- **Demos:** pin `nowo-tech/hot-reload-bundle` to `^1.4` with FrankenPHP Mercure/`hot_reload` (`dev`/`test` only).
+
+[1.0.16]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.16
 
 ## [1.0.15] - 2026-08-04
 

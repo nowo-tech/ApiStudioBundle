@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.0.16](#to-1016)
 - [General](#general)
 - [Before upgrading](#before-upgrading)
 - [To 1.0.15](#to-1015)
@@ -24,6 +25,14 @@
 - [Database schema](#database-schema)
 
 ## Unreleased
+
+## To 1.0.16
+
+From **1.0.15** — No application upgrade steps. **Demos only:** Hot Reload Bundle `^1.4` (FrankenPHP Mercure/`hot_reload`, `dev`/`test`).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 ## General
 
