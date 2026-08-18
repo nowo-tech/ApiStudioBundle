@@ -71,6 +71,7 @@ When raising `ui.request_timeout_seconds` in application YAML, also raise PHP an
 The demo applications are configured for **local development and debugging**:
 
 - **Symfony Web Profiler** and **Debug bundle** — enabled in `dev` and `test` environments.
+- **Nowo Twig Inspector** (`nowo-tech/twig-inspector-bundle`) and **Nowo Hot Reload** (`nowo-tech/hot-reload-bundle`) — required together on FrankenPHP demos (dev/test only; Caddyfile Mercure + `hot_reload`, plus `worker { watch }` in worker mode). Do not enable Hot Reload in production.
 - **Api Studio Bundle** (`Nowo\ApiStudioBundle\ApiStudioBundle`) — the bundle under test; enabled in the demos.
 
 In **production** (`APP_ENV=prod`), only bundles registered for `all` or `prod` are loaded.
