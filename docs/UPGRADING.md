@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.0.17](#to-1017)
 - [To 1.0.16](#to-1016)
 - [General](#general)
 - [Before upgrading](#before-upgrading)
@@ -25,6 +26,14 @@
 - [Database schema](#database-schema)
 
 ## Unreleased
+
+## To 1.0.17
+
+From **1.0.16** — No application upgrade steps.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 ## To 1.0.16
 
