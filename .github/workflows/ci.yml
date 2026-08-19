@@ -93,6 +93,9 @@ jobs:
             symfony/browser-kit:^${{ matrix.symfony }}
           # full -W update so doctrine/* can move to ^3 on Symfony 8
           composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
+      - name: Composer audit (Critical/High)
+        run: composer audit --locked
+
 
       - name: Run tests
         env:
