@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-08-20
+
+### Documentation
+
+- **SECURITY.md / REQ-SEC-004:** re-audit **Pass (good)** — prod Flex `execution_url_allowlist_required`, HistorySanitizer on write; residual = host history retention.
+
 ## [1.0.18] - 2026-08-20
 
 ### Security

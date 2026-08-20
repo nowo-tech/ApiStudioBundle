@@ -33,7 +33,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`); `allow_unauthenticated: false`; host `access_control` on `ui.path` |
 | SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` blocks private/local IPs; `execution_url_allowlist` + optional `execution_url_allowlist_required` |
 | Secret storage | API keys/tokens in env variables persisted in DB | Variables marked `secret` are encrypted at rest with sodium (`secrets.encrypt`, default `true`); UI masking; optional dedicated `secrets.encryption_key` |
-| Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist; retain role controls + retention policy |
+| Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist; host owns retention/TTL policy |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
 | CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
@@ -61,21 +61,21 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - Validate `table_prefix` (alphanumeric + underscore only)
 - Document threat model and release checklist in this file
 
-## Residual risks (accepted for REQ-SEC-004 Medium / conditional Pass)
+## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 
-- **Request history** is sanitized on write (`HistorySanitizer`: sensitive headers → `[REDACTED]`; password/token/Bearer patterns in bodies). Residual: unusual header names or opaque binary bodies may still need host retention policy.
+- **Request history** is sanitized on write (`HistorySanitizer`: sensitive headers → `[REDACTED]`; password/token/Bearer patterns in bodies). Host owns retention/TTL and unusual header names.
 - **Outbound HTTP** (`RequestExecutor`) logs start/finish/failure with method + host only (no Authorization / body dumps) via `LoggerInterface` (REQ-OBS-001).
-- **Empty allowlist** remains allowed when `execution_url_allowlist_required: false` (default for BC); production must enable the requirement.
+- **Empty allowlist** is blocked in production by Flex `when@prod` (`execution_url_allowlist_required: true`); non-prod default remains BC-safe `false`.
 - Legacy plaintext secret rows decrypt as-is until the next save re-encrypts them.
 
 ## AI security audit (REQ-SEC-004)
 
 | Field | Value |
 | --- | --- |
-| Date | 2026-07-27 |
-| Method | Maintainer remediation + static review (Cursor agent) |
-| Grade | **Pass (conditional)** — overall risk **Medium** |
-| Notes | Secrets-at-rest encryption + allowlist-required flag; residuals documented above |
+| Date | 2026-08-20 (re-audit; prior 2026-07-27) |
+| Method | Maintainer remediation + static review (Cursor agent); recipe `when@prod` allowlist_required + HistorySanitizer + SSRF tests |
+| Grade | **Pass (good)** — overall risk **Low** |
+| Notes | Prod Flex forces allowlist_required; history redacted on write; residual = host retention policy |
 
 ## Release security checklist (12.4.1)
 

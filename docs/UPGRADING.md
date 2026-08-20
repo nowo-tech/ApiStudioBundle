@@ -28,6 +28,14 @@
 
 ## Unreleased
 
+## To 1.0.19
+
+From **1.0.18** — No application upgrade steps (SECURITY re-audit docs only).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
 ## To 1.0.18
 
 From **1.0.17** — Flex recipe adds `config/packages/security_nowo_api_studio.yaml` (`access_control` for `/api-studio`). Review and merge with your host security config if you already cover those paths.
