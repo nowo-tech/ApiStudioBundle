@@ -64,6 +64,54 @@ final class RequestExecutorTimeoutTest extends TestCase
         self::assertStringContainsString('Idle timeout reached', (string) $result->errorMessage);
     }
 
+    public function testExecuteFailsWhenUrlBlockedBySsrf(): void
+    {
+        $client = new MockHttpClient(static function (): never {
+            self::fail('HTTP client must not be called for SSRF-blocked URLs');
+        });
+
+        $executor = new RequestExecutor(
+            $client,
+            new VariableResolver(),
+            new ExecutionUrlValidator([]),
+            5,
+        );
+
+        $service = (new ApiService('Internal', 'internal'))
+            ->setProtocol(ApiProtocol::Rest)
+            ->setBaseUrl('http://127.0.0.1')
+            ->setAuthType(AuthType::None);
+
+        $endpoint = (new ApiEndpoint('Admin', 'admin'))
+            ->setMethod(HttpMethod::Get)
+            ->setPath('/admin')
+            ->setService($service);
+
+        $result = $executor->execute($endpoint);
+
+        self::assertFalse($result->success);
+        self::assertStringContainsString('not allowed', (string) $result->errorMessage);
+    }
+
+    public function testExecuteFailsWhenUrlFailsAllowlist(): void
+    {
+        $client = new MockHttpClient(static function (): never {
+            self::fail('HTTP client must not be called when allowlist rejects the URL');
+        });
+
+        $executor = new RequestExecutor(
+            $client,
+            new VariableResolver(),
+            new ExecutionUrlValidator(['https://allowed.example.com']),
+            5,
+        );
+
+        $result = $executor->execute($this->endpoint());
+
+        self::assertFalse($result->success);
+        self::assertStringContainsString('not allowed', (string) $result->errorMessage);
+    }
+
     private function endpoint(): ApiEndpoint
     {
         $service = (new ApiService('Demo', 'demo'))

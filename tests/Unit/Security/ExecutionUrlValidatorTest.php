@@ -28,6 +28,7 @@ final class ExecutionUrlValidatorTest extends TestCase
         yield 'localhost' => ['http://localhost/admin'];
         yield '127.0.0.1' => ['http://127.0.0.1/'];
         yield 'private 10.x' => ['http://10.0.0.1/'];
+        yield 'private 172.16.x' => ['http://172.16.5.5/'];
         yield 'private 192.168.x' => ['http://192.168.0.1/'];
         yield 'link-local' => ['http://169.254.169.254/latest/meta-data/'];
         yield 'empty host' => ['http:///path'];

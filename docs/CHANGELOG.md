@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.18] - 2026-08-20](#1018-2026-08-20)
+- [[1.0.17] - 2026-08-19](#1017-2026-08-19)
 - [[1.0.16] - 2026-08-18](#1016-2026-08-18)
 - [[1.0.15] - 2026-08-04](#1015-2026-08-04)
 - [[1.0.14] - 2026-08-04](#1014-2026-08-04)
@@ -27,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100-2026-07-16)
 
 ## [Unreleased]
+
+## [1.0.18] - 2026-08-20
+
+### Security
+
+- **Flex recipe:** ship `security_nowo_api_studio.yaml` access rules for `/api-studio` (REQ-SEC-004). Prefer **`^1.0.18`** so Flex installs the file.
+
+### Tests
+
+- **SSRF regression:** executor fails closed on private URLs and allowlist misses without calling HttpClient; add `172.16.x` case to `ExecutionUrlValidatorTest`.
 
 ## [1.0.17] - 2026-08-19
 

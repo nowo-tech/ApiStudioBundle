@@ -87,7 +87,7 @@ Before each release, confirm:
 | `.env` listed in `.gitignore`; no secrets in repo | ☑ |
 | Flex recipe / default config contain no secrets | ☑ |
 | `security.access_roles` / `ui.required_roles` default to `ROLE_ADMIN` (or documented override) | ☑ |
-| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs | ☑ |
+| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs | ☑ (regression: `ExecutionUrlValidatorTest`, `RequestExecutorTimeoutTest`) |
 | User input validated (forms + Symfony validator) | ☑ |
 | Output escaped (Twig templates) | ☑ |
 | `composer audit` run on bundle and demo | ☑ |

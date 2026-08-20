@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.0.18](#to-1018)
 - [To 1.0.17](#to-1017)
 - [To 1.0.16](#to-1016)
 - [General](#general)
@@ -26,6 +27,14 @@
 - [Database schema](#database-schema)
 
 ## Unreleased
+
+## To 1.0.18
+
+From **1.0.17** — Flex recipe adds `config/packages/security_nowo_api_studio.yaml` (`access_control` for `/api-studio`). Review and merge with your host security config if you already cover those paths.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 ## To 1.0.17
 
