@@ -11,7 +11,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install assets test test-coverage cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
+.PHONY: help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
 
 help:
 	@echo "API Studio Bundle - Development Commands"
@@ -125,6 +125,11 @@ clean: ensure-up
 assets: ensure-up
 	@$(COMPOSE) exec -T -e CI=true $(SERVICE_PHP) pnpm install
 	@$(COMPOSE) exec -T -e CI=true $(SERVICE_PHP) pnpm run build
+
+test-ts: ensure-up
+	@$(COMPOSE) exec -T -e CI=true $(SERVICE_PHP) pnpm install
+	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run typecheck
+	@echo "TypeScript check OK (no Vitest suite in this bundle)."
 
 setup-hooks:
 	@chmod +x .githooks/pre-commit 2>/dev/null || true
