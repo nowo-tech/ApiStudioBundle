@@ -24,7 +24,7 @@ services:
       APP_DEBUG: "1"
       APP_SECRET: ${APP_SECRET:-demo-secret}
       # Override .env localhost URL — use internal Docker network host `database`.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8
+      DATABASE_URL: mysql://app:app@database:3306/app?serverVersion=8.4&charset=utf8mb4
     # Mitigate Docker/WSL DNS failures resolving repo.packagist.org (composer curl error 6).
     dns:
       - 8.8.8.8
@@ -39,18 +39,21 @@ services:
         condition: service_healthy
 
   database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: mysql:8.4
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-app}
     healthcheck:
-      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uapp", "-papp"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 20
     volumes:
-      - database_data:/var/lib/postgresql/data:rw
+      - database_data:/var/lib/mysql
+    expose:
+      - "3306"
     networks:
       - api-studio-demo-network
 
