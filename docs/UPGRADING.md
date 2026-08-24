@@ -2,6 +2,8 @@
 
 ## Table of contents
 
+
+- [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
 - [To 1.0.18](#to-1018)
 - [To 1.0.17](#to-1017)
@@ -25,6 +27,22 @@
 - [To 1.0.1](#to-101)
 - [To 1.0.0](#to-100)
 - [Database schema](#database-schema)
+
+## From 1.0.19 to 1.0.20
+
+No breaking changes. **No application upgrade steps.**
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+## From 1.0.19 to 1.0.20
+
+No breaking changes. **No application upgrade steps.**
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 ## Unreleased
 
