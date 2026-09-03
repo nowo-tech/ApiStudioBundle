@@ -22,7 +22,7 @@ return [
     SecurityBundle::class          => ['all' => true],
     ApiStudioBundle::class         => ['all' => true],
     NowoUiKitBundle::class         => ['all' => true],
-    NowoHotReloadBundle::class => ['dev' => true, 'test' => true],
+    NowoHotReloadBundle::class     => ['dev' => true, 'test' => true],
     NowoTwigInspectorBundle::class => ['dev' => true, 'test' => true],
     TwigExtraBundle::class         => ['all' => true],
     NowoFormKitBundle::class       => ['all' => true],
