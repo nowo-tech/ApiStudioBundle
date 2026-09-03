@@ -2,7 +2,7 @@
 FROM dunglas/frankenphp:1-php8.5-alpine
 
 RUN apk add --no-cache git unzip bash
-RUN install-php-extensions intl pcov zip pdo_pgsql pdo_sqlite
+RUN install-php-extensions intl pcov zip pdo_mysql
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN git config --global --add safe.directory /app && \
     git config --global --add safe.directory /var/api-studio-bundle

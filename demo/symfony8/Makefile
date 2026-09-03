@@ -34,7 +34,20 @@ up:
 	fi
 	@$(MAKE) link-bundle
 	@$(COMPOSE) exec -T php php bin/console cache:clear --no-interaction
-	@$(COMPOSE) exec -T php php bin/console nowo:api-studio:sync-schema --no-interaction
+	@echo "Waiting for MySQL from PHP container..."
+	@i=0; \
+	while [ $$i -lt 30 ]; do \
+		if $(COMPOSE) exec -T php php bin/console nowo:api-studio:sync-schema --no-interaction 2>/dev/null; then \
+			break; \
+		fi; \
+		i=$$((i+1)); \
+		sleep 2; \
+	done; \
+	if [ $$i -ge 30 ]; then \
+		echo "MySQL not reachable from demo PHP container"; \
+		$(COMPOSE) logs --tail=50 database php || true; \
+		exit 1; \
+	fi
 	@$(COMPOSE) exec -T php php bin/console assets:install --no-interaction
 	@$(MAKE) reset-demo
 	@PORT=$$(grep "^PORT=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r'); \
