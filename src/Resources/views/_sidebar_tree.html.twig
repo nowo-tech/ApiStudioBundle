@@ -7,7 +7,7 @@
         {% set active_ws = as_active_workspace|default(null) %}
         {% set active_svc = as_active_service|default(null) %}
         {% set active_ep = as_active_endpoint|default(null) %}
-        {% for ws in nowo_api_studio_nav_tree %}
+        {% for ws in api_studio_nav_tree() %}
             <div class="as-tree-group{% if active_ws == ws.id %} is-open{% endif %}" data-tree-group>
                 <div class="as-tree-label{% if active_ws == ws.id %} is-active{% endif %}" data-tree-toggle role="button" tabindex="0">
                     <span class="as-tree-chevron">▶</span>

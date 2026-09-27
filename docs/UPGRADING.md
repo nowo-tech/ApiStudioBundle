@@ -5,6 +5,7 @@
 
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
+- [To 1.0.21](#to-1021)
 - [To 1.0.18](#to-1018)
 - [To 1.0.17](#to-1017)
 - [To 1.0.16](#to-1016)
@@ -45,6 +46,22 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.0.21
+
+From **1.0.20** — REQ-CS-008 Igor FrankenPHP worker audit (igor-php require-dev, igor.json, make igor).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console cache:clear
+```
+
+- **Twig:** the sidebar tree is no longer exposed as the `nowo_api_studio_nav_tree` global. Template overrides that
+  used it must call the new `api_studio_nav_tree()` function instead (`{% for ws in api_studio_nav_tree() %}`).
+  The tree is now built only when a template asks for it, so host pages no longer query the Api Studio catalog.
+- No configuration changes.
+- No application upgrade steps for require-dev Igor tooling (REQ-CS-008). Consumers do not pull `igor-php/igor-php` transitively.
+
 
 ## To 1.0.19
 

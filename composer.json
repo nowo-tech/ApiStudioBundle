@@ -60,6 +60,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.0",
+        "igor-php/igor-php": "^0.9.7",
         "nowo-tech/phpstan-frankenphp": "^1.0",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.0",
@@ -117,7 +118,8 @@
         ],
         "twig:lint": "twig-cs-fixer lint --config=.twig-cs-fixer.php",
         "twig:fix": "twig-cs-fixer fix --config=.twig-cs-fixer.php",
-        "twig:fix:check": "twig-cs-fixer lint --config=.twig-cs-fixer.php --fix"
+        "twig:fix:check": "twig-cs-fixer lint --config=.twig-cs-fixer.php --fix",
+        "igor": "igor-php --no-agent ."
     },
     "scripts-descriptions": {
         "test": "Run PHPUnit tests",
@@ -130,7 +132,8 @@
         "phpstan": "Run PHPStan static analysis",
         "update": "Update composer.lock (composer update)",
         "validate": "Validate composer.json (composer validate --strict)",
-        "qa": "Run all quality assurance checks"
+        "qa": "Run all quality assurance checks",
+        "igor": "Run Igor FrankenPHP worker-state audit (REQ-CS-008)"
     },
     "suggest": {
         "ext-soap": "Required for SOAP endpoint execution",

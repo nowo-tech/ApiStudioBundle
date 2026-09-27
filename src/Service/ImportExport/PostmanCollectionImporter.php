@@ -195,6 +195,7 @@ final class PostmanCollectionImporter
         $createdEnv  = false;
         if (!$environment instanceof ApiEnvironment) {
             $environment = new ApiEnvironment('Postman', 'postman');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $environment->setIsDefault(true);
             $workspace->addEnvironment($environment);
             $this->entityManager->persist($environment);
@@ -224,6 +225,7 @@ final class PostmanCollectionImporter
 
             if (!$existing instanceof ApiEnvironmentVariable) {
                 $existing = new ApiEnvironmentVariable($key, (string) ($variable['value'] ?? ''));
+                // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
                 $environment->addVariable($existing);
                 ++$created;
             } else {

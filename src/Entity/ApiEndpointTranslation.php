@@ -54,6 +54,7 @@ class ApiEndpointTranslation
 
     public function setEndpoint(?ApiEndpoint $endpoint): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->endpoint = $endpoint;
 
         return $this;
@@ -66,6 +67,7 @@ class ApiEndpointTranslation
 
     public function setLocale(string $locale): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->locale = $locale;
 
         return $this;
@@ -78,6 +80,7 @@ class ApiEndpointTranslation
 
     public function setTitle(?string $title): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->title = $title;
 
         return $this;
@@ -90,6 +93,7 @@ class ApiEndpointTranslation
 
     public function setDescription(?string $description): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->description = $description;
 
         return $this;
@@ -102,6 +106,7 @@ class ApiEndpointTranslation
 
     public function setNotes(?string $notes): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->notes = $notes;
 
         return $this;

@@ -43,6 +43,7 @@ final class RequestExecutorTimeoutTest extends TestCase
         self::assertTrue($result->success);
         self::assertIsArray($capturedOptions);
         self::assertSame(17.0, (float) $capturedOptions['timeout']);
+        self::assertSame(17.0, (float) $capturedOptions['max_duration']);
     }
 
     public function testTimeoutExceptionIsReturnedAsFailedExecution(): void

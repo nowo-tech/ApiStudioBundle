@@ -128,6 +128,7 @@ class ApiEndpoint
 
     public function setService(?ApiService $service): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->service = $service;
 
         return $this->touch();
@@ -140,6 +141,7 @@ class ApiEndpoint
 
     public function setName(string $name): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->name = $name;
 
         return $this->touch();
@@ -152,6 +154,7 @@ class ApiEndpoint
 
     public function setSlug(string $slug): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->slug = $slug;
 
         return $this->touch();
@@ -164,6 +167,7 @@ class ApiEndpoint
 
     public function setMethod(HttpMethod $method): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->method = $method;
 
         return $this->touch();
@@ -176,6 +180,7 @@ class ApiEndpoint
 
     public function setPath(string $path): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->path = $path;
 
         return $this->touch();
@@ -188,6 +193,7 @@ class ApiEndpoint
 
     public function setSoapAction(?string $soapAction): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->soapAction = $soapAction;
 
         return $this->touch();
@@ -200,6 +206,7 @@ class ApiEndpoint
 
     public function setContentType(string $contentType): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->contentType = $contentType;
 
         return $this->touch();
@@ -212,6 +219,7 @@ class ApiEndpoint
 
     public function setRequestBodyTemplate(?string $requestBodyTemplate): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestBodyTemplate = $requestBodyTemplate;
 
         return $this->touch();
@@ -226,6 +234,7 @@ class ApiEndpoint
     /** @param array<string, string> $headers */
     public function setHeaders(array $headers): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->headers = $headers;
 
         return $this->touch();
@@ -240,6 +249,7 @@ class ApiEndpoint
     /** @param array<string, string> $queryParams */
     public function setQueryParams(array $queryParams): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->queryParams = $queryParams;
 
         return $this->touch();
@@ -252,6 +262,7 @@ class ApiEndpoint
 
     public function setPreRequestScript(?string $preRequestScript): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->preRequestScript = $preRequestScript;
 
         return $this->touch();
@@ -264,6 +275,7 @@ class ApiEndpoint
 
     public function setPostRequestScript(?string $postRequestScript): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->postRequestScript = $postRequestScript;
 
         return $this->touch();
@@ -276,6 +288,7 @@ class ApiEndpoint
 
     public function setSortOrder(int $sortOrder): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->sortOrder = $sortOrder;
 
         return $this->touch();
@@ -288,6 +301,7 @@ class ApiEndpoint
 
     public function setEnabled(bool $enabled): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->enabled = $enabled;
 
         return $this->touch();
@@ -391,6 +405,7 @@ class ApiEndpoint
 
     private function touch(): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;

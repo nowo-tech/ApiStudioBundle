@@ -11,7 +11,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
+.PHONY: help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan igor update validate validate-translations check-no-cursor-coauthor check-open-prs strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
 
 help:
 	@echo "API Studio Bundle - Development Commands"
@@ -93,7 +93,11 @@ check-twig-extra:
 	@chmod +x .scripts/check-twig-extra.sh
 	@./.scripts/check-twig-extra.sh
 
-release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra composer-sync cs-fix cs-check rector-dry phpstan test-coverage validate-translations release-check-demos
+
+# Run Igor worker-state audit (REQ-CS-008)
+igor: ensure-up
+	$(COMPOSE) exec -T php composer igor
+release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage validate-translations release-check-demos
 
 # REQ-TEST-011 — boot demo stack and assert one HTTP 200
 demo-smoke:

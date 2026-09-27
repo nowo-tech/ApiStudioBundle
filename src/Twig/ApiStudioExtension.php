@@ -33,6 +33,7 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
         return [
             new TwigFunction('api_studio_method_class', [$this, 'methodClass']),
             new TwigFunction('api_studio_var', [$this, 'formatVariable']),
+            new TwigFunction('api_studio_nav_tree', [$this, 'navigationTree']),
         ];
     }
 
@@ -41,10 +42,19 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
     {
         return [
             'nowo_api_studio_locales'    => $this->localeManager->getEnabledLocales(),
-            'nowo_api_studio_nav_tree'   => $this->navigationProvider->buildTree(),
             self::GLOBAL_LAYOUT_TEMPLATE => $this->layoutTemplate,
             self::GLOBAL_CSS_FRAMEWORK   => $this->cssFramework,
         ];
+    }
+
+    /**
+     * Built at call time: Twig keeps globals for the whole Environment lifetime (the worker, when nothing resets it).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function navigationTree(): array
+    {
+        return $this->navigationProvider->buildTree();
     }
 
     public function methodClass(string $method): string

@@ -55,6 +55,7 @@ final class EnvironmentVariableImporter
             $environment = $this->resolveDefaultEnvironment($workspace);
             if (!$environment instanceof ApiEnvironment) {
                 $environment = new ApiEnvironment('Imported', 'imported');
+                // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
                 $environment->setIsDefault(true);
                 $workspace->addEnvironment($environment);
                 $this->entityManager->persist($environment);
@@ -72,6 +73,7 @@ final class EnvironmentVariableImporter
         $environment = $this->resolveDefaultEnvironment($workspace);
         if (!$environment instanceof ApiEnvironment) {
             $environment = new ApiEnvironment('Imported', 'imported');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $environment->setIsDefault(true);
             $workspace->addEnvironment($environment);
             $this->entityManager->persist($environment);

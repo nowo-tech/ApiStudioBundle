@@ -60,6 +60,7 @@ final class EnvironmentVariablesController extends AbstractController
             $variable = $this->findVariable($environment, $key);
             if (!$variable instanceof ApiEnvironmentVariable) {
                 $variable = new ApiEnvironmentVariable($key, (string) $value);
+                // @igor-ignore - HTTP handler delegates to services; no controller worker state.
                 $environment->addVariable($variable);
                 ++$created;
             } else {

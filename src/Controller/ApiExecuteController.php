@@ -136,6 +136,7 @@ final class ApiExecuteController extends AbstractController
 
         $this->entityManager->persist($history);
         $this->entityManager->flush();
+        $this->entityManager->detach($history);
 
         return new JsonResponse($result->toArray());
     }

@@ -7,7 +7,7 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Service;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Service\PayloadBodyHelper;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
+use ReflectionClass;
 
 final class PayloadBodyHelperTest extends TestCase
 {
@@ -100,10 +100,14 @@ final class PayloadBodyHelperTest extends TestCase
         self::assertNotSame('', $validation['message']);
     }
 
-    public function testLastXmlErrorReturnsNullBeforeAnyLoad(): void
+    public function testXmlErrorDoesNotLeakIntoNextValidation(): void
     {
-        $method = new ReflectionMethod(PayloadBodyHelper::class, 'lastXmlError');
+        self::assertFalse($this->helper->validateXml('<first-broken>')['valid']);
 
-        self::assertNull($method->invoke($this->helper));
+        $second = $this->helper->validateXml('<ok/>');
+
+        self::assertTrue($second['valid']);
+        self::assertSame('valid_xml', $second['message']);
+        self::assertSame([], (new ReflectionClass(PayloadBodyHelper::class))->getProperties());
     }
 }

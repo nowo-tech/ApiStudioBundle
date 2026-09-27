@@ -102,6 +102,7 @@ class ApiService
 
     public function setWorkspace(?ApiWorkspace $workspace): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->workspace = $workspace;
 
         return $this->touch();
@@ -114,6 +115,7 @@ class ApiService
 
     public function setName(string $name): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->name = $name;
 
         return $this->touch();
@@ -126,6 +128,7 @@ class ApiService
 
     public function setSlug(string $slug): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->slug = $slug;
 
         return $this->touch();
@@ -138,6 +141,7 @@ class ApiService
 
     public function setDescription(?string $description): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->description = $description;
 
         return $this->touch();
@@ -150,6 +154,7 @@ class ApiService
 
     public function setBaseUrl(string $baseUrl): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->baseUrl = $baseUrl;
 
         return $this->touch();
@@ -162,6 +167,7 @@ class ApiService
 
     public function setProtocol(ApiProtocol $protocol): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->protocol = $protocol;
 
         return $this->touch();
@@ -174,6 +180,7 @@ class ApiService
 
     public function setAuthType(AuthType $authType): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->authType = $authType;
 
         return $this->touch();
@@ -188,6 +195,7 @@ class ApiService
     /** @param array<string, mixed> $authConfig */
     public function setAuthConfig(array $authConfig): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->authConfig = $authConfig;
 
         return $this->touch();
@@ -202,6 +210,7 @@ class ApiService
     /** @param array<string, string> $defaultHeaders */
     public function setDefaultHeaders(array $defaultHeaders): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->defaultHeaders = $defaultHeaders;
 
         return $this->touch();
@@ -214,6 +223,7 @@ class ApiService
 
     public function setPreRequestScript(?string $preRequestScript): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->preRequestScript = $preRequestScript;
 
         return $this->touch();
@@ -226,6 +236,7 @@ class ApiService
 
     public function setPostRequestScript(?string $postRequestScript): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->postRequestScript = $postRequestScript;
 
         return $this->touch();
@@ -238,6 +249,7 @@ class ApiService
 
     public function setEnabled(bool $enabled): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->enabled = $enabled;
 
         return $this->touch();
@@ -280,6 +292,7 @@ class ApiService
 
     private function touch(): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;

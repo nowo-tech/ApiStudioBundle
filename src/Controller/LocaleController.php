@@ -25,6 +25,7 @@ final class LocaleController extends AbstractController
             throw new NotFoundHttpException(sprintf('Locale "%s" is not enabled for API Studio.', $_locale));
         }
 
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $this->localeManager->setLocale($_locale);
 
         $referer = $request->headers->get('referer');

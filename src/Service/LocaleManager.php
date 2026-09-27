@@ -49,6 +49,7 @@ final class LocaleManager
 
         $session = $this->getSession();
         if ($session instanceof SessionInterface) {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $session->set(self::SESSION_KEY, $locale);
         }
     }

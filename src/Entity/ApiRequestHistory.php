@@ -81,6 +81,7 @@ class ApiRequestHistory
 
     public function setEndpoint(?ApiEndpoint $endpoint): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->endpoint = $endpoint;
 
         return $this;
@@ -93,6 +94,7 @@ class ApiRequestHistory
 
     public function setEnvironment(?ApiEnvironment $environment): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->environment = $environment;
 
         return $this;
@@ -110,6 +112,7 @@ class ApiRequestHistory
 
     public function setRequestUrl(string $requestUrl): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestUrl = $requestUrl;
 
         return $this;
@@ -122,6 +125,7 @@ class ApiRequestHistory
 
     public function setRequestMethod(string $requestMethod): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestMethod = $requestMethod;
 
         return $this;
@@ -136,6 +140,7 @@ class ApiRequestHistory
     /** @param array<string, string> $requestHeaders */
     public function setRequestHeaders(array $requestHeaders): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestHeaders = $requestHeaders;
 
         return $this;
@@ -148,6 +153,7 @@ class ApiRequestHistory
 
     public function setRequestBody(?string $requestBody): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestBody = $requestBody;
 
         return $this;
@@ -160,6 +166,7 @@ class ApiRequestHistory
 
     public function setResponseStatus(?int $responseStatus): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->responseStatus = $responseStatus;
 
         return $this;
@@ -174,6 +181,7 @@ class ApiRequestHistory
     /** @param array<string, string> $responseHeaders */
     public function setResponseHeaders(array $responseHeaders): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->responseHeaders = $responseHeaders;
 
         return $this;
@@ -186,6 +194,7 @@ class ApiRequestHistory
 
     public function setResponseBody(?string $responseBody): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->responseBody = $responseBody;
 
         return $this;
@@ -198,6 +207,7 @@ class ApiRequestHistory
 
     public function setDurationMs(?int $durationMs): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->durationMs = $durationMs;
 
         return $this;
@@ -210,6 +220,7 @@ class ApiRequestHistory
 
     public function setSuccess(bool $success): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->success = $success;
 
         return $this;
@@ -222,6 +233,7 @@ class ApiRequestHistory
 
     public function setErrorMessage(?string $errorMessage): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->errorMessage = $errorMessage;
 
         return $this;

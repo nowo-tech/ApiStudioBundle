@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.21] - 2026-09-27](#1021-2026-09-27)
 - [[1.0.18] - 2026-08-20](#1018-2026-08-20)
 - [[1.0.17] - 2026-08-19](#1017-2026-08-19)
 - [[1.0.16] - 2026-08-18](#1016-2026-08-18)
@@ -30,6 +31,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-09-27
+
+### Added
+
+- **REQ-CS-008:** `igor-php/igor-php` (require-dev only), root `igor.json`, Composer/`Makefile` `igor` target, and `release-check` wiring for FrankenPHP worker-state audit.
+
+### Changed
+
+- **Worker safety (Igor):** justified `// @igor-ignore` annotations and/or `ResetInterface` / request-scoped fixes so `make igor` passes on package `src/`.
+
+### Fixed
+
+- **Secrets:** `SecretVariableEncryptionListener` writes the encrypted value through `PreUpdateEventArgs::setNewValue()`,
+  encrypts variables marked as secret without a value change (or after `persist()`), and restores the plaintext on the
+  managed entity after insert/update, so later requests on the same worker never send ciphertext as a variable value.
+- **FrankenPHP worker (no kernel reset):** sidebar tree moved from the memoized Twig global `nowo_api_studio_nav_tree`
+  to the `api_studio_nav_tree()` function (fresh on every render, no query on host pages); a closed Api Studio entity
+  manager is reset at the start of the next Api Studio request; executed request history entries are detached after
+  flush; outbound HTTP uses `max_duration` equal to `request_timeout_seconds`; `PayloadBodyHelper` no longer stores
+  the last XML error in a property. See `docs/FRANKENPHP-WORKER-AUDIT.md`.
+
+[1.0.21]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.21
 
 ## [1.0.20] - 2026-08-24
 

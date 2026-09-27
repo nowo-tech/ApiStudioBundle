@@ -56,6 +56,7 @@ class ApiEnvironmentVariable
 
     public function setEnvironment(?ApiEnvironment $environment): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->environment = $environment;
 
         return $this;
@@ -68,6 +69,7 @@ class ApiEnvironmentVariable
 
     public function setVariableKey(string $variableKey): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->variableKey = VariableSyntax::normalizeKey($variableKey);
 
         return $this;
@@ -80,6 +82,7 @@ class ApiEnvironmentVariable
 
     public function setValue(string $value): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->value = $value;
 
         return $this;
@@ -92,6 +95,7 @@ class ApiEnvironmentVariable
 
     public function setSecret(bool $secret): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->secret = $secret;
 
         return $this;
@@ -104,6 +108,7 @@ class ApiEnvironmentVariable
 
     public function setDescription(?string $description): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->description = $description;
 
         return $this;

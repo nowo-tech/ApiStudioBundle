@@ -58,6 +58,7 @@ class ApiRequestExample
 
     public function setEndpoint(?ApiEndpoint $endpoint): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->endpoint = $endpoint;
 
         return $this;
@@ -70,6 +71,7 @@ class ApiRequestExample
 
     public function setName(string $name): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->name = $name;
 
         return $this;
@@ -84,6 +86,7 @@ class ApiRequestExample
     /** @param array<string, string> $headers */
     public function setHeaders(array $headers): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->headers = $headers;
 
         return $this;
@@ -98,6 +101,7 @@ class ApiRequestExample
     /** @param array<string, string> $queryParams */
     public function setQueryParams(array $queryParams): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->queryParams = $queryParams;
 
         return $this;
@@ -110,6 +114,7 @@ class ApiRequestExample
 
     public function setRequestBody(?string $requestBody): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->requestBody = $requestBody;
 
         return $this;
@@ -122,6 +127,7 @@ class ApiRequestExample
 
     public function setSortOrder(int $sortOrder): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->sortOrder = $sortOrder;
 
         return $this;

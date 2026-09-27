@@ -51,6 +51,7 @@ This project follows the [Contributor Covenant Code of Conduct](../CODE_OF_CONDU
 
 - Target the `main` branch.
 - Run `make release-check` before opening a PR.
+- Run `make igor` for the Igor FrankenPHP worker-state audit (REQ-CS-008).
 - Update `docs/CHANGELOG.md` for user-visible changes.
 - Complete the PR template checklist.
 

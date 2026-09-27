@@ -25,8 +25,6 @@ final class PayloadBodyHelper
 {
     private const VAR_PATTERN = VariableSyntax::PLACEHOLDER_PATTERN;
 
-    private ?string $lastLoadXmlError = null;
-
     public function resolveBodyFormat(string $protocol, ?string $contentType = null): string
     {
         if ($protocol === 'soap') {
@@ -104,11 +102,11 @@ final class PayloadBodyHelper
         }
 
         [$masked] = $this->maskVariablesForXml($body);
-        if ($this->loadXml($masked) !== null) {
+        if ($this->loadXml($masked, $error) !== null) {
             return ['valid' => true, 'with_variables' => true, 'message' => 'valid_xml_with_variables'];
         }
 
-        return ['valid' => false, 'with_variables' => false, 'message' => $this->lastXmlError() ?? 'Invalid XML.'];
+        return ['valid' => false, 'with_variables' => false, 'message' => $error ?? 'Invalid XML.'];
     }
 
     public function formatJson(string $body): string
@@ -133,9 +131,9 @@ final class PayloadBodyHelper
         }
 
         [$masked, $tokens] = $this->maskVariablesForXml($body);
-        $dom               = $this->loadXml($masked);
+        $dom               = $this->loadXml($masked, $error);
         if ($dom === null) {
-            throw new InvalidArgumentException($this->lastXmlError() ?? 'Invalid XML.');
+            throw new InvalidArgumentException($error ?? 'Invalid XML.');
         }
 
         $dom->formatOutput       = true;
@@ -182,10 +180,10 @@ final class PayloadBodyHelper
         return [$masked, $tokens];
     }
 
-    private function loadXml(string $body): ?DOMDocument
+    private function loadXml(string $body, ?string &$error = null): ?DOMDocument
     {
-        $previous               = libxml_use_internal_errors(true);
-        $this->lastLoadXmlError = null;
+        $previous = libxml_use_internal_errors(true);
+        $error    = null;
         libxml_clear_errors();
 
         $dom                     = new DOMDocument('1.0');
@@ -201,14 +199,9 @@ final class PayloadBodyHelper
         $errors = libxml_get_errors();
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
-        $this->lastLoadXmlError = $errors !== [] ? trim($errors[0]->message) : null;
+        $error = $errors !== [] ? trim($errors[0]->message) : null;
 
         return null;
-    }
-
-    private function lastXmlError(): ?string
-    {
-        return $this->lastLoadXmlError;
     }
 
     private function containsVariablePlaceholders(string $body): bool

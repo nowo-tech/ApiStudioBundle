@@ -74,6 +74,7 @@ class ApiEnvironment
 
     public function setWorkspace(?ApiWorkspace $workspace): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->workspace = $workspace;
 
         return $this->touch();
@@ -86,6 +87,7 @@ class ApiEnvironment
 
     public function setName(string $name): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->name = $name;
 
         return $this->touch();
@@ -98,6 +100,7 @@ class ApiEnvironment
 
     public function setSlug(string $slug): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->slug = $slug;
 
         return $this->touch();
@@ -110,6 +113,7 @@ class ApiEnvironment
 
     public function setIsDefault(bool $isDefault): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->isDefault = $isDefault;
 
         return $this->touch();
@@ -163,6 +167,7 @@ class ApiEnvironment
 
     private function touch(): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;

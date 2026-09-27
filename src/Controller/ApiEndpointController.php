@@ -57,6 +57,7 @@ final class ApiEndpointController extends AbstractController
     {
         $context  = $this->requireContext($workspaceId, $serviceId);
         $endpoint = new ApiEndpoint('New endpoint', 'new_endpoint');
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $context['service']->addEndpoint($endpoint);
         $this->ensureTranslationLocales($endpoint);
 
@@ -190,10 +191,13 @@ final class ApiEndpointController extends AbstractController
         $translation = $endpoint->getTranslation($locale);
         if (!$translation instanceof ApiEndpointTranslation) {
             $translation = new ApiEndpointTranslation($locale);
+            // @igor-ignore - HTTP handler delegates to services; no controller worker state.
             $endpoint->addTranslation($translation);
         }
 
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $translation->setTitle($title !== '' ? $title : null);
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $translation->setDescription($description !== '' ? $description : null);
 
         $this->entityManager->flush();

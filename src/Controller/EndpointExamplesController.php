@@ -57,6 +57,7 @@ final class EndpointExamplesController extends AbstractController
         $example->setHeaders($this->stringMap($payload['headers'] ?? []));
         $example->setQueryParams($this->stringMap($payload['query_params'] ?? []));
         $example->setSortOrder($endpoint->getRequestExamples()->count());
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $endpoint->addRequestExample($example);
 
         $this->entityManager->persist($example);
@@ -87,6 +88,7 @@ final class EndpointExamplesController extends AbstractController
         $example->setResponseBody(isset($payload['response_body']) && is_string($payload['response_body']) ? $payload['response_body'] : null);
         $example->setHeaders($this->stringMap($payload['response_headers'] ?? []));
         $example->setSortOrder($endpoint->getResponseExamples()->count());
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $endpoint->addResponseExample($example);
 
         $this->entityManager->persist($example);

@@ -126,8 +126,9 @@ final class RequestExecutor
 
         try {
             $options = [
-                'headers' => $headers,
-                'timeout' => $this->timeoutSeconds,
+                'headers'      => $headers,
+                'timeout'      => $this->timeoutSeconds,
+                'max_duration' => $this->timeoutSeconds,
             ];
             if ($body !== null && $body !== '' && !in_array($method, ['GET', 'HEAD'], true)) {
                 $options['body'] = $body;

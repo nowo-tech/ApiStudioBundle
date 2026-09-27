@@ -43,6 +43,7 @@ final class ApiServiceController extends AbstractController
     {
         $workspace = $this->requireWorkspace($workspaceId);
         $service   = new ApiService('New service', 'new_service');
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $workspace->addService($service);
 
         $form = $this->createForm(ApiServiceFormType::class, $service);

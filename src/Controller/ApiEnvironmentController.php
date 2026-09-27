@@ -41,6 +41,7 @@ final class ApiEnvironmentController extends AbstractController
     {
         $workspace   = $this->requireWorkspace($workspaceId);
         $environment = new ApiEnvironment('New environment', 'new_env');
+        // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $workspace->addEnvironment($environment);
 
         $form = $this->createForm(ApiEnvironmentFormType::class, $environment);

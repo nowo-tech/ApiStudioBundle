@@ -137,13 +137,19 @@ final class DemoSeedService
     private function seedJsonPlaceholder(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'jsonplaceholder', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setName('JSONPlaceholder');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'API REST pública de prueba. Ideal para ejecutar peticiones reales desde el tester sin credenciales.',
             );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('{{jsonplaceholder_base_url}}');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setProtocol(ApiProtocol::Rest);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::None);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDefaultHeaders(['Accept' => 'application/json']);
         });
 
@@ -232,15 +238,22 @@ JSON);
     private function seedLinkedIn(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'linkedin', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setName('LinkedIn API v2');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'Documentación de referencia de LinkedIn Marketing / Sign In API. '
                 . 'Requiere app en LinkedIn Developer Portal y token OAuth 2.0 con scopes adecuados.',
             );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('{{linkedin_api_base}}');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setProtocol(ApiProtocol::Rest);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::Bearer);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthConfig(['token' => '{{linkedin_access_token}}']);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDefaultHeaders([
                 'Accept'                    => 'application/json',
                 'X-Restli-Protocol-Version' => '2.0.0',
@@ -381,18 +394,25 @@ JSON);
     private function seedGoogleTranslate(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'google_translate', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setName('Google Cloud Translation API');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'Traducción automática v2 (REST). Habilitar Cloud Translation API en Google Cloud Console '
                 . 'y usar API key o OAuth2 service account.',
             );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('{{google_translate_base}}');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setProtocol(ApiProtocol::Rest);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::ApiKey);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthConfig([
                 'header' => 'X-Goog-Api-Key',
                 'value'  => '{{google_api_key}}',
             ]);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDefaultHeaders(['Accept' => 'application/json']);
         });
 
@@ -520,15 +540,21 @@ JSON);
     private function seedCatastroSoap(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'catastro_soap', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setName('Catastro — OVCCoordenadas (SOAP)');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'Servicio SOAP de la Sede Electrónica del Catastro (Ministerio de Hacienda, España). '
                 . 'Consulta de referencia catastral a partir de coordenadas geográficas. '
                 . 'WSDL público sin autenticación para consultas no protegidas.',
             );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('{{catastro_soap_wsdl}}');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setProtocol(ApiProtocol::Soap);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::None);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDefaultHeaders(['Content-Type' => 'text/xml; charset=utf-8']);
         });
 
@@ -649,14 +675,20 @@ XML);
     private function seedCatastroRest(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'catastro_rest', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setName('Catastro — Consulta REST (OVC)');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'Endpoints HTTP de consulta catastral no protegida (documentación de referencia). '
                 . 'Incluye consulta por RC y por coordenadas en formato XML/JSON según servicio.',
             );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setProtocol(ApiProtocol::Rest);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::None);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDefaultHeaders(['Accept' => 'application/xml']);
         });
 
