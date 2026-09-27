@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
+use SortDirection;
 
 /**
  * Third-party or internal API service within a workspace.
@@ -72,7 +73,7 @@ class ApiService
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['sortOrder' => 'ASC', 'name' => 'ASC'])]
+    #[ORM\OrderBy(['sortOrder' => SortDirection::Ascending, 'name' => SortDirection::Ascending])]
     private Collection $endpoints;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]

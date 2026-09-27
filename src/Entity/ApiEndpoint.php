@@ -11,6 +11,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
+use SortDirection;
 
 /**
  * Documented and testable API endpoint.
@@ -86,7 +87,7 @@ class ApiEndpoint
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['sortOrder' => 'ASC', 'name' => 'ASC'])]
+    #[ORM\OrderBy(['sortOrder' => SortDirection::Ascending, 'name' => SortDirection::Ascending])]
     private Collection $requestExamples;
 
     /** @var Collection<int, ApiResponseExample> */
@@ -96,7 +97,7 @@ class ApiEndpoint
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['sortOrder' => 'ASC', 'name' => 'ASC'])]
+    #[ORM\OrderBy(['sortOrder' => SortDirection::Ascending, 'name' => SortDirection::Ascending])]
     private Collection $responseExamples;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]

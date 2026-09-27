@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use SortDirection;
 
 /**
  * Top-level workspace grouping services, environments, and endpoints.
@@ -43,7 +44,7 @@ class ApiWorkspace
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['name' => 'ASC'])]
+    #[ORM\OrderBy(['name' => SortDirection::Ascending])]
     private Collection $services;
 
     /** @var Collection<int, ApiEnvironment> */
@@ -53,7 +54,7 @@ class ApiWorkspace
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['name' => 'ASC'])]
+    #[ORM\OrderBy(['name' => SortDirection::Ascending])]
     private Collection $environments;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]

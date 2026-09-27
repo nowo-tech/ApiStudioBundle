@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use SortDirection;
 
 /**
  * Environment (dev, staging, prod) with variable sets for a workspace.
@@ -44,7 +45,7 @@ class ApiEnvironment
         cascade: ['persist', 'remove'],
         orphanRemoval: true,
     )]
-    #[ORM\OrderBy(['variableKey' => 'ASC'])]
+    #[ORM\OrderBy(['variableKey' => SortDirection::Ascending])]
     private Collection $variables;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
