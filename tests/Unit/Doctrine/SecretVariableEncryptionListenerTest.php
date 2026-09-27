@@ -20,6 +20,8 @@ use function dirname;
 use function extension_loaded;
 use function sys_get_temp_dir;
 
+use const PHP_VERSION_ID;
+
 final class SecretVariableEncryptionListenerTest extends TestCase
 {
     private SecretValueCipher $cipher;
@@ -161,6 +163,9 @@ final class SecretVariableEncryptionListenerTest extends TestCase
             true,
             sys_get_temp_dir() . '/nowo_api_studio_test_proxies',
         );
+        if (PHP_VERSION_ID >= 80400 && method_exists($config, 'enableNativeLazyObjects')) {
+            $config->enableNativeLazyObjects(true);
+        }
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
         $em         = new EntityManager($connection, $config);
 
