@@ -5,6 +5,7 @@
 
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
+- [To 1.0.22](#to-1022)
 - [To 1.0.21](#to-1021)
 - [To 1.0.18](#to-1018)
 - [To 1.0.17](#to-1017)
@@ -46,6 +47,18 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.0.22
+
+From **1.0.21** — dependency updates and Doctrine ORM `SortDirection` mapping.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- No breaking changes. **No application upgrade steps.**
+- The bundle now requires `doctrine/orm` `^3.7` (Doctrine ORM 2.x is no longer supported); `#[ORM\OrderBy]` mappings use
+  the `SortDirection` enum (native on PHP 8.6, polyfilled by `symfony/polyfill-php86` on older PHP).
 
 ## To 1.0.21
 

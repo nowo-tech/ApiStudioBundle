@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.22] - 2026-10-09](#1022-2026-10-09)
 - [[1.0.21] - 2026-09-27](#1021-2026-09-27)
 - [[1.0.18] - 2026-08-20](#1018-2026-08-20)
 - [[1.0.17] - 2026-08-19](#1017-2026-08-19)
@@ -31,9 +32,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-10-09
+
 ### Changed
 
 - **Doctrine ORM SortDirection:** replace string `'ASC'`/`'DESC'` in `#[ORM\OrderBy]` and QueryBuilder `orderBy`/`addOrderBy` with `SortDirection::Ascending`/`Descending` (doctrine/orm deprecation, https://github.com/doctrine/orm/issues/11313); require `doctrine/orm` `^3.7` where applicable.
+
+### Fixed
+
+- **Tests (Doctrine):** the test entity manager enables native lazy objects only on PHP 8.4+; `symfony/var-exporter`
+  is now required as `^7.4 || ^8.0` (LazyGhost support), keeping the PHP 8.2 Docker test environment installable.
+
+### Dependencies
+
+- **Runtime:** `doctrine/orm` 3.7.4 (constraint `^3.7`), `nowo-tech/form-kit-bundle` 2.6.0, `nowo-tech/ui-kit-bundle` 1.9.1,
+  `symfony/*` 7.4.20 in the bundle lockfile.
+- **Dev:** `phpstan/phpstan` 2.3.1 (+ `phpstan-symfony` 2.1.0, `phpstan-phpunit` 2.1.1), `rector/rector` 2.7.0,
+  `friendsofphp/php-cs-fixer` 3.95.27, `igor-php/igor-php` 0.10.1, `phpunit/phpunit` 11.5.57, `vite` 8.3.2.
+- **Demo (symfony8):** Symfony 8.1.8, `doctrine/dbal` 4.5.0, `twig/twig` 3.30.0; regenerated `config/reference.php`.
+
+[1.0.22]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.0.22
 
 ## [1.0.21] - 2026-09-27
 

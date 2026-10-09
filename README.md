@@ -81,7 +81,7 @@ Open `/api-studio` in your browser.
 
 - PHP >= 8.2 < 8.6
 - Symfony 7.0+ or 8.x
-- Doctrine ORM
+- Doctrine ORM `^3.7`
 - `ext-json`
 - `ext-soap` (optional, for SOAP execution)
 - [UiKitBundle](https://github.com/nowo-tech/UiKitBundle) `^1.4`
