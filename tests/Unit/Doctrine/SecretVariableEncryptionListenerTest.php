@@ -163,7 +163,7 @@ final class SecretVariableEncryptionListenerTest extends TestCase
             true,
             sys_get_temp_dir() . '/nowo_api_studio_test_proxies',
         );
-        if (PHP_VERSION_ID >= 80400 && method_exists($config, 'enableNativeLazyObjects')) {
+        if (PHP_VERSION_ID >= 80400) {
             $config->enableNativeLazyObjects(true);
         }
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
