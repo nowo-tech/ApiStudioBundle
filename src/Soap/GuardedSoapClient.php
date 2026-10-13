@@ -66,6 +66,13 @@ final class GuardedSoapClient extends SoapClient
             'max_redirects' => $this->maxRedirects,
         ]);
 
+        // A 3xx left here was not followed (execution_max_redirects exhausted or 0): fail instead of handing an
+        // empty body to ext-soap, which would report a successful call with a null result.
+        $status = $response->getStatusCode();
+        if ($status >= 300 && $status < 400) {
+            throw new SoapFault('HTTP', 'SOAP endpoint answered with a redirect (HTTP ' . $status . ') that was not followed.');
+        }
+
         // SOAP faults come back with HTTP 500 and an envelope: hand the body to ext-soap whatever the status.
         $content = $response->getContent(false);
 

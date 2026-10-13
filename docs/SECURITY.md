@@ -40,7 +40,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
 | CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
 | DoS | Large payloads, slow upstream APIs | Configurable `request_timeout_seconds` (1–300) |
-| SOAP WSDL / endpoint | ext-soap fetching the WSDL or calling `<soap:address location>` itself would skip redirect/rebinding checks and could reach metadata or internal hosts | ext-soap never opens a connection: `GuardedWsdlLoader` downloads the WSDL and its imports through `NoPrivateNetworkHttpClient` (validator + allowlist on every document and on the final URL after redirects, `execution_max_redirects`, DTDs rejected) into temporary files; `GuardedSoapClient::__doRequest()` validates the location (SSRF + allowlist) and sends the call through the same client with the request timeout |
+| SOAP WSDL / endpoint | ext-soap fetching the WSDL or calling `<soap:address location>` itself would skip redirect/rebinding checks and could reach metadata or internal hosts | ext-soap never opens a connection: `GuardedWsdlLoader` downloads the WSDL and its imports through `NoPrivateNetworkHttpClient` (validator + allowlist on every document and on the final URL after redirects, `execution_max_redirects`, DTDs rejected) into temporary files; `GuardedSoapClient::__doRequest()` validates the location (SSRF + allowlist) and sends the call through the same client with the request timeout (redirect hops re-checked; an unfollowed 3xx fails the call) |
 
 ## Application responsibilities
 
@@ -89,7 +89,7 @@ Before each release, confirm:
 | `.env` listed in `.gitignore`; no secrets in repo | ☑ |
 | Flex recipe / default config contain no secrets | ☑ |
 | `security.access_roles` / `ui.required_roles` default to `ROLE_ADMIN` (or documented override) | ☑ |
-| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs (WSDL imports and SOAP endpoint location included) | ☑ (regression: `ExecutionUrlValidatorTest`, `RequestExecutorTimeoutTest`, `GuardedSoapExecutionTest`) |
+| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs (WSDL imports and SOAP endpoint location included) | ☑ (regression: `ExecutionUrlValidatorTest`, `RequestExecutorTimeoutTest`, `GuardedSoapExecutionTest`, incl. SOAP-call redirects to private addresses) |
 | User input validated (forms + Symfony validator) | ☑ |
 | Output escaped (Twig templates) | ☑ |
 | `composer audit` run on bundle and demo | ☑ |

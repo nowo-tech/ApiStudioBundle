@@ -54,6 +54,8 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- SOAP executions whose endpoint answers with an unfollowed redirect (3xx) now fail with `HTTP 3xx … not followed` instead of reporting success with an empty result. Raise `execution_max_redirects` if the SOAP endpoint legitimately redirects.
+
 ## To 1.3.1
 
 From **1.3.0** — new/edit forms render (workspace, service, environment, endpoint)

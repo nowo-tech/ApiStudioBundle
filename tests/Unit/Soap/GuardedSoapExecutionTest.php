@@ -118,13 +118,86 @@ final class GuardedSoapExecutionTest extends TestCase
         self::assertStringContainsString('10.0.0.5', (string) $result->errorMessage);
     }
 
+    public function testSoapCallRedirectToPublicHostIsFollowedWhenAllowed(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url, $options];
+
+            return match (true) {
+                $method === 'GET'                     => new MockResponse(self::wsdl('https://93.184.215.14/soap')),
+                $url === 'https://93.184.215.14/soap' => new MockResponse('', ['http_code' => 307, 'redirect_url' => 'https://93.184.215.20/soap']),
+                default                               => new MockResponse(self::RESPONSE),
+            };
+        });
+
+        $result = $this->executor($client, maxRedirects: 3)->execute($this->endpoint());
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertStringContainsString('pong', (string) $result->responseBody);
+        self::assertSame(['POST', 'https://93.184.215.20/soap'], [$calls[2][0], $calls[2][1]]);
+        self::assertContains('SOAPAction: "urn:ping#Ping"', $calls[2][2]['headers']);
+    }
+
+    public function testSoapCallRedirectIsNotFollowedByDefault(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url) use (&$calls): MockResponse {
+            $calls[] = $url;
+
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+                : new MockResponse('', ['http_code' => 302, 'redirect_url' => 'https://93.184.215.20/soap']);
+        });
+
+        $result = $this->executor($client)->execute($this->endpoint());
+
+        self::assertFalse($result->success);
+        self::assertStringContainsString('HTTP 302', (string) $result->errorMessage);
+        self::assertSame([self::WSDL_URL, 'https://93.184.215.14/soap'], $calls);
+    }
+
+    #[DataProvider('privateRedirectTargets')]
+    public function testSoapCallRedirectToPrivateNetworkIsBlocked(string $target): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url) use (&$calls, $target): MockResponse {
+            $calls[] = [$method, $url];
+
+            return match (true) {
+                $method === 'GET'                     => new MockResponse(self::wsdl('https://93.184.215.14/soap')),
+                $url === 'https://93.184.215.14/soap' => new MockResponse('', ['http_code' => 307, 'redirect_url' => $target, 'response_headers' => ['Location' => $target]]),
+                default                               => new MockResponse(self::RESPONSE),
+            };
+        });
+
+        $result = $this->executor($client, maxRedirects: 3)->execute($this->endpoint());
+
+        self::assertFalse($result->success);
+        self::assertSame(
+            [['GET', self::WSDL_URL], ['POST', 'https://93.184.215.14/soap']],
+            $calls,
+            'The redirect hop to a private address must never be requested.',
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function privateRedirectTargets(): iterable
+    {
+        yield 'cloud metadata' => ['http://169.254.169.254/latest/meta-data/'];
+        yield 'RFC1918' => ['http://10.0.0.5/soap'];
+        yield 'IPv6 loopback' => ['http://[::1]/soap'];
+    }
+
     public function testWsdlRedirectToLoopbackIsBlocked(): void
     {
         $calls  = [];
         $client = new MockHttpClient(static function (string $method, string $url) use (&$calls): MockResponse {
             $calls[] = $url;
 
-            return new MockResponse('', ['http_code' => 302, 'response_headers' => ['Location' => 'http://127.0.0.1/internal.wsdl']]);
+            return new MockResponse('', ['http_code' => 302, 'redirect_url' => 'http://127.0.0.1/internal.wsdl', 'response_headers' => ['Location' => 'http://127.0.0.1/internal.wsdl']]);
         });
 
         $result = $this->executor($client, maxRedirects: 3)->execute($this->endpoint());
@@ -135,7 +208,7 @@ final class GuardedSoapExecutionTest extends TestCase
 
     public function testWsdlRedirectIsNotFollowedByDefault(): void
     {
-        $client = new MockHttpClient(static fn (): MockResponse => new MockResponse('', ['http_code' => 302, 'response_headers' => ['Location' => 'https://93.184.215.14/other.wsdl']]));
+        $client = new MockHttpClient(static fn (): MockResponse => new MockResponse('', ['http_code' => 302, 'redirect_url' => 'https://93.184.215.14/other.wsdl', 'response_headers' => ['Location' => 'https://93.184.215.14/other.wsdl']]));
 
         $result = $this->executor($client)->execute($this->endpoint());
 

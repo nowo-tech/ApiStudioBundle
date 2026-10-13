@@ -39,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- SOAP: a 3xx answer from the SOAP endpoint that is not followed (`execution_max_redirects` is `0` by default, or exhausted) now fails the execution (`HTTP 3xx … not followed`) instead of handing an empty body to ext-soap, which recorded a successful call with a `null` result.
+
+### Security
+
+- Regression coverage for SOAP redirects: a redirect of the SOAP call (`<soap:address location>`) to metadata, RFC1918 or loopback addresses is blocked by `NoPrivateNetworkHttpClient` before the hop is requested, a public redirect is followed only when `execution_max_redirects` allows it (with `SOAPAction` preserved), and the WSDL redirect tests now exercise the client's redirect handling.
+
 ## [1.3.1] - 2026-10-13
 
 ### Fixed
