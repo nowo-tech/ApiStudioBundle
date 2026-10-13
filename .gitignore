@@ -15,6 +15,7 @@
 
 # PHP tools cache (REQ-GITIGNORE-002: file pattern, not directory-only)
 .php-cs-fixer.cache
+/.twig-cs-fixer.cache
 
 # IDE / OS
 /.idea/
