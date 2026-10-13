@@ -16,6 +16,9 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="Functional">
+            <directory>tests/Functional</directory>
+        </testsuite>
     </testsuites>
 
     <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">

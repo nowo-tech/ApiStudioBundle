@@ -25,8 +25,17 @@ final class StudioNavigationProvider
         foreach ($this->workspaceRepository->findBy([], ['name' => 'ASC']) as $workspace) {
             $services = [];
             foreach ($workspace->getServices() as $service) {
+                // Unsaved entities (e.g. the one being built by a "new" form) have no id and no URL yet.
+                if ($service->getId() === null) {
+                    continue;
+                }
+
                 $endpoints = [];
                 foreach ($service->getEndpoints() as $endpoint) {
+                    if ($endpoint->getId() === null) {
+                        continue;
+                    }
+
                     $requestExamples = [];
                     foreach ($endpoint->getRequestExamples() as $example) {
                         $exampleId = $example->getId();

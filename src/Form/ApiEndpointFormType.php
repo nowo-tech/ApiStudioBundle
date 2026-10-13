@@ -6,14 +6,12 @@ namespace Nowo\ApiStudioBundle\Form;
 
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
-use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
-use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -53,25 +51,5 @@ final class ApiEndpointFormType extends AbstractType
             'data_class'         => ApiEndpoint::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
-    }
-}
-
-/** @extends AbstractType<ApiEndpointTranslation> */
-#[FormKitConfig('api_studio')]
-final class ApiEndpointTranslationFormType extends AbstractType
-{
-    use FormOptionsTrait;
-
-    public function buildForm(FormBuilderInterface $builder, array $options): void
-    {
-        $this->addWithDefaults($builder, 'locale', HiddenType::class, []);
-        $this->addText($builder, 'title', ['required' => false]);
-        $this->addTextarea($builder, 'description', ['required' => false]);
-        $this->addTextarea($builder, 'notes', ['required' => false]);
-    }
-
-    public function configureOptions(OptionsResolver $resolver): void
-    {
-        $resolver->setDefaults(['data_class' => ApiEndpointTranslation::class]);
     }
 }

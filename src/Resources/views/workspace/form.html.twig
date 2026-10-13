@@ -1,5 +1,5 @@
 {% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{% set as_active_workspace = workspace is defined ? workspace.id : null %}
 
 {% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
 {% block topbar_title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
