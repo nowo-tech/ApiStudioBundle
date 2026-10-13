@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.3.0](#to-130)
 - [To 1.2.0](#to-120)
 - [To 1.1.0](#to-110)
 - [To 1.0.23](#to-1023)
@@ -51,6 +52,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.3.0
+
+From **1.2.0** — security - SOAP WSDL and calls routed through the guarded HTTP client; secrets masked in stored history headers and bodies.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **SOAP outbound policy:** the SOAP endpoint (`<soap:address location>` in the WSDL) is now validated like any other execution URL. If you use `execution_url_allowlist`, it must also allow the SOAP endpoint host (and the hosts of any imported WSDL/XSD documents), not only the WSDL URL. WSDL redirects follow `execution_max_redirects` (default `0`), WSDLs that declare a DTD are rejected, and the SOAP read timeout is now `ui.request_timeout_seconds` (no longer `default_socket_timeout`).
 - **History redaction:** values of secret environment variables are now masked in stored request headers and bodies as well. Existing history rows are not rewritten; purge them if they may contain secrets.

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.3.0] - 2026-10-13](#130---2026-10-13)
 - [[1.2.0] - 2026-10-13](#120---2026-10-13)
 - [[1.1.0] - 2026-10-13](#110---2026-10-13)
 - [[1.0.23] - 2026-10-13](#1023---2026-10-13)
@@ -37,10 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-13
+
 ### Security
 
 - SOAP executions no longer bypass the SSRF guard: the WSDL (and every WSDL/XSD it imports) is downloaded through the guarded HTTP client (`NoPrivateNetworkHttpClient`, URL validator + `execution_url_allowlist` on each document and on the final URL after redirects, `execution_max_redirects`) and handed to ext-soap as a local temporary file; the SOAP call itself goes through the same client from `GuardedSoapClient::__doRequest()`, so the `<soap:address location>` is checked against the SSRF validator and allowlist (metadata/loopback/private endpoints are rejected), DNS rebinding is re-checked and `ui.request_timeout_seconds` applies as `timeout` + `max_duration`. WSDL documents with a DTD are rejected.
 - Request history now also masks the values of secret environment variables (raw, URL-encoded and JSON-escaped, 4+ characters) in every stored request header and in the stored request body, not only in the URL; values sent in the execute payload for a secret variable are masked too.
+
+[1.3.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.3.0
 
 ## [1.2.0] - 2026-10-13
 
