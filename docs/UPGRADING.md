@@ -2,9 +2,9 @@
 
 ## Table of contents
 
-
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
+- [To 1.0.23](#to-1023)
 - [To 1.0.22](#to-1022)
 - [To 1.0.21](#to-1021)
 - [To 1.0.18](#to-1018)
@@ -48,6 +48,16 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+## To 1.0.23
+
+From **1.0.22** — dependency refresh and repository maintenance.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- No breaking changes. No application upgrade steps.
+
 ## To 1.0.22
 
 From **1.0.21** — dependency updates and Doctrine ORM `SortDirection` mapping.
@@ -74,7 +84,6 @@ php bin/console cache:clear
   The tree is now built only when a template asks for it, so host pages no longer query the Api Studio catalog.
 - No configuration changes.
 - No application upgrade steps for require-dev Igor tooling (REQ-CS-008). Consumers do not pull `igor-php/igor-php` transitively.
-
 
 ## To 1.0.19
 
