@@ -45,11 +45,11 @@ There is a demo for **Symfony 8** (`demo/symfony8`) with its own Dockerfile, doc
 
 ## Timeouts (REQ-RUNTIME-001)
 
-The request console executes outbound REST/GraphQL (Symfony HttpClient) and SOAP (`SoapClient`) calls. Timeouts are layered so the **innermost** deadline fires first and FrankenPHP workers are not left blocked indefinitely:
+The request console executes outbound REST/GraphQL (Symfony HttpClient) and SOAP (ext-soap over the same HttpClient) calls. Timeouts are layered so the **innermost** deadline fires first and FrankenPHP workers are not left blocked indefinitely:
 
 | Layer | Default | Role |
 |-------|---------|------|
-| `nowo_api_studio.ui.request_timeout_seconds` | **30s** (1–300) | HttpClient `timeout` and SOAP `connection_timeout` for console executions |
+| `nowo_api_studio.ui.request_timeout_seconds` | **30s** (1–300) | HttpClient `timeout` + `max_duration` for console executions (REST, GraphQL, WSDL download and SOAP calls) |
 | PHP `max_execution_time` / `max_input_time` | Image / Caddy defaults | Must stay **greater** than the UI request timeout if you raise it |
 | Caddy / FrankenPHP write / wait limits | Image defaults | Cap how long a request may occupy a worker thread |
 

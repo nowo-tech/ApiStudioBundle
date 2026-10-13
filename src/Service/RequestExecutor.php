@@ -12,9 +12,10 @@ use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Nowo\ApiStudioBundle\Soap\GuardedSoapClient;
+use Nowo\ApiStudioBundle\Soap\GuardedWsdlLoader;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use SoapClient;
 use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
@@ -29,6 +30,7 @@ use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_UNICODE;
 use const PHP_URL_HOST;
 use const PHP_URL_SCHEME;
+use const WSDL_CACHE_NONE;
 
 /**
  * Executes REST, SOAP, and GraphQL requests with environment variable substitution.
@@ -205,12 +207,16 @@ final class RequestExecutor
         $this->logStart('SOAP', $wsdl);
         $start = hrtime(true);
 
+        // ext-soap never touches the network itself: the WSDL (and its imports) and every SOAP call go through
+        // the guarded HTTP client, so the <soap:address location>, redirects and DNS rebinding are checked too.
+        $wsdlLoader = new GuardedWsdlLoader($this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects);
+
         try {
-            $client = new SoapClient($wsdl, [
-                'trace'              => true,
-                'exceptions'         => true,
-                'connection_timeout' => $this->timeoutSeconds,
-            ]);
+            $client = new GuardedSoapClient($wsdlLoader->load($wsdl), [
+                'trace'      => true,
+                'exceptions' => true,
+                'cache_wsdl' => WSDL_CACHE_NONE,
+            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects);
 
             $params = json_decode($body, true);
             if (!is_array($params)) {
@@ -239,6 +245,8 @@ final class RequestExecutor
             $this->logFailure('SOAP', $wsdl, $e->getMessage(), $duration);
 
             return $this->failure($wsdl, 'SOAP', $headers, $body, $e->getMessage(), $duration);
+        } finally {
+            $wsdlLoader->cleanup();
         }
     }
 

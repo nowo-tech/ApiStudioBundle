@@ -77,6 +77,32 @@ final class HistorySanitizerTest extends TestCase
         self::assertSame('https://api.test/v1/x/[REDACTED]?X-Partner-Credential=[REDACTED]&q=hello%20[REDACTED]&q2=a+b', $out);
     }
 
+    public function testSanitizeHeadersMasksSecretValuesInOtherHeaders(): void
+    {
+        $out = (new HistorySanitizer())->sanitizeHeaders(
+            ['X-Custom' => 'prefix s3cr3t/value', 'X-Encoded' => 's3cr3t%2Fvalue', 'Accept' => 'abc', 'Authorization' => 'Bearer x'],
+            [],
+            ['s3cr3t/value', 'abc'],
+        );
+
+        self::assertSame('prefix [REDACTED]', $out['X-Custom']);
+        self::assertSame('[REDACTED]', $out['X-Encoded']);
+        self::assertSame('abc', $out['Accept'], 'Values shorter than 4 characters are not masked.');
+        self::assertSame('[REDACTED]', $out['Authorization']);
+    }
+
+    public function testSanitizeBodyMasksSecretValuesInAnyForm(): void
+    {
+        $sanitizer = new HistorySanitizer();
+
+        self::assertSame(
+            '{"client":"[REDACTED]","note":"x"}',
+            $sanitizer->sanitizeBody('{"client":"p\\/w\\"d","note":"x"}', ['p/w"d']),
+        );
+        self::assertSame('a=[REDACTED]&b=[REDACTED]', $sanitizer->sanitizeBody('a=p%2Fw%22d&b=p/w"d', ['p/w"d']));
+        self::assertSame('<ns:key>[REDACTED]</ns:key>', $sanitizer->sanitizeBody('<ns:key>tok-987654</ns:key>', ['tok-987654']));
+    }
+
     public function testSanitizeUrlWithoutQueryIsUnchanged(): void
     {
         self::assertSame('https://api.test/v1', (new HistorySanitizer())->sanitizeUrl('https://api.test/v1'));

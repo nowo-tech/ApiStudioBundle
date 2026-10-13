@@ -31,7 +31,7 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | Output, headers, `exit`, shutdown functions | ✅ | None; all output goes through `Response` objects |
 | Resources (files, sockets, cURL) held open | ✅ | `SoapClient` is created per call (`src/Service/RequestExecutor.php:195`); uploads are read through `UploadedFile`; no handles kept in properties |
 | Memory growth across requests | ✅ | No bundle-level caches; executed `ApiRequestHistory` rows are detached after flush. Other loaded entities stay in the host-owned identity map until the host clears it (W-02) |
-| Blocking I/O and timeouts | ✅ | HttpClient uses `timeout` + `max_duration`; SOAP read timeout and resolver timeout remain host configuration (W-03, accepted) |
+| Blocking I/O and timeouts | ✅ | HttpClient uses `timeout` + `max_duration` (SOAP included); resolver timeout remains host configuration (W-03, accepted) |
 | Third-party static state | ✅ | Symfony Yaml, HttpClient, ext-soap, ext-sodium and DOM are used per call; no global settings changed |
 | PHPStan FrankenPHP rulesets | ✅ | `ruleset-classic.neon` + `ruleset-worker.neon` included in `phpstan.neon.dist` |
 
@@ -87,7 +87,7 @@ Entities, enums and models (`ApiExecutionResult`, `ImportResult`) are created pe
 - **Where:** `src/Service/RequestExecutor.php:128-136` passes `timeout => request_timeout_seconds` to HttpClient. That is an idle timeout, and no `max_duration` is set. `:195-199` builds `SoapClient` with only `connection_timeout`, so reads fall back to the `default_socket_timeout` ini value. `src/Security/ExecutionUrlValidator.php:76` calls `gethostbyname()`, which uses the system resolver timeout. `request_timeout_seconds` defaults to 30 and accepts up to 300 (`src/DependencyInjection/Configuration.php:74-78`).
 - **Worker impact:** a slow or trickling target can hold one of the limited worker threads for much longer than the configured value (for example a server that sends a byte every few seconds). No state leaks.
 - **Recommendation:** add `max_duration` equal to the timeout for HttpClient, set `default_socket_timeout` (or a stream context) for SOAP, keep resolver `options timeout:1 attempts:2`, and cap waiting requests with FrankenPHP `max_wait_time`.
-- **Status:** Resolved for HTTP/GraphQL — `src/Service/RequestExecutor.php` passes `max_duration` = `request_timeout_seconds` (test in `tests/Unit/Service/RequestExecutorTimeoutTest.php`). Accepted for SOAP reads and DNS: ext-soap only honours the process-wide `default_socket_timeout`, and changing it at runtime with `ini_set()` is itself worker-unsafe; set it in `php.ini` together with resolver options and FrankenPHP `max_wait_time`.
+- **Status:** Resolved for HTTP/GraphQL — `src/Service/RequestExecutor.php` passes `max_duration` = `request_timeout_seconds` (test in `tests/Unit/Service/RequestExecutorTimeoutTest.php`). Resolved for SOAP (Unreleased): the WSDL download and SOAP calls go through the same HttpClient (`src/Soap/GuardedWsdlLoader.php`, `src/Soap/GuardedSoapClient.php`) with `timeout` + `max_duration`. Accepted for DNS: set resolver options in the host together with FrankenPHP `max_wait_time`.
 
 ### W-04 — The navigation global queries the database on every request that renders Twig (Low)
 

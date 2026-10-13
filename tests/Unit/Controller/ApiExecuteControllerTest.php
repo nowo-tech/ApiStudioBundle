@@ -108,6 +108,50 @@ final class ApiExecuteControllerTest extends TestCase
         self::assertSame('[REDACTED]', $persisted->getRequestHeaders()['X-Partner-Credential'] ?? null);
     }
 
+    public function testHistoryMasksSecretValuesInCustomHeadersAndBody(): void
+    {
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $endpoint  = $this->endpoint($workspace);
+        $endpoint->setMethod(HttpMethod::Post);
+        $endpoint->setHeaders(['X-Custom' => '{{customSecret}}', 'Accept' => 'application/json']);
+        $endpoint->setRequestBodyTemplate('{"client_ref":"{{customSecret}}","pin":"{{overridden}}","page":2}');
+
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('customSecret', 'cs-998877'))->setSecret(true));
+        $env->addVariable((new ApiEnvironmentVariable('overridden', 'stored-value'))->setSecret(true));
+
+        $sent   = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sent): MockResponse {
+            $sent = $options;
+
+            return new MockResponse('{"ok":true}', ['http_code' => 200]);
+        });
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], '{"environment_id": 7, "variables": {"overridden": "typed-pin-4321"}}');
+        $request->headers->set('X-CSRF-Token', 'valid');
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($request, 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertStringContainsString('cs-998877', (string) ($sent['body'] ?? ''), 'The real request must still carry the secret.');
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+
+        $headers = $persisted->getRequestHeaders();
+        self::assertSame('[REDACTED]', $headers['X-Custom'] ?? null);
+        self::assertSame('application/json', $headers['Accept'] ?? null);
+
+        $body = (string) $persisted->getRequestBody();
+        self::assertStringNotContainsString('cs-998877', $body);
+        self::assertStringNotContainsString('typed-pin-4321', $body);
+        self::assertStringContainsString('"page":2', $body);
+    }
+
     private function request(): Request
     {
         $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], '{"environment_id": 7}');

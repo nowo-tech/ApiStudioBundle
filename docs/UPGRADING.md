@@ -52,6 +52,9 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **SOAP outbound policy:** the SOAP endpoint (`<soap:address location>` in the WSDL) is now validated like any other execution URL. If you use `execution_url_allowlist`, it must also allow the SOAP endpoint host (and the hosts of any imported WSDL/XSD documents), not only the WSDL URL. WSDL redirects follow `execution_max_redirects` (default `0`), WSDLs that declare a DTD are rejected, and the SOAP read timeout is now `ui.request_timeout_seconds` (no longer `default_socket_timeout`).
+- **History redaction:** values of secret environment variables are now masked in stored request headers and bodies as well. Existing history rows are not rewritten; purge them if they may contain secrets.
+
 ## To 1.2.0
 
 From **1.1.0** — secrets redacted from stored history URLs/headers; environments option wired; Symfony >=7.4.

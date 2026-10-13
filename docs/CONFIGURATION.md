@@ -46,7 +46,7 @@ nowo_api_studio:
 | `ui.css_framework` | `bootstrap5` \| `tailwind` \| `foundation` \| `custom` (default). `custom` loads Tabler CDN + `as-*` / `nowo-ui-*` classes. Other values skip Tabler and expect host styles. When UiKit is present and `nowo_ui_kit` is not set by the host, Api Studio seeds `nowo_ui_kit.css_framework` / `icon_set` from this value (REQ-UI-001-kit). |
 | `ui.default_locale` | Default UI/documentation locale (default `en`). |
 | `ui.locales` | Enabled UI/documentation locales. |
-| `ui.request_timeout_seconds` | HTTP client / SOAP connection timeout for the request console (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
+| `ui.request_timeout_seconds` | HTTP client timeout (`timeout` + `max_duration`) for the request console, SOAP included (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
 | `ui.required_roles` | Legacy role list used when `security.access_roles` is empty. Empty disables bundle-level checks. |
 | `security.access_roles` | Preferred roles for Api Studio UI (user needs at least one). Empty disables bundle-level role checks. Default `ROLE_ADMIN`. |
 | `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`; `canAccess($user)` is called on every Api Studio route in addition to the role check (anonymous users are denied unless `allow_unauthenticated: true`). |

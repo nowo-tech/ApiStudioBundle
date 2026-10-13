@@ -125,15 +125,15 @@ final class ApiExecuteController extends AbstractController
             $methodOverride,
         );
 
-        [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment);
+        [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment, $variableOverrides);
 
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
         $history->setEnvironment($environment);
         $history->setRequestUrl($this->historySanitizer->sanitizeUrl($result->requestUrl, $authNames, $secretValues));
         $history->setRequestMethod($result->requestMethod);
-        $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders, $authNames));
-        $history->setRequestBody($this->historySanitizer->sanitizeBody($result->requestBody));
+        $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders, $authNames, $secretValues));
+        $history->setRequestBody($this->historySanitizer->sanitizeBody($result->requestBody, $secretValues));
         $history->setResponseStatus($result->responseStatus);
         $history->setResponseHeaders($this->historySanitizer->sanitizeHeaders($result->responseHeaders));
         $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody));
@@ -150,11 +150,14 @@ final class ApiExecuteController extends AbstractController
 
     /**
      * Header/query names carrying the service credential and the values of secret environment variables,
-     * so they can be redacted from the persisted history.
+     * so they can be redacted from the persisted history (URL, headers and body). A value sent in the payload
+     * for a secret variable is treated as secret too.
+     *
+     * @param array<string, string> $variableOverrides
      *
      * @return array{0: list<string>, 1: list<string>}
      */
-    private static function historyRedactionHints(ApiEndpoint $endpoint, ?ApiEnvironment $environment): array
+    private static function historyRedactionHints(ApiEndpoint $endpoint, ?ApiEnvironment $environment, array $variableOverrides = []): array
     {
         $names   = [];
         $service = $endpoint->getService();
@@ -166,8 +169,15 @@ final class ApiExecuteController extends AbstractController
         $secrets = [];
         if ($environment instanceof ApiEnvironment) {
             foreach ($environment->getVariables() as $variable) {
-                if ($variable->isSecret() && $variable->getValue() !== '') {
+                if (!$variable->isSecret()) {
+                    continue;
+                }
+                if ($variable->getValue() !== '') {
                     $secrets[] = $variable->getValue();
+                }
+                $override = $variableOverrides[$variable->getVariableKey()] ?? '';
+                if ($override !== '') {
+                    $secrets[] = $override;
                 }
             }
         }

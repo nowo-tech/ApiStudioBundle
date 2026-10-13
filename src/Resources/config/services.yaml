@@ -11,6 +11,7 @@ services:
             - '../../Model/'
             - '../../EventSubscriber/'
             - '../../Form/'
+            - '../../Soap/'
             - '../../ApiStudioBundle.php'
 
     Nowo\ApiStudioBundle\Repository\:

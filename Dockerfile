@@ -9,7 +9,8 @@ RUN apk add --no-cache \
     nodejs \
     npm
 
-RUN docker-php-ext-install -j$(nproc) zip
+RUN apk add --no-cache libxml2-dev \
+    && docker-php-ext-install -j$(nproc) zip soap
 
 RUN apk add --no-cache $PHPIZE_DEPS \
     && pecl install pcov \

@@ -21,7 +21,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Input / surface | Description |
 | --- | --- |
 | HTTP UI | Dashboard, workspaces, services, endpoints, environment variables, import/export, request execution |
-| Outbound HTTP | REST/GraphQL via Symfony HttpClient; SOAP via `SoapClient` and WSDL URLs |
+| Outbound HTTP | REST/GraphQL via Symfony HttpClient; SOAP via ext-soap (`GuardedSoapClient`) with WSDL download and SOAP calls routed through the same guarded HttpClient |
 | Database | Workspaces, services, endpoints, env variables (including `secret` flag), request history |
 | CLI | Schema sync, demo seed (operator-controlled) |
 | Configuration | `security.access_roles`, `execution_url_allowlist`, `secrets.encrypt`, request timeout |
@@ -35,12 +35,12 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Open redirect | Locale switch following a forged `Referer` | Only same-host/local `Referer` is followed |
 | SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` pre-flight blocks `IpUtils::PRIVATE_SUBNETS` + multicast for every A/AAAA record and fails closed on unresolvable hosts; HTTP calls go through `NoPrivateNetworkHttpClient` (connected IP re-checked: DNS rebinding); redirects off by default (`execution_max_redirects`); host-exact `execution_url_allowlist` + optional `execution_url_allowlist_required` |
 | Secret storage | API keys/tokens in env variables persisted in DB | Variables marked `secret` are encrypted at rest with sodium (`secrets.encrypt`, default `true`); UI masking; optional dedicated `secrets.encryption_key` |
-| Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist; host owns retention/TTL policy |
+| Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist, and masks the values of secret environment variables (raw, URL-encoded, JSON-escaped; 4+ characters) in the stored URL, every request header and the request body; host owns retention/TTL policy |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
 | CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
 | DoS | Large payloads, slow upstream APIs | Configurable `request_timeout_seconds` (1–300) |
-| SOAP WSDL | `SoapClient` loads arbitrary WSDL URL | Same SSRF validator applied to WSDL/base URLs |
+| SOAP WSDL / endpoint | ext-soap fetching the WSDL or calling `<soap:address location>` itself would skip redirect/rebinding checks and could reach metadata or internal hosts | ext-soap never opens a connection: `GuardedWsdlLoader` downloads the WSDL and its imports through `NoPrivateNetworkHttpClient` (validator + allowlist on every document and on the final URL after redirects, `execution_max_redirects`, DTDs rejected) into temporary files; `GuardedSoapClient::__doRequest()` validates the location (SSRF + allowlist) and sends the call through the same client with the request timeout |
 
 ## Application responsibilities
 
@@ -89,7 +89,7 @@ Before each release, confirm:
 | `.env` listed in `.gitignore`; no secrets in repo | ☑ |
 | Flex recipe / default config contain no secrets | ☑ |
 | `security.access_roles` / `ui.required_roles` default to `ROLE_ADMIN` (or documented override) | ☑ |
-| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs | ☑ (regression: `ExecutionUrlValidatorTest`, `RequestExecutorTimeoutTest`) |
+| SSRF validator covers REST, GraphQL, and SOAP/WSDL URLs (WSDL imports and SOAP endpoint location included) | ☑ (regression: `ExecutionUrlValidatorTest`, `RequestExecutorTimeoutTest`, `GuardedSoapExecutionTest`) |
 | User input validated (forms + Symfony validator) | ☑ |
 | Output escaped (Twig templates) | ☑ |
 | `composer audit` run on bundle and demo | ☑ |
