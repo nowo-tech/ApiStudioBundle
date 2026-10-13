@@ -25,6 +25,10 @@ services:
             $enabledLocales: '%nowo_api_studio.ui.locales%'
             $defaultLocale: '%nowo_api_studio.ui.default_locale%'
 
+    Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer:
+        arguments:
+            $defaultEnvironmentNames: '%nowo_api_studio.environments%'
+
     Nowo\ApiStudioBundle\Service\RequestExecutor:
         arguments:
             $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'

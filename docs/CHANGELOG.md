@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`environments` config is now used:** workspaces created from the UI are seeded with the configured environments (default `dev`, `test`, `prod`; the first one is the default). The key was documented but previously ignored.
+
+### Changed
+
+- **Requirements:** Symfony floor raised from `^7.0` to `^7.4` (still `|| ^8.0`), matching what CI installs; the `7.0` CI matrix cell was removed.
+
+### Security
+
+- **Request history redaction:** the stored request URL is now sanitized — values of query parameters with sensitive names (`token`, `api_key`, `access_token`, `password`, `secret`, `signature`, `key`, …), the service's API-key header name, userinfo passwords and the values of secret environment variables are replaced with `[REDACTED]`. Request headers also redact the service's custom API-key header (previously only well-known names were masked).
+
 ## [1.1.0] - 2026-10-13
 
 ### Security

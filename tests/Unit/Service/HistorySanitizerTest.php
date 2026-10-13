@@ -45,4 +45,40 @@ final class HistorySanitizerTest extends TestCase
         self::assertNull($sanitizer->sanitizeBody(null));
         self::assertSame('', $sanitizer->sanitizeBody(''));
     }
+
+    public function testSanitizeHeadersRedactsExtraNames(): void
+    {
+        $out = (new HistorySanitizer())->sanitizeHeaders(['X-Partner-Credential' => 'abc', 'Accept' => '*/*'], ['x-partner-credential']);
+
+        self::assertSame('[REDACTED]', $out['X-Partner-Credential']);
+        self::assertSame('*/*', $out['Accept']);
+    }
+
+    public function testSanitizeUrlRedactsSensitiveQueryValues(): void
+    {
+        $out = (new HistorySanitizer())->sanitizeUrl(
+            'https://user:pa55@api.test/v1/items?api_key=abc&access_token=xyz&Signature=s1&filter[secret]=x&page=2&author=bob&flag#frag',
+        );
+
+        self::assertSame(
+            'https://user:[REDACTED]@api.test/v1/items?api_key=[REDACTED]&access_token=[REDACTED]&Signature=[REDACTED]&filter[secret]=x&page=2&author=bob&flag#frag',
+            $out,
+        );
+    }
+
+    public function testSanitizeUrlRedactsExtraNamesAndSecretValues(): void
+    {
+        $out = (new HistorySanitizer())->sanitizeUrl(
+            'https://api.test/v1/x/s3cr3t-value?X-Partner-Credential=k1&q=hello%20s3cr3t-value&q2=a+b',
+            ['x-partner-credential'],
+            ['s3cr3t-value', 'abc'],
+        );
+
+        self::assertSame('https://api.test/v1/x/[REDACTED]?X-Partner-Credential=[REDACTED]&q=hello%20[REDACTED]&q2=a+b', $out);
+    }
+
+    public function testSanitizeUrlWithoutQueryIsUnchanged(): void
+    {
+        self::assertSame('https://api.test/v1', (new HistorySanitizer())->sanitizeUrl('https://api.test/v1'));
+    }
 }

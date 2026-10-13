@@ -49,6 +49,10 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **Requirements:** Symfony **^7.4 || ^8.0** (was `^7.0 || ^8.0`). Upgrade Symfony 7.0–7.3 apps to 7.4 LTS first.
+- **New workspaces get environments:** creating a workspace from the UI now creates the environments listed in `nowo_api_studio.environments` (default `dev`, `test`, `prod`). Set `environments: []` to keep the previous behaviour (no environments).
+- **History redaction:** request URLs and the service's custom API-key header are redacted before history is stored. Existing history rows are not rewritten; purge them if they may contain secrets.
+
 ## To 1.1.0
 
 From **1.0.23** — security: fail closed when disabled, SSRF guard on every hop, host-exact allowlist, custom access checker enforced.

@@ -40,7 +40,7 @@ nowo_api_studio:
 | `enabled` | Enable or disable the bundle (default `true`). When `false`, every Api Studio route (`nowo_api_studio_*`) answers 404. |
 | `connection` | Doctrine connection name used by sync-schema (default `default`). |
 | `table_prefix` | Prefix for all bundle tables and unique indexes (default `api_studio_`). Lowercase letters, numbers, and underscores only. |
-| `environments` | Default environment names for new workspaces (default `dev`, `test`, `prod`). |
+| `environments` | Environments created automatically when a workspace is created from the UI (default `dev`, `test`, `prod`); the first one is marked as default. Slugs are derived from the names (lowercase, non-alphanumerics → `_`). Set `[]` to create workspaces without environments. Imports and the demo seeder are not affected. |
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
 | `ui.layout_template` | Twig layout extended by `@NowoApiStudioBundle/base.html.twig` (global `nowo_api_studio_layout_template`). Default is the bundle shell. Point to your app layout or a bridge that extends it to embed Api Studio in host chrome (REQ-UI-001). |
 | `ui.css_framework` | `bootstrap5` \| `tailwind` \| `foundation` \| `custom` (default). `custom` loads Tabler CDN + `as-*` / `nowo-ui-*` classes. Other values skip Tabler and expect host styles. When UiKit is present and `nowo_ui_kit` is not set by the host, Api Studio seeds `nowo_ui_kit.css_framework` / `icon_set` from this value (REQ-UI-001-kit). |

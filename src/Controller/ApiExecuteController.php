@@ -10,6 +10,7 @@ use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
+use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
@@ -124,12 +125,14 @@ final class ApiExecuteController extends AbstractController
             $methodOverride,
         );
 
+        [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment);
+
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
         $history->setEnvironment($environment);
-        $history->setRequestUrl($result->requestUrl);
+        $history->setRequestUrl($this->historySanitizer->sanitizeUrl($result->requestUrl, $authNames, $secretValues));
         $history->setRequestMethod($result->requestMethod);
-        $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders));
+        $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders, $authNames));
         $history->setRequestBody($this->historySanitizer->sanitizeBody($result->requestBody));
         $history->setResponseStatus($result->responseStatus);
         $history->setResponseHeaders($this->historySanitizer->sanitizeHeaders($result->responseHeaders));
@@ -143,6 +146,33 @@ final class ApiExecuteController extends AbstractController
         $this->entityManager->detach($history);
 
         return new JsonResponse($result->toArray());
+    }
+
+    /**
+     * Header/query names carrying the service credential and the values of secret environment variables,
+     * so they can be redacted from the persisted history.
+     *
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private static function historyRedactionHints(ApiEndpoint $endpoint, ?ApiEnvironment $environment): array
+    {
+        $names   = [];
+        $service = $endpoint->getService();
+        if ($service !== null && $service->getAuthType() === AuthType::ApiKey) {
+            // Same default as RequestExecutor::applyApiKeyAuth(); the name is also redacted if it appears in the query.
+            $names[] = (string) ($service->getAuthConfig()['header'] ?? 'X-Api-Key');
+        }
+
+        $secrets = [];
+        if ($environment instanceof ApiEnvironment) {
+            foreach ($environment->getVariables() as $variable) {
+                if ($variable->isSecret() && $variable->getValue() !== '') {
+                    $secrets[] = $variable->getValue();
+                }
+            }
+        }
+
+        return [$names, $secrets];
     }
 
     private static function belongsToEndpointWorkspace(ApiEnvironment $environment, ApiEndpoint $endpoint): bool

@@ -8,6 +8,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Controller\ApiExecuteController;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
+use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
+use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
@@ -67,6 +69,45 @@ final class ApiExecuteControllerTest extends TestCase
         self::assertSame(Response::HTTP_OK, $response->getStatusCode());
     }
 
+    public function testHistoryRedactsSecretsFromUrlAndCustomApiKeyHeader(): void
+    {
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $endpoint  = $this->endpoint($workspace);
+        $endpoint->setQueryParams(['token' => '{{sessionToken}}', 'lookup' => '{{lookupKey}}', 'page' => '2']);
+        $endpoint->getService()?->setAuthType(AuthType::ApiKey)->setAuthConfig(['header' => 'X-Partner-Credential', 'value' => '{{partnerKey}}']);
+
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('sessionToken', 'tok-123456'))->setSecret(true));
+        $env->addVariable((new ApiEnvironmentVariable('lookupKey', 'very-secret-lookup'))->setSecret(true));
+        $env->addVariable((new ApiEnvironmentVariable('partnerKey', 'partner-abcdef'))->setSecret(true));
+
+        $sentUrl = null;
+        $client  = new MockHttpClient(static function (string $method, string $url) use (&$sentUrl): MockResponse {
+            $sentUrl = $url;
+
+            return new MockResponse('{"ok":true}', ['http_code' => 200]);
+        });
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($this->request(), 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertIsString($sentUrl);
+        self::assertStringContainsString('very-secret-lookup', $sentUrl, 'The real request must still carry the secret.');
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+
+        $storedUrl = $persisted->getRequestUrl();
+        self::assertStringNotContainsString('tok-123456', $storedUrl);
+        self::assertStringNotContainsString('very-secret-lookup', $storedUrl);
+        self::assertStringContainsString('page=2', $storedUrl);
+        self::assertSame('[REDACTED]', $persisted->getRequestHeaders()['X-Partner-Credential'] ?? null);
+    }
+
     private function request(): Request
     {
         $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], '{"environment_id": 7}');
@@ -89,7 +130,7 @@ final class ApiExecuteControllerTest extends TestCase
             ->setService($service);
     }
 
-    private function controller(ApiEndpoint $endpoint, ApiEnvironment $environment, MockHttpClient $client): ApiExecuteController
+    private function controller(ApiEndpoint $endpoint, ApiEnvironment $environment, MockHttpClient $client, ?EntityManagerInterface $entityManager = null): ApiExecuteController
     {
         $endpoints = $this->createMock(ApiEndpointRepository::class);
         $endpoints->method('find')->willReturn($endpoint);
@@ -107,7 +148,7 @@ final class ApiExecuteControllerTest extends TestCase
             $environments,
             new RequestExecutor($client, new VariableResolver(), new ExecutionUrlValidator([]), 5),
             new HistorySanitizer(),
-            $this->createMock(EntityManagerInterface::class),
+            $entityManager ?? $this->createMock(EntityManagerInterface::class),
         );
         $controller->setContainer($container);
 

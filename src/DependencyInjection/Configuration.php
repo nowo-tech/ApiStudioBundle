@@ -29,6 +29,7 @@ final class Configuration implements ConfigurationInterface
                     ->defaultTrue()
                 ->end()
                 ->arrayNode('environments')
+                    ->info('Environments created for each workspace created from the UI (first = default). Empty list disables seeding.')
                     ->prototype('scalar')->end()
                     ->defaultValue(['dev', 'test', 'prod'])
                 ->end()

@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Form\ApiWorkspaceFormType;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +20,7 @@ final class ApiWorkspaceController extends AbstractController
     public function __construct(
         private readonly ApiWorkspaceRepository $repository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly WorkspaceEnvironmentInitializer $environmentInitializer,
     ) {
     }
 
@@ -38,6 +40,7 @@ final class ApiWorkspaceController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->environmentInitializer->initialize($workspace);
             $this->entityManager->persist($workspace);
             $this->entityManager->flush();
             $this->addFlash('success', 'flash.created');

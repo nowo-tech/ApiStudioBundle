@@ -80,7 +80,7 @@ Open `/api-studio` in your browser.
 ## Requirements
 
 - PHP >= 8.2 < 8.6
-- Symfony 7.0+ or 8.x
+- Symfony 7.4+ or 8.x
 - Doctrine ORM `^3.7`
 - `ext-json`
 - `ext-soap` (optional, for SOAP execution)
