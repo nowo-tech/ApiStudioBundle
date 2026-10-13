@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - SOAP: a 3xx answer from the SOAP endpoint that is not followed (`execution_max_redirects` is `0` by default, or exhausted) now fails the execution (`HTTP 3xx … not followed`) instead of handing an empty body to ext-soap, which recorded a successful call with a `null` result.
+- SOAP: executions now send the HTTP headers REST executions send — service auth (`basic`/`bearer` `Authorization`, `api_key` header), service default headers, endpoint headers and console headers (console headers now replace the defaults as for REST) — with the SOAP call and, restricted to the WSDL's origin, with the WSDL/XSD downloads, so services and WSDLs behind auth work. `Content-Type` and `SOAPAction` stay owned by the SOAP transport: a header with one of those names is dropped instead of overriding them, and the endpoint content type (default `application/json`) is no longer recorded for SOAP executions. History redaction is unchanged and identical to REST (`HistorySanitizer`). See [USAGE.md — SOAP services](USAGE.md#soap-services).
 
 ### Security
 

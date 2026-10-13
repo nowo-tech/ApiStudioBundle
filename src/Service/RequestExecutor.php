@@ -192,11 +192,15 @@ final class RequestExecutor
             return $this->failure('', 'POST', [], null, 'PHP SOAP extension is not installed.');
         }
 
-        $wsdl    = rtrim($this->variableResolver->resolve($service->getBaseUrl(), $variables), '/');
-        $body    = $overrideBody ?? $endpoint->getRequestBodyTemplate() ?? '';
-        $body    = $this->variableResolver->resolve($body, $variables);
-        $headers = $this->buildHeaders($service, $endpoint, $variables, $overrideHeaders);
-        $action  = $endpoint->getSoapAction() ?? $endpoint->getName();
+        $wsdl = rtrim($this->variableResolver->resolve($service->getBaseUrl(), $variables), '/');
+        $body = $overrideBody ?? $endpoint->getRequestBodyTemplate() ?? '';
+        $body = $this->variableResolver->resolve($body, $variables);
+        // Auth, default and console headers are sent over HTTP like for REST; Content-Type and SOAPAction belong to
+        // the SOAP transport (envelope version + operation), so they are dropped here and never overridden.
+        $headers = GuardedSoapClient::withoutFramingHeaders(
+            $this->buildHeaders($service, $endpoint, $variables, $overrideHeaders, $replaceHeaders),
+        );
+        $action = $endpoint->getSoapAction() ?? $endpoint->getName();
 
         if ($this->urlValidator->isBlocked($wsdl)) {
             $this->logFailure('SOAP', $wsdl, 'WSDL URL is not allowed (SSRF or allowlist).');
@@ -209,14 +213,14 @@ final class RequestExecutor
 
         // ext-soap never touches the network itself: the WSDL (and its imports) and every SOAP call go through
         // the guarded HTTP client, so the <soap:address location>, redirects and DNS rebinding are checked too.
-        $wsdlLoader = new GuardedWsdlLoader($this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects);
+        $wsdlLoader = new GuardedWsdlLoader($this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers);
 
         try {
             $client = new GuardedSoapClient($wsdlLoader->load($wsdl), [
                 'trace'      => true,
                 'exceptions' => true,
                 'cache_wsdl' => WSDL_CACHE_NONE,
-            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects);
+            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers);
 
             $params = json_decode($body, true);
             if (!is_array($params)) {

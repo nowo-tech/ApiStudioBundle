@@ -21,6 +21,7 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableResolver;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -150,6 +151,79 @@ final class ApiExecuteControllerTest extends TestCase
         self::assertStringNotContainsString('cs-998877', $body);
         self::assertStringNotContainsString('typed-pin-4321', $body);
         self::assertStringContainsString('"page":2', $body);
+    }
+
+    #[RequiresPhpExtension('soap')]
+    public function testSoapHistoryRedactsAuthHeadersLikeRest(): void
+    {
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $service   = (new ApiService('Soap', 'soap'))
+            ->setProtocol(ApiProtocol::Soap)
+            ->setBaseUrl('https://93.184.215.14/service.wsdl')
+            ->setAuthType(AuthType::ApiKey)
+            ->setAuthConfig(['header' => 'X-Partner-Credential', 'value' => '{{partnerKey}}'])
+            ->setDefaultHeaders(['X-Session' => '{{session}}', 'X-Trace' => 'on'])
+            ->setWorkspace($workspace);
+        $endpoint = (new ApiEndpoint('Ping', 'ping'))
+            ->setSoapAction('Ping')
+            ->setRequestBodyTemplate('{"value": "{{session}}"}')
+            ->setService($service);
+
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('partnerKey', 'partner-abcdef'))->setSecret(true));
+        $env->addVariable((new ApiEnvironmentVariable('session', 'sess-424242'))->setSecret(true));
+
+        $sent   = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sent): MockResponse {
+            $sent[$method] = $options['headers'];
+
+            return $method === 'GET'
+                ? new MockResponse(self::pingWsdl())
+                : new MockResponse('<?xml version="1.0"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:ping"><SOAP-ENV:Body><ns1:PingResponse><result>pong</result></ns1:PingResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>');
+        });
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($this->request(), 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertContains('X-Partner-Credential: partner-abcdef', $sent['GET'] ?? [], 'The WSDL fetch must still carry the credential.');
+        self::assertContains('X-Partner-Credential: partner-abcdef', $sent['POST'] ?? [], 'The SOAP call must still carry the credential.');
+        self::assertContains('X-Session: sess-424242', $sent['POST'] ?? []);
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+        self::assertTrue($persisted->isSuccess());
+
+        $headers = $persisted->getRequestHeaders();
+        self::assertSame('[REDACTED]', $headers['X-Partner-Credential'] ?? null);
+        self::assertSame('[REDACTED]', $headers['X-Session'] ?? null);
+        self::assertSame('on', $headers['X-Trace'] ?? null);
+        self::assertStringNotContainsString('sess-424242', (string) $persisted->getRequestBody());
+        self::assertStringContainsString('Ping', (string) $persisted->getRequestBody());
+    }
+
+    private static function pingWsdl(): string
+    {
+        return <<<'XML'
+            <?xml version="1.0"?>
+            <definitions name="Ping" targetNamespace="urn:ping" xmlns:tns="urn:ping" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.xmlsoap.org/wsdl/">
+              <message name="PingRequest"><part name="value" type="xsd:string"/></message>
+              <message name="PingResponse"><part name="result" type="xsd:string"/></message>
+              <portType name="PingPort"><operation name="Ping"><input message="tns:PingRequest"/><output message="tns:PingResponse"/></operation></portType>
+              <binding name="PingBinding" type="tns:PingPort">
+                <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+                <operation name="Ping">
+                  <soap:operation soapAction="urn:ping#Ping"/>
+                  <input><soap:body use="literal" namespace="urn:ping"/></input>
+                  <output><soap:body use="literal" namespace="urn:ping"/></output>
+                </operation>
+              </binding>
+              <service name="PingService"><port name="PingPort" binding="tns:PingBinding"><soap:address location="https://93.184.215.14/soap"/></port></service>
+            </definitions>
+            XML;
     }
 
     private function request(): Request

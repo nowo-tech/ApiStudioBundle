@@ -57,6 +57,18 @@ Configure `auth_type` on the service:
 - `none`, `basic`, `bearer`, `api_key`, `custom`
 - Auth config values support `{{variables}}` from the selected environment
 
+### SOAP services
+
+SOAP executions send the same HTTP headers as REST: the service auth (`basic` / `bearer` → `Authorization`, `api_key` → the configured header, default `X-Api-Key`), the service default headers, the endpoint headers and the headers edited in the request console (which replace the service/endpoint defaults, as for REST; auth is applied on top). Header precedence:
+
+1. `Content-Type` and `SOAPAction` are owned by the SOAP transport (`text/xml` + `SOAPAction: "<action>"` for SOAP 1.1, `application/soap+xml; action="<action>"` for SOAP 1.2). A header with one of these names (any case) from the service, endpoint or console is **dropped**, never sent twice or allowed to override them; set the action with the endpoint's **SOAP action** field. The endpoint content type is not used for SOAP.
+2. Auth headers override a service/endpoint/console header with the same name.
+3. Endpoint headers override service default headers; console headers replace both.
+
+The same headers (without the framing ones) are sent when downloading the WSDL, so WSDLs behind auth work, but only to documents on the **same origin** (scheme, host, port) as the WSDL URL: `<xsd:import>` / `<wsdl:import>` documents on another host are fetched without them so credentials never leak to a third party. Redirects follow `execution_max_redirects`; when a redirect leaves the host, the HTTP client drops `Authorization`/`Cookie` but custom headers (e.g. an API key header) are forwarded, so keep `execution_max_redirects: 0` (default) for credentialed SOAP services unless you trust the redirect targets. API key auth is header-only (there is no query-string variant, for REST or SOAP).
+
+Executions are stored in history with the headers that were sent (framing headers excluded), redacted by `HistorySanitizer` exactly like REST: the auth header, the configured API key header and values of secret environment variables are replaced by `[REDACTED]`, and secret values are masked in the stored SOAP envelope.
+
 ## Overriding Twig templates (REQ-TWIG-001)
 
 Bundle templates use the **`@NowoApiStudioBundle`** namespace.

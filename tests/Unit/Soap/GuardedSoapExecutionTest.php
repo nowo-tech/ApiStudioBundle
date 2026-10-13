@@ -12,15 +12,22 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableResolver;
 use Nowo\ApiStudioBundle\Soap\GuardedSoapClient;
+use Nowo\ApiStudioBundle\Soap\GuardedWsdlLoader;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SoapFault;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+use function array_filter;
+use function array_values;
+use function base64_encode;
 use function glob;
+use function is_string;
+use function stripos;
 use function sys_get_temp_dir;
 
 use const SOAP_1_1;
@@ -323,6 +330,170 @@ final class GuardedSoapExecutionTest extends TestCase
     }
 
     /**
+     * @param array<string, mixed> $authConfig
+     */
+    #[DataProvider('authSchemes')]
+    public function testAuthHeaderIsSentWithWsdlFetchAndSoapCall(AuthType $authType, array $authConfig, string $expectedLine): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url, $options];
+
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+                : new MockResponse(self::RESPONSE);
+        });
+
+        $endpoint = $this->endpoint();
+        $endpoint->getService()?->setAuthType($authType)->setAuthConfig($authConfig);
+
+        $result = $this->executor($client)->execute($endpoint, null, null, [], [], ['secret' => 's3cr3t']);
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertCount(2, $calls);
+        self::assertContains($expectedLine, $calls[0][2]['headers'], 'The WSDL fetch must carry the auth header.');
+        self::assertContains($expectedLine, $calls[1][2]['headers'], 'The SOAP call must carry the auth header.');
+    }
+
+    /**
+     * @return iterable<string, array{AuthType, array<string, string>, string}>
+     */
+    public static function authSchemes(): iterable
+    {
+        yield 'bearer' => [AuthType::Bearer, ['token' => '{{secret}}'], 'Authorization: Bearer s3cr3t'];
+        yield 'basic' => [AuthType::Basic, ['username' => 'user', 'password' => '{{secret}}'], 'Authorization: Basic ' . base64_encode('user:s3cr3t')];
+        yield 'api key (custom header)' => [AuthType::ApiKey, ['header' => 'X-Partner-Key', 'value' => '{{secret}}'], 'X-Partner-Key: s3cr3t'];
+        yield 'api key (default header)' => [AuthType::ApiKey, ['value' => '{{secret}}'], 'X-Api-Key: s3cr3t'];
+    }
+
+    public function testDefaultAndEndpointHeadersAreSentAndFramingHeadersCannotBeOverridden(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url, $options];
+
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+                : new MockResponse(self::RESPONSE);
+        });
+
+        $endpoint = $this->endpoint()
+            ->setContentType('application/json')
+            ->setHeaders(['X-Tenant' => '{{tenant}}', 'content-type' => 'application/json', 'SOAPAction' => '"urn:evil#Drop"']);
+        $endpoint->getService()?->setDefaultHeaders(['X-Client' => 'api-studio', 'soapaction' => 'other']);
+
+        $result = $this->executor($client)->execute($endpoint, null, null, [], [], ['tenant' => 'acme']);
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        $sent = $calls[1][2]['headers'];
+        self::assertContains('X-Tenant: acme', $sent);
+        self::assertContains('X-Client: api-studio', $sent);
+        self::assertContains('X-Tenant: acme', $calls[0][2]['headers']);
+        self::assertSame(['Content-Type: text/xml; charset=utf-8'], self::linesNamed($sent, 'content-type'));
+        self::assertSame(['SOAPAction: "urn:ping#Ping"'], self::linesNamed($sent, 'soapaction'));
+        self::assertSame([], self::linesNamed($calls[0][2]['headers'], 'content-type'), 'The WSDL GET carries no Content-Type.');
+        self::assertSame(['X-Client' => 'api-studio', 'X-Tenant' => 'acme'], $result->requestHeaders);
+    }
+
+    public function testConsoleHeadersReplaceDefaultsButAuthIsStillApplied(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = $options['headers'];
+
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+                : new MockResponse(self::RESPONSE);
+        });
+
+        $endpoint = $this->endpoint()->setHeaders(['X-Default' => 'yes']);
+        $endpoint->getService()?->setAuthType(AuthType::Bearer)->setAuthConfig(['token' => 'tok']);
+
+        $result = $this->executor($client)->execute($endpoint, null, null, ['X-Console' => '1'], [], null, false, true);
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertContains('X-Console: 1', $calls[1]);
+        self::assertContains('Authorization: Bearer tok', $calls[1]);
+        self::assertSame([], self::linesNamed($calls[1], 'x-default'));
+    }
+
+    public function testHeadersAreSentToSameOriginImportsOnly(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[$url] = $options['headers'];
+
+            return match (true) {
+                $url === self::WSDL_URL => new MockResponse(self::wsdl('https://93.184.215.14/soap', 'types.xsd', 'https://93.184.215.99/third-party.xsd')),
+                $method === 'GET'       => new MockResponse(self::schema()),
+                default                 => new MockResponse(self::RESPONSE),
+            };
+        });
+
+        $endpoint = $this->endpoint();
+        $endpoint->getService()?->setAuthType(AuthType::Bearer)->setAuthConfig(['token' => 'tok']);
+
+        $result = $this->executor($client)->execute($endpoint);
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertContains('Authorization: Bearer tok', $calls[self::WSDL_URL]);
+        self::assertContains('Authorization: Bearer tok', $calls['https://93.184.215.14/svc/types.xsd']);
+        self::assertSame([], self::linesNamed($calls['https://93.184.215.99/third-party.xsd'], 'authorization'), 'Credentials must not leak to another origin.');
+        self::assertContains('Authorization: Bearer tok', $calls['https://93.184.215.14/soap']);
+    }
+
+    public function testLoaderRejectsUrlWithoutHostBeforeSendingHeaders(): void
+    {
+        $client = new MockHttpClient(static function (): never {
+            self::fail('A URL without host must not be requested.');
+        });
+
+        $loader = new GuardedWsdlLoader($client, new ExecutionUrlValidator([]), 5, 0, ['Authorization' => 'Bearer t']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('WSDL document URL is not allowed');
+        $loader->load('service.wsdl');
+    }
+
+    public function testExtraHeadersOnDirectClientDropFramingNamesForSoap12(): void
+    {
+        $captured = [];
+        $client   = new MockHttpClient(static function (string $method, string $url, array $options) use (&$captured): MockResponse {
+            $captured = $options['headers'];
+
+            return new MockResponse(self::RESPONSE);
+        });
+
+        $soap = new GuardedSoapClient(
+            null,
+            ['location' => 'https://93.184.215.14/soap', 'uri' => 'urn:ping'],
+            $client,
+            new ExecutionUrlValidator([]),
+            5,
+            0,
+            ['Authorization' => 'Bearer t', 'SOAPAction' => 'x', 'CONTENT-TYPE' => 'text/plain', '' => 'empty'],
+        );
+
+        $soap->__doRequest('<x/>', 'https://93.184.215.14/soap', 'urn:ping#Ping', SOAP_1_2);
+
+        self::assertContains('Authorization: Bearer t', $captured);
+        self::assertSame(['Content-Type: application/soap+xml; charset=utf-8; action="urn:ping#Ping"'], self::linesNamed($captured, 'content-type'));
+        self::assertSame([], self::linesNamed($captured, 'soapaction'));
+    }
+
+    /**
+     * @param mixed $lines normalized "Name: value" header lines from the mock client options
+     *
+     * @return list<string>
+     */
+    private static function linesNamed(mixed $lines, string $name): array
+    {
+        self::assertIsArray($lines);
+
+        return array_values(array_filter($lines, static fn (mixed $line): bool => is_string($line) && stripos($line, $name . ':') === 0));
+    }
+
+    /**
      * @param list<string> $allowlist
      */
     private function executor(MockHttpClient $client, int $timeout = 5, array $allowlist = [], int $maxRedirects = 0): RequestExecutor
@@ -343,9 +514,13 @@ final class GuardedSoapExecutionTest extends TestCase
             ->setService($service);
     }
 
-    private static function wsdl(string $location, ?string $schemaLocation = null): string
+    private static function wsdl(string $location, ?string ...$schemaLocations): string
     {
-        $types = $schemaLocation === null ? '' : '<types><xsd:schema targetNamespace="urn:ping"><xsd:include schemaLocation="' . $schemaLocation . '"/></xsd:schema></types>';
+        $includes = '';
+        foreach ($schemaLocations as $schemaLocation) {
+            $includes .= $schemaLocation === null ? '' : '<xsd:include schemaLocation="' . $schemaLocation . '"/>';
+        }
+        $types = $includes === '' ? '' : '<types><xsd:schema targetNamespace="urn:ping">' . $includes . '</xsd:schema></types>';
 
         return <<<XML
             <?xml version="1.0"?>

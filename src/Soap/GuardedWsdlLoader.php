@@ -19,6 +19,7 @@ use function parse_url;
 use function preg_match;
 use function str_starts_with;
 use function strrpos;
+use function strtolower;
 use function substr;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -35,6 +36,9 @@ use const LIBXML_NONET;
  * URL after redirects; import/include locations are rewritten to the local copies. Documents with a DTD are
  * rejected (no entity expansion / external entities).
  *
+ * The configured HTTP headers (service auth, default/console headers) are sent only to documents on the same
+ * origin (scheme, host, port) as the root WSDL, so credentials never leak to a third-party import location.
+ *
  * @internal
  */
 final class GuardedWsdlLoader
@@ -44,11 +48,17 @@ final class GuardedWsdlLoader
     /** @var array<string, string> URL => local temporary file */
     private array $files = [];
 
+    private ?string $rootOrigin = null;
+
+    /**
+     * @param array<string, string> $headers HTTP headers sent with same-origin WSDL/XSD requests
+     */
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly ExecutionUrlValidator $urlValidator,
         private readonly int $timeoutSeconds,
         private readonly int $maxRedirects,
+        private readonly array $headers = [],
     ) {
     }
 
@@ -57,6 +67,8 @@ final class GuardedWsdlLoader
      */
     public function load(string $url): string
     {
+        $this->rootOrigin = self::origin($url);
+
         return $this->fetch($url);
     }
 
@@ -95,11 +107,16 @@ final class GuardedWsdlLoader
         // Registered before recursing so that import cycles resolve to the same file.
         $this->files[$url] = $path;
 
-        $response = $this->httpClient->request('GET', $url, [
+        $options = [
             'timeout'       => $this->timeoutSeconds,
             'max_duration'  => $this->timeoutSeconds,
             'max_redirects' => $this->maxRedirects,
-        ]);
+        ];
+        if ($this->headers !== [] && $this->rootOrigin !== null && self::origin($url) === $this->rootOrigin) {
+            $options['headers'] = $this->headers;
+        }
+
+        $response = $this->httpClient->request('GET', $url, $options);
 
         $status = $response->getStatusCode();
         if ($status < 200 || $status >= 300) {
@@ -142,6 +159,22 @@ final class GuardedWsdlLoader
         }
 
         return $path;
+    }
+
+    /**
+     * Lower-cased `scheme://host:port` (default port filled in), or null for URLs without scheme/host.
+     */
+    private static function origin(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if (!isset($parts['host'], $parts['scheme'])) {
+            return null;
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $port   = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
     }
 
     /**
