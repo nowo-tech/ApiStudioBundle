@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.3.1](#to-131)
 - [To 1.3.0](#to-130)
 - [To 1.2.0](#to-120)
 - [To 1.1.0](#to-110)
@@ -52,6 +53,16 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.3.1
+
+From **1.3.0** — new/edit forms render (workspace, service, environment, endpoint)
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- No breaking changes. No application upgrade steps.
 
 ## To 1.3.0
 

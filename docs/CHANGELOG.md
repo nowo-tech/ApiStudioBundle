@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.3.1] - 2026-10-13](#131---2026-10-13)
 - [[1.3.0] - 2026-10-13](#130---2026-10-13)
 - [[1.2.0] - 2026-10-13](#120---2026-10-13)
 - [[1.1.0] - 2026-10-13](#110---2026-10-13)
@@ -38,12 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-13
+
 ### Fixed
 
 - `/workspaces/new` no longer returns 500: `workspace/form.html.twig` reads `workspace.id` only when a workspace is passed (strict Twig variables).
 - `ApiEnvironmentVariableFormType` and `ApiEndpointTranslationFormType` now live in their own PSR-4 files (same FQCNs), so the `Form\` resource loader registers them as `form.type` services and Form Kit injects their `FormOptionsMerger`; `environments/new`, environment edit, `endpoints/new` and endpoint edit no longer return 500. A unit test enforces one class-like per source file.
 - `services/new` (and any page rendered while an unsaved service or endpoint sits in a loaded collection) no longer returns 500: the sidebar navigation tree skips entities without an id instead of generating `nowo_api_studio_service_show` / `nowo_api_studio_endpoint_show` with an empty id.
 - Added a functional test kernel (`tests/Functional`) that renders every Api Studio GET page against a seeded SQLite database with strict Twig variables.
+
+[1.3.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.3.1
 
 ## [1.3.0] - 2026-10-13
 
