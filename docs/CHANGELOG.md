@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.1.0] - 2026-10-13](#110-2026-10-13)
 - [[1.0.23] - 2026-10-13](#1023-2026-10-13)
 - [[1.0.22] - 2026-10-09](#1022-2026-10-09)
 - [[1.0.21] - 2026-09-27](#1021-2026-09-27)
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-13
+
 ### Security
 
 - `enabled: false` no longer leaves the UI and the outbound executor reachable without access checks: every `nowo_api_studio_*` route now answers 404 and the access subscriber is always registered.
@@ -41,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `security.access_checker` is now enforced: the configured `ApiStudioAccessCheckerInterface::canAccess()` is called with the current user on every Api Studio route (anonymous users are denied unless `allow_unauthenticated: true`).
 - Locale switch no longer redirects to arbitrary `Referer` URLs (open redirect); only same-host or local paths, otherwise the dashboard.
 - Execute endpoint rejects (`400`) an `environment_id` that does not belong to the endpoint's workspace, so another workspace's secrets can no longer be resolved into a request.
+
+[1.1.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.1.0
 
 ## [1.0.23] - 2026-10-13
 

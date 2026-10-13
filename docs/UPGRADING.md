@@ -4,6 +4,7 @@
 
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
+- [To 1.1.0](#to-110)
 - [To 1.0.23](#to-1023)
 - [To 1.0.22](#to-1022)
 - [To 1.0.21](#to-1021)
@@ -47,6 +48,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.1.0
+
+From **1.0.23** — security: fail closed when disabled, SSRF guard on every hop, host-exact allowlist, custom access checker enforced.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **Allowlist semantics:** plain `execution_url_allowlist` entries are now host matches, not substrings. Use `.example.com` (or `*.example.com`) for subdomains and `https://host[:port]/path` to pin scheme/port/path; path-only or partial-host entries must become `#regex` patterns.
 - **Redirects** are no longer followed when executing requests; 3xx responses are shown as-is. Set `execution_max_redirects: N` to follow them (hops are still blocked from private networks, not re-checked against the allowlist).
