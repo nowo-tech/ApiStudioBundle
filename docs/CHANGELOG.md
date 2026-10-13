@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.4.0] - 2026-10-13](#140---2026-10-13)
 - [[1.3.1] - 2026-10-13](#131---2026-10-13)
 - [[1.3.0] - 2026-10-13](#130---2026-10-13)
 - [[1.2.0] - 2026-10-13](#120---2026-10-13)
@@ -39,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-13
+
 ### Added
 
 - SOAP raw-envelope mode: when the endpoint body is a complete SOAP envelope (XML starting with `<` that contains an `Envelope` element), it is POSTed as-is (after `{{variable}}` substitution, as for REST bodies) to the service URL without its `?wsdl` / `?singleWsdl` query, through the same guarded HTTP client as JSON-parameter calls: service auth, default/endpoint/console headers, `SOAPAction` (SOAP 1.1) or `action=` in `Content-Type` (SOAP 1.2, detected from the envelope namespace), SSRF/allowlist checks, timeout and `execution_max_redirects`. No WSDL download and no ext-soap needed. A SOAP `Fault` (typically HTTP 500) or a non-2xx status fails the execution with `SOAP Fault (<code>): <reason>` while keeping the response for display; history redaction is the same as REST. Bodies that are not an envelope keep the existing JSON-parameters mode (WSDL + ext-soap). See [USAGE.md — SOAP services](USAGE.md#soap-services).
@@ -58,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Regression coverage for SOAP redirects: a redirect of the SOAP call (`<soap:address location>`) to metadata, RFC1918 or loopback addresses is blocked by `NoPrivateNetworkHttpClient` before the hop is requested, a public redirect is followed only when `execution_max_redirects` allows it (with `SOAPAction` preserved), and the WSDL redirect tests now exercise the client's redirect handling.
+
+[1.4.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.4.0
 
 ## [1.3.1] - 2026-10-13
 

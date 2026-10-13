@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.4.0](#to-140)
 - [To 1.3.1](#to-131)
 - [To 1.3.0](#to-130)
 - [To 1.2.0](#to-120)
@@ -53,6 +54,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.4.0
+
+From **1.3.1** — SOAP auth headers, raw envelope mode, working Catastro demo
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - SOAP endpoints whose body is a complete SOAP envelope (XML containing an `Envelope` element) are now sent as-is (raw-envelope mode) instead of being parsed as JSON parameters, which used to call the operation with **no** parameters. Such endpoints now reach the SOAP endpoint URL (service URL without `?wsdl`) directly: set the endpoint **SOAP action** to the exact SOAPAction the server expects (often the full URI from the WSDL binding), and allow that host in `execution_url_allowlist` if you use one. JSON bodies are unaffected.
 - Demo data: run `php bin/console nowo:api-studio:seed-demo --fresh` to replace the old Catastro SOAP examples with the working ones (plain re-seeding only adds the new endpoint, service and variables).
