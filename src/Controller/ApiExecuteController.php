@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
+use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
@@ -61,6 +62,9 @@ final class ApiExecuteController extends AbstractController
             $environment = $this->environmentRepository->find((int) $environmentId);
             if (!$environment instanceof ApiEnvironment) {
                 $environment = null;
+            } elseif (!self::belongsToEndpointWorkspace($environment, $endpoint)) {
+                // Never resolve another workspace's variables/secrets into this endpoint's request.
+                return new JsonResponse(['error' => 'Environment does not belong to the endpoint workspace.'], Response::HTTP_BAD_REQUEST);
             }
         }
 
@@ -139,5 +143,12 @@ final class ApiExecuteController extends AbstractController
         $this->entityManager->detach($history);
 
         return new JsonResponse($result->toArray());
+    }
+
+    private static function belongsToEndpointWorkspace(ApiEnvironment $environment, ApiEndpoint $endpoint): bool
+    {
+        $endpointWorkspace = $endpoint->getService()?->getWorkspace();
+
+        return $endpointWorkspace instanceof ApiWorkspace && $environment->getWorkspace() === $endpointWorkspace;
     }
 }

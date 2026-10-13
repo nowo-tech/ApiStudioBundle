@@ -22,10 +22,13 @@ nowo_api_studio:
         # access_checker: App\Security\MyApiStudioAccessChecker
     execution_url_allowlist_required: false
     execution_url_allowlist: []
+    execution_max_redirects: 0
     # Examples:
     # execution_url_allowlist_required: true
     # execution_url_allowlist:
-    #   - api.example.com
+    #   - api.example.com                 # exact host
+    #   - .example.org                    # example.org and any subdomain
+    #   - 'https://api.example.net:8443/v1' # scheme + host + port + path prefix
     #   - '#^https://staging\.example\.com/#'
     secrets:
         encrypt: true
@@ -34,7 +37,7 @@ nowo_api_studio:
 
 | Option | Description |
 |--------|-------------|
-| `enabled` | Enable or disable the bundle (default `true`). |
+| `enabled` | Enable or disable the bundle (default `true`). When `false`, every Api Studio route (`nowo_api_studio_*`) answers 404. |
 | `connection` | Doctrine connection name used by sync-schema (default `default`). |
 | `table_prefix` | Prefix for all bundle tables and unique indexes (default `api_studio_`). Lowercase letters, numbers, and underscores only. |
 | `environments` | Default environment names for new workspaces (default `dev`, `test`, `prod`). |
@@ -46,9 +49,10 @@ nowo_api_studio:
 | `ui.request_timeout_seconds` | HTTP client / SOAP connection timeout for the request console (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
 | `ui.required_roles` | Legacy role list used when `security.access_roles` is empty. Empty disables bundle-level checks. |
 | `security.access_roles` | Preferred roles for Api Studio UI (user needs at least one). Empty disables bundle-level role checks. Default `ROLE_ADMIN`. |
-| `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`. |
+| `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`; `canAccess($user)` is called on every Api Studio route in addition to the role check (anonymous users are denied unless `allow_unauthenticated: true`). |
 | `security.allow_unauthenticated` | **DEV/DEMO only.** When `true`, the UI may load without SecurityBundle / without login. Production **must** keep `false` (default). |
-| `execution_url_allowlist` | Optional allowlist for outbound URLs (substring or `#regex`). Empty = any public URL after SSRF checks unless `execution_url_allowlist_required` is true. |
+| `execution_url_allowlist` | Optional allowlist for outbound URLs. Plain entries match the parsed host exactly (`api.example.com`), as a suffix (`.example.com` / `*.example.com`: apex + subdomains), or as a URL pinning scheme/port/path prefix (`https://api.example.com:8443/v1`); `#…#` entries are regexes on the full URL. Empty = any public URL after SSRF checks unless `execution_url_allowlist_required` is true. |
+| `execution_max_redirects` | Redirects followed when executing requests (default `0`: 3xx responses are returned as-is). Followed hops are still blocked from private networks but are not re-checked against the allowlist. |
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. |

@@ -15,6 +15,7 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use SoapClient;
+use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
 
@@ -36,14 +37,25 @@ final class RequestExecutor
 {
     private readonly LoggerInterface $logger;
 
+    private readonly HttpClientInterface $httpClient;
+
+    /**
+     * @param int $maxRedirects Redirects to follow (execution_max_redirects). Default 0: 3xx responses are returned
+     *                          as-is; followed hops are still checked against private networks (not the allowlist).
+     */
     public function __construct(
-        private readonly HttpClientInterface $httpClient,
+        HttpClientInterface $httpClient,
         private readonly VariableResolver $variableResolver,
         private readonly ExecutionUrlValidator $urlValidator,
         private readonly int $timeoutSeconds,
         ?LoggerInterface $logger = null,
+        private readonly int $maxRedirects = 0,
     ) {
         $this->logger = $logger ?? new NullLogger();
+        // Re-checks the connected IP (DNS rebinding) and every redirect hop, which the pre-flight validator cannot.
+        $this->httpClient = $httpClient instanceof NoPrivateNetworkHttpClient
+            ? $httpClient
+            : new NoPrivateNetworkHttpClient($httpClient, ExecutionUrlValidator::BLOCKED_SUBNETS);
     }
 
     /**
@@ -126,9 +138,10 @@ final class RequestExecutor
 
         try {
             $options = [
-                'headers'      => $headers,
-                'timeout'      => $this->timeoutSeconds,
-                'max_duration' => $this->timeoutSeconds,
+                'headers'       => $headers,
+                'timeout'       => $this->timeoutSeconds,
+                'max_duration'  => $this->timeoutSeconds,
+                'max_redirects' => $this->maxRedirects,
             ];
             if ($body !== null && $body !== '' && !in_array($method, ['GET', 'HEAD'], true)) {
                 $options['body'] = $body;

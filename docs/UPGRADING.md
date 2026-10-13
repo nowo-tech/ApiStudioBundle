@@ -48,6 +48,12 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **Allowlist semantics:** plain `execution_url_allowlist` entries are now host matches, not substrings. Use `.example.com` (or `*.example.com`) for subdomains and `https://host[:port]/path` to pin scheme/port/path; path-only or partial-host entries must become `#regex` patterns.
+- **Redirects** are no longer followed when executing requests; 3xx responses are shown as-is. Set `execution_max_redirects: N` to follow them (hops are still blocked from private networks, not re-checked against the allowlist).
+- Hosts that do not resolve, or resolve to reserved ranges (CGNAT, ULA, documentation, multicast…), are now rejected.
+- `enabled: false` now returns 404 for all Api Studio routes; a custom `security.access_checker` is now actually called (make sure it returns `true` for intended users).
+- `POST …/execute/{id}` returns 400 when `environment_id` belongs to another workspace.
+
 ## To 1.0.23
 
 From **1.0.22** — dependency refresh and repository maintenance.

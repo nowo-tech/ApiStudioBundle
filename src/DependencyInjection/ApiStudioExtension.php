@@ -193,6 +193,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.ui.required_roles', $config['ui']['required_roles']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', $config['execution_url_allowlist']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist_required', $config['execution_url_allowlist_required']);
+        $container->setParameter(Configuration::ALIAS . '.execution_max_redirects', $config['execution_max_redirects']);
         $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(

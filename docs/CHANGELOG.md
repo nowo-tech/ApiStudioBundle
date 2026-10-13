@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `enabled: false` no longer leaves the UI and the outbound executor reachable without access checks: every `nowo_api_studio_*` route now answers 404 and the access subscriber is always registered.
+- SSRF hardening: outbound REST/GraphQL calls go through Symfony `NoPrivateNetworkHttpClient` (re-checks the connected IP, defeating DNS rebinding); redirects are no longer followed by default (new `execution_max_redirects`, default `0`); the pre-flight check now blocks all `IpUtils::PRIVATE_SUBNETS` plus multicast (0.0.0.0/8, 100.64.0.0/10, fc00::/7, IPv4-mapped IPv6, `::`, …), checks every A/AAAA record and fails closed when the host does not resolve.
+- `execution_url_allowlist` plain entries now match the parsed host exactly (or as a `.example.com` / `*.example.com` suffix; URL entries also pin scheme, port and path prefix) instead of a substring of the whole URL (`api.example.com` no longer matches `api.example.com.evil.net` or `?x=api.example.com`).
+- `security.access_checker` is now enforced: the configured `ApiStudioAccessCheckerInterface::canAccess()` is called with the current user on every Api Studio route (anonymous users are denied unless `allow_unauthenticated: true`).
+- Locale switch no longer redirects to arbitrary `Referer` URLs (open redirect); only same-host or local paths, otherwise the dashboard.
+- Execute endpoint rejects (`400`) an `environment_id` that does not belong to the endpoint's workspace, so another workspace's secrets can no longer be resolved into a request.
+
 ## [1.0.23] - 2026-10-13
 
 ### Changed

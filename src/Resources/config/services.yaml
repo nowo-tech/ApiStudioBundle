@@ -28,6 +28,7 @@ services:
     Nowo\ApiStudioBundle\Service\RequestExecutor:
         arguments:
             $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
+            $maxRedirects: '%nowo_api_studio.execution_max_redirects%'
 
     Nowo\ApiStudioBundle\Twig\ApiStudioExtension:
         arguments:

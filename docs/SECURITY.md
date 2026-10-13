@@ -30,8 +30,10 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 | Area | Risk | Mitigation |
 | --- | --- | --- |
-| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`); `allow_unauthenticated: false`; host `access_control` on `ui.path` |
-| SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` blocks private/local IPs; `execution_url_allowlist` + optional `execution_url_allowlist_required` |
+| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`) and optional `security.access_checker` (`canAccess($user)`), both enforced by `ApiStudioAccessSubscriber`; `allow_unauthenticated: false`; host `access_control` on `ui.path`. `enabled: false` makes all routes 404 (never fail-open). |
+| Cross-workspace secrets | Executing an endpoint with another workspace's environment | Execute endpoint rejects `environment_id` outside the endpoint's workspace (400) |
+| Open redirect | Locale switch following a forged `Referer` | Only same-host/local `Referer` is followed |
+| SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` pre-flight blocks `IpUtils::PRIVATE_SUBNETS` + multicast for every A/AAAA record and fails closed on unresolvable hosts; HTTP calls go through `NoPrivateNetworkHttpClient` (connected IP re-checked: DNS rebinding); redirects off by default (`execution_max_redirects`); host-exact `execution_url_allowlist` + optional `execution_url_allowlist_required` |
 | Secret storage | API keys/tokens in env variables persisted in DB | Variables marked `secret` are encrypted at rest with sodium (`secrets.encrypt`, default `true`); UI masking; optional dedicated `secrets.encryption_key` |
 | Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist; host owns retention/TTL policy |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
