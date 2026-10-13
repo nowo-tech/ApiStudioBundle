@@ -4,6 +4,7 @@
 
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [Unreleased](#unreleased)
+- [To 1.2.0](#to-120)
 - [To 1.1.0](#to-110)
 - [To 1.0.23](#to-1023)
 - [To 1.0.22](#to-1022)
@@ -48,6 +49,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.2.0
+
+From **1.1.0** — secrets redacted from stored history URLs/headers; environments option wired; Symfony >=7.4.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **Requirements:** Symfony **^7.4 || ^8.0** (was `^7.0 || ^8.0`). Upgrade Symfony 7.0–7.3 apps to 7.4 LTS first.
 - **New workspaces get environments:** creating a workspace from the UI now creates the environments listed in `nowo_api_studio.environments` (default `dev`, `test`, `prod`). Set `environments: []` to keep the previous behaviour (no environments).

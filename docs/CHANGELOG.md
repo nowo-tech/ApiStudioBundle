@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.2.0] - 2026-10-13](#120-2026-10-13)
 - [[1.1.0] - 2026-10-13](#110-2026-10-13)
 - [[1.0.23] - 2026-10-13](#1023-2026-10-13)
 - [[1.0.22] - 2026-10-09](#1022-2026-10-09)
@@ -34,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-13
+
 ### Fixed
 
 - **`environments` config is now used:** workspaces created from the UI are seeded with the configured environments (default `dev`, `test`, `prod`; the first one is the default). The key was documented but previously ignored.
@@ -45,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **Request history redaction:** the stored request URL is now sanitized — values of query parameters with sensitive names (`token`, `api_key`, `access_token`, `password`, `secret`, `signature`, `key`, …), the service's API-key header name, userinfo passwords and the values of secret environment variables are replaced with `[REDACTED]`. Request headers also redact the service's custom API-key header (previously only well-known names were masked).
+
+[1.2.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.2.0
 
 ## [1.1.0] - 2026-10-13
 
