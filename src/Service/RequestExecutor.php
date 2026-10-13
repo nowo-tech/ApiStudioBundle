@@ -14,6 +14,7 @@ use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Soap\GuardedSoapClient;
 use Nowo\ApiStudioBundle\Soap\GuardedWsdlLoader;
+use Nowo\ApiStudioBundle\Soap\SoapEnvelope;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
@@ -188,19 +189,25 @@ final class RequestExecutor
         array $overrideHeaders,
         bool $replaceHeaders = false,
     ): ApiExecutionResult {
-        if (!extension_loaded('soap')) {
-            return $this->failure('', 'POST', [], null, 'PHP SOAP extension is not installed.');
-        }
-
         $wsdl = rtrim($this->variableResolver->resolve($service->getBaseUrl(), $variables), '/');
         $body = $overrideBody ?? $endpoint->getRequestBodyTemplate() ?? '';
         $body = $this->variableResolver->resolve($body, $variables);
         // Auth, default and console headers are sent over HTTP like for REST; Content-Type and SOAPAction belong to
         // the SOAP transport (envelope version + operation), so they are dropped here and never overridden.
-        $headers = GuardedSoapClient::withoutFramingHeaders(
+        // SoapEnvelope (not GuardedSoapClient) so raw-envelope calls work without ext-soap.
+        $headers = SoapEnvelope::withoutFramingHeaders(
             $this->buildHeaders($service, $endpoint, $variables, $overrideHeaders, $replaceHeaders),
         );
         $action = $endpoint->getSoapAction() ?? $endpoint->getName();
+
+        // Raw-envelope mode: a complete SOAP envelope is POSTed as-is (no WSDL, no ext-soap needed).
+        if (SoapEnvelope::isEnvelope($body)) {
+            return $this->executeSoapEnvelope(SoapEnvelope::endpointUrl($wsdl), $action, $body, $headers);
+        }
+
+        if (!extension_loaded('soap')) {
+            return $this->failure('', 'SOAP', [], null, 'PHP SOAP extension is not installed (required for JSON-parameter SOAP calls; send a full SOAP envelope as body to call without it).');
+        }
 
         if ($this->urlValidator->isBlocked($wsdl)) {
             $this->logFailure('SOAP', $wsdl, 'WSDL URL is not allowed (SSRF or allowlist).');
@@ -227,7 +234,7 @@ final class RequestExecutor
                 $params = [];
             }
 
-            $result   = $client->__soapCall($action, [$params]);
+            $result   = $client->__soapCall(SoapEnvelope::operationName($action), [$params]);
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
             $response = json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
@@ -251,6 +258,65 @@ final class RequestExecutor
             return $this->failure($wsdl, 'SOAP', $headers, $body, $e->getMessage(), $duration);
         } finally {
             $wsdlLoader->cleanup();
+        }
+    }
+
+    /**
+     * POSTs a complete SOAP envelope through the guarded HTTP client (SSRF/allowlist pre-check, private network and
+     * rebinding checks, timeout, redirect policy). A SOAP Fault (usually HTTP 500) or a non-2xx status is a failure.
+     *
+     * @param array<string, string> $headers extra HTTP headers, framing headers already removed
+     */
+    private function executeSoapEnvelope(string $url, string $action, string $envelope, array $headers): ApiExecutionResult
+    {
+        $headers += SoapEnvelope::framingHeaders($action, SoapEnvelope::version($envelope));
+
+        if ($this->urlValidator->isBlocked($url)) {
+            $this->logFailure('SOAP', $url, 'SOAP endpoint URL is not allowed (SSRF or allowlist).');
+
+            return $this->failure($url, 'SOAP', $headers, $envelope, 'SOAP endpoint URL is not allowed (SSRF or allowlist).');
+        }
+
+        $this->logStart('SOAP', $url);
+        $start = hrtime(true);
+
+        try {
+            $response = $this->httpClient->request('POST', $url, [
+                'headers'       => $headers,
+                'body'          => $envelope,
+                'timeout'       => $this->timeoutSeconds,
+                'max_duration'  => $this->timeoutSeconds,
+                'max_redirects' => $this->maxRedirects,
+            ]);
+            $content  = $response->getContent(false);
+            $status   = $response->getStatusCode();
+            $duration = (int) ((hrtime(true) - $start) / 1_000_000);
+
+            $error = match (true) {
+                $status >= 300 && $status < 400 => 'SOAP endpoint answered with a redirect (HTTP ' . $status . ') that was not followed.',
+                default                         => SoapEnvelope::fault($content)
+                    ?? ($status >= 200 && $status < 300 ? null : 'SOAP endpoint answered with HTTP ' . $status . '.'),
+            };
+
+            $this->logFinish('SOAP', $url, $error === null, $status, $duration);
+
+            return new ApiExecutionResult(
+                requestUrl: $url,
+                requestMethod: 'SOAP',
+                requestHeaders: $headers,
+                requestBody: $envelope,
+                responseStatus: $status,
+                responseHeaders: $this->flattenHeaders($response->getHeaders(false)),
+                responseBody: $content,
+                durationMs: $duration,
+                success: $error === null,
+                errorMessage: $error,
+            );
+        } catch (Throwable $e) {
+            $duration = (int) ((hrtime(true) - $start) / 1_000_000);
+            $this->logFailure('SOAP', $url, $e->getMessage(), $duration);
+
+            return $this->failure($url, 'SOAP', $headers, $envelope, $e->getMessage(), $duration);
         }
     }
 

@@ -10,10 +10,6 @@ use SoapFault;
 use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-use function in_array;
-use function strtolower;
-use function trim;
-
 use const SOAP_1_2;
 
 /**
@@ -32,9 +28,6 @@ use const SOAP_1_2;
  */
 final class GuardedSoapClient extends SoapClient
 {
-    /** Header names owned by the SOAP transport (lower-case). */
-    private const FRAMING_HEADERS = ['content-type', 'soapaction'];
-
     /** @var array<string, string> */
     private readonly array $extraHeaders;
 
@@ -65,16 +58,7 @@ final class GuardedSoapClient extends SoapClient
      */
     public static function withoutFramingHeaders(array $headers): array
     {
-        $filtered = [];
-        foreach ($headers as $name => $value) {
-            $name = trim((string) $name);
-            if ($name === '' || in_array(strtolower($name), self::FRAMING_HEADERS, true)) {
-                continue;
-            }
-            $filtered[$name] = $value;
-        }
-
-        return $filtered;
+        return SoapEnvelope::withoutFramingHeaders($headers);
     }
 
     /**
@@ -92,10 +76,10 @@ final class GuardedSoapClient extends SoapClient
             throw new SoapFault('Client', 'SOAP endpoint location is not allowed (SSRF or allowlist).');
         }
 
-        $framing = $version === SOAP_1_2
-            ? ['Content-Type' => 'application/soap+xml; charset=utf-8; action="' . $action . '"']
-            : ['Content-Type' => 'text/xml; charset=utf-8', 'SOAPAction' => '"' . $action . '"'];
-        $headers = $this->extraHeaders + $framing;
+        $headers = $this->extraHeaders + SoapEnvelope::framingHeaders(
+            $action,
+            $version === SOAP_1_2 ? SoapEnvelope::VERSION_1_2 : SoapEnvelope::VERSION_1_1,
+        );
 
         $response = $this->httpClient->request('POST', $location, [
             'headers'       => $headers,

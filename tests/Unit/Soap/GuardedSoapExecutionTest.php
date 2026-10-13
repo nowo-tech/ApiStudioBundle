@@ -70,6 +70,25 @@ final class GuardedSoapExecutionTest extends TestCase
         self::assertSame($tempFilesBefore, self::tempWsdlFiles(), 'Temporary WSDL copies must be removed.');
     }
 
+    public function testJsonModeCallsOperationNamedByLastSegmentOfSoapActionUri(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url, $options];
+
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+                : new MockResponse(self::RESPONSE, ['http_code' => 200]);
+        });
+
+        $result = $this->executor($client)->execute($this->endpoint()->setSoapAction('urn:ping#Ping'));
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertCount(2, $calls, 'A JSON body still uses the WSDL + SoapClient mode.');
+        self::assertStringContainsString('Ping', (string) $result->requestBody);
+        self::assertContains('SOAPAction: "urn:ping#Ping"', $calls[1][2]['headers']);
+    }
+
     #[DataProvider('internalLocations')]
     public function testInternalSoapAddressLocationIsRejected(string $location): void
     {

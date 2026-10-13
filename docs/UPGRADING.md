@@ -54,6 +54,8 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- SOAP endpoints whose body is a complete SOAP envelope (XML containing an `Envelope` element) are now sent as-is (raw-envelope mode) instead of being parsed as JSON parameters, which used to call the operation with **no** parameters. Such endpoints now reach the SOAP endpoint URL (service URL without `?wsdl`) directly: set the endpoint **SOAP action** to the exact SOAPAction the server expects (often the full URI from the WSDL binding), and allow that host in `execution_url_allowlist` if you use one. JSON bodies are unaffected.
+- Demo data: run `php bin/console nowo:api-studio:seed-demo --fresh` to replace the old Catastro SOAP examples with the working ones (plain re-seeding only adds the new endpoint, service and variables).
 - SOAP executions whose endpoint answers with an unfollowed redirect (3xx) now fail with `HTTP 3xx … not followed` instead of reporting success with an empty result. Raise `execution_max_redirects` if the SOAP endpoint legitimately redirects.
 
 ## To 1.3.1

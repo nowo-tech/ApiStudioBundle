@@ -38,7 +38,7 @@ Includes reference catalogs for:
 - **JSONPlaceholder** — live REST (no auth)
 - **LinkedIn API v2** — profile, UGC posts, organization search
 - **Google Cloud Translation** — translate, detect, list languages
-- **Catastro (España)** — SOAP `Consulta_CPMRC` / `Consulta_DNPRC` and HTTP variants
+- **Catastro (España)** — SOAP `Consulta_CPMRC` / `Consulta_RCCOOR` (OVCCoordenadas) and `Consulta_DNPRC` (OVCCallejero) as raw SOAP envelopes, plus HTTP variants
 
 Configure credentials in **Environments** before calling real APIs.
 
@@ -59,6 +59,35 @@ Configure `auth_type` on the service:
 
 ### SOAP services
 
+The service **base URL** is the WSDL URL (variables allowed). The endpoint body selects one of two modes:
+
+| Body | Mode | What is sent |
+|------|------|--------------|
+| A complete SOAP envelope: XML starting with `<` (an XML declaration and BOM are fine) that contains an `Envelope` element (any prefix: `soap:`, `soapenv:`, `SOAP-ENV:`, none) | **Raw envelope** | The body, after `{{variable}}` substitution as for REST bodies, is POSTed **as-is** to the service URL with a trailing `?wsdl` / `?WSDL` / `?singleWsdl` / `?wsdl=…` removed. The WSDL is **not** downloaded and **ext-soap is not needed**. |
+| Anything else (normally a JSON object) | **JSON parameters** | The WSDL is downloaded, ext-soap builds the envelope from the JSON object (`{"param": "value"}` → operation arguments) and calls the `<soap:address location>` of the WSDL. Requires ext-soap. |
+
+The endpoint **SOAP action** field (falls back to the endpoint name) can be a bare operation name (`GetThing`) or a full SOAPAction URI (`http://tempuri.org/Svc/GetThing`, `urn:svc#GetThing`):
+
+- Raw-envelope mode sends it verbatim as the action: `SOAPAction: "<action>"` + `Content-Type: text/xml; charset=utf-8` for a SOAP 1.1 envelope, `Content-Type: application/soap+xml; charset=utf-8; action="<action>"` when the envelope uses the SOAP 1.2 namespace (`http://www.w3.org/2003/05/soap-envelope`). Many servers (e.g. .NET ASMX) only accept the exact SOAPAction URI of the WSDL binding, so use the full URI.
+- JSON-parameters mode calls the operation named by the last segment of the value (after `/`, `#` or `:`; a bare name is used as-is); the SOAPAction header comes from the WSDL binding.
+
+Both modes use the same guarded transport: the target URL is checked against the SSRF/private-network guard and `execution_url_allowlist`, connected IPs are re-checked (DNS rebinding), the request timeout and `execution_max_redirects` apply, and a 3xx that is not followed is reported as an error. In raw-envelope mode the result is a **failure** when the response contains a SOAP `Fault` (the usual `HTTP 500` fault; the error message is `SOAP Fault (<faultcode>): <faultstring>`, or `Code/Value` + `Reason/Text` for SOAP 1.2) or when the status is not 2xx; the response status, headers and body (the fault envelope) are kept for display. To call a SOAP endpoint whose address differs from the WSDL URL, set the service base URL to that endpoint (raw-envelope mode does not need a WSDL).
+
+Example (raw envelope, the seeded *Catastro — OVCCoordenadas (SOAP)* → `Consulta_RCCOOR`; base URL `https://ovc.catastro.meh.es/ovcservweb/ovcswlocalizacionrc/ovccoordenadas.asmx?WSDL`, SOAP action `http://tempuri.org/OVCServWeb/OVCCoordenadas/Consulta_RCCOOR`):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <SRS xmlns="http://www.catastro.meh.es/">{{catastro_srs}}</SRS>
+    <CoorX xmlns="http://www.catastro.meh.es/">-3.69214</CoorX>
+    <CoorY xmlns="http://www.catastro.meh.es/">40.41378</CoorY>
+  </soap:Body>
+</soap:Envelope>
+```
+
+Example (JSON parameters, an RPC-style WSDL with operation `Ping(value)`): body `{"value": "hello"}`, SOAP action `Ping`. The JSON object is passed to ext-soap as the operation's **single** argument, which fits RPC operations and wrapped document/literal operations; for document/literal *bare* operations with several parts (such as the Catastro ASMX services) write the envelope instead (raw-envelope mode).
+
 SOAP executions send the same HTTP headers as REST: the service auth (`basic` / `bearer` → `Authorization`, `api_key` → the configured header, default `X-Api-Key`), the service default headers, the endpoint headers and the headers edited in the request console (which replace the service/endpoint defaults, as for REST; auth is applied on top). Header precedence:
 
 1. `Content-Type` and `SOAPAction` are owned by the SOAP transport (`text/xml` + `SOAPAction: "<action>"` for SOAP 1.1, `application/soap+xml; action="<action>"` for SOAP 1.2). A header with one of these names (any case) from the service, endpoint or console is **dropped**, never sent twice or allowed to override them; set the action with the endpoint's **SOAP action** field. The endpoint content type is not used for SOAP.
@@ -67,7 +96,7 @@ SOAP executions send the same HTTP headers as REST: the service auth (`basic` / 
 
 The same headers (without the framing ones) are sent when downloading the WSDL, so WSDLs behind auth work, but only to documents on the **same origin** (scheme, host, port) as the WSDL URL: `<xsd:import>` / `<wsdl:import>` documents on another host are fetched without them so credentials never leak to a third party. Redirects follow `execution_max_redirects`; when a redirect leaves the host, the HTTP client drops `Authorization`/`Cookie` but custom headers (e.g. an API key header) are forwarded, so keep `execution_max_redirects: 0` (default) for credentialed SOAP services unless you trust the redirect targets. API key auth is header-only (there is no query-string variant, for REST or SOAP).
 
-Executions are stored in history with the headers that were sent (framing headers excluded), redacted by `HistorySanitizer` exactly like REST: the auth header, the configured API key header and values of secret environment variables are replaced by `[REDACTED]`, and secret values are masked in the stored SOAP envelope.
+Executions are stored in history with the headers that were sent (framing headers excluded in JSON-parameters mode; included in raw-envelope mode, where they are part of the request you wrote), redacted by `HistorySanitizer` exactly like REST: the auth header, the configured API key header and values of secret environment variables are replaced by `[REDACTED]`, and secret values are masked in the stored SOAP envelope (in both modes).
 
 ## Overriding Twig templates (REQ-TWIG-001)
 

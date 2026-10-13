@@ -39,8 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- SOAP raw-envelope mode: when the endpoint body is a complete SOAP envelope (XML starting with `<` that contains an `Envelope` element), it is POSTed as-is (after `{{variable}}` substitution, as for REST bodies) to the service URL without its `?wsdl` / `?singleWsdl` query, through the same guarded HTTP client as JSON-parameter calls: service auth, default/endpoint/console headers, `SOAPAction` (SOAP 1.1) or `action=` in `Content-Type` (SOAP 1.2, detected from the envelope namespace), SSRF/allowlist checks, timeout and `execution_max_redirects`. No WSDL download and no ext-soap needed. A SOAP `Fault` (typically HTTP 500) or a non-2xx status fails the execution with `SOAP Fault (<code>): <reason>` while keeping the response for display; history redaction is the same as REST. Bodies that are not an envelope keep the existing JSON-parameters mode (WSDL + ext-soap). See [USAGE.md — SOAP services](USAGE.md#soap-services).
+
+### Changed
+
+- SOAP JSON-parameters mode: the endpoint **SOAP action** may now be a full SOAPAction URI (`http://tempuri.org/Svc/GetThing`, `urn:svc#GetThing`); the operation called is its last segment. Bare operation names behave as before.
+- Demo seed (`nowo:api-studio:seed-demo`): re-seeding now adds reference environment variables introduced by newer seeds to existing environments (existing keys are never overwritten).
+
 ### Fixed
 
+- Demo seed: the Catastro SOAP examples now work against the real service. They are raw SOAP envelopes with the document/literal parts and full SOAPAction URIs the ASMX service expects (the previous bodies wrapped the parameters in an operation element, used a bare SOAPAction and were read as JSON, so the call was sent without parameters). `Consulta_CPMRC` now queries coordinates by cadastral reference, the new `Consulta_RCCOOR` endpoint queries the reference at coordinates, and `Consulta_DNPRC` moved to a new *Catastro — OVCCallejero (SOAP)* service (`{{catastro_callejero_wsdl}}`), where the operation lives. Existing demo data is not rewritten: run `nowo:api-studio:seed-demo --fresh` to get the corrected examples.
+- Demo (Symfony 8): the PHP image now installs ext-soap, so JSON-parameter SOAP calls work in the demo.
 - SOAP: a 3xx answer from the SOAP endpoint that is not followed (`execution_max_redirects` is `0` by default, or exhausted) now fails the execution (`HTTP 3xx … not followed`) instead of handing an empty body to ext-soap, which recorded a successful call with a `null` result.
 - SOAP: executions now send the HTTP headers REST executions send — service auth (`basic`/`bearer` `Authorization`, `api_key` header), service default headers, endpoint headers and console headers (console headers now replace the defaults as for REST) — with the SOAP call and, restricted to the WSDL's origin, with the WSDL/XSD downloads, so services and WSDLs behind auth work. `Content-Type` and `SOAPAction` stay owned by the SOAP transport: a header with one of those names is dropped instead of overriding them, and the endpoint content type (default `application/json`) is no longer recorded for SOAP executions. History redaction is unchanged and identical to REST (`HistorySanitizer`). See [USAGE.md — SOAP services](USAGE.md#soap-services).
 

@@ -91,10 +91,9 @@ final class DemoSeedService
             return;
         }
 
+        // Re-seeding adds reference variables introduced by newer seeds (existing keys are never overwritten).
         foreach ($workspace->getEnvironments() as $environment) {
-            if ($environment->getVariables()->isEmpty()) {
-                $this->addEnvironmentVariables($environment);
-            }
+            $this->addEnvironmentVariables($environment);
         }
     }
 
@@ -107,6 +106,7 @@ final class DemoSeedService
             ['google_translate_base', 'https://translation.googleapis.com', false, 'Google Cloud Translation API'],
             ['google_api_key', 'YOUR_GOOGLE_CLOUD_API_KEY', true, 'API key con Translation API habilitada'],
             ['catastro_soap_wsdl', 'https://ovc.catastro.meh.es/ovcservweb/ovcswlocalizacionrc/ovccoordenadas.asmx?WSDL', false, 'WSDL OVCCoordenadas — consulta por coordenadas'],
+            ['catastro_callejero_wsdl', 'https://ovc.catastro.meh.es/ovcservweb/ovcswlocalizacionrc/ovccallejero.asmx?WSDL', false, 'WSDL OVCCallejero — datos descriptivos por referencia catastral'],
             ['catastro_rest_base', 'https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC/OVCCoordenadas.asmx', false, 'Endpoint catastro (legacy ASMX, documentación REST-like en demo)'],
             ['catastro_srs', 'EPSG:4326', false, 'Sistema de referencia espacial (WGS84)'],
         ];
@@ -537,6 +537,11 @@ JSON);
         });
     }
 
+    /**
+     * Catastro OVC SOAP services (ASMX, document/literal, bare parts). The endpoint bodies are complete SOAP 1.1
+     * envelopes (raw-envelope mode): they are POSTed as-is to the service URL without `?WSDL`, with the full
+     * SOAPAction URI from the WSDL binding (ASMX rejects a bare operation name).
+     */
     private function seedCatastroSoap(ApiWorkspace $workspace): void
     {
         $service = $this->ensureService($workspace, 'catastro_soap', static function (ApiService $service): void {
@@ -545,8 +550,9 @@ JSON);
             // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setDescription(
                 'Servicio SOAP de la Sede Electrónica del Catastro (Ministerio de Hacienda, España). '
-                . 'Consulta de referencia catastral a partir de coordenadas geográficas. '
-                . 'WSDL público sin autenticación para consultas no protegidas.',
+                . 'Coordenadas de una referencia catastral (Consulta_CPMRC) y referencia catastral en unas coordenadas '
+                . '(Consulta_RCCOOR). WSDL público sin autenticación para consultas no protegidas. '
+                . 'Los cuerpos son sobres SOAP completos (modo sobre crudo).',
             );
             // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setBaseUrl('{{catastro_soap_wsdl}}');
@@ -554,95 +560,167 @@ JSON);
             $service->setProtocol(ApiProtocol::Soap);
             // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $service->setAuthType(AuthType::None);
-            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
-            $service->setDefaultHeaders(['Content-Type' => 'text/xml; charset=utf-8']);
         });
 
         $this->ensureEndpoint($service, 'consulta_cpmrc', function (ApiEndpoint $endpoint): void {
             $endpoint->setName('Consulta_CPMRC');
             $endpoint->setMethod(HttpMethod::Post);
             $endpoint->setPath('/');
-            $endpoint->setSoapAction('Consulta_CPMRC');
+            $endpoint->setSoapAction('http://tempuri.org/OVCServWeb/OVCCoordenadas/Consulta_CPMRC');
             $endpoint->setContentType('text/xml; charset=utf-8');
             $endpoint->setSortOrder(10);
             $endpoint->setRequestBodyTemplate(<<<'XML'
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <Consulta_CPMRC xmlns="http://www.catastro.meh.es/">
-      <SRS>{{catastro_srs}}</SRS>
-      <Coordenada_X>-3.703790</Coordenada_X>
-      <Coordenada_Y>40.416775</Coordenada_Y>
-    </Consulta_CPMRC>
+    <Provincia xmlns="http://www.catastro.meh.es/">MADRID</Provincia>
+    <Municipio xmlns="http://www.catastro.meh.es/">MADRID</Municipio>
+    <SRS xmlns="http://www.catastro.meh.es/">{{catastro_srs}}</SRS>
+    <RefCat xmlns="http://www.catastro.meh.es/">1341701VK4714A</RefCat>
   </soap:Body>
 </soap:Envelope>
 XML);
 
             $this->addTranslations($endpoint, [
                 'en' => [
-                    'title'       => 'Cadastral lookup by coordinates (SOAP)',
-                    'description' => 'Returns cadastral parcel references for a point (lon/lat in SRS). Example: Puerta del Sol, Madrid.',
-                    'notes'       => 'WSDL: ovc.catastro.meh.es — Operación Consulta_CPMRC. Demo SOAP en API Studio.',
+                    'title'       => 'Coordinates of a cadastral reference (SOAP)',
+                    'description' => 'Returns the coordinates (in SRS) and address of a 14-character cadastral reference. Example: Museo del Prado, Madrid.',
+                    'notes'       => 'WSDL: ovc.catastro.meh.es OVCCoordenadas — operation Consulta_CPMRC. The body is a full SOAP envelope (raw-envelope mode).',
                 ],
                 'es' => [
-                    'title'       => 'Consulta catastral por coordenadas (SOAP)',
-                    'description' => 'Devuelve referencias catastrales de la parcela en un punto (lon/lat según SRS). Ejemplo: Puerta del Sol, Madrid.',
-                    'notes'       => 'Servicio público de consulta de datos catastrales no protegidos.',
+                    'title'       => 'Coordenadas de una referencia catastral (SOAP)',
+                    'description' => 'Devuelve las coordenadas (según SRS) y la dirección de una referencia catastral de 14 caracteres. Ejemplo: Museo del Prado, Madrid.',
+                    'notes'       => 'Servicio público de consulta de datos catastrales no protegidos. El cuerpo es un sobre SOAP completo (modo sobre crudo).',
                 ],
             ]);
 
-            $this->addRequestExample($endpoint, 'Puerta del Sol (WGS84)', $endpoint->getRequestBodyTemplate());
+            $this->addRequestExample($endpoint, 'Museo del Prado (WGS84)', $endpoint->getRequestBodyTemplate());
 
-            $this->addRequestExample($endpoint, 'Parámetros JSON para SoapClient', <<<'JSON'
-{
-  "SRS": "EPSG:4326",
-  "Coordenada_X": -3.703790,
-  "Coordenada_Y": 40.416775
-}
-JSON);
-
-            $this->addResponseExample($endpoint, '200 OK — SOAP response (extract)', 200, <<<'XML'
+            $this->addResponseExample($endpoint, '200 OK — SOAP response', 200, <<<'XML'
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <Consulta_CPMRCResponse xmlns="http://www.catastro.meh.es/">
-      <consulta_cpmrcResult>
+    <Consulta_Coordenadas xmlns="http://www.catastro.meh.es/">
+      <consulta_coordenadas>
+        <control><cucoor>1</cucoor><cuerr>0</cuerr></control>
         <coordenadas>
           <coord>
-            <pc><pc1>0076013</pc1><pc2>DF29</pc2><pc3>0001</pc3><pc4>0001</pc4></pc>
-            <geo><xcen>-3.70379</xcen><ycen>40.416775</ycen></geo>
+            <pc><pc1>1341701</pc1><pc2>VK4714A</pc2></pc>
+            <geo><xcen>-3.69167131327452</xcen><ycen>40.4134609341573</ycen><srs>EPSG:4326</srs></geo>
+            <ldt>PS PRADO 11 MADRID (MADRID)</ldt>
           </coord>
         </coordenadas>
-      </consulta_cpmrcResult>
-    </Consulta_CPMRCResponse>
+      </consulta_coordenadas>
+    </Consulta_Coordenadas>
   </soap:Body>
 </soap:Envelope>
 XML);
 
-            $this->addResponseExample($endpoint, 'Fault — coordenada invalida', 500, <<<'XML'
-<soap:Fault>
-  <faultcode>soap:Server</faultcode>
-  <faultstring>Coordenada fuera de rango</faultstring>
-</soap:Fault>
+            $this->addResponseExample($endpoint, '500 — SOAP Fault (SOAPAction no reconocida)', 500, <<<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <soap:Fault>
+      <faultcode>soap:Client</faultcode>
+      <faultstring>Server did not recognize the value of HTTP Header SOAPAction: Consulta_CPMRC.</faultstring>
+      <detail />
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>
 XML);
         });
 
-        $this->ensureEndpoint($service, 'consulta_dnprc', function (ApiEndpoint $endpoint): void {
-            $endpoint->setName('Consulta_DNPRC');
+        $this->ensureEndpoint($service, 'consulta_rccoor', function (ApiEndpoint $endpoint): void {
+            $endpoint->setName('Consulta_RCCOOR');
             $endpoint->setMethod(HttpMethod::Post);
             $endpoint->setPath('/');
-            $endpoint->setSoapAction('Consulta_DNPRC');
+            $endpoint->setSoapAction('http://tempuri.org/OVCServWeb/OVCCoordenadas/Consulta_RCCOOR');
             $endpoint->setContentType('text/xml; charset=utf-8');
             $endpoint->setSortOrder(20);
             $endpoint->setRequestBodyTemplate(<<<'XML'
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <Consulta_DNPRC xmlns="http://www.catastro.meh.es/">
-      <Provincia>MADRID</Provincia>
-      <Municipio>MADRID</Municipio>
-      <RC>0076013DF2900010001</RC>
-    </Consulta_DNPRC>
+    <SRS xmlns="http://www.catastro.meh.es/">{{catastro_srs}}</SRS>
+    <CoorX xmlns="http://www.catastro.meh.es/">-3.69214</CoorX>
+    <CoorY xmlns="http://www.catastro.meh.es/">40.41378</CoorY>
+  </soap:Body>
+</soap:Envelope>
+XML);
+
+            $this->addTranslations($endpoint, [
+                'en' => [
+                    'title'       => 'Cadastral reference at coordinates (SOAP)',
+                    'description' => 'Returns the cadastral parcel reference at a point (lon/lat in SRS). Example: Museo del Prado, Madrid.',
+                    'notes'       => 'WSDL: ovc.catastro.meh.es OVCCoordenadas — operation Consulta_RCCOOR. The body is a full SOAP envelope (raw-envelope mode).',
+                ],
+                'es' => [
+                    'title'       => 'Referencia catastral en unas coordenadas (SOAP)',
+                    'description' => 'Devuelve la referencia catastral de la parcela en un punto (lon/lat según SRS). Ejemplo: Museo del Prado, Madrid.',
+                    'notes'       => 'Servicio público de consulta de datos catastrales no protegidos. El cuerpo es un sobre SOAP completo (modo sobre crudo).',
+                ],
+            ]);
+
+            $this->addRequestExample($endpoint, 'Museo del Prado (WGS84)', $endpoint->getRequestBodyTemplate());
+
+            $this->addResponseExample($endpoint, '200 OK — SOAP response', 200, <<<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <Consulta_Coordenadas xmlns="http://www.catastro.meh.es/">
+      <consulta_coordenadas>
+        <control><cucoor>1</cucoor><cuerr>0</cuerr></control>
+        <coordenadas>
+          <coord>
+            <pc><pc1>1341701</pc1><pc2>VK4714A</pc2></pc>
+            <geo><xcen>-3.69214</xcen><ycen>40.41378</ycen><srs>EPSG:4326</srs></geo>
+            <ldt>PS PRADO 11 MADRID (MADRID)</ldt>
+          </coord>
+        </coordenadas>
+      </consulta_coordenadas>
+    </Consulta_Coordenadas>
+  </soap:Body>
+</soap:Envelope>
+XML);
+
+            $this->addResponseExample($endpoint, '200 OK — sin referencia en esas coordenadas', 200, <<<'XML'
+<consulta_coordenadas xmlns="http://www.catastro.meh.es/">
+  <control><cucoor>0</cucoor><cuerr>1</cuerr></control>
+  <lerr><err><cod>16</cod><des>PARA ESAS COORDENADAS NO HAY REFERENCIA DISPONIBLE</des></err></lerr>
+</consulta_coordenadas>
+XML);
+        });
+
+        $callejero = $this->ensureService($workspace, 'catastro_callejero_soap', static function (ApiService $service): void {
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
+            $service->setName('Catastro — OVCCallejero (SOAP)');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
+            $service->setDescription(
+                'Servicio SOAP de callejero y datos descriptivos no protegidos de la Sede Electrónica del Catastro. '
+                . 'Los cuerpos son sobres SOAP completos (modo sobre crudo).',
+            );
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
+            $service->setBaseUrl('{{catastro_callejero_wsdl}}');
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
+            $service->setProtocol(ApiProtocol::Soap);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
+            $service->setAuthType(AuthType::None);
+        });
+
+        $this->ensureEndpoint($callejero, 'consulta_dnprc', function (ApiEndpoint $endpoint): void {
+            $endpoint->setName('Consulta_DNPRC');
+            $endpoint->setMethod(HttpMethod::Post);
+            $endpoint->setPath('/');
+            $endpoint->setSoapAction('http://tempuri.org/OVCServWeb/OVCCallejero/Consulta_DNPRC');
+            $endpoint->setContentType('text/xml; charset=utf-8');
+            $endpoint->setSortOrder(10);
+            $endpoint->setRequestBodyTemplate(<<<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <Provincia xmlns="http://www.catastro.meh.es/">MADRID</Provincia>
+    <Municipio xmlns="http://www.catastro.meh.es/">MADRID</Municipio>
+    <RefCat xmlns="http://www.catastro.meh.es/">1341701VK4714A</RefCat>
   </soap:Body>
 </soap:Envelope>
 XML);
@@ -658,16 +736,19 @@ XML);
                 ],
             ]);
 
-            $this->addRequestExample($endpoint, 'RC completa Madrid centro', $endpoint->getRequestBodyTemplate());
+            $this->addRequestExample($endpoint, 'Museo del Prado (RC 14)', $endpoint->getRequestBodyTemplate());
 
-            $this->addResponseExample($endpoint, '200 OK — datos descriptivos', 200, <<<'XML'
-<Consulta_DNPRCResponse>
+            $this->addResponseExample($endpoint, '200 OK — datos descriptivos (extracto)', 200, <<<'XML'
+<consulta_dnp xmlns="http://www.catastro.meh.es/">
+  <control><cudnp>1</cudnp><cucons>6</cucons><cucul>0</cucul></control>
   <bico>
-    <bi><idbi><cn>UR</cn><rc>0076013DF2900010001</rc></idbi></bi>
-    <ldt>CL GRAN VIA 1 Madrid (Madrid)</ldt>
-    <debi><ant>100</ant><cpt>100</cpt><luso>Comercial</luso></debi>
+    <bi>
+      <idbi><cn>UR</cn><rc><pc1>1341701</pc1><pc2>VK4714A</pc2><car>0001</car><cc1>A</cc1><cc2>I</cc2></rc></idbi>
+      <ldt>PS PRADO 11 28014 MADRID (MADRID)</ldt>
+      <debi><luso>Cultural</luso><sfc>30456</sfc><cpt>100,000000</cpt><ant>1999</ant></debi>
+    </bi>
   </bico>
-</Consulta_DNPRCResponse>
+</consulta_dnp>
 XML);
         });
     }

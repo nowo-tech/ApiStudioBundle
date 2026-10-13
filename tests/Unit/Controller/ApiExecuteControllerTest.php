@@ -205,6 +205,58 @@ final class ApiExecuteControllerTest extends TestCase
         self::assertStringContainsString('Ping', (string) $persisted->getRequestBody());
     }
 
+    public function testRawSoapEnvelopeHistoryRedactsAuthHeadersAndSecretsInEnvelope(): void
+    {
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $service   = (new ApiService('Soap', 'soap'))
+            ->setProtocol(ApiProtocol::Soap)
+            ->setBaseUrl('https://93.184.215.14/service.asmx?WSDL')
+            ->setAuthType(AuthType::ApiKey)
+            ->setAuthConfig(['header' => 'X-Partner-Credential', 'value' => '{{partnerKey}}'])
+            ->setDefaultHeaders(['X-Session' => '{{session}}', 'X-Trace' => 'on'])
+            ->setWorkspace($workspace);
+        $endpoint = (new ApiEndpoint('Ping', 'ping'))
+            ->setSoapAction('urn:ping#Ping')
+            ->setRequestBodyTemplate('<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><Ping xmlns="urn:ping"><token>{{session}}</token></Ping></soap:Body></soap:Envelope>')
+            ->setService($service);
+
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('partnerKey', 'partner-abcdef'))->setSecret(true));
+        $env->addVariable((new ApiEnvironmentVariable('session', 'sess-424242'))->setSecret(true));
+
+        $sent   = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sent): MockResponse {
+            $sent[] = [$method, $url, $options['headers'], $options['body'] ?? null];
+
+            return new MockResponse('<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><PingResponse xmlns="urn:ping">pong</PingResponse></soap:Body></soap:Envelope>');
+        });
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($this->request(), 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertCount(1, $sent, 'Raw-envelope mode sends one POST and no WSDL request.');
+        self::assertSame(['POST', 'https://93.184.215.14/service.asmx'], [$sent[0][0], $sent[0][1]]);
+        self::assertContains('X-Partner-Credential: partner-abcdef', $sent[0][2]);
+        self::assertContains('SOAPAction: "urn:ping#Ping"', $sent[0][2]);
+        self::assertStringContainsString('<token>sess-424242</token>', (string) $sent[0][3]);
+
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+        self::assertTrue($persisted->isSuccess());
+        $headers = $persisted->getRequestHeaders();
+        self::assertSame('[REDACTED]', $headers['X-Partner-Credential'] ?? null);
+        self::assertSame('[REDACTED]', $headers['X-Session'] ?? null);
+        self::assertSame('on', $headers['X-Trace'] ?? null);
+        self::assertSame('"urn:ping#Ping"', $headers['SOAPAction'] ?? null);
+        self::assertStringNotContainsString('sess-424242', (string) $persisted->getRequestBody());
+        self::assertStringContainsString('<Ping xmlns="urn:ping">', (string) $persisted->getRequestBody());
+    }
+
     private static function pingWsdl(): string
     {
         return <<<'XML'
