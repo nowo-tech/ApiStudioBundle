@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.4.1] - 2026-10-18](#141---2026-10-18)
 - [[1.4.0] - 2026-10-13](#140---2026-10-13)
 - [[1.3.1] - 2026-10-13](#131---2026-10-13)
 - [[1.3.0] - 2026-10-13](#130---2026-10-13)
@@ -40,9 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-18
+
+Allows nowo-tech/ui-kit-bundle 2.x (^1.4 || ^2.2) so hosts can move to UiKit 2.2. See [UPGRADING](UPGRADING.md#to-141).
+
 ### Changed
 
 - Allows nowo-tech/ui-kit-bundle 2.x (`^1.4 || ^2.2`); the dev lock and the demo lock use 2.2.0. Templates are unchanged (compatibility release). With UiKit 2.x `nowo-ui.css` ships in `@layer nowo-ui`, so unlayered host/framework CSS (and `api-studio-theme.css`) wins equal-specificity conflicts with kit rules; to keep the 1.x cascade, override the `nowo_ui_styles` block and link `css/nowo-ui.unlayered.css` (UiKit 2.x only).
+
+[1.4.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.4.1
 
 ## [1.4.0] - 2026-10-13
 
