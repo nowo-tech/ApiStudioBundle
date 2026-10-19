@@ -930,7 +930,7 @@
         },
         {
             "name": "nowo-tech/api-studio-bundle",
-            "version": "dev-feature/locale-tabs",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "/var/api-studio-bundle",
