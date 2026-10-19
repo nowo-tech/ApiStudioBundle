@@ -56,6 +56,35 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.4.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle nowo-tech/form-kit-bundle nowo-tech/ui-kit-bundle -W
+```
+
+Requires **FormKit ^2.13** and **UiKit ^2.5.1** (UiKit 1.x dropped).
+
+What hosts may notice:
+
+- **Removed JavaScript:** `api-form-locale-tabs.js`. Remove it from any template override or asset list that loads it
+  (`asset('api-form-locale-tabs.js', 'nowo_api_studio')`); the tabs are driven by UiKit's `nowo-ui-tabs.js`, which
+  `base.html.twig` now loads with the other UiKit runtimes (UiKit `scripts` partial). Layout overrides that replace
+  `nowo_ui_scripts` must include `{{ include(nowo_ui_partial('scripts')) }}`.
+- **Changed DOM ids / classes:**
+  - endpoint form: `#endpoint-form-locale-tabs` (tab list) → `#endpoint-form-locale` (root,
+    `[data-nowo-ui-locale-tabs]`), buttons `#tab-endpoint-form-locale-<locale>`, panels
+    `#tab-endpoint-form-locale-<locale>-panel`; `[data-form-locale]` / `[data-form-locale-panel]` are gone;
+  - show page: `#endpoint-doc-locale-tabs` → `#endpoint-doc-locale`, `[data-doc-locale]` buttons →
+    `#tab-endpoint-doc-locale-<locale>`; the single `#endpoint-doc-title-view` / `#endpoint-doc-desc-view` become one
+    `[data-doc-title]` / `[data-doc-description]` per locale panel;
+  - `.as-locale-tab`, `.as-locale-tab-panel`, `.is-active` and `.as-doc-locale` are gone: style
+    `.nowo-ui-locale-tabs*` or the UiKit theme slots `tabs`, `tab`, `tab_active`, `tab_panel`.
+- **Delete confirmation:** the endpoint / environment delete buttons open `dialog#endpoint-delete-confirm` /
+  `#environment-delete-confirm` (UiKit confirm) instead of the browser `confirm()`; E2E tests that accepted the native
+  dialog must click the dialog's delete button instead.
+- Overrides of `endpoint/form.html.twig`, `endpoint/show.html.twig` or `environment/form.html.twig` should be
+  re-copied (see [TEMPLATES](TEMPLATES.md)).
+
 ## To 1.4.1
 
 From **1.4.0**:

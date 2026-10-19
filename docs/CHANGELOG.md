@@ -41,6 +41,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Endpoint form translations** (create / edit) render through FormKit 2.13 `locale_tabs` (mode `entries`) and
+  UiKit 2.5's `locale_tabs` partial: one tab per `ui.locales` entry, `ui.default_locale` first and marked `★`, the
+  locale child a hidden input, WAI-ARIA tabs with arrow / Home / End keys, invalid tabs marked `!` and opened first,
+  `aria-invalid` on invalid widgets, stacked fieldsets without JavaScript, theme slots `tabs` / `tab` / `tab_active` /
+  `tab_panel`. Translation entries use `error_bubbling: false`.
+- **Endpoint show page:** the read-only documentation (title / description per locale) uses the UiKit `locale_tabs`
+  partial directly (one panel per locale, rendered server-side); `api-endpoint-doc.js` edits the open panel's locale
+  and follows `nowo-ui:tabs:change`.
+- **Delete buttons** (endpoint and environment edit pages) open a UiKit confirm `<dialog>` (`nowo-ui-confirm.js`)
+  instead of an inline `onsubmit="return confirm(…)"` (strict CSP).
+- `base.html.twig` loads the UiKit runtimes through UiKit's `scripts` partial.
+- Endpoint translation titles are validated to 255 characters (the column length) instead of failing on flush.
+- Requires `nowo-tech/form-kit-bundle ^2.13` and `nowo-tech/ui-kit-bundle ^2.5.1` (UiKit 1.x is no longer supported).
+
+### Removed
+
+- `api-form-locale-tabs.js` (and its TypeScript source / build entry) and the `.as-locale-tab*` / `.as-doc-locale`
+  styles.
+
 ## [1.4.1] - 2026-10-18
 
 Allows nowo-tech/ui-kit-bundle 2.x (^1.4 || ^2.2) so hosts can move to UiKit 2.2. See [UPGRADING](UPGRADING.md#to-141).

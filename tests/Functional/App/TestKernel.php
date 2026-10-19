@@ -80,7 +80,7 @@ final class TestKernel extends Kernel
             'ui'      => [
                 'path'            => '/api-studio',
                 'default_locale'  => 'en',
-                'locales'         => ['en', 'es'],
+                'locales'         => ['es', 'en'],
                 'layout_template' => '@NowoApiStudioBundle/layout.html.twig',
                 'css_framework'   => 'custom',
                 'required_roles'  => [],

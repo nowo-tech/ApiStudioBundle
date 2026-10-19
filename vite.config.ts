@@ -18,7 +18,6 @@ export default defineConfig({
       input: {
         'api-body-tools': resolve('src/Resources/assets/src/api-body-tools.ts'),
         'api-endpoint-doc': resolve('src/Resources/assets/src/api-endpoint-doc.ts'),
-        'api-form-locale-tabs': resolve('src/Resources/assets/src/api-form-locale-tabs.ts'),
         'api-script-runtime': resolve('src/Resources/assets/src/api-script-runtime.ts'),
         'api-studio-shell': resolve('src/Resources/assets/src/api-studio-shell.ts'),
         'api-tester': resolve('src/Resources/assets/src/api-tester.ts'),

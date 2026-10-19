@@ -10,7 +10,6 @@ const outDir = resolve(root, 'src/Resources/public');
 const entries = [
   'api-body-tools',
   'api-endpoint-doc',
-  'api-form-locale-tabs',
   'api-script-runtime',
   'api-studio-shell',
   'api-tester',

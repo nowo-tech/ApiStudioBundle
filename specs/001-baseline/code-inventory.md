@@ -172,7 +172,6 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/api-body-tools.ts` | Request body editor helpers | FR-UI-001, FR-EXEC-004 |
 | `Resources/assets/src/api-script-runtime.ts` | Pre/post-request script runner | FR-UI-001 |
 | `Resources/assets/src/api-endpoint-doc.ts` | Endpoint documentation panel | FR-UI-001 |
-| `Resources/assets/src/api-form-locale-tabs.ts` | Translatable form locale tabs | FR-UI-001, FR-I18N-001 |
 | `Resources/assets/src/lib/utils.ts` | Shared DOM/HTTP utilities | FR-UI-001 |
 | `Resources/assets/src/types/global.d.ts` | Window/global type declarations | FR-UI-001 |
 
@@ -185,7 +184,6 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/public/api-body-tools.js` | Built body-tools bundle | FR-UI-001 |
 | `Resources/public/api-script-runtime.js` | Built script-runtime bundle | FR-UI-001 |
 | `Resources/public/api-endpoint-doc.js` | Built endpoint-doc bundle | FR-UI-001 |
-| `Resources/public/api-form-locale-tabs.js` | Built locale-tabs bundle | FR-UI-001 |
 | `Resources/public/api-studio-theme.css` | Studio theme stylesheet | FR-UI-002 |
 
 ## Twig views (`src/Resources/views/`)

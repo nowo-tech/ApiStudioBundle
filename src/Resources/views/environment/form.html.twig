@@ -16,10 +16,11 @@
         {{ form_end(form) }}
     </div>
     {% if environment is defined and environment.id %}
-        <form method="post" action="{{ path('nowo_api_studio_environment_delete', {workspaceId: workspace.id, id: environment.id}) }}" class="as-delete-form" onsubmit="return confirm('{{ 'confirm.delete'|trans({}, 'NowoApiStudioBundle') }}');">
-            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ environment.id) }}">
-            <button type="submit" class="as-btn as-btn-danger">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-        </form>
+        {{ include('@NowoApiStudioBundle/_delete_confirm.html.twig', {
+            id: 'environment-delete-confirm',
+            action: path('nowo_api_studio_environment_delete', {workspaceId: workspace.id, id: environment.id}),
+            token: csrf_token('delete' ~ environment.id),
+        }, with_context: false) }}
     {% endif %}
 </div>
 {% endblock %}

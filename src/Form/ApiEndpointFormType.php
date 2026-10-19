@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Form;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Symfony\Component\Form\AbstractType;
@@ -20,6 +21,10 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 final class ApiEndpointFormType extends AbstractType
 {
     use FormOptionsTrait;
+
+    public function __construct(private readonly ?LocaleManager $localeManager = null)
+    {
+    }
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
@@ -38,11 +43,30 @@ final class ApiEndpointFormType extends AbstractType
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
         $this->addWithDefaults($builder, 'translations', CollectionType::class, [
             'entry_type'    => ApiEndpointTranslationFormType::class,
-            'entry_options' => ['label' => false],
+            'entry_options' => ['label' => false, 'error_bubbling' => false],
             'allow_add'     => false,
             'allow_delete'  => false,
             'by_reference'  => false,
+            'locale_tabs'   => $this->localeTabs(),
         ]);
+    }
+
+    /**
+     * FormKit locale tabs (mode entries): one tab per enabled UI locale, the default one first.
+     *
+     * @return array<string, mixed>
+     */
+    private function localeTabs(): array
+    {
+        if (!$this->localeManager instanceof LocaleManager) {
+            return ['mode' => 'entries'];
+        }
+
+        return [
+            'mode'           => 'entries',
+            'locales'        => $this->localeManager->getEnabledLocales(),
+            'default_locale' => $this->localeManager->getDefaultLocale(),
+        ];
     }
 
     public function configureOptions(OptionsResolver $resolver): void

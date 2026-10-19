@@ -16,6 +16,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
+use function sprintf;
+use function str_repeat;
+
 /**
  * Renders the Api Studio GET pages against a seeded SQLite database (strict Twig variables).
  */
@@ -101,5 +104,63 @@ final class StudioPagesTest extends WebTestCase
         $this->client->request('GET', $url);
 
         self::assertResponseIsSuccessful();
+    }
+
+    public function testEndpointFormRendersLocaleTabsWithTheDefaultLocaleFirst(): void
+    {
+        $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));
+        self::assertResponseIsSuccessful();
+
+        $root = $crawler->filter('[data-testid="endpoint-form-locale-tabs"] #endpoint-form-locale[data-nowo-ui-locale-tabs]');
+        self::assertCount(1, $root);
+        self::assertSame(['en', 'es'], $root->filter('[role="tab"]')->each(static fn ($t): string => (string) $t->attr('data-locale')), 'default locale (en) first');
+        self::assertNotNull($crawler->filter('#tab-endpoint-form-locale-en')->attr('data-default'));
+        self::assertSame('en', $crawler->filter('#tab-endpoint-form-locale-en-panel input[type="hidden"][name$="[locale]"]')->attr('value'));
+        self::assertSame('es', $crawler->filter('#tab-endpoint-form-locale-es-panel input[type="hidden"][name$="[locale]"]')->attr('value'));
+        self::assertCount(1, $crawler->filter('#tab-endpoint-form-locale-es-panel input[name$="[title]"]'));
+        self::assertCount(0, $crawler->filter('input[type="text"][name$="[locale]"]'));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('api-form-locale-tabs', $html);
+        self::assertStringNotContainsString('onsubmit', $html);
+        self::assertStringContainsString('js/nowo-ui-tabs.js', $html);
+        self::assertCount(1, $crawler->filter('dialog#endpoint-delete-confirm[data-nowo-ui-confirm] form[action$="/delete"] input[name="_token"]'));
+        self::assertCount(1, $crawler->filter('[data-nowo-confirm-open][data-nowo-confirm-target="endpoint-delete-confirm"]'));
+    }
+
+    public function testEndpointFormMarksAndOpensTheInvalidLocaleTab(): void
+    {
+        $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));
+        $form    = $crawler->filter('form.as-form')->form();
+        $title   = $crawler->filter('#tab-endpoint-form-locale-es-panel input[name$="[title]"]')->attr('name');
+        self::assertIsString($title);
+        $form[$title] = str_repeat('x', 300);
+
+        $crawler = $this->client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('endpoint-form-locale-es', $crawler->filter('#endpoint-form-locale')->attr('data-nowo-ui-tabs-active'), 'the invalid tab opens');
+        self::assertNotNull($crawler->filter('#tab-endpoint-form-locale-es')->attr('data-invalid'));
+        self::assertNull($crawler->filter('#tab-endpoint-form-locale-en')->attr('data-invalid'));
+        self::assertSame('true', $crawler->filter('#tab-endpoint-form-locale-es-panel input[name$="[title]"]')->attr('aria-invalid'));
+    }
+
+    public function testEndpointShowRendersReadOnlyDocumentationTabs(): void
+    {
+        $crawler = $this->client->request('GET', $this->endpointUrl(''));
+        self::assertResponseIsSuccessful();
+
+        $root = $crawler->filter('#endpoint-doc-view [data-testid="endpoint-doc-locale-tabs"]');
+        self::assertCount(1, $root);
+        self::assertSame('endpoint-doc-locale', $root->attr('id'));
+        self::assertSame(['en', 'es'], $root->filter('[role="tab"]')->each(static fn ($t): string => (string) $t->attr('data-locale')));
+        self::assertCount(1, $crawler->filter('#tab-endpoint-doc-locale-es-panel [data-doc-title]'));
+        self::assertCount(1, $crawler->filter('#tab-endpoint-doc-locale-en-panel [data-doc-description]'));
+        self::assertCount(0, $crawler->filter('#endpoint-doc-locale-tabs'));
+    }
+
+    private function endpointUrl(string $suffix): string
+    {
+        return sprintf('/api-studio/workspaces/%d/services/%d/endpoints/%d%s', $this->ids['workspace'], $this->ids['service'], $this->ids['endpoint'], $suffix);
     }
 }

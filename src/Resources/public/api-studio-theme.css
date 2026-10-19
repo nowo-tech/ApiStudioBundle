@@ -422,30 +422,9 @@ a:hover { color: var(--as-accent-hover); }
 .as-doc-panel { padding: 16px 20px; border-bottom: 1px solid var(--as-border); background: var(--as-bg-panel); }
 .as-doc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .as-doc-panel-actions { display: inline-flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
-.as-locale-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
-.as-locale-tab {
-  appearance: none;
-  border: 1px solid var(--as-border-subtle);
-  background: transparent;
-  color: var(--as-text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 10px;
-  border-radius: var(--as-radius-sm);
-  cursor: pointer;
-}
-.as-locale-tab:hover { background: var(--as-bg-hover); color: var(--as-text); }
-.as-locale-tab.is-active {
-  background: var(--as-accent-soft, rgba(99, 102, 241, 0.15));
-  border-color: var(--as-accent);
-  color: var(--as-accent);
-  font-weight: 600;
-}
-.as-locale-tab:disabled { opacity: 0.5; cursor: not-allowed; }
-.as-locale-tab-panel { margin-top: 12px; }
 .as-form-section.as-translations-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--as-border-subtle); }
 .as-var-key-input { font-family: var(--as-mono); }
-.as-doc-locale { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--as-text-muted); background: var(--as-bg-hover); padding: 3px 8px; border-radius: 999px; }
+.as-doc-panel .nowo-ui-locale-tabs__panel { padding-top: 10px; }
 .as-doc-panel h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
 .as-doc-description { margin: 0; font-size: 13px; line-height: 1.6; color: var(--as-text-secondary); white-space: pre-wrap; }
 .as-doc-description.is-empty { color: var(--as-text-muted); font-style: italic; }

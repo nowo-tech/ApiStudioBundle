@@ -24,6 +24,8 @@
 {% block javascripts %}
     {{ parent() }}
     {% block nowo_ui_scripts %}
+        {# UiKit runtimes (tabs: locale tabs; confirm: delete dialogs; …). #}
+        {{ include(nowo_ui_partial('scripts')) }}
         <script src="{{ asset('api-studio-shell.js', 'nowo_api_studio') }}"></script>
     {% endblock %}
 {% endblock %}

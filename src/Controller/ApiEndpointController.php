@@ -98,6 +98,7 @@ final class ApiEndpointController extends AbstractController
             'endpoint'              => $endpoint,
             'translation'           => $endpoint->getTranslation($locale),
             'enabledLocales'        => $this->localeManager->getEnabledLocales(),
+            'defaultLocale'         => $this->localeManager->getDefaultLocale(),
             'documentationByLocale' => $this->buildDocumentationByLocale($endpoint),
             'loadRequestExampleId'  => $loadRequestExampleId,
             'environments'          => $context['workspace']->getEnvironments(),

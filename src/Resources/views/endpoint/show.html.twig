@@ -60,32 +60,31 @@
          data-fallback-title="{{ endpoint.name|e('html_attr') }}"
          data-empty-description="{{ 'endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}">
         <div class="as-doc-panel-head">
-            {% if enabledLocales|length > 1 %}
-            <div class="as-locale-tabs" id="endpoint-doc-locale-tabs" role="tablist" aria-label="{{ 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle') }}">
-                {% for locale in enabledLocales %}
-                    <button type="button"
-                            class="as-locale-tab{% if locale == currentLocale %} is-active{% endif %}"
-                            role="tab"
-                            data-doc-locale="{{ locale }}"
-                            aria-selected="{{ locale == currentLocale ? 'true' : 'false' }}">
-                        {{ ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle') }}
-                    </button>
-                {% endfor %}
-            </div>
-            {% else %}
-            <span class="as-doc-locale">{{ enabledLocales[0]|upper }}</span>
-            {% endif %}
             <span class="as-doc-panel-actions">
                 <button type="button" id="endpoint-doc-edit" class="as-btn as-btn-ghost">{{ 'endpoint.doc_edit'|trans({}, 'NowoApiStudioBundle') }}</button>
                 <button type="button" id="endpoint-doc-save" class="as-btn as-btn-primary" hidden>{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
                 <button type="button" id="endpoint-doc-cancel" class="as-btn" hidden>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
             </span>
         </div>
+        {# Read-only documentation per locale: UiKit locale_tabs partial (api-endpoint-doc.js edits the open panel). #}
+        {% set _doc_panels = [] %}
+        {% for locale in enabledLocales %}
+            {% set _doc = documentationByLocale[locale]|default({}) %}
+            {% set _doc_html %}
+                <h2 class="as-doc-title" data-doc-title>{{ _doc.title|default('') ?: endpoint.name }}</h2>
+                <p class="as-doc-description{% if not _doc.description|default('') %} is-empty{% endif %}" data-doc-description>{{ _doc.description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}</p>
+            {% endset %}
+            {% set _doc_panels = _doc_panels|merge([{locale: locale, content: _doc_html, name: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle')}]) %}
+        {% endfor %}
         <div id="endpoint-doc-view">
-            <h2 id="endpoint-doc-title-view">{{ documentationByLocale[currentLocale].title|default('') ?: endpoint.name }}</h2>
-            <p id="endpoint-doc-desc-view" class="as-doc-description{% if not documentationByLocale[currentLocale].description|default('') %} is-empty{% endif %}">
-                {{ documentationByLocale[currentLocale].description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}
-            </p>
+            {{ include(nowo_ui_partial('locale_tabs'), {
+                id: 'endpoint-doc-locale',
+                panels: _doc_panels,
+                label: 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle'),
+                default_locale: defaultLocale,
+                active_locale: currentLocale,
+                attr: {'data-testid': 'endpoint-doc-locale-tabs'},
+            }, with_context: false) }}
         </div>
         <div id="endpoint-doc-edit-form" class="as-doc-edit-form" hidden>
             <label class="as-modal-label" for="endpoint-doc-title-input">{{ 'endpoint.doc_title'|trans({}, 'NowoApiStudioBundle') }}</label>

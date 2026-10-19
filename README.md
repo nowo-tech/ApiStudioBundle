@@ -137,7 +137,7 @@ pnpm run build       # compile only (host, if pnpm is installed)
 pnpm run typecheck   # tsc --noEmit
 ```
 
-Entry points: `api-tester`, `api-body-tools`, `api-script-runtime`, `api-studio-shell`, `api-endpoint-doc`, `api-form-locale-tabs`.
+Entry points: `api-tester`, `api-body-tools`, `api-script-runtime`, `api-studio-shell`, `api-endpoint-doc`.
 
 ## Demo
 

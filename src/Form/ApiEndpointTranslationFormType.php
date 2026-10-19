@@ -11,6 +11,7 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Length;
 
 /** @extends AbstractType<ApiEndpointTranslation> */
 #[FormKitConfig('api_studio')]
@@ -21,7 +22,7 @@ final class ApiEndpointTranslationFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $this->addWithDefaults($builder, 'locale', HiddenType::class, []);
-        $this->addText($builder, 'title', ['required' => false]);
+        $this->addText($builder, 'title', ['required' => false, 'constraints' => [new Length(max: 255)]]);
         $this->addTextarea($builder, 'description', ['required' => false]);
         $this->addTextarea($builder, 'notes', ['required' => false]);
     }

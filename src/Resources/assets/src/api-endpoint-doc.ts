@@ -36,15 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelBtn = document.getElementById('endpoint-doc-cancel') as HTMLButtonElement | null;
   const viewBlock = document.getElementById('endpoint-doc-view') as HTMLElement | null;
   const formBlock = document.getElementById('endpoint-doc-edit-form') as HTMLElement | null;
-  const titleView = document.getElementById('endpoint-doc-title-view');
-  const descView = document.getElementById('endpoint-doc-desc-view');
   const titleDocs = document.getElementById('endpoint-doc-title-docs');
   const descDocs = document.getElementById('endpoint-doc-desc-docs');
   const titleInput = document.getElementById('endpoint-doc-title-input') as HTMLInputElement | null;
   const descInput = document.getElementById('endpoint-doc-desc-input') as HTMLTextAreaElement | null;
-  const localeTabs = document.querySelectorAll<HTMLButtonElement>(
-    '#endpoint-doc-locale-tabs [data-doc-locale]',
-  );
+  // Read-only panels: UiKit locale_tabs partial (nowo-ui-tabs.js switches them, one panel per locale).
+  const tabsRoot = document.querySelector<HTMLElement>('#endpoint-doc-view [data-nowo-ui-locale-tabs]');
 
   if (!editBtn || !saveBtn || !cancelBtn || !viewBlock || !formBlock || !titleInput || !descInput) {
     return;
@@ -74,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const shownTitle = displayTitle(entry.title);
     const desc = entry.description || '';
 
+    const localePanel = tabsRoot?.querySelector<HTMLElement>(`[data-nowo-ui-tabs-panel][data-locale="${locale}"]`);
+    const titleView = localePanel?.querySelector('[data-doc-title]');
+    const descView = localePanel?.querySelector('[data-doc-description]');
     if (titleView) titleView.textContent = shownTitle;
     if (descView) {
       descView.textContent = desc || emptyLabel;
@@ -98,29 +98,24 @@ document.addEventListener('DOMContentLoaded', () => {
     editButton.hidden = editing;
     saveButton.hidden = !editing;
     cancelButton.hidden = !editing;
-    localeTabs.forEach((tab) => {
-      tab.disabled = editing;
-    });
   }
 
   function setActiveLocale(locale: string): void {
     activeLocale = locale;
-    localeTabs.forEach((tab) => {
-      const isActive = tab.getAttribute('data-doc-locale') === locale;
-      tab.classList.toggle('is-active', isActive);
-      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
     renderView(locale);
   }
 
-  localeTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      if (tab.disabled) return;
-      const locale = tab.getAttribute('data-doc-locale');
-      if (!locale || locale === activeLocale) return;
-      setEditing(false);
-      setActiveLocale(locale);
-    });
+  const openPanel = tabsRoot?.querySelector<HTMLElement>('[data-nowo-ui-tabs-panel][data-active]');
+  if (openPanel?.dataset.locale) {
+    activeLocale = openPanel.dataset.locale;
+  }
+
+  // The view (tabs included) is hidden while editing; a tab change edits that locale next.
+  tabsRoot?.addEventListener('nowo-ui:tabs:change', (event) => {
+    const locale = (event as CustomEvent<{ panel?: HTMLElement | null }>).detail?.panel?.dataset.locale;
+    if (!locale || locale === activeLocale) return;
+    setEditing(false);
+    setActiveLocale(locale);
   });
 
   editButton.addEventListener('click', () => {
