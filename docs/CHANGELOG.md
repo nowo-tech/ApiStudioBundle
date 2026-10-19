@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.5.0] - 2026-10-19](#150---2026-10-19)
 - [[1.4.1] - 2026-10-18](#141---2026-10-18)
 - [[1.4.0] - 2026-10-13](#140---2026-10-13)
 - [[1.3.1] - 2026-10-13](#131---2026-10-13)
@@ -41,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-19
+
+Endpoint translations use FormKit 2.13 locale_tabs through the UiKit 2.5 partial, the show page uses the UiKit locale_tabs partial, and delete buttons open a UiKit confirm dialog (no inline onsubmit); requires FormKit ^2.13 and UiKit ^2.5.1. See [UPGRADING](UPGRADING.md#to-150).
+
 ### Changed
 
 - **Endpoint form translations** (create / edit) render through FormKit 2.13 `locale_tabs` (mode `entries`) and
@@ -61,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `api-form-locale-tabs.js` (and its TypeScript source / build entry) and the `.as-locale-tab*` / `.as-doc-locale`
   styles.
+
+[1.5.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.5.0
 
 ## [1.4.1] - 2026-10-18
 
