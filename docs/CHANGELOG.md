@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.5.2] - 2026-10-21](#152---2026-10-21)
 - [[1.5.1] - 2026-10-20](#151---2026-10-20)
 - [[1.5.0] - 2026-10-19](#150---2026-10-19)
 - [[1.4.1] - 2026-10-18](#141---2026-10-18)
@@ -43,10 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-21
+
+Dependency refresh (bundle and demos), php-cs-fixer ParallelConfig(2). See [UPGRADING](UPGRADING.md#to-152).
+
 ### Changed
 
 - Dependencies refreshed (Composer and pnpm/npm lock files of the bundle and its demos, campaign 2026-10-19); shipped assets rebuilt.
 - `.php-cs-fixer.dist.php`: `new ParallelConfig(2)` (REQ-CS-001).
+
+[1.5.2]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.5.2
 
 ## [1.5.1] - 2026-10-20
 
