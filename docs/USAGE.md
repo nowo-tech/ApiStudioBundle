@@ -7,8 +7,12 @@
 - [Demo seed](#demo-seed)
 - [Testing requests](#testing-requests)
 - [Auth on services](#auth-on-services)
+  - [SOAP services](#soap-services)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
+  - [Override in the application](#override-in-the-application)
+  - [Overridable templates](#overridable-templates)
 - [Translations (REQ-I18N)](#translations-req-i18n)
+  - [Override in the application](#override-in-the-application-1)
 
 ## Workspaces
 

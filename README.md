@@ -153,7 +153,6 @@ Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/
 
 - [Installation](docs/INSTALLATION.md)
 - [Configuration](docs/CONFIGURATION.md)
-- [PSR evaluation (REQ-CS-007)](docs/PSR.md)
 - [Usage](docs/USAGE.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
@@ -167,6 +166,7 @@ Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/
 
 ### Additional documentation
 
+- [PSR evaluation (REQ-CS-007)](docs/PSR.md)
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 - [Demo FrankenPHP](docs/DEMO-FRANKENPHP.md)
 

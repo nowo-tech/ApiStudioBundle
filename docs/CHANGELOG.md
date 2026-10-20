@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: wave-1 REQ compliance — README documentation list order (PSR link moved to Additional documentation), canonical issue templates, CONTRIBUTING Cursor Agent settings (REQ-IDE-006), tables of contents in long docs, demo `.env.example` MySQL variables, Spec Kit inventory refresh (128/128).
+
 ## [1.5.0] - 2026-10-19
 
 Endpoint translations use FormKit 2.13 locale_tabs through the UiKit 2.5 partial, the show page uses the UiKit locale_tabs partial, and delete buttons open a UiKit confirm dialog (no inline onsubmit); requires FormKit ^2.13 and UiKit ^2.5.1. See [UPGRADING](UPGRADING.md#to-150).

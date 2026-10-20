@@ -8,10 +8,10 @@ assignees: ''
 ---
 
 <!--
-- Please do not report an issue for a version of `ApiStudioBundle` that is no longer supported. Currently supported versions are listed here: https://github.com/nowo-tech/ApiStudioBundle#requirements
+- Please do not report an issue for a version of `api-studio-bundle` that is no longer supported. Currently supported versions are listed here: https://github.com/nowo-tech/ApiStudioBundle#version-information
 - Please fill in this template according to your issue.
 - Please keep the table shown below at the top of your issue.
-- You can retrieve `ApiStudioBundle` version by running `composer show nowo-tech/api-studio-bundle`.
+- You can retrieve `api-studio-bundle` version by running `composer info | grep "api-studio-bundle"`.
 - You can retrieve PHP version by running `php -v`.
 - Please post code as text (using proper markup). Do not post screenshots of code.
 - Please remove this comment before submitting your issue.
@@ -19,9 +19,8 @@ assignees: ''
 
 | Q                           | A
 | ----------------------------| -----------------------
-| `ApiStudioBundle` version   | x.y.z
+| `ApiStudioBundle` version        | x.y.z
 | PHP version                 | x.y.z
-| Symfony version             | x.y.z
 | Database                    | MySQL / PostgreSQL / SQLite / Other
 
 #### Summary

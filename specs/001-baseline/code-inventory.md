@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-07-07
+**Last audited**: 2026-10-20
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -14,6 +14,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `DependencyInjection/Configuration.php` | Config tree (`enabled`, `connection`, `table_prefix`, `environments`, `ui.path`, locales) | FR-CFG-001 |
 | `DependencyInjection/ApiStudioExtension.php` | DI extension, parameter wiring | FR-CFG-001, FR-DI-001 |
 | `DependencyInjection/Compiler/TwigPathsPass.php` | Twig namespace `@NowoApiStudioBundle` | FR-CFG-001, FR-TWIG-001 |
+| `DependencyInjection/Compiler/ApiStudioSecurityPass.php` | Requires SecurityBundle, allowlist policy, always registers the access subscriber (404 when `enabled: false`) | FR-SEC-001, FR-SEC-003 |
 
 ## Symfony config (`src/Resources/config/`)
 
@@ -27,6 +28,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
 | `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata | FR-ORM-002 |
+| `Doctrine/SecretVariableEncryptionListener.php` | Encrypts secret variable values before flush, decrypts after load/flush | FR-SEC-002 |
 
 ## Entities (`src/Entity/`)
 
@@ -87,6 +89,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Form/ApiServiceFormType.php` | Service create/edit form | FR-FORM-001 |
 | `Form/ApiEndpointFormType.php` | Endpoint create/edit form | FR-FORM-001 |
 | `Form/ApiEnvironmentFormType.php` | Environment create/edit form | FR-FORM-001 |
+| `Form/ApiEndpointTranslationFormType.php` | Per-locale endpoint title/description/notes sub-form | FR-FORM-001, FR-I18N-001 |
+| `Form/ApiEnvironmentVariableFormType.php` | Environment variable row (key, value, secret flag) | FR-FORM-001, FR-SEC-002 |
 | `Form/JsonMapType.php` | Key/value JSON map field | FR-FORM-001 |
 | `Form/ImportFileFormType.php` | OpenAPI/Postman upload form | FR-FORM-001, FR-IMP-001 |
 
@@ -110,6 +114,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Service/DemoSeedService.php` | Demo workspace seed data | FR-CLI-001 |
 | `Service/LocaleManager.php` | Enabled locales and defaults | FR-I18N-001 |
 | `Service/StudioNavigationProvider.php` | Sidebar workspace→service→endpoint tree | FR-TWIG-001 |
+| `Service/HistorySanitizer.php` | Redacts secrets/PII from history URL, headers and bodies before persistence | FR-OBS-001 |
+| `Service/WorkspaceEnvironmentInitializer.php` | Seeds a new workspace with the configured `environments` (first = default) | FR-CFG-001, FR-ORM-003 |
 
 ## Services — ImportExport (`src/Service/ImportExport/`)
 
@@ -130,6 +136,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Security/ApiStudioAccessCheckerInterface.php` | Host-app access policy contract | FR-SEC-001 |
 | `Security/ConfigurableApiStudioAccessChecker.php` | Default role/config checker | FR-SEC-001 |
 | `Security/ExecutionUrlValidator.php` | SSRF / open-redirect guard | FR-EXEC-003 |
+| `Security/SecretValueCipher.php` | Sodium secretbox cipher for secret variable values at rest | FR-SEC-002 |
 | `EventSubscriber/ApiStudioAccessSubscriber.php` | Route-level access enforcement | FR-SEC-001 |
 
 ## CLI commands (`src/Command/`)
@@ -144,12 +151,21 @@ This file proves that **every production source artifact** under `src/` is refer
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
 | `EventListener/LocaleSubscriber.php` | Request locale from session/config | FR-I18N-001 |
+| `EventListener/EntityManagerRecoverySubscriber.php` | Resets a closed Api Studio entity manager at request start (worker mode) | FR-ORM-003 |
 
 ## Twig extension (`src/Twig/`)
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
 | `Twig/ApiStudioExtension.php` | Nav globals, method CSS, variable helpers | FR-TWIG-001 |
+
+## SOAP transport (`src/Soap/`)
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Soap/GuardedSoapClient.php` | `SoapClient` whose transport is the guarded Symfony HTTP client (endpoint checked by `ExecutionUrlValidator`) | FR-EXEC-001, FR-EXEC-005 |
+| `Soap/GuardedWsdlLoader.php` | Downloads WSDL/XSD imports through the guarded client into local copies; rejects DTDs | FR-EXEC-003, FR-EXEC-005 |
+| `Soap/SoapEnvelope.php` | Raw-envelope SOAP helpers (no ext-soap / ext-dom needed) | FR-EXEC-005 |
 
 ## Translations (`src/Resources/translations/`)
 
@@ -191,6 +207,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
 | `Resources/views/layout.html.twig` | Base studio layout | FR-TWIG-001 |
+| `Resources/views/base.html.twig` | Page shell extending the configurable `layout_template` (REQ-UI-001) | FR-TWIG-001 |
+| `Resources/views/_delete_confirm.html.twig` | Delete button + UiKit confirm dialog (CSP-safe, CSRF token) | FR-TWIG-001, FR-SEC-001 |
 | `Resources/views/_sidebar_tree.html.twig` | Workspace/service sidebar tree | FR-TWIG-001 |
 | `Resources/views/_sidebar_endpoints.html.twig` | Endpoint list in sidebar | FR-TWIG-001 |
 | `Resources/views/_locale_switcher.html.twig` | Locale dropdown partial | FR-TWIG-001, FR-I18N-001 |
@@ -220,25 +238,28 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| Bundle & DI | 4 | 4 |
+| Bundle & DI | 5 | 5 |
 | Symfony config | 2 | 2 |
-| Doctrine | 1 | 1 |
+| Doctrine | 2 | 2 |
 | Entities | 9 | 9 |
 | Enums | 3 | 3 |
 | Repositories | 9 | 9 |
 | Controllers | 10 | 10 |
-| Forms | 6 | 6 |
+| Forms | 8 | 8 |
 | Models | 2 | 2 |
-| Services (core) | 9 | 9 |
-| ImportExport | 7 | 7 |
-| Security + access subscriber | 4 | 4 |
+| Services — core | 11 | 11 |
+| Services — ImportExport | 7 | 7 |
+| Security | 5 | 5 |
 | CLI commands | 2 | 2 |
-| Event listeners | 1 | 1 |
+| Event listeners | 2 | 2 |
 | Twig extension | 1 | 1 |
+| SOAP transport | 3 | 3 |
 | Translations | 7 | 7 |
-| TypeScript source | 8 | 8 |
-| Public assets (built) | 7 | 7 |
-| Twig views | 25 | 25 |
-| **Total production sources** | **117** | **117** |
+| TypeScript source | 7 | 7 |
+| Public assets — built | 6 | 6 |
+| Twig views | 27 | 27 |
+| **Total production sources** | **128** | **128** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
+
+Audit command (production count): `git ls-files src | wc -l` → **128** (2026-10-20).

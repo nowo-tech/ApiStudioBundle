@@ -47,6 +47,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 - **FR-CFG-001**: Config: `enabled`, `connection`, `table_prefix`, `environments`, `ui.path`, locale defaults.
 - **FR-ORM-001**: Entities workspace → service → endpoint with environments, variables, examples, history.
 - **FR-ORM-002**: Repositories for all entities; table prefix via `TablePrefixSubscriber`.
+- **FR-ORM-003**: New workspaces are seeded with the configured `environments` (`WorkspaceEnvironmentInitializer`); a closed Api Studio entity manager is reset at request start (`EntityManagerRecoverySubscriber`, FrankenPHP worker safety).
 
 ### HTTP UI
 
@@ -60,6 +61,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 - **FR-EXEC-002**: `VariableResolver` / `VariableSyntax` expand `{{var}}` placeholders.
 - **FR-EXEC-003**: `ExecutionUrlValidator` blocks SSRF/open redirects per config.
 - **FR-EXEC-004**: `PayloadBodyHelper` normalizes JSON/form bodies.
+- **FR-EXEC-005**: SOAP calls go through the guarded HTTP client (`GuardedSoapClient`, `GuardedWsdlLoader`); raw-envelope mode (`SoapEnvelope`) works without ext-soap.
 
 ### Import/export
 
@@ -73,6 +75,9 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 ### Security & i18n
 
 - **FR-SEC-001**: `ConfigurableApiStudioAccessChecker` + interface for host app policies.
+- **FR-SEC-002**: Secret environment variable values are encrypted at rest (`SecretValueCipher`, sodium secretbox) by `SecretVariableEncryptionListener`; entities hold plaintext only in memory.
+- **FR-SEC-003**: `ApiStudioSecurityPass` requires SecurityBundle and always registers the access subscriber; with `enabled: false` every Api Studio route answers 404.
+- **FR-OBS-001**: `HistorySanitizer` redacts secrets/PII from request history (URL query, headers, bodies) before persistence.
 - **FR-I18N-001**: Seven locale YAML files; `LocaleManager` + `LocaleSubscriber`.
 
 ### Frontend
@@ -84,7 +89,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 
 ## Success Criteria
 
-- **SC-001**: **117/117** files mapped in inventory.
+- **SC-001**: **128/128** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-20; `git ls-files src | wc -l`).
 - **SC-002**: Config matches `Configuration.php` and [`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md).
 - **SC-003**: PHPUnit + PHPStan pass; manual tester smoke in demo.
 
@@ -99,4 +104,10 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 
 ## Validation
 
-`composer qa`, demo `make release-check`, inventory row audit.
+```bash
+composer test          # PHPUnit
+composer cs-check      # PHP-CS-Fixer (dry run)
+composer phpstan       # PHPStan (incl. FrankenPHP rulesets)
+make release-check     # full pre-release gate (Docker)
+git ls-files src | wc -l   # must equal the inventory total (SC-001)
+```

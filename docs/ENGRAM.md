@@ -2,6 +2,13 @@
 
 This repository is prepared to use **Engram** with Cursor via `.cursor/mcp.json`.
 
+## Table of contents
+
+- [What is Engram?](#what-is-engram)
+- [Repository setup](#repository-setup)
+- [Install](#install)
+- [References](#references)
+
 ## What is Engram?
 
 Engram is an MCP server that gives AI agents persistent memory across sessions. See [Engram documentation](https://www.engram.fyi/docs).

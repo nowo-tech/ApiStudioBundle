@@ -9,6 +9,20 @@
 | Remediation (2026-09-23) | W-01/W-04 nav tree moved to the `api_studio_nav_tree()` Twig function; W-02 secrets listener keeps plaintext in memory and uses `setNewValue()`, closed EntityManager reset on next Api Studio request, history detached after flush; W-03 `max_duration` added; W-05 XML error returned instead of stored. Regression tests simulate consecutive requests without `reset()` |
 | **Verdict** | ✅ **Viable under scenario B** — no bundle-owned per-request state; Doctrine identity-map clearing between requests remains the host application's responsibility (see W-02) |
 
+## Table of contents
+
+- [Execution model assumed](#execution-model-assumed)
+- [Summary](#summary)
+- [Services reviewed](#services-reviewed)
+- [Findings](#findings)
+  - [W-01 — Sidebar navigation tree is cached by Twig as a global (Medium)](#w-01--sidebar-navigation-tree-is-cached-by-twig-as-a-global-medium)
+  - [W-02 — Doctrine usage relies on the EntityManager reset (Medium)](#w-02--doctrine-usage-relies-on-the-entitymanager-reset-medium)
+  - [W-03 — Outbound execution can pin a worker thread for a long time (Low)](#w-03--outbound-execution-can-pin-a-worker-thread-for-a-long-time-low)
+  - [W-04 — The navigation global queries the database on every request that renders Twig (Low)](#w-04--the-navigation-global-queries-the-database-on-every-request-that-renders-twig-low)
+  - [W-05 — `PayloadBodyHelper` keeps the last XML error in a property (Info)](#w-05--payloadbodyhelper-keeps-the-last-xml-error-in-a-property-info)
+- [Usage recommendations in worker mode](#usage-recommendations-in-worker-mode)
+- [Re-audit triggers](#re-audit-triggers)
+
 ## Execution model assumed
 
 FrankenPHP worker mode boots the Symfony kernel once per worker and serves many requests with the same container. This audit assumes the **strict** variant: the kernel is **not** rebooted between requests, so every shared service, static property and PHP global survives from one request to the next. Two scenarios are evaluated:

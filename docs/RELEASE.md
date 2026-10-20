@@ -1,5 +1,11 @@
 # Release process
 
+## Table of contents
+
+- [Before tagging](#before-tagging)
+- [Tag and publish](#tag-and-publish)
+- [After releasing](#after-releasing)
+
 ## Before tagging
 
 1. Update [CHANGELOG.md](CHANGELOG.md).

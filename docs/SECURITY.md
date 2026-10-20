@@ -7,6 +7,8 @@
 - [Threat model](#threat-model)
 - [Application responsibilities](#application-responsibilities)
 - [Bundle responsibilities](#bundle-responsibilities)
+- [Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)](#residual-risks-accepted-for-req-sec-004-pass-good--low)
+- [AI security audit (REQ-SEC-004)](#ai-security-audit-req-sec-004)
 - [Release security checklist (12.4.1)](#release-security-checklist-1241)
 - [Reporting](#reporting)
 
