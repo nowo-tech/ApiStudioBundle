@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.5.1] - 2026-10-20](#151---2026-10-20)
 - [[1.5.0] - 2026-10-19](#150---2026-10-19)
 - [[1.4.1] - 2026-10-18](#141---2026-10-18)
 - [[1.4.0] - 2026-10-13](#140---2026-10-13)
@@ -42,9 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-20
+
+Documentation: wave-1 REQ compliance (README, CONTRIBUTING, issue templates, Spec Kit inventory). See [UPGRADING](UPGRADING.md#to-151).
+
 ### Changed
 
 - Documentation: wave-1 REQ compliance — README documentation list order (PSR link moved to Additional documentation), canonical issue templates, CONTRIBUTING Cursor Agent settings (REQ-IDE-006), tables of contents in long docs, demo `.env.example` MySQL variables, Spec Kit inventory refresh (128/128).
+
+[1.5.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.5.1
 
 ## [1.5.0] - 2026-10-19
 
