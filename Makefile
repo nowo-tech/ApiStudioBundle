@@ -16,13 +16,42 @@ SERVICE_PHP := php
 help:
 	@echo "API Studio Bundle - Development Commands"
 	@echo ""
-	@echo "  up down down-dev build shell install assets"
-	@echo "  test test-coverage demo-smoke cs-check cs-fix rector rector-dry phpstan qa"
-	@echo "  validate-translations release-check release-check-demos composer-sync"
-	@echo "  check-open-prs Fail if unresolved open GitHub PRs remain (REQ-REL-003)"
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Targets:"
+	@echo "  up            Start Docker container"
+	@echo "  down          Stop Docker container"
 	@echo "  down-dev      Stop root container (non-destructive; --remove-orphans)"
+	@echo "  build         Rebuild Docker image (no cache)"
+	@echo "  shell         Open shell in container"
+	@echo "  install       Install Composer dependencies"
+	@echo "  assets        Build the TypeScript assets (pnpm)"
+	@echo "  test          Run PHPUnit tests"
+	@echo "  test-coverage Run PHPUnit with code coverage"
+	@echo "  test-ts       TypeScript type check (tsc --noEmit; no Vitest suite)"
+	@echo "  cs-check      Check code style"
+	@echo "  cs-fix        Fix code style"
+	@echo "  rector        Apply Rector refactoring"
+	@echo "  rector-dry    Run Rector in dry-run mode"
+	@echo "  phpstan       Run PHPStan static analysis"
+	@echo "  igor          Run Igor worker-state audit (REQ-CS-008)"
+	@echo "  qa            Run all QA checks (cs-check + test)"
+	@echo "  release-check Pre-release pipeline (checks, CS, Rector, PHPStan, Igor, coverage, TS check, demos)"
+	@echo "  composer-sync Validate composer.json and align composer.lock (no install)"
+	@echo "  clean         Remove vendor and caches"
+	@echo "  update        Update composer.lock (composer update)"
+	@echo "  update-deps   Update bundle and demo dependencies (REQ-MAKE-008)"
+	@echo "  validate      Run composer validate --strict"
+	@echo ""
+	@echo "Bundle-specific:"
+	@echo "  validate-translations Check translation YAML key parity (REQ-MAKE-004)"
+	@echo "  twig-lint     Lint Twig templates"
+	@echo "  check-twig-extra  Twig Extra gate (REQ-TWIG-004)"
+	@echo "  check-open-prs Fail if unresolved open GitHub PRs remain (REQ-REL-003)"
+	@echo "  setup-hooks   Install git hooks"
 	@echo ""
 	@echo "Demos: make demo-smoke | make -C demo up-symfony8"
+	@echo ""
 
 build:
 	$(COMPOSE) build --no-cache
@@ -87,6 +116,7 @@ validate: ensure-up
 
 validate-translations: ensure-up
 	@$(COMPOSE) exec -T $(SERVICE_PHP) php vendor/bin/yaml-lint src/Resources/translations
+	@$(COMPOSE) exec -T $(SERVICE_PHP) php .scripts/validate-translations.php
 
 
 check-twig-extra:
@@ -97,7 +127,7 @@ check-twig-extra:
 # Run Igor worker-state audit (REQ-CS-008)
 igor: ensure-up
 	$(COMPOSE) exec -T php composer igor
-release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage validate-translations release-check-demos
+release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra validate-translations composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage release-check-demos test-ts
 
 # REQ-TEST-011 — boot demo stack and assert one HTTP 200
 demo-smoke:

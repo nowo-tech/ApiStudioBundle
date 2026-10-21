@@ -67,6 +67,7 @@ final class GuardedWsdlLoader
      */
     public function load(string $url): string
     {
+        // @igor-ignore per-call object created with `new` in RequestExecutor for one SOAP call (not a container service); state is cleaned up after the call
         $this->rootOrigin = self::origin($url);
 
         return $this->fetch($url);
@@ -83,6 +84,7 @@ final class GuardedWsdlLoader
             }
         }
 
+        // @igor-ignore per-call object created with `new` in RequestExecutor for one SOAP call (not a container service); state is cleaned up after the call
         $this->files = [];
     }
 
@@ -105,6 +107,7 @@ final class GuardedWsdlLoader
             throw new RuntimeException('Could not create a temporary file for the WSDL.');
         }
         // Registered before recursing so that import cycles resolve to the same file.
+        // @igor-ignore per-call object created with `new` in RequestExecutor for one SOAP call (not a container service); state is cleaned up after the call
         $this->files[$url] = $path;
 
         $options = [

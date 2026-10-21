@@ -21,14 +21,21 @@ final class ApiWorkspaceController extends AbstractController
         private readonly ApiWorkspaceRepository $repository,
         private readonly EntityManagerInterface $entityManager,
         private readonly WorkspaceEnvironmentInitializer $environmentInitializer,
+        private readonly int $listPageSize = 50,
     ) {
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // REQ-PERF-001: paginated list (ui.list_page_size rows per page).
+        $total      = $this->repository->count([]);
+        $totalPages = max(1, (int) ceil($total / $this->listPageSize));
+        $page       = min(max(1, $request->query->getInt('page', 1)), $totalPages);
+
         return $this->render('@NowoApiStudioBundle/workspace/index.html.twig', [
-            'workspaces' => $this->repository->findBy([], ['name' => 'ASC']),
+            'workspaces' => $this->repository->findBy([], ['name' => 'ASC'], $this->listPageSize, ($page - 1) * $this->listPageSize),
+            'pagination' => ['page' => $page, 'per_page' => $this->listPageSize, 'total' => $total, 'total_pages' => $totalPages],
         ]);
     }
 

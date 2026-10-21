@@ -177,7 +177,7 @@ make test
 make test-coverage
 ```
 
-- PHP: **100%** of lines in the covered `src/` surface (`phpunit.xml.dist` excludes Controllers, Forms, Entities, and other DI/wiring justified as integration-heavy; see that file’s `<source><exclude>`)
+- PHP: **99.09%** lines (437/441) of the measured `src/` surface. `phpunit.xml.dist` still excludes Controllers, Forms, Entities, Repositories, DI and several services from `<source>` (see its `<exclude>`); over the whole `src/` tree the suite covers **66.81%** of lines (2401/3594, measured 2026-10-21). Raising that is tracked as an open REQ-TEST-003 item. The 4 uncovered lines are defensive branches in `GuardedWsdlLoader` (temp-file write failures, a non-element XPath node, a base URL without host).
 - TS/JS: **N/A** (assets are built with Vite; no Vitest suite yet)
 - Python: **N/A**
 

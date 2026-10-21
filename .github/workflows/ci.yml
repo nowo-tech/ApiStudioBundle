@@ -1,4 +1,4 @@
-# CI: tests on PHP × Symfony 7.0, 7.4, 8.0, 8.1 (minimum: PHP 8.2, Symfony 7).
+# CI: tests on PHP 8.2–8.5 × Symfony 7.4, 8.0, 8.1; static analysis (PHPStan, Rector, Igor); coverage on PHP 8.4 + Symfony 7.4.
 # Release (incl. latest) is created by release.yml on tag push (v*).
 name: CI
 
@@ -105,11 +105,41 @@ jobs:
           SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
         run: composer test
 
-      - name: Run tests with coverage (PHP 8.2 + Symfony 7.0 only)
-        if: matrix.php == '8.2' && matrix.symfony == '7.0'
+      - name: Run tests with coverage (PHP 8.4 + Symfony 7.4 only)
+        if: matrix.php == '8.4' && matrix.symfony == '7.4'
         env:
           SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
         run: composer test-coverage
+
+  static-analysis:
+    name: Static analysis (PHPStan, Rector, Igor)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: json, soap, pdo_sqlite
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      # REQ-CS-006: PHPStan errors fail the build (ignoreErrors: [], no baseline).
+      - name: PHPStan
+        run: composer phpstan
+
+      - name: Rector (dry run)
+        run: composer rector-dry
+
+      # REQ-CS-008: FrankenPHP worker-state audit.
+      - name: Igor
+        run: composer igor
 
   cs-check:
     name: Code Style Check

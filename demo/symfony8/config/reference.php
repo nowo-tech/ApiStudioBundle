@@ -1253,6 +1253,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         default_locale?: scalar|Param|null, // Default: "en"
  *         locales?: list<scalar|Param|null>,
  *         request_timeout_seconds?: int|Param, // Default: 30
+ *         list_page_size?: int|Param, // Rows per page on the workspace list and the dashboard (REQ-PERF-001). // Default: 50
  *         required_roles?: list<scalar|Param|null>,
  *     },
  *     execution_url_allowlist?: list<scalar|Param|null>,

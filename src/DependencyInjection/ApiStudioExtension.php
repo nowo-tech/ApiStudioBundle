@@ -190,6 +190,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             implode('|', $config['ui']['locales']),
         );
         $container->setParameter(Configuration::ALIAS . '.ui.request_timeout_seconds', $config['ui']['request_timeout_seconds']);
+        $container->setParameter(Configuration::ALIAS . '.ui.list_page_size', $config['ui']['list_page_size']);
         $container->setParameter(Configuration::ALIAS . '.ui.required_roles', $config['ui']['required_roles']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', $config['execution_url_allowlist']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist_required', $config['execution_url_allowlist_required']);

@@ -84,6 +84,8 @@ final class TestKernel extends Kernel
                 'layout_template' => '@NowoApiStudioBundle/layout.html.twig',
                 'css_framework'   => 'custom',
                 'required_roles'  => [],
+                // One row per page so the pagination of the workspace list is exercised (REQ-PERF-001).
+                'list_page_size' => 1,
             ],
             'security' => ['access_roles' => [], 'allow_unauthenticated' => true],
         ]);

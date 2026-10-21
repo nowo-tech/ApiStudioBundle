@@ -7,6 +7,7 @@
 - [Threat model](#threat-model)
 - [Application responsibilities](#application-responsibilities)
 - [Bundle responsibilities](#bundle-responsibilities)
+- [Browser scripts and CSP](#browser-scripts-and-csp)
 - [Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)](#residual-risks-accepted-for-req-sec-004-pass-good--low)
 - [AI security audit (REQ-SEC-004)](#ai-security-audit-req-sec-004)
 - [Release security checklist (12.4.1)](#release-security-checklist-1241)
@@ -64,6 +65,15 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - CSRF protection on mutating controller actions
 - Validate `table_prefix` (alphanumeric + underscore only)
 - Document threat model and release checklist in this file
+
+## Browser scripts and CSP
+
+The request console runs the endpoint **pre-request / post-response scripts** (Postman-style `pm` API) in the browser with `new Function('pm', 'console', code)` (`api-script-runtime.ts`). They are code by design:
+
+- Only users who can edit endpoints (Api Studio access roles) can store scripts; they run in the browser of whoever opens the endpoint, with that user's session. Treat endpoint editing as trusted, like editing a Postman collection, and grant `access_roles` accordingly.
+- Scripts receive only the `pm` facade (variables, request, response, a console that writes to the in-page log); they are not sandboxed in an iframe, so they can reach the page DOM.
+- A strict Content-Security-Policy without `'unsafe-eval'` blocks `new Function`: on such hosts every script fails with an error that `runScriptSafe()` catches and reports in the script log. Allow `'unsafe-eval'` only on the Api Studio route prefix if you need scripts.
+- Other dynamic markup (`innerHTML`) is built from static templates; user-provided values are escaped (`escapeHtmlAttr`) or written with `textContent` (REQ-UX-001).
 
 ## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 

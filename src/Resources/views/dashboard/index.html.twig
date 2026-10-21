@@ -19,7 +19,7 @@
     <div class="as-stats">
         <div class="as-stat-card">
             <div class="as-stat-label">{{ 'dashboard.stat.workspaces'|trans({}, 'NowoApiStudioBundle') }}</div>
-            <div class="as-stat-value">{{ workspaces|length }}</div>
+            <div class="as-stat-value">{{ workspaceCount }}</div>
         </div>
         <div class="as-stat-card">
             <div class="as-stat-label">{{ 'dashboard.stat.services'|trans({}, 'NowoApiStudioBundle') }}</div>
@@ -45,5 +45,8 @@
             <p style="color:var(--as-text-muted)">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
         {% endfor %}
     </div>
+    {% if workspaceCount > workspaces|length %}
+        <p><a href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'action.view_all'|trans({}, 'NowoApiStudioBundle') }}</a></p>
+    {% endif %}
 </div>
 {% endblock %}

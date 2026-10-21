@@ -44,6 +44,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `nowo_api_studio.ui.list_page_size` (default `50`): the workspace list is paginated (`?page=N`, UiKit pagination partial) and the dashboard shows at most that many workspace cards with a "View all" link; dashboard totals use `COUNT` queries instead of loading every service and endpoint (REQ-PERF-001).
+
+### Changed
+
+- `make validate-translations` also checks key parity of every catalogue against `en` (REQ-MAKE-004); `release-check` runs it early and ends with `test-ts` (TypeScript type check) (REQ-MAKE-002); `make help` follows the standard block order (REQ-MAKE-001).
+- CI: new static-analysis job (PHPStan, Rector dry run, Igor) and the coverage step runs again on PHP 8.4 + Symfony 7.4 (it was guarded by a Symfony 7.0 cell that no longer exists) (REQ-CS-006, REQ-CI-001).
+- `docs/SECURITY.md`: browser pre/post scripts (`new Function`) and CSP guidance (REQ-UX-001).
+- Tests for `GuardedWsdlLoader` import cycles, the document cap and redirects to blocked hosts; README publishes the measured PHP coverage (configured surface and whole `src/`) (REQ-TEST-007).
+- Root `.gitignore` archive block uses the canonical `# Archives / compressed` header; the co-author check accepts git worktrees.
+
+### Fixed
+
+- Igor reports no KO: `GuardedWsdlLoader` is a per-call object (created with `new` for one SOAP call), documented with `@igor-ignore` reasons (REQ-CS-008).
+
 ## [1.5.2] - 2026-10-21
 
 Dependency refresh (bundle and demos), php-cs-fixer ParallelConfig(2). See [UPGRADING](UPGRADING.md#to-152).

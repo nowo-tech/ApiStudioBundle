@@ -23,7 +23,7 @@
 *.swp
 .DS_Store
 
-# Archives (REQ-GITIGNORE-001)
+# Archives / compressed (REQ-GITIGNORE-001)
 *.zip
 *.tar
 *.tar.gz

@@ -106,6 +106,34 @@ final class StudioPagesTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function testWorkspaceListAndDashboardArePaginated(): void
+    {
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist(new ApiWorkspace('Zulu workspace', 'zulu'));
+        $entityManager->flush();
+        $total = $entityManager->getRepository(ApiWorkspace::class)->count([]);
+        self::assertGreaterThan(1, $total);
+
+        $crawler = $this->client->request('GET', '/api-studio/workspaces');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('table.as-data-table tbody tr'));
+        self::assertGreaterThan(0, $crawler->filter('a[href*="page=2"]')->count());
+
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces?page=%d', $total));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Zulu workspace', $crawler->filter('table.as-data-table tbody')->text());
+
+        // Out-of-range pages are clamped to the last page.
+        $this->client->request('GET', '/api-studio/workspaces?page=999');
+        self::assertResponseIsSuccessful();
+
+        $crawler = $this->client->request('GET', '/api-studio/');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.as-project-grid .as-project-card'));
+        self::assertGreaterThan(0, $crawler->filter('a[href$="/api-studio/workspaces"]')->count());
+    }
+
     public function testEndpointFormRendersLocaleTabsWithTheDefaultLocaleFirst(): void
     {
         $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));

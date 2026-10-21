@@ -35,6 +35,14 @@ services:
             $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
             $maxRedirects: '%nowo_api_studio.execution_max_redirects%'
 
+    Nowo\ApiStudioBundle\Controller\DashboardController:
+        arguments:
+            $listPageSize: '%nowo_api_studio.ui.list_page_size%'
+
+    Nowo\ApiStudioBundle\Controller\ApiWorkspaceController:
+        arguments:
+            $listPageSize: '%nowo_api_studio.ui.list_page_size%'
+
     Nowo\ApiStudioBundle\Twig\ApiStudioExtension:
         arguments:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'

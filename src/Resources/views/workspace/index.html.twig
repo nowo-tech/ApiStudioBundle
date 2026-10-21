@@ -32,5 +32,8 @@
             </tbody>
         </table>
     </div>
+    {% if pagination.total_pages > 1 %}
+        {{ include('@NowoUiKitBundle/partials/_pagination.html.twig', {pagination: pagination, item_count: workspaces|length, route: 'nowo_api_studio_workspace_index', framework: nowo_api_studio_css_framework}) }}
+    {% endif %}
 </div>
 {% endblock %}
