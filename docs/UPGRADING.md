@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.6.0](#to-160)
 - [To 1.5.2](#to-152)
 - [To 1.5.1](#to-151)
 - [To 1.5.0](#to-150)
@@ -58,6 +59,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.6.0
+
+From **1.5.2**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - The workspace list is now paginated with `nowo_api_studio.ui.list_page_size` (default 50 rows) and the dashboard shows at most that many workspace cards. Raise the value if you relied on seeing every workspace on one page. If you override `workspace/index.html.twig` or `dashboard/index.html.twig`, note the new variables `pagination` (workspace list) and `workspaceCount` (dashboard).
 

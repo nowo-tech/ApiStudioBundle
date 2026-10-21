@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.6.0] - 2026-10-21](#160---2026-10-21)
 - [[1.5.2] - 2026-10-21](#152---2026-10-21)
 - [[1.5.1] - 2026-10-20](#151---2026-10-20)
 - [[1.5.0] - 2026-10-19](#150---2026-10-19)
@@ -44,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-21
+
+Paginated workspace list (ui.list_page_size), CI static analysis and coverage, translation key-parity gate, browser-script CSP guidance. See [UPGRADING](UPGRADING.md#to-160).
+
 ### Added
 
 - `nowo_api_studio.ui.list_page_size` (default `50`): the workspace list is paginated (`?page=N`, UiKit pagination partial) and the dashboard shows at most that many workspace cards with a "View all" link; dashboard totals use `COUNT` queries instead of loading every service and endpoint (REQ-PERF-001).
@@ -59,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Igor reports no KO: `GuardedWsdlLoader` is a per-call object (created with `new` for one SOAP call), documented with `@igor-ignore` reasons (REQ-CS-008).
+
+[1.6.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.6.0
 
 ## [1.5.2] - 2026-10-21
 
