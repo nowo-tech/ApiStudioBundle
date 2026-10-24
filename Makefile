@@ -155,7 +155,7 @@ release-check-demos:
 
 composer-sync: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) composer validate --strict
-	$(COMPOSE) exec -T $(SERVICE_PHP) composer update --no-install
+	$(COMPOSE) exec -T $(SERVICE_PHP) composer install --no-interaction --prefer-dist
 
 clean: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) sh -c "rm -rf vendor .phpunit.cache coverage coverage.xml coverage-php.txt .php-cs-fixer.cache"
