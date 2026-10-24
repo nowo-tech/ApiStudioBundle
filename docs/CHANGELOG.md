@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.6.1] - 2026-10-24](#161---2026-10-24)
 - [[1.6.0] - 2026-10-21](#160---2026-10-21)
 - [[1.5.2] - 2026-10-21](#152---2026-10-21)
 - [[1.5.1] - 2026-10-20](#151---2026-10-20)
@@ -45,9 +46,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-24
+
+Bundle views render form bodies through the child loop (REQ-TWIG-003). See [UPGRADING](UPGRADING.md#to-161).
+
 ### Changed
 
 - **Twig (REQ-TWIG-003):** the workspace, service and environment forms (`workspace/form`, `service/form`, `environment/form`) and the import form (`import_export/import`) now render their fields through the child loop (`{% for child in form %}` + `form_row(child)`) instead of `form_widget(form)` / one `form_row(form.x)` per field; the import submit button stays in the actions bar and the endpoint form loop skips already-rendered children. Same fields, order and markup.
+
+[1.6.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.6.1
 
 ## [1.6.0] - 2026-10-21
 
