@@ -11,9 +11,13 @@
         <p class="as-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
 
         {{ form_start(form, {attr: {class: 'as-form', enctype: 'multipart/form-data'}}) }}
-        {{ form_row(form.file) }}
-        {% if form.mode is defined %}{{ form_row(form.mode) }}{% endif %}
-        {% if form.importVariables is defined %}{{ form_row(form.importVariables) }}{% endif %}
+        {{ form_errors(form) }}
+        {# Fields (file, optional mode / importVariables) follow the FormType; the submit button stays in the actions bar. #}
+        {% for child in form %}
+            {% if not child.rendered and 'button' not in child.vars.block_prefixes %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
         <div class="as-form-actions">
             {{ form_widget(form.submit) }}
             {% if service is defined and service %}

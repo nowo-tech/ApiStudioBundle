@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Twig (REQ-TWIG-003):** the workspace, service and environment forms (`workspace/form`, `service/form`, `environment/form`) and the import form (`import_export/import`) now render their fields through the child loop (`{% for child in form %}` + `form_row(child)`) instead of `form_widget(form)` / one `form_row(form.x)` per field; the import submit button stays in the actions bar and the endpoint form loop skips already-rendered children. Same fields, order and markup.
+
 ## [1.6.0] - 2026-10-21
 
 Paginated workspace list (ui.list_page_size), CI static analysis and coverage, translation key-parity gate, browser-script CSP guidance. See [UPGRADING](UPGRADING.md#to-160).

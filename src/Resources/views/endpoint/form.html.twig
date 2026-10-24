@@ -10,7 +10,7 @@
     <div class="as-form-panel">
         {{ form_start(form, {attr: {class: 'as-form'}}) }}
         {% for child in form %}
-            {% if child.vars.name != 'translations' %}
+            {% if not child.rendered and child.vars.name != 'translations' %}
                 {{ form_row(child) }}
             {% endif %}
         {% endfor %}
