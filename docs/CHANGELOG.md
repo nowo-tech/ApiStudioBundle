@@ -48,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Developer tooling (REQ-MAKE-002):** `make release-check` runs the full REQ-MAKE-002 chain in order (ensure-up, co-author and open-PR gates, check-twig-extra, validate-translations, composer-sync, cs-fix, cs-check, rector-dry, phpstan, igor, test-coverage, demo release-check, test-ts). New `make check-no-raw-html-form` target (`.scripts/check-no-raw-html-form.sh`, REQ-TWIG-005); it joins the chain once the remaining raw form markup in the bundle views is migrated.
+- **Developer tooling (REQ-MAKE-002):** `make release-check` runs the full REQ-MAKE-002 chain in order (ensure-up, co-author and open-PR gates, check-twig-extra, validate-translations, composer-sync, cs-fix, cs-check, rector-dry, phpstan, igor, test-coverage, demo release-check, test-ts). `make check-no-raw-html-form` (`.scripts/check-no-raw-html-form.sh`, REQ-TWIG-005) now runs in the chain.
+- **Views (REQ-TWIG-005):** every form control is a Symfony Form view — delete buttons (`CsrfOnlyType` via `api_studio_csrf_form()`), sidebar filter and service export / import / delete modals (`api_studio_tree_filter_form()`, `api_studio_service_modal_forms()`, `ImportFileFormType`), and the endpoint tester controls (`testerForm` from `EndpointTesterFormFactory`, unmapped client-side fields keeping the script ids). Delete actions validate through the Form (`handleRequest` + `isValid()`). `_delete_confirm.html.twig` now takes `csrf_token_id`; see [UPGRADING](UPGRADING.md#unreleased).
 
 ## [1.6.1] - 2026-10-24
 

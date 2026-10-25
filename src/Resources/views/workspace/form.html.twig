@@ -23,10 +23,15 @@
         {{ form_end(form) }}
     </div>
     {% if workspace is defined and workspace.id %}
-        <form method="post" action="{{ path('nowo_api_studio_workspace_delete', {id: workspace.id}) }}" class="as-delete-form" onsubmit="return confirm('{{ 'confirm.delete'|trans({}, 'NowoApiStudioBundle') }}');">
-            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ workspace.id) }}">
+        {% set _delete_form = api_studio_csrf_form(path('nowo_api_studio_workspace_delete', {id: workspace.id}), 'delete' ~ workspace.id) %}
+        {{ form_start(_delete_form, {attr: {class: 'as-delete-form', onsubmit: "return confirm('" ~ ('confirm.delete'|trans({}, 'NowoApiStudioBundle')|e('js')) ~ "');"}}) }}
+            {% for child in _delete_form %}
+                {% if not child.rendered %}
+                    {{ form_row(child) }}
+                {% endif %}
+            {% endfor %}
             <button type="submit" class="as-btn as-btn-danger">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-        </form>
+        {{ form_end(_delete_form) }}
     {% endif %}
 </div>
 {% endblock %}

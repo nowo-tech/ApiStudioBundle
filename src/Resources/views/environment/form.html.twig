@@ -24,7 +24,7 @@
         {{ include('@NowoApiStudioBundle/_delete_confirm.html.twig', {
             id: 'environment-delete-confirm',
             action: path('nowo_api_studio_environment_delete', {workspaceId: workspace.id, id: environment.id}),
-            token: csrf_token('delete' ~ environment.id),
+            csrf_token_id: 'delete' ~ environment.id,
         }, with_context: false) }}
     {% endif %}
 </div>

@@ -187,6 +187,70 @@ final class StudioPagesTest extends WebTestCase
         self::assertCount(0, $crawler->filter('#endpoint-doc-locale-tabs'));
     }
 
+    public function testEndpointShowRendersTesterAndLayoutControlsFromForms(): void
+    {
+        $crawler = $this->client->request('GET', $this->endpointUrl(''));
+        self::assertResponseIsSuccessful();
+
+        // REQ-TWIG-005: same ids / names / classes the scripts read, now rendered from Symfony Form views.
+        foreach ([
+            'select#tester-environment.as-select',
+            'select#tester-method.as-url-method-select',
+            'input#tester-url-display.as-url-input[readonly]',
+            'input#tester-persist-vars[type="checkbox"]',
+            'textarea#tester-body.as-code-editor',
+            'textarea#tester-pre-script',
+            'textarea#tester-post-script',
+            'input#tester-example-name.as-input',
+            'input#endpoint-doc-title-input.as-input',
+            'textarea#endpoint-doc-desc-input',
+            'input#as-tree-filter.as-sidebar-search',
+            'form#as-service-import-form input#as-service-import-file[name="import_file_form[file]"]',
+            'form#as-service-import-form input[name="import_file_form[_token]"]',
+            'form#as-service-import-form input[name="import_file_form[importVariables]"]',
+            'form#as-service-delete-form input#as-service-delete-csrf[name="_token"]',
+            'form#as-service-delete-form input#as-service-delete-redirect[name="redirect"]',
+            'form#as-service-delete-form input#as-service-delete-input[name="confirmation"]',
+            'label#as-service-delete-label',
+        ] as $selector) {
+            self::assertCount(1, $crawler->filter($selector), $selector);
+        }
+        self::assertCount(1, $crawler->filter('input[type="radio"][name="as-export-format"][value="openapi"][checked]'));
+        self::assertCount(2, $crawler->filter('input[type="radio"][name="as-import-format"]'));
+        self::assertGreaterThan(0, $crawler->filter('#tester-headers-body tr.as-kv-row[data-header-row] input.as-kv-key')->count());
+        self::assertCount(
+            $crawler->filter('#tester-params-body tr.as-kv-row')->count(),
+            $crawler->filter('#tester-params-body input.as-kv-enabled[checked]'),
+        );
+    }
+
+    public function testWorkspaceDeletePostsThroughCsrfForm(): void
+    {
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/edit', $this->ids['workspace']));
+        self::assertResponseIsSuccessful();
+
+        $form = $crawler->filter('form.as-delete-form')->form();
+        self::assertSame('POST', $form->getMethod());
+        $this->client->submit($form);
+
+        self::assertResponseRedirects();
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertNull($entityManager->getRepository(ApiWorkspace::class)->find($this->ids['workspace']));
+    }
+
+    public function testEndpointDeleteFromConfirmDialog(): void
+    {
+        $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));
+        $form    = $crawler->filter('dialog#endpoint-delete-confirm form.as-delete-form')->form();
+        $this->client->submit($form);
+
+        self::assertResponseRedirects();
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertNull($entityManager->getRepository(ApiEndpoint::class)->find($this->ids['endpoint']));
+    }
+
     private function endpointUrl(string $suffix): string
     {
         return sprintf('/api-studio/workspaces/%d/services/%d/endpoints/%d%s', $this->ids['workspace'], $this->ids['service'], $this->ids['endpoint'], $suffix);

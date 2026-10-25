@@ -130,8 +130,7 @@ igor: ensure-up
 	$(COMPOSE) exec -T php composer igor
 
 # Pre-release (REQ-MAKE-002)
-# check-no-raw-html-form (REQ-TWIG-005) is wired once the remaining raw form markup is migrated
-release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra validate-translations composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage release-check-demos test-ts
+release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra check-no-raw-html-form validate-translations composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage release-check-demos test-ts
 
 # REQ-TEST-011 — boot demo stack and assert one HTTP 200
 demo-smoke:

@@ -15,9 +15,11 @@ use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Service\EndpointTesterFormFactory;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +32,8 @@ use function is_string;
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints', name: 'nowo_api_studio_endpoint_')]
 final class ApiEndpointController extends AbstractController
 {
+    use CsrfOnlyFormValidationTrait;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $serviceRepository,
@@ -39,6 +43,7 @@ final class ApiEndpointController extends AbstractController
         private readonly LocaleManager $localeManager,
         private readonly EnvironmentContextBuilder $environmentContextBuilder,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly ?EndpointTesterFormFactory $testerFormFactory = null,
     ) {
     }
 
@@ -93,6 +98,10 @@ final class ApiEndpointController extends AbstractController
         $endpoint             = $this->requireEndpoint($id, $context['service']);
         $locale               = $this->localeManager->resolveLocale();
         $loadRequestExampleId = $request->query->getInt('request_example') ?: null;
+        $mergedHeaders        = array_merge(
+            $context['service']->getDefaultHeaders(),
+            $endpoint->getHeaders(),
+        );
 
         return $this->render('@NowoApiStudioBundle/endpoint/show.html.twig', $context + [
             'endpoint'              => $endpoint,
@@ -104,11 +113,10 @@ final class ApiEndpointController extends AbstractController
             'environments'          => $context['workspace']->getEnvironments(),
             'environmentMaps'       => $this->environmentContextBuilder->buildMaps($context['workspace']),
             'variableCatalog'       => $this->environmentContextBuilder->buildVariableCatalog($context['workspace']),
-            'mergedHeaders'         => array_merge(
-                $context['service']->getDefaultHeaders(),
-                $endpoint->getHeaders(),
-            ),
-            'history' => $this->historyRepository->findBy(
+            'mergedHeaders'         => $mergedHeaders,
+            // REQ-TWIG-005: client-side tester controls as Symfony Form views (ids kept for api-tester.js).
+            'testerForm' => $this->testerFormFactory()->create($endpoint, $context['service'], $context['workspace']->getEnvironments(), $mergedHeaders),
+            'history'    => $this->historyRepository->findBy(
                 ['endpoint' => $endpoint],
                 ['executedAt' => 'DESC'],
                 10,
@@ -272,7 +280,8 @@ final class ApiEndpointController extends AbstractController
         $context  = $this->requireContext($workspaceId, $serviceId);
         $endpoint = $this->requireEndpoint($id, $context['service']);
 
-        if (!$this->isCsrfTokenValid('delete' . $endpoint->getId(), (string) $request->request->get('_token'))) {
+        // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
+        if (!$this->isCsrfOnlyFormValid($request, 'delete' . $endpoint->getId())) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
 
@@ -310,5 +319,17 @@ final class ApiEndpointController extends AbstractController
         }
 
         return $endpoint;
+    }
+
+    private function testerFormFactory(): EndpointTesterFormFactory
+    {
+        if ($this->testerFormFactory instanceof EndpointTesterFormFactory) {
+            return $this->testerFormFactory;
+        }
+
+        /** @var FormFactoryInterface $formFactory */
+        $formFactory = $this->container->get('form.factory');
+
+        return new EndpointTesterFormFactory($formFactory);
     }
 }

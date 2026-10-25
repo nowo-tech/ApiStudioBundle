@@ -11,6 +11,7 @@
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
   - [Override in the application](#override-in-the-application)
   - [Overridable templates](#overridable-templates)
+  - [Forms in the templates (REQ-TWIG-005)](#forms-in-the-templates-req-twig-005)
 - [Translations (REQ-I18N)](#translations-req-i18n)
   - [Override in the application](#override-in-the-application-1)
 
@@ -159,6 +160,17 @@ Prefer extending or including the original `@NowoApiStudioBundle/...` templates 
 **Layout chain (REQ-UI-001):** pages extend `@NowoApiStudioBundle/base.html.twig`, which extends the configurable layout (`nowo_api_studio.ui.layout_template` / Twig global `nowo_api_studio_layout_template`), loads **UiKit** (`nowo-ui.css` / macros from `nowo-tech/ui-kit-bundle`), and injects theme CSS/JS via `{{ parent() }}`. Child templates that override `javascripts` / `stylesheets` must call `{{ parent() }}` so host and Api Studio assets still load.
 
 Protect the UI with Symfony `access_control` on the configured path (default `/api-studio`). See [CONFIGURATION.md](CONFIGURATION.md) (`security.access_roles`, `security.allow_unauthenticated`).
+
+### Forms in the templates (REQ-TWIG-005)
+
+Every control in the API Studio views is a Symfony Form view; the templates never contain raw `<form>` / `<input>` / `<select>` / `<textarea>` markup (`make check-no-raw-html-form`, part of `release-check`):
+
+- **Editors** (workspace, service, endpoint, environment, import): FormKit-configured types rendered with `form_start`, the child loop (`{% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}`) and `form_end`.
+- **Delete buttons:** `CsrfOnlyType` (flat `_token`, token id `delete<id>`), built in Twig with `api_studio_csrf_form(action, csrfTokenId)`. `_delete_confirm.html.twig` now takes `csrf_token_id` (instead of a pre-computed `token`). The controllers validate with `handleRequest` + `isSubmitted()` / `isValid()`.
+- **Layout partials** build their own forms: `api_studio_tree_filter_form()` (sidebar filter) and `api_studio_service_modal_forms()` (export / import format radios, `import_file_form` upload, service delete confirmation).
+- **Endpoint tester** (`endpoint/show.html.twig`): the controller always passes `testerForm` (`EndpointTesterFormFactory`, unmapped client-side controls with the historical ids / classes). Because these controls are spread over several blocks and never submitted, they are rendered with `form_widget` / `form_label` only.
+
+Overrides and demos must keep using these Form views; do not reintroduce raw form controls.
 
 ## Translations (REQ-I18N)
 

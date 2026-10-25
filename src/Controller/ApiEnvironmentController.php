@@ -18,6 +18,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '/workspaces/{workspaceId}/environments', name: 'nowo_api_studio_environment_')]
 final class ApiEnvironmentController extends AbstractController
 {
+    use CsrfOnlyFormValidationTrait;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiEnvironmentRepository $repository,
@@ -116,7 +118,8 @@ final class ApiEnvironmentController extends AbstractController
         $workspace   = $this->requireWorkspace($workspaceId);
         $environment = $this->requireEnvironment($id, $workspace);
 
-        if (!$this->isCsrfTokenValid('delete' . $environment->getId(), (string) $request->request->get('_token'))) {
+        // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
+        if (!$this->isCsrfOnlyFormValid($request, 'delete' . $environment->getId())) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
 

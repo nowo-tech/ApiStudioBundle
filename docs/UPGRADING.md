@@ -61,6 +61,12 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **Template overrides (REQ-TWIG-005):** the views no longer contain raw form controls.
+  - `_delete_confirm.html.twig` takes `csrf_token_id` (e.g. `'delete' ~ entity.id`) instead of `token`; overrides or includes that still pass `token` must switch to `csrf_token_id`.
+  - `endpoint/show.html.twig` renders the tester controls from the new `testerForm` variable (always passed by `ApiEndpointController::show()`); ids, names and classes read by the scripts are unchanged.
+  - `_sidebar_tree.html.twig` and `_service_action_modals.html.twig` build their forms with the new Twig functions `api_studio_tree_filter_form()` / `api_studio_service_modal_forms()`; `service/form` and `workspace/form` delete buttons use `api_studio_csrf_form()`.
+  - Delete actions (workspace, service, endpoint, environment) validate the posted `_token` through `CsrfOnlyType` (same token ids, extra fields such as `redirect` / `confirmation` still accepted).
+
 ## To 1.6.1
 
 From **1.6.0**:

@@ -19,6 +19,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '/workspaces/{workspaceId}/services', name: 'nowo_api_studio_service_')]
 final class ApiServiceController extends AbstractController
 {
+    use CsrfOnlyFormValidationTrait;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $repository,
@@ -113,7 +115,8 @@ final class ApiServiceController extends AbstractController
         $workspace = $this->requireWorkspace($workspaceId);
         $service   = $this->requireService($id, $workspace);
 
-        if (!$this->isCsrfTokenValid('delete' . $service->getId(), (string) $request->request->get('_token'))) {
+        // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
+        if (!$this->isCsrfOnlyFormValid($request, 'delete' . $service->getId())) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
 

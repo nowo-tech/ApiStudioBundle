@@ -1,13 +1,19 @@
 {#
   Delete button + UiKit confirm <dialog> (no inline confirm()/onsubmit: strict CSP). nowo-ui-confirm.js opens it.
-  Required: id (dialog id), action (POST URL), token (CSRF token).
+  Required: id (dialog id), action (POST URL), csrf_token_id (CSRF token id checked by the controller).
+  REQ-TWIG-005: the POST is a Symfony Form (api_studio_csrf_form → CsrfOnlyType, flat _token).
 #}
 {% set _cancel -%}
     <button type="button" class="as-btn" data-nowo-confirm-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
-    <form method="post" action="{{ action }}" class="as-delete-form">
-        <input type="hidden" name="_token" value="{{ token }}">
+    {% set _delete_form = api_studio_csrf_form(action, csrf_token_id) %}
+    {{ form_start(_delete_form, {attr: {class: 'as-delete-form'}}) }}
+        {% for child in _delete_form %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
         <button type="submit" class="as-btn as-btn-danger" data-testid="{{ id }}-submit">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-    </form>
+    {{ form_end(_delete_form) }}
 {%- endset %}
 <div class="as-delete-form">
     <button type="button" class="as-btn as-btn-danger" data-nowo-confirm-open data-nowo-confirm-target="{{ id }}">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>

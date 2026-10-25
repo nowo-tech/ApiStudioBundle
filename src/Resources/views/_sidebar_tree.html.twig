@@ -1,7 +1,11 @@
 <aside class="as-sidebar" id="as-sidebar">
     <div class="as-sidebar-head">
         <h2>{{ 'sidebar.endpoints'|trans({}, 'NowoApiStudioBundle') }}</h2>
-        <input type="search" class="as-sidebar-search" id="as-tree-filter" placeholder="{{ 'sidebar.filter'|trans({}, 'NowoApiStudioBundle') }}" autocomplete="off">
+        {# REQ-TWIG-005: client-side filter from a Symfony Form view (api-studio-shell.js reads #as-tree-filter). Rendered
+           without a form element, as before: it is never submitted and must not reload the page on Enter. #}
+        {% set _tree_filter = api_studio_tree_filter_form() %}
+        {% form_theme _tree_filter 'form_div_layout.html.twig' %}
+        {{ form_widget(_tree_filter.search) }}
     </div>
     <nav class="as-sidebar-tree" id="as-nav-tree" aria-label="{{ 'sidebar.navigation'|trans({}, 'NowoApiStudioBundle') }}">
         {% set active_ws = as_active_workspace|default(null) %}
