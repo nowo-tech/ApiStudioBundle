@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.7.0](#to-170)
 - [To 1.6.1](#to-161)
 - [To 1.6.0](#to-160)
 - [To 1.5.2](#to-152)
@@ -60,6 +61,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.7.0
+
+From **1.6.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **Template overrides (REQ-TWIG-005):** the views no longer contain raw form controls.
   - `_delete_confirm.html.twig` takes `csrf_token_id` (e.g. `'delete' ~ entity.id`) instead of `token`; overrides or includes that still pass `token` must switch to `csrf_token_id`.

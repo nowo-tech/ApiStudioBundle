@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.7.0] - 2026-10-26](#170---2026-10-26)
 - [[1.6.1] - 2026-10-24](#161---2026-10-24)
 - [[1.6.0] - 2026-10-21](#160---2026-10-21)
 - [[1.5.2] - 2026-10-21](#152---2026-10-21)
@@ -46,10 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-26
+
+Forms in the bundle views are Symfony Form Types rendered with form_start / child loop / form_end, no raw form controls (REQ-TWIG-005). See [UPGRADING](UPGRADING.md#to-170).
+
 ### Changed
 
 - **Developer tooling (REQ-MAKE-002):** `make release-check` runs the full REQ-MAKE-002 chain in order (ensure-up, co-author and open-PR gates, check-twig-extra, validate-translations, composer-sync, cs-fix, cs-check, rector-dry, phpstan, igor, test-coverage, demo release-check, test-ts). `make check-no-raw-html-form` (`.scripts/check-no-raw-html-form.sh`, REQ-TWIG-005) now runs in the chain.
 - **Views (REQ-TWIG-005):** every form control is a Symfony Form view — delete buttons (`CsrfOnlyType` via `api_studio_csrf_form()`), sidebar filter and service export / import / delete modals (`api_studio_tree_filter_form()`, `api_studio_service_modal_forms()`, `ImportFileFormType`), and the endpoint tester controls (`testerForm` from `EndpointTesterFormFactory`, unmapped client-side fields keeping the script ids). Delete actions validate through the Form (`handleRequest` + `isValid()`). `_delete_confirm.html.twig` now takes `csrf_token_id`; see [UPGRADING](UPGRADING.md#unreleased).
+
+[1.7.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.7.0
 
 ## [1.6.1] - 2026-10-24
 
