@@ -11,14 +11,14 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 final class ConfigurableApiStudioAccessCheckerTest extends TestCase
 {
-    public function testAllowsAccessWhenNoRolesConfigured(): void
+    public function testDeniesAccessWhenNoRolesConfigured(): void
     {
-        $checker = new ConfigurableApiStudioAccessChecker(
-            $this->createMock(AuthorizationCheckerInterface::class),
-            [],
-        );
+        $authorization = $this->createMock(AuthorizationCheckerInterface::class);
+        $authorization->expects(self::never())->method('isGranted');
 
-        self::assertTrue($checker->canAccess(new stdClass()));
+        $checker = new ConfigurableApiStudioAccessChecker($authorization, []);
+
+        self::assertFalse($checker->canAccess(new stdClass()));
     }
 
     public function testAllowsAccessWhenUserHasConfiguredRole(): void

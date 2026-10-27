@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Empty role lists deny (P1):** `ConfigurableApiStudioAccessChecker` and `ApiStudioAccessSubscriber` no longer treat an
+  empty `security.access_roles` (with an empty legacy `ui.required_roles` fallback) as "no check": an empty list grants
+  nothing. `ApiStudioSecurityPass` now fails compilation when the effective role list is empty and neither
+  `security.access_checker` nor `security.allow_unauthenticated` is set. A role list without SecurityBundle also denies.
+- **CSRF fails closed (P2):** with `enabled: true`, `ApiStudioSecurityPass` refuses to compile without
+  `security.csrf.token_manager` and `form.type_extension.csrf`, or when `framework.form.csrf_protection` is false.
+  Before, `CsrfOnlyType` delete actions and entity forms accepted any POST on such hosts.
+  See [UPGRADING](UPGRADING.md#unreleased).
+
 ## [1.7.0] - 2026-10-26
 
 Forms in the bundle views are Symfony Form Types rendered with form_start / child loop / form_end, no raw form controls (REQ-TWIG-005). See [UPGRADING](UPGRADING.md#to-170).

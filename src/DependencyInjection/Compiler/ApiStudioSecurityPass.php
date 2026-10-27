@@ -17,7 +17,8 @@ use function is_array;
 use function is_string;
 
 /**
- * Enforces SecurityBundle for Api Studio UI, allowlist policy, and access subscriber (REQ-UI-002 / REQ-SEC).
+ * Enforces SecurityBundle for Api Studio UI, allowlist policy, non-empty access roles, form CSRF protection and the
+ * access subscriber (REQ-UI-002 / REQ-SEC-005).
  *
  * The access subscriber is always registered (never skipped): with {@code enabled: false} it makes every
  * Api Studio route answer 404 instead of leaving the UI and the outbound executor reachable without checks.
@@ -72,6 +73,34 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
 
         if (!$hasSecurity && !$allowUnauthenticated) {
             throw new InvalidConfigurationException('nowo_api_studio requires symfony/security-bundle (security.authorization_checker), or set nowo_api_studio.security.allow_unauthenticated: true (dev/demo only — never in production).');
+        }
+
+        if (
+            !$allowUnauthenticated
+            && !self::hasCustomAccessChecker($container)
+            && $container->getParameter(Configuration::ALIAS . '.security.effective_access_roles') === []
+        ) {
+            throw new InvalidConfigurationException('nowo_api_studio: security.access_roles and the legacy ui.required_roles are both empty, so nobody could use Api Studio (an empty list denies). Configure at least one role, set security.access_checker, or set security.allow_unauthenticated: true (dev/demo only).');
+        }
+
+        self::assertCsrfProtection($container);
+    }
+
+    /**
+     * Delete actions and entity forms rely on Symfony's form CSRF extension; without it they would accept forged
+     * POSTs, so the container refuses to compile instead (fail closed).
+     */
+    private static function assertCsrfProtection(ContainerBuilder $container): void
+    {
+        $formCsrfDisabled = $container->hasParameter('form.type_extension.csrf.enabled')
+            && $container->getParameter('form.type_extension.csrf.enabled') === false;
+
+        if (
+            !$container->has('security.csrf.token_manager')
+            || !$container->hasDefinition('form.type_extension.csrf')
+            || $formCsrfDisabled
+        ) {
+            throw new InvalidConfigurationException('nowo_api_studio (enabled: true) requires CSRF protection. Enable framework.csrf_protection and framework.form.csrf_protection, or set nowo_api_studio.enabled: false.');
         }
     }
 

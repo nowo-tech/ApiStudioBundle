@@ -8,6 +8,8 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 /**
  * Default role-based access checker driven by nowo_api_studio.security.* config.
+ *
+ * An empty role list grants nothing (fail closed); the security pass refuses to compile that configuration.
  */
 final readonly class ConfigurableApiStudioAccessChecker implements ApiStudioAccessCheckerInterface
 {
@@ -22,10 +24,6 @@ final readonly class ConfigurableApiStudioAccessChecker implements ApiStudioAcce
 
     public function canAccess(object $user): bool
     {
-        if ($this->accessRoles === []) {
-            return true;
-        }
-
         foreach ($this->accessRoles as $role) {
             if ($this->authorizationChecker->isGranted($role)) {
                 return true;

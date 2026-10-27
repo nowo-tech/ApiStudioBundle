@@ -101,6 +101,87 @@ final class ApiStudioSecurityPassTest extends TestCase
         self::assertSame('security.token_storage', (string) $definition->getArgument('$tokenStorage'));
     }
 
+    public function testFailsWhenEffectiveRolesEmptyWithoutCheckerOrUnauthenticatedFlag(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.security.allow_unauthenticated', false);
+        $container->setParameter(Configuration::ALIAS . '.security.effective_access_roles', []);
+        $container->setDefinition('security.authorization_checker', new Definition());
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('ui.required_roles are both empty');
+
+        (new ApiStudioSecurityPass())->process($container);
+    }
+
+    public function testAcceptsEmptyRolesWithCustomAccessChecker(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.security.allow_unauthenticated', false);
+        $container->setParameter(Configuration::ALIAS . '.security.effective_access_roles', []);
+        $container->setParameter(Configuration::ALIAS . '.security', ['access_checker' => 'app.api_studio_access']);
+        $container->setDefinition('security.authorization_checker', new Definition());
+
+        (new ApiStudioSecurityPass())->process($container);
+
+        self::assertSame([], $container->getDefinition(ApiStudioAccessSubscriber::class)->getArgument('$requiredRoles'));
+    }
+
+    public function testFailsWithoutCsrfTokenManager(): void
+    {
+        $container = $this->baseContainer();
+        $container->removeDefinition('security.csrf.token_manager');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('requires CSRF protection');
+
+        (new ApiStudioSecurityPass())->process($container);
+    }
+
+    public function testFailsWithoutFormCsrfExtension(): void
+    {
+        $container = $this->baseContainer();
+        $container->removeDefinition('form.type_extension.csrf');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('requires CSRF protection');
+
+        (new ApiStudioSecurityPass())->process($container);
+    }
+
+    public function testFailsWhenFormCsrfDisabled(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter('form.type_extension.csrf.enabled', false);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('requires CSRF protection');
+
+        (new ApiStudioSecurityPass())->process($container);
+    }
+
+    public function testAcceptsFormCsrfEnabledParameter(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter('form.type_extension.csrf.enabled', true);
+
+        (new ApiStudioSecurityPass())->process($container);
+
+        self::assertTrue($container->hasDefinition(ApiStudioAccessSubscriber::class));
+    }
+
+    public function testDisabledBundleSkipsCsrfRequirement(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.enabled', false);
+        $container->removeDefinition('security.csrf.token_manager');
+        $container->removeDefinition('form.type_extension.csrf');
+
+        (new ApiStudioSecurityPass())->process($container);
+
+        self::assertFalse($container->getDefinition(ApiStudioAccessSubscriber::class)->getArgument('$enabled'));
+    }
+
     public function testKeepsHostDefinedSubscriber(): void
     {
         $container = $this->baseContainer();
@@ -129,6 +210,8 @@ final class ApiStudioSecurityPassTest extends TestCase
         $container->setParameter(Configuration::ALIAS . '.security', ['access_checker' => null]);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', []);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist_required', false);
+        $container->setDefinition('security.csrf.token_manager', new Definition());
+        $container->setDefinition('form.type_extension.csrf', new Definition());
 
         return $container;
     }

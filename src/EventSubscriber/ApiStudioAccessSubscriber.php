@@ -22,7 +22,9 @@ use function sprintf;
  * Guards all Api Studio UI routes ({@code nowo_api_studio_*}).
  *
  * - Bundle disabled ({@code nowo_api_studio.enabled: false}): every route answers 404.
- * - Requires at least one of {@code $requiredRoles} (skipped when the list is empty or SecurityBundle is absent).
+ * - Requires at least one of {@code $requiredRoles}. An empty list denies (fail closed) unless
+ *   {@code $allowUnauthenticated} is true or a custom {@code $accessChecker} decides; roles without an
+ *   authorization checker deny as well.
  * - Calls the configured {@see ApiStudioAccessCheckerInterface} ({@code security.access_checker}) with the current
  *   user; anonymous requests are denied unless {@code $allowUnauthenticated} is true.
  */
@@ -82,8 +84,16 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
 
     private function checkRoles(): void
     {
-        if ($this->requiredRoles === [] || !$this->authorizationChecker instanceof AuthorizationCheckerInterface) {
-            return;
+        if ($this->requiredRoles === []) {
+            if ($this->allowUnauthenticated || $this->accessChecker instanceof ApiStudioAccessCheckerInterface) {
+                return;
+            }
+
+            throw new AccessDeniedException('Api Studio has no access role configured (an empty role list denies).');
+        }
+
+        if (!$this->authorizationChecker instanceof AuthorizationCheckerInterface) {
+            throw new AccessDeniedException('Api Studio role check requires symfony/security-bundle.');
         }
 
         foreach ($this->requiredRoles as $role) {

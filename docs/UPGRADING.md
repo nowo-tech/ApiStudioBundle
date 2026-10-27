@@ -62,6 +62,16 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+**Behaviour changes (security):**
+
+- An empty effective role list (`security.access_roles: []` **and** legacy `ui.required_roles: []`) used to disable the
+  bundle's role check (everyone reaching `ui.path` got in). It now fails container compilation. Configure a role, set
+  `security.access_checker`, or — dev/demo only — `security.allow_unauthenticated: true`.
+- With `enabled: true` the container no longer compiles when form CSRF protection is unavailable. Keep
+  `framework.csrf_protection: true` and `framework.form.csrf_protection: true` (the Symfony defaults when
+  `symfony/security-csrf` is installed; it is already a dependency of this bundle).
+- Default configuration (`ROLE_ADMIN`, CSRF on) is unaffected.
+
 ## To 1.7.0
 
 From **1.6.1**:

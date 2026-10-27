@@ -33,7 +33,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 | Area | Risk | Mitigation |
 | --- | --- | --- |
-| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`) and optional `security.access_checker` (`canAccess($user)`), both enforced by `ApiStudioAccessSubscriber`; `allow_unauthenticated: false`; host `access_control` on `ui.path`. `enabled: false` makes all routes 404 (never fail-open). |
+| Unauthorized UI access | Unauthenticated users execute requests or read secrets | `security.access_roles` (default `ROLE_ADMIN`) and optional `security.access_checker` (`canAccess($user)`), both enforced by `ApiStudioAccessSubscriber`; `allow_unauthenticated: false`; host `access_control` on `ui.path`. `enabled: false` makes all routes 404 (never fail-open). An empty effective role list denies, and `ApiStudioSecurityPass` refuses to compile it unless `access_checker` / `allow_unauthenticated` is set. |
 | Cross-workspace secrets | Executing an endpoint with another workspace's environment | Execute endpoint rejects `environment_id` outside the endpoint's workspace (400) |
 | Open redirect | Locale switch following a forged `Referer` | Only same-host/local `Referer` is followed |
 | SSRF | Authenticated user targets internal services (metadata, Redis, admin panels) | `ExecutionUrlValidator` pre-flight blocks `IpUtils::PRIVATE_SUBNETS` + multicast for every A/AAAA record and fails closed on unresolvable hosts; HTTP calls go through `NoPrivateNetworkHttpClient` (connected IP re-checked: DNS rebinding); redirects off by default (`execution_max_redirects`); host-exact `execution_url_allowlist` + optional `execution_url_allowlist_required` |
@@ -41,7 +41,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 | Request history | Headers/bodies may contain tokens and PII | `HistorySanitizer` redacts `Authorization` / API-key headers and common secret patterns in bodies before persist, and masks the values of secret environment variables (raw, URL-encoded, JSON-escaped; 4+ characters) in the stored URL, every request header and the request body; host owns retention/TTL policy |
 | Import/export | JSON export may contain credentials | Restrict access; scan exports before sharing |
 | XSS | Twig templates, stored endpoint names/descriptions | Twig auto-escape; do not disable escaping in overrides |
-| CSRF | State-changing UI actions | CSRF tokens on execute/delete/sync endpoints |
+| CSRF | State-changing UI actions; a host with form CSRF off would silently accept forged deletes / edits | CSRF tokens on execute/delete/sync endpoints; `ApiStudioSecurityPass` fails compilation (fail closed) when `security.csrf.token_manager` or `form.type_extension.csrf` is missing or `framework.form.csrf_protection` is false |
 | DoS | Large payloads, slow upstream APIs | Configurable `request_timeout_seconds` (1–300) |
 | SOAP WSDL / endpoint | ext-soap fetching the WSDL or calling `<soap:address location>` itself would skip redirect/rebinding checks and could reach metadata or internal hosts | ext-soap never opens a connection: `GuardedWsdlLoader` downloads the WSDL and its imports through `NoPrivateNetworkHttpClient` (validator + allowlist on every document and on the final URL after redirects, `execution_max_redirects`, DTDs rejected) into temporary files; `GuardedSoapClient::__doRequest()` validates the location (SSRF + allowlist) and sends the call through the same client with the request timeout (redirect hops re-checked; an unfollowed 3xx fails the call); raw-envelope calls (body is a full SOAP envelope) skip ext-soap and the WSDL: the target URL is validated (SSRF + allowlist) and the envelope is POSTed through the same client with the same timeout/redirect policy |
 
@@ -49,7 +49,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 - Configure Symfony Security (`security.yaml`) with firewall and `access_control` for the Api Studio path
 - Keep `security.allow_unauthenticated: false` in production (demo-only footgun)
-- Set `nowo_api_studio.security.access_roles` appropriately (never leave empty in production unless intentionally public)
+- Set `nowo_api_studio.security.access_roles` appropriately (an empty list denies; both role lists empty fails compilation)
 - In production set `execution_url_allowlist_required: true` and a non-empty `execution_url_allowlist`
 - The Flex recipe (`when@prod`) forces `execution_url_allowlist_required: true` in production; keep a non-empty allowlist.
 - Prefer a dedicated `secrets.encryption_key` (env) instead of relying solely on `kernel.secret` if you rotate app secrets often
@@ -60,7 +60,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 ## Bundle responsibilities
 
 - Block SSRF to private/local networks before outbound requests
-- Enforce role checks on Api Studio routes when access roles are configured
+- Enforce role checks on Api Studio routes (an empty role list denies)
 - Encrypt `secret` environment variable values at rest when `secrets.encrypt` is true
 - CSRF protection on mutating controller actions
 - Validate `table_prefix` (alphanumeric + underscore only)

@@ -81,6 +81,32 @@ final class ApiStudioAccessSubscriberTest extends TestCase
         self::addToAssertionCount(1);
     }
 
+    public function testEmptyRequiredRolesDenyWithoutCheckerOrUnauthenticatedFlag(): void
+    {
+        $auth = $this->createMock(AuthorizationCheckerInterface::class);
+        $auth->expects(self::never())->method('isGranted');
+
+        $this->expectException(AccessDeniedException::class);
+        $this->expectExceptionMessage('an empty role list denies');
+
+        (new ApiStudioAccessSubscriber([], $auth))->onKernelController($this->controllerEvent('nowo_api_studio_dashboard'));
+    }
+
+    public function testEmptyRequiredRolesAllowedOnlyWithUnauthenticatedFlag(): void
+    {
+        (new ApiStudioAccessSubscriber([], null, true, null, null, true))
+            ->onKernelController($this->controllerEvent('nowo_api_studio_dashboard'));
+
+        self::addToAssertionCount(1);
+    }
+
+    public function testRolesWithoutAuthorizationCheckerDeny(): void
+    {
+        $this->expectException(AccessDeniedException::class);
+
+        (new ApiStudioAccessSubscriber(['ROLE_ADMIN']))->onKernelController($this->controllerEvent('nowo_api_studio_dashboard'));
+    }
+
     public function testCustomAccessCheckerIsCalledWithCurrentUser(): void
     {
         $user    = new InMemoryUser('alice', null, ['ROLE_ADMIN']);
