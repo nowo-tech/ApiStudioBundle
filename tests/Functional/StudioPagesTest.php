@@ -11,11 +11,16 @@ use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Service\DemoSeedService;
+use Nowo\ApiStudioBundle\Service\StudioNavigationProvider;
 use Nowo\ApiStudioBundle\Tests\Functional\App\TestKernel;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
+use function array_column;
+use function array_map;
+use function count;
 use function sprintf;
 use function str_repeat;
 
@@ -222,6 +227,51 @@ final class StudioPagesTest extends WebTestCase
             $crawler->filter('#tester-params-body tr.as-kv-row')->count(),
             $crawler->filter('#tester-params-body input.as-kv-enabled[checked]'),
         );
+    }
+
+    public function testSidebarTreeIsOneQueryAndMatchesTheEntityCollections(): void
+    {
+        $container = self::getContainer();
+        /** @var StudioNavigationProvider $provider */
+        $provider = $container->get(StudioNavigationProvider::class);
+        /** @var DebugDataHolder $queries */
+        $queries = $container->get('doctrine.debug_data_holder');
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = $container->get(EntityManagerInterface::class);
+        $entityManager->clear();
+
+        $queries->reset();
+        $tree = $provider->buildTree();
+        self::assertCount(1, $queries->getData()['default'] ?? [], 'sidebar tree must not walk lazy collections');
+
+        // Same order and content as walking the #[OrderBy] collections.
+        $expected = [];
+        foreach ($entityManager->getRepository(ApiWorkspace::class)->findBy([], ['name' => 'ASC']) as $workspace) {
+            $services = [];
+            foreach ($workspace->getServices() as $service) {
+                $endpoints = [];
+                foreach ($service->getEndpoints() as $endpoint) {
+                    $examples = [];
+                    foreach ($endpoint->getRequestExamples() as $example) {
+                        $examples[] = $example->getId();
+                    }
+                    $endpoints[] = [$endpoint->getId(), $endpoint->getMethod()->value, $examples];
+                }
+                $services[] = [$service->getId(), $service->getProtocol()->value, $endpoints];
+            }
+            $expected[] = [$workspace->getId(), $services];
+        }
+        $actual = array_map(static fn (array $w): array => [$w['id'], array_map(
+            static fn (array $s): array => [$s['id'], $s['protocol'], array_map(
+                static fn (array $e): array => [$e['id'], $e['method'], array_column($e['request_examples'], 'id')],
+                $s['endpoints'],
+            )],
+            $w['services'],
+        )], $tree);
+
+        self::assertNotSame([], $expected);
+        self::assertGreaterThan(1, count($expected[0][1]), 'seed has several services');
+        self::assertSame($expected, $actual);
     }
 
     public function testWorkspaceDeletePostsThroughCsrfForm(): void

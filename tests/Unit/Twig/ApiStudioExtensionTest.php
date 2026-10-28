@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Twig;
 
-use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Nowo\ApiStudioBundle\Service\StudioNavigationProvider;
@@ -20,7 +19,7 @@ final class ApiStudioExtensionTest extends TestCase
     public function testNavigationTreeIsNotAGlobal(): void
     {
         $repository = $this->createMock(ApiWorkspaceRepository::class);
-        $repository->expects(self::never())->method('findBy');
+        $repository->expects(self::never())->method('navigationRows');
 
         $globals = $this->extension($repository)->getGlobals();
 
@@ -33,9 +32,13 @@ final class ApiStudioExtensionTest extends TestCase
     public function testNavigationTreeIsRebuiltOnEachRenderWithoutReset(): void
     {
         $repository = $this->createMock(ApiWorkspaceRepository::class);
-        $repository->method('findBy')->willReturnOnConsecutiveCalls(
-            [new ApiWorkspace('First', 'first')],
-            [new ApiWorkspace('First', 'first'), new ApiWorkspace('Second', 'second')],
+        $row        = static fn (int $id, string $name): array => [
+            'wid' => $id, 'wname' => $name, 'wslug' => strtolower($name), 'sid' => null, 'sname' => null, 'sprotocol' => null,
+            'eid' => null, 'ename' => null, 'emethod' => null, 'xid' => null, 'xname' => null,
+        ];
+        $repository->method('navigationRows')->willReturnOnConsecutiveCalls(
+            [$row(1, 'First')],
+            [$row(1, 'First'), $row(2, 'Second')],
         );
 
         $twig = new Environment(new ArrayLoader([

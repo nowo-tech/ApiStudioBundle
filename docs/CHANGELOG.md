@@ -49,6 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Sidebar tree in one query.** The navigation tree rendered on every studio page walked the lazy collections
+  (workspaces → services → endpoints → request examples): 1 + W + S + E queries per request. It is now built from one
+  scalar query (`ApiWorkspaceRepository::navigationRows()`), same order and content; a functional test pins the
+  query count.
+
 ## [1.8.1] - 2026-10-28
 
 Security: service delete redirects to local paths only (no protocol-relative open redirect). See [UPGRADING](UPGRADING.md#to-181).
