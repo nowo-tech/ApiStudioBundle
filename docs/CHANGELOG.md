@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.9.0] - 2026-10-28](#190---2026-10-28)
 - [[1.8.1] - 2026-10-28](#181---2026-10-28)
 - [[1.8.0] - 2026-10-28](#180---2026-10-28)
 - [[1.7.0] - 2026-10-26](#170---2026-10-26)
@@ -49,12 +50,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-28
+
+Performance: the sidebar tree is built from one query instead of one per workspace / service / endpoint. See [UPGRADING](UPGRADING.md#to-190).
+
 ### Performance
 
 - **Sidebar tree in one query.** The navigation tree rendered on every studio page walked the lazy collections
   (workspaces → services → endpoints → request examples): 1 + W + S + E queries per request. It is now built from one
   scalar query (`ApiWorkspaceRepository::navigationRows()`), same order and content; a functional test pins the
   query count.
+
+[1.9.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.9.0
 
 ## [1.8.1] - 2026-10-28
 
