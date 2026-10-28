@@ -11,6 +11,8 @@ DC := :; $(COMPOSE)
 
 help:
 	@echo "Symfony 8 Demo - API Studio Bundle"
+	@echo "  make test-e2e          Playwright happy path (REQ-DEMO-013)"
+	@echo "  make demo-screenshots  Regenerate docs/images/demo/*.webp"
 
 composer-install:
 	@echo "Installing Composer dependencies (ephemeral container)..."
@@ -110,6 +112,33 @@ setup: ensure-up
 verify: release-check
 
 release-check: ensure-up update-bundle test test-coverage
+
+# REQ-DEMO-013: Playwright e2e + README screenshots (official Playwright image, nothing on the host).
+PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-jammy
+
+.PHONY: test-e2e demo-screenshots
+
+test-e2e: ensure-up
+	@mkdir -p e2e/node_modules
+	@PORT=$$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2); PORT=$${PORT:-8023}; \
+	docker run --rm --network host \
+		-v "$(CURDIR)/e2e:/e2e" -w /e2e \
+		-e DEMO_BASE_URL=http://127.0.0.1:$$PORT \
+		$(PLAYWRIGHT_IMAGE) \
+		bash -lc 'npm install --no-fund --no-audit && node scripts/wait-for-demo.mjs && npx playwright test --project=chromium'
+
+demo-screenshots: ensure-up
+	@mkdir -p ../../docs/images/demo e2e/node_modules
+	@PORT=$$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2); PORT=$${PORT:-8023}; \
+	docker run --rm --network host \
+		-v "$(CURDIR)/e2e:/e2e" \
+		-v "$(CURDIR)/../../docs/images/demo:/screenshots" \
+		-w /e2e \
+		-e DEMO_BASE_URL=http://127.0.0.1:$$PORT \
+		-e SCREENSHOT_DIR=/screenshots \
+		$(PLAYWRIGHT_IMAGE) \
+		bash -lc 'npm install --no-fund --no-audit && node scripts/wait-for-demo.mjs && npx playwright test --project=screenshots && node scripts/to-webp.mjs /screenshots'
+	@echo "Screenshots written under docs/images/demo/ (WebP)"
 
 # REQ-MAKE-008: update-deps (optional outside monorepo)
 SERVICE_PHP := php

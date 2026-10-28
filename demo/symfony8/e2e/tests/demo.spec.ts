@@ -1,0 +1,30 @@
+import { test, expect } from '@playwright/test';
+import { openCreatePostConsole, openReferenceWorkspace } from './helpers';
+
+/** REQ-DEMO-013 — API Studio demo happy path (landing → dashboard → workspace → request console). */
+test.describe('API Studio demo', () => {
+  test('landing links to the API Studio dashboard', async ({ page }) => {
+    const response = await page.goto('/');
+    expect(response?.ok()).toBeTruthy();
+    await page.locator('main').getByRole('link', { name: 'Abrir API Studio' }).click();
+    await expect(page).toHaveURL(/\/api-studio\/?$/);
+    await expect(page.locator('.as-content')).toContainText('APIs de referencia');
+  });
+
+  test('workspace lists the seeded REST and SOAP services', async ({ page }) => {
+    await openReferenceWorkspace(page);
+    const content = page.locator('.as-content');
+    await expect(content.getByText('JSONPlaceholder').first()).toBeVisible();
+    await expect(content.getByText('Catastro — OVCCallejero (SOAP)').first()).toBeVisible();
+    await expect(content.getByText('Google Cloud Translation API').first()).toBeVisible();
+  });
+
+  test('request console shows the endpoint body and documented examples', async ({ page }) => {
+    await openCreatePostConsole(page);
+    await expect(page.getByRole('heading', { name: 'Create post' })).toBeVisible();
+    await expect(page.locator('[data-subpanel="body"] textarea').first()).toHaveValue(/"userId": 1/);
+    await page.locator('[data-subtab="docs"]').click();
+    await expect(page.locator('#tester-request-examples')).toContainText('Minimal JSON body');
+    await expect(page.locator('#tester-response-examples')).toContainText('201 Created');
+  });
+});

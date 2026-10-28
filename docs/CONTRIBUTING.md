@@ -10,6 +10,7 @@ Thank you for considering contributing to Api Studio Bundle.
 - [Reporting issues](#reporting-issues)
 - [Git hooks (REQ-GIT-001)](#git-hooks-req-git-001)
 - [Cursor Agent (REQ-IDE-006)](#cursor-agent-req-ide-006)
+- [End-to-end tests and screenshots (REQ-DEMO-013)](#end-to-end-tests-and-screenshots-req-demo-013)
 
 ## Code of Conduct
 
@@ -84,3 +85,14 @@ Contributors using Cursor Agent on this repository should:
 ```
 
 Do **not** use `"steer"` as the org default: steer interrupts the running agent as soon as a follow-up is sent.
+
+## End-to-end tests and screenshots (REQ-DEMO-013)
+
+The Symfony 8 demo ships a Playwright suite in `demo/symfony8/e2e/` (official Playwright image, nothing to install on the host):
+
+```bash
+make -C demo/symfony8 test-e2e          # starts the demo if needed, runs the happy-path specs
+make -C demo/symfony8 demo-screenshots  # recaptures docs/images/demo/*.webp (PNG → WebP via sharp)
+```
+
+The happy path opens the API Studio dashboard, the seeded "APIs de referencia" workspace and the JSONPlaceholder "Create post" request console. The `request-console` screenshot sends a live request to `jsonplaceholder.typicode.com`, so it needs outbound network access. Refresh the screenshots when the UI changes and commit only the `.webp` files.

@@ -10,6 +10,19 @@ Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboar
 
 This bundle is **FrankenPHP worker mode friendly**.
 
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/images/demo/workspace-services.webp" alt="API Studio workspace listing REST and SOAP services with their endpoints" />
+      <br /><sub>Workspace catalogue — REST and SOAP services with their endpoints</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/images/demo/request-console.webp" alt="API Studio request console after sending a POST that returned 201" />
+      <br /><sub>Request console — live POST with the 201 response body</sub>
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 - **Workspaces** — group services, environments, and endpoints
@@ -146,6 +159,8 @@ make -C demo up-symfony8
 ```
 
 Default URL: http://localhost:8023 (override with `PORT`).
+
+Playwright e2e: `make -C demo/symfony8 test-e2e`; refresh the README screenshots with `make -C demo/symfony8 demo-screenshots` (see [CONTRIBUTING](docs/CONTRIBUTING.md#end-to-end-tests-and-screenshots-req-demo-013)).
 
 Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/.env` (see [demo/README.md](demo/README.md) and [docs/DEMO-FRANKENPHP.md](docs/DEMO-FRANKENPHP.md)).
 
