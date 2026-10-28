@@ -239,6 +239,34 @@ final class StudioPagesTest extends WebTestCase
         self::assertNull($entityManager->getRepository(ApiWorkspace::class)->find($this->ids['workspace']));
     }
 
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function serviceDeleteRedirects(): iterable
+    {
+        yield 'local path' => ['/api-studio/somewhere', true];
+        yield 'protocol-relative' => ['//evil.test/x', false];
+        yield 'backslash protocol-relative' => ['/\\evil.test/x', false];
+        yield 'absolute url' => ['https://evil.test/x', false];
+        yield 'control character' => ["/\tevil", false];
+    }
+
+    #[DataProvider('serviceDeleteRedirects')]
+    public function testServiceDeleteRedirectsOnlyToLocalPaths(string $redirect, bool $kept): void
+    {
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d', $this->ids['workspace']));
+        // The sidebar script sets the form action per service: post to the delete route directly with the form token.
+        $token = (string) $crawler->filter(sprintf('[data-delete-token][data-delete-url$="/services/%d/delete"]', $this->ids['service']))->first()->attr('data-delete-token');
+        // Wrong confirmation: nothing is deleted, the controller only redirects.
+        $this->client->request('POST', sprintf('/api-studio/workspaces/%d/services/%d/delete', $this->ids['workspace'], $this->ids['service']), [
+            '_token'       => $token,
+            'redirect'     => $redirect,
+            'confirmation' => 'not the service name',
+        ]);
+
+        self::assertResponseRedirects($kept ? $redirect : sprintf('/api-studio/workspaces/%d', $this->ids['workspace']));
+    }
+
     public function testEndpointDeleteFromConfirmDialog(): void
     {
         $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));

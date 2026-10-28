@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Service delete redirect accepts local paths only.** `ApiServiceController::resolveDeleteRedirect()` followed any
+  posted `redirect` starting with `/`, including protocol-relative `//host` and `/\host` (open redirect after a
+  CSRF-protected delete). It now accepts only same-origin paths without control characters and otherwise returns to
+  the workspace page.
+
 ## [1.8.0] - 2026-10-28
 
 Security: empty role lists deny instead of granting everyone; CSRF fails closed without form CSRF protection. See [UPGRADING](UPGRADING.md#to-180).

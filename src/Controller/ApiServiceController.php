@@ -136,8 +136,9 @@ final class ApiServiceController extends AbstractController
 
     private function resolveDeleteRedirect(Request $request, int $workspaceId): string
     {
+        // Local paths only: browsers treat "//host" and "/\host" as protocol-relative (open redirect); no control chars.
         $redirect = (string) $request->request->get('redirect');
-        if ($redirect !== '' && str_starts_with($redirect, '/')) {
+        if (preg_match('#^/(?![/\\\\])#', $redirect) === 1 && preg_match('/[\\x00-\\x1F\\x7F]/', $redirect) === 0) {
             return $redirect;
         }
 
