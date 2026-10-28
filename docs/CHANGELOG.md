@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.9.1] - 2026-10-28](#191---2026-10-28)
 - [[1.9.0] - 2026-10-28](#190---2026-10-28)
 - [[1.8.1] - 2026-10-28](#181---2026-10-28)
 - [[1.8.0] - 2026-10-28](#180---2026-10-28)
@@ -50,10 +51,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-28
+
+ApiStudio: the request console response is readable in the light theme. See [UPGRADING](UPGRADING.md#to-191).
+
 ### Fixed
 
 - **Request console contrast.** `.as-response-pre` (response body, headers, script console) set a background but no
   text colour and inherited a light one: in the light theme the response was almost invisible. It uses `--as-text`.
+
+[1.9.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.9.1
 
 ## [1.9.0] - 2026-10-28
 
