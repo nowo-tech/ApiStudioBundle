@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.8.0] - 2026-10-28](#180---2026-10-28)
 - [[1.7.0] - 2026-10-26](#170---2026-10-26)
 - [[1.6.1] - 2026-10-24](#161---2026-10-24)
 - [[1.6.0] - 2026-10-21](#160---2026-10-21)
@@ -47,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-28
+
+Security: empty role lists deny instead of granting everyone; CSRF fails closed without form CSRF protection. See [UPGRADING](UPGRADING.md#to-180).
+
 ### Security
 
 - **Empty role lists deny (P1):** `ConfigurableApiStudioAccessChecker` and `ApiStudioAccessSubscriber` no longer treat an
@@ -57,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `security.csrf.token_manager` and `form.type_extension.csrf`, or when `framework.form.csrf_protection` is false.
   Before, `CsrfOnlyType` delete actions and entity forms accepted any POST on such hosts.
   See [UPGRADING](UPGRADING.md#unreleased).
+
+[1.8.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.8.0
 
 ## [1.7.0] - 2026-10-26
 
