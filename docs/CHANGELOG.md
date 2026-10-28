@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.8.1] - 2026-10-28](#181---2026-10-28)
 - [[1.8.0] - 2026-10-28](#180---2026-10-28)
 - [[1.7.0] - 2026-10-26](#170---2026-10-26)
 - [[1.6.1] - 2026-10-24](#161---2026-10-24)
@@ -48,12 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-28
+
+Security: service delete redirects to local paths only (no protocol-relative open redirect). See [UPGRADING](UPGRADING.md#to-181).
+
 ### Security
 
 - **Service delete redirect accepts local paths only.** `ApiServiceController::resolveDeleteRedirect()` followed any
   posted `redirect` starting with `/`, including protocol-relative `//host` and `/\host` (open redirect after a
   CSRF-protected delete). It now accepts only same-origin paths without control characters and otherwise returns to
   the workspace page.
+
+[1.8.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.8.1
 
 ## [1.8.0] - 2026-10-28
 
