@@ -50,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Request console contrast.** `.as-response-pre` (response body, headers, script console) set a background but no
+  text colour and inherited a light one: in the light theme the response was almost invisible. It uses `--as-text`.
+
 ## [1.9.0] - 2026-10-28
 
 Performance: the sidebar tree is built from one query instead of one per workspace / service / endpoint. See [UPGRADING](UPGRADING.md#to-190).

@@ -27,4 +27,20 @@ test.describe('API Studio demo', () => {
     await expect(page.locator('#tester-request-examples')).toContainText('Minimal JSON body');
     await expect(page.locator('#tester-response-examples')).toContainText('201 Created');
   });
+
+  test('response body uses the theme text colour in the light theme', async ({ page }) => {
+    await openCreatePostConsole(page);
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
+    const colours = await page.locator('#tester-response').evaluate((pre) => {
+      const text = getComputedStyle(pre).color;
+      const expected = getComputedStyle(document.documentElement).getPropertyValue('--as-text').trim();
+      const probe = document.createElement('span');
+      probe.style.color = expected;
+      document.body.append(probe);
+      const resolved = getComputedStyle(probe).color;
+      probe.remove();
+      return { text, resolved };
+    });
+    expect(colours.text).toBe(colours.resolved);
+  });
 });
