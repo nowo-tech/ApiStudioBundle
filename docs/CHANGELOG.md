@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The API Studio schema sync could drop host tables.** With Doctrine ORM 3, `SchemaTool::getUpdateSchemaSql()` compares the whole database with the bundle entities, so the sync SQL contained `DROP TABLE` (and on PostgreSQL `DROP SEQUENCE`) for every non-bundle table and sequence unless the host had a Doctrine `schema_filter`. `SchemaSyncService` now compares only the API Studio tables. Every version with `SchemaSyncService` is affected; do not run the schema sync with an older version on a database that holds other tables (CWE-1188).
+
 ## [1.9.1] - 2026-10-28
 
 ApiStudio: the request console response is readable in the light theme. See [UPGRADING](UPGRADING.md#to-191).

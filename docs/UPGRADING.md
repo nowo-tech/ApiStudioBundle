@@ -66,6 +66,8 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **Upgrade before running the API Studio schema sync again.** Earlier versions could emit `DROP TABLE` for every non-bundle table (no Doctrine `schema_filter`). From this release only the API Studio tables are created or altered. If you ran it on a shared database, check your tables and restore from backup if needed.
+
 ## To 1.9.1
 
 From **1.9.0**:
