@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.9.2](#to-192)
 - [To 1.9.1](#to-191)
 - [To 1.9.0](#to-190)
 - [To 1.8.1](#to-181)
@@ -65,6 +66,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.9.2
+
+From **1.9.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **Upgrade before running the API Studio schema sync again.** Earlier versions could emit `DROP TABLE` for every non-bundle table (no Doctrine `schema_filter`). From this release only the API Studio tables are created or altered. If you ran it on a shared database, check your tables and restore from backup if needed.
 
