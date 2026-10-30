@@ -144,15 +144,14 @@ final class GuardedWsdlLoader
         $imports = (new DOMXPath($document))->query(
             '//*[local-name()="import" or local-name()="include" or local-name()="redefine"][@location or @schemaLocation]',
         );
+        // The XPath selects elements only; the instanceof check narrows the DOMNode type.
         foreach ($imports === false ? [] : $imports as $element) {
-            if (!$element instanceof DOMElement) {
-                continue;
-            }
-
-            foreach (['location', 'schemaLocation'] as $attribute) {
-                $reference = trim($element->getAttribute($attribute));
-                if ($reference !== '') {
-                    $element->setAttribute($attribute, $this->fetch(self::resolveUrl($finalUrl, $reference)));
+            if ($element instanceof DOMElement) {
+                foreach (['location', 'schemaLocation'] as $attribute) {
+                    $reference = trim($element->getAttribute($attribute));
+                    if ($reference !== '') {
+                        $element->setAttribute($attribute, $this->fetch(self::resolveUrl($finalUrl, $reference)));
+                    }
                 }
             }
         }
