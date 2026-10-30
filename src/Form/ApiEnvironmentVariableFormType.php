@@ -13,11 +13,15 @@ use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\Exception\TransformationFailedException;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Translation\StaticMessage;
 
+use function is_array;
 use function is_string;
 
 /** @extends AbstractType<ApiEnvironmentVariable> */
@@ -41,6 +45,32 @@ final class ApiEnvironmentVariableFormType extends AbstractType
         $this->addText($builder, 'value', ['required' => false, 'empty_data' => '']);
         $this->addCheckbox($builder, 'secret', ['required' => false]);
         $this->addText($builder, 'description', ['required' => false]);
+
+        // Secret values are write-only in the UI: the field is a password input that starts empty, and an empty
+        // submission keeps the stored value (delete the variable to remove it).
+        $builder->addEventListener(FormEvents::PRE_SET_DATA, static function (FormEvent $event): void {
+            $variable = $event->getData();
+            if ($variable instanceof ApiEnvironmentVariable && $variable->isSecret()) {
+                $event->getForm()->add('value', PasswordType::class, [
+                    'required'           => false,
+                    'empty_data'         => '',
+                    'always_empty'       => true,
+                    'label'              => 'api_environment_variable_form.value.label',
+                    'help'               => 'variables.secret_unchanged',
+                    'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
+                    'attr'               => ['class' => 'nowo-ui-input', 'autocomplete' => 'new-password'],
+                ]);
+            }
+        });
+        $builder->addEventListener(FormEvents::PRE_SUBMIT, static function (FormEvent $event): void {
+            $variable  = $event->getForm()->getData();
+            $submitted = $event->getData();
+            if ($variable instanceof ApiEnvironmentVariable && $variable->isSecret() && is_array($submitted)
+                && (($submitted['value'] ?? '') === '' || !isset($submitted['value']))) {
+                $submitted['value'] = $variable->getValue();
+                $event->setData($submitted);
+            }
+        });
 
         $builder->get('variableKey')->addModelTransformer(new CallbackTransformer(
             static fn (?string $value): string => $value !== null && $value !== '' ? VariableSyntax::formatKey($value) : '',

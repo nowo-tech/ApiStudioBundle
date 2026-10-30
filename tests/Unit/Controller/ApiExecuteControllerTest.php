@@ -278,6 +278,63 @@ final class ApiExecuteControllerTest extends TestCase
             XML;
     }
 
+    public function testSecretPlaceholderFromTheConsoleUsesTheStoredSecretAndIsNeverEchoed(): void
+    {
+        // BW audit L1: the console gets {{apiToken}} instead of the secret and sends it back unchanged.
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $endpoint  = $this->endpoint($workspace);
+        $endpoint->setHeaders(['Authorization' => 'Bearer {{apiToken}}']);
+
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('apiToken', 'tok-SECRET-42'))->setSecret(true));
+
+        $sent   = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$sent): MockResponse {
+            $sent = $options;
+
+            // The upstream echoes the credential back.
+            return new MockResponse('{"you_sent":"tok-SECRET-42"}', ['http_code' => 200, 'response_headers' => ['X-Echo: tok-SECRET-42']]);
+        });
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], '{"environment_id": 7, "variables": {"apiToken": "{{apiToken}}"}, "headers": {"Authorization": "Bearer {{apiToken}}"}}');
+        $request->headers->set('X-CSRF-Token', 'valid');
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($request, 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertContains('Authorization: Bearer tok-SECRET-42', $sent['headers'] ?? [], 'The stored secret is sent upstream.');
+        $json = (string) $response->getContent();
+        self::assertStringNotContainsString('tok-SECRET-42', $json, 'No secret value goes back to the browser.');
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+        self::assertStringNotContainsString('tok-SECRET-42', (string) $persisted->getResponseBody(), 'Echoed secrets are masked in the history.');
+        self::assertStringNotContainsString('tok-SECRET-42', (string) json_encode($persisted->getResponseHeaders()));
+    }
+
+    public function testOverlongUrlIsTruncatedInHistory(): void
+    {
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $endpoint  = $this->endpoint($workspace);
+        $endpoint->setQueryParams(['q' => str_repeat('a', 3000)]);
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $this->controller($endpoint, $env, new MockHttpClient(new MockResponse('{}')), $em)->execute($this->request(), 1);
+
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+        self::assertSame(2048, mb_strlen($persisted->getRequestUrl()));
+    }
+
     private function request(): Request
     {
         $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], '{"environment_id": 7}');

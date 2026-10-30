@@ -29,7 +29,7 @@ final class EnvironmentVariableFormatsTest extends TestCase
         [, $dev] = $this->workspace();
 
         self::assertSame(
-            "# API Studio environment export\n# Environment: Dev\n# Service root\nBASE_URL=https://dev.example.test\nAPI_KEY=\"two words\"\nEMPTY=\"\"\n",
+            "# API Studio environment export\n# Environment: Dev\n# Service root\nBASE_URL='https://dev.example.test'\nAPI_KEY='two words'\nEMPTY=''\n",
             (new EnvironmentVariableExporter(new DocumentParser()))->render($dev, 'env'),
         );
     }
@@ -39,7 +39,7 @@ final class EnvironmentVariableFormatsTest extends TestCase
         [$workspace] = $this->workspace();
 
         self::assertSame(
-            "# API Studio environment export\n\n# Dev\n# Service root\nBASE_URL=https://dev.example.test\nAPI_KEY=\"two words\"\nEMPTY=\"\"\n\n# Prod\nBASE_URL=https://example.test\n",
+            "# API Studio environment export\n\n# Dev\n# Service root\nBASE_URL='https://dev.example.test'\nAPI_KEY='two words'\nEMPTY=''\n\n# Prod\nBASE_URL='https://example.test'\n",
             (new EnvironmentVariableExporter(new DocumentParser()))->renderWorkspace($workspace, 'env'),
         );
     }

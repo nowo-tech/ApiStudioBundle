@@ -97,7 +97,8 @@ final class ApiWorkspaceController extends AbstractController
             'page' => $this->pages()->workspaceForm(
                 $workspace,
                 $form->createView(),
-                $this->csrfOnlyForm($this->generateUrl('nowo_api_studio_workspace_delete', ['id' => $id]), 'delete' . $id),
+                // Deleting a workspace removes its services, environments and secrets: type-to-confirm, checked again here.
+                $this->csrfOnlyForm($this->generateUrl('nowo_api_studio_workspace_delete', ['id' => $id]), 'delete' . $id, ['confirmation' => $workspace->getName()]),
             ),
         ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
@@ -110,6 +111,12 @@ final class ApiWorkspaceController extends AbstractController
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
         if (!$this->isCsrfOnlyFormValid($request, 'delete' . $workspace->getId())) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');
+        }
+
+        if (trim((string) $request->request->get('confirmation')) !== $workspace->getName()) {
+            $this->flash('error', 'workspace.delete_confirmation_mismatch');
+
+            return $this->redirectToRoute('nowo_api_studio_workspace_edit', ['id' => $id]);
         }
 
         $this->entityManager->remove($workspace);

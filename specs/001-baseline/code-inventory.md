@@ -121,6 +121,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Service/StudioNavigationProvider.php` | Sidebar workspace→service→endpoint tree | FR-TWIG-001 |
 | `Service/HistorySanitizer.php` | Redacts secrets/PII from history URL, headers and bodies before persistence | FR-OBS-001 |
 | `Service/WorkspaceEnvironmentInitializer.php` | Seeds a new workspace with the configured `environments` (first = default) | FR-CFG-001, FR-ORM-003 |
+| `Service/ResponseBodyReader.php` | Response body read within `execution_max_response_bytes` (REST, SOAP, WSDL) | FR-EXEC-001, FR-EXEC-003 |
 | `Service/EndpointTesterFormFactory.php` | Builds the request console form view (environment, method, URL, body, scripts, params, headers) | FR-FORM-001, FR-EXEC-001 |
 
 ## Services — ImportExport (`src/Service/ImportExport/`)
@@ -261,7 +262,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | Controllers | 12 | 12 |
 | Forms | 11 | 11 |
 | Models | 2 | 2 |
-| Services — core | 12 | 12 |
+| Services — core | 13 | 13 |
 | Services — ImportExport | 7 | 7 |
 | Security | 5 | 5 |
 | CLI commands | 2 | 2 |
@@ -273,8 +274,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | TypeScript source | 7 | 7 |
 | Public assets — built | 6 | 6 |
 | Twig views | 27 | 27 |
-| **Total production sources** | **137** | **137** |
+| **Total production sources** | **138** | **138** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `git ls-files src | wc -l` → **137** (2026-10-30).
+Audit command (production count): `git ls-files src | wc -l` → **138** (2026-10-30).

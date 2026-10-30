@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Nowo\ApiStudioBundle\Service\ResponseBodyReader;
 use RuntimeException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -59,6 +60,7 @@ final class GuardedWsdlLoader
         private readonly int $timeoutSeconds,
         private readonly int $maxRedirects,
         private readonly array $headers = [],
+        private readonly int $maxResponseBytes = ResponseBodyReader::DEFAULT_MAX_BYTES,
     ) {
     }
 
@@ -133,7 +135,7 @@ final class GuardedWsdlLoader
         }
 
         $document = new DOMDocument();
-        if ($document->loadXML($response->getContent(), LIBXML_NONET) === false) {
+        if ($document->loadXML(ResponseBodyReader::read($this->httpClient, $response, $this->maxResponseBytes), LIBXML_NONET) === false) {
             throw new RuntimeException('WSDL document is not valid XML.');
         }
 
@@ -166,7 +168,7 @@ final class GuardedWsdlLoader
     /**
      * Lower-cased `scheme://host:port` (default port filled in), or null for URLs without scheme/host.
      */
-    private static function origin(string $url): ?string
+    public static function origin(string $url): ?string
     {
         $parts = parse_url($url);
         if (!isset($parts['host'], $parts['scheme'])) {

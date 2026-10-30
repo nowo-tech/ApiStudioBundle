@@ -16,6 +16,7 @@ use function is_array;
 use function json_decode;
 use function json_encode;
 use function sprintf;
+use function str_repeat;
 
 /**
  * JSON endpoints used by the request console: saved request / response examples, environment variable sync and
@@ -203,6 +204,24 @@ final class StudioJsonEndpointsTest extends StudioWebTestCase
 
         $this->post($url, 'forged', ['locale' => 'en']);
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testOverlongNamesAndTitlesAreRejectedNotStored(): void
+    {
+        // BW audit I4: VARCHAR overflow answers 400, never a DB error.
+        $data = $this->post($this->endpointUrl('/examples/request', $this->ids['endpoint']), $this->tokens['examples'], ['name' => str_repeat('n', 129)]);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('128 characters', (string) ($data['error'] ?? ''));
+
+        $this->post($this->endpointUrl('/examples/response', $this->ids['endpoint']), $this->tokens['examples'], ['name' => str_repeat('n', 129)]);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->post($this->endpointUrl('/examples/request', $this->ids['endpoint']), $this->tokens['examples'], ['name' => str_repeat('n', 128)]);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->post($this->endpointUrl('/documentation'), $this->tokens['doc'], ['locale' => 'en', 'title' => str_repeat('t', 256)]);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('255 characters', (string) ($data['error'] ?? ''));
     }
 
     /**

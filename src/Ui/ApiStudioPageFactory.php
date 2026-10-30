@@ -158,7 +158,22 @@ final readonly class ApiStudioPageFactory
             $back,
             $form,
             $workspace instanceof ApiWorkspace && $deleteForm instanceof FormView
-                ? $this->deleteAction($this->url('nowo_api_studio_workspace_delete', ['id' => $workspace->getId()]), $deleteForm, 'api-studio-workspace-delete')
+                ? new Action(
+                    'delete',
+                    ApiStudioPages::label('action.delete'),
+                    $this->url('nowo_api_studio_workspace_delete', ['id' => $workspace->getId()]),
+                    method: 'POST',
+                    confirm: new Confirm(
+                        ApiStudioPages::label('workspace.delete_title'),
+                        ApiStudioPages::label('workspace.delete_warning', ['%name%' => $workspace->getName()]),
+                        ApiStudioPages::label('action.delete'),
+                        cancelLabel: ApiStudioPages::label('action.cancel'),
+                        expectedValue: $workspace->getName(),
+                        expectedLabel: ApiStudioPages::label('service.delete_confirm_label', ['%name%' => $workspace->getName()]),
+                    ),
+                    attributes: ['data-testid' => 'api-studio-workspace-delete'],
+                    form: $deleteForm,
+                )
                 : null,
             'api-studio-workspace-form',
         );

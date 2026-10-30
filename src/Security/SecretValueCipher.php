@@ -43,9 +43,14 @@ final class SecretValueCipher
         return str_starts_with($value, self::PREFIX);
     }
 
+    /**
+     * Encrypts a value. A value that already is a payload of this key (the entity value between the flush hooks) is
+     * returned as is; any other value — including user input that merely starts with the prefix — is encrypted, so
+     * nothing is ever stored in clear and every stored value decrypts.
+     */
     public function encrypt(string $plaintext): string
     {
-        if ($this->isEncrypted($plaintext)) {
+        if ($this->isEncrypted($plaintext) && $this->tryDecrypt($plaintext) !== null) {
             return $plaintext;
         }
 
@@ -54,6 +59,18 @@ final class SecretValueCipher
         $payload = base64_encode($nonce . $cipher);
 
         return self::PREFIX . $payload;
+    }
+
+    /**
+     * Decrypted value, null when the value is not a valid payload of this key.
+     */
+    public function tryDecrypt(string $stored): ?string
+    {
+        try {
+            return $this->decrypt($stored);
+        } catch (RuntimeException) {
+            return null;
+        }
     }
 
     public function decrypt(string $stored): string

@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\DependencyInjection;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -16,7 +17,9 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 use function array_key_exists;
 use function is_array;
+use function is_bool;
 use function is_string;
+use function sprintf;
 use function trigger_deprecation;
 
 /**
@@ -155,6 +158,39 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
+     * Security switches must be literal booleans: an `%env()%` placeholder is a non-empty string at compile time, so
+     * it would be read as `true` whatever the variable says at runtime (fail open). `security.allow_unauthenticated`
+     * is a dev / demo switch: refused unless `kernel.debug` is true and never in the `prod` environment.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function assertSecurityFlags(array $config, ContainerBuilder $container): void
+    {
+        /** @var array<string, mixed> $security */
+        $security = $config['security'];
+        $flags    = [
+            'enabled'                          => $config['enabled'],
+            'security.allow_unauthenticated'   => $security['allow_unauthenticated'],
+            'execution_url_allowlist_required' => $config['execution_url_allowlist_required'],
+        ];
+        foreach ($flags as $name => $value) {
+            if (!is_bool($value)) {
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.%s must be a literal boolean (true or false); environment variable placeholders are not supported for security switches.', $name));
+            }
+        }
+
+        if ($security['allow_unauthenticated'] !== true) {
+            return;
+        }
+
+        $debug       = $container->hasParameter('kernel.debug') && $container->getParameter('kernel.debug') === true;
+        $environment = $container->hasParameter('kernel.environment') ? $container->getParameter('kernel.environment') : null;
+        if (!$debug || $environment === 'prod') {
+            throw new InvalidConfigurationException('nowo_api_studio.security.allow_unauthenticated: true is for development and demos only: it requires kernel.debug and is refused in the prod environment. Configure security.access_roles (or an access_checker) instead.');
+        }
+    }
+
+    /**
      * The deprecated `ui.css_framework` of the host configuration, null when not set.
      */
     private function legacyCssFramework(ContainerBuilder $container): ?string
@@ -171,6 +207,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $loader->load('services.yaml');
 
         $config = $this->processConfiguration(new Configuration(), $configs);
+        $this->assertSecurityFlags($config, $container);
 
         $container->setParameter(Configuration::ALIAS . '.enabled', $config['enabled']);
         $container->setParameter(Configuration::ALIAS . '.environments', $config['environments']);
@@ -194,6 +231,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist', $config['execution_url_allowlist']);
         $container->setParameter(Configuration::ALIAS . '.execution_url_allowlist_required', $config['execution_url_allowlist_required']);
         $container->setParameter(Configuration::ALIAS . '.execution_max_redirects', $config['execution_max_redirects']);
+        $container->setParameter(Configuration::ALIAS . '.execution_max_response_bytes', $config['execution_max_response_bytes']);
         $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(

@@ -28,6 +28,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 use function is_array;
 use function is_string;
+use function mb_strlen;
 
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints', name: 'nowo_api_studio_endpoint_')]
 final class ApiEndpointController extends AbstractController
@@ -197,6 +198,9 @@ final class ApiEndpointController extends AbstractController
 
         $title       = isset($payload['title']) ? trim((string) $payload['title']) : '';
         $description = isset($payload['description']) ? trim((string) $payload['description']) : '';
+        if (mb_strlen($title) > 255) {
+            return new JsonResponse(['error' => 'Title is longer than 255 characters.'], Response::HTTP_BAD_REQUEST);
+        }
 
         $translation = $endpoint->getTranslation($locale);
         if (!$translation instanceof ApiEndpointTranslation) {
