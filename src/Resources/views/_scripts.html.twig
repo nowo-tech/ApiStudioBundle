@@ -1,0 +1,8 @@
+{#
+  Api Studio scripts, stacked after the UiKit runtimes in nowo_ui_scripts ({{ parent() }} first); deferred, with the
+  request attribute csp_nonce when set. Optional: scripts (list of asset names, default the shell only).
+#}
+{% set _nonce = app.request ? app.request.attributes.get('csp_nonce') : null %}
+{% for _script in scripts|default(['api-studio-shell.js']) %}
+    <script src="{{ asset(_script, 'nowo_api_studio') }}" defer{% if _nonce %} nonce="{{ _nonce }}"{% endif %}></script>
+{% endfor %}

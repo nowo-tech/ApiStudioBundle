@@ -1,31 +1,12 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{#
+  Environment create / edit (REQ-UI-003): UiKit form scaffold. Variable: page (View\FormPage from
+  ApiStudioPageFactory::environmentForm(): header page.new_environment / page.edit_environment with breadcrumbs and a back
+  link; ApiEnvironmentFormType; Save / Cancel; on edit the delete zone (CSRF-only POST behind the UiKit confirm
+  dialog)). Blocks filled: nowo_ui_styles (the form body is the scaffold's REQ-TWIG-003 child loop).
+#}
+{% extends '@NowoUiKit/page/form.html.twig' %}
 
-{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }} · {{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-form-panel">
-        {{ form_start(form, {attr: {class: 'as-form'}}) }}
-        {{ form_errors(form) }}
-        {% for child in form %}
-            {% if not child.rendered %}
-                {{ form_row(child) }}
-            {% endif %}
-        {% endfor %}
-        <div class="as-form-actions">
-            <button type="submit" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
-            <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-        </div>
-        {{ form_end(form) }}
-    </div>
-    {% if environment is defined and environment.id %}
-        {{ include('@NowoApiStudioBundle/_delete_confirm.html.twig', {
-            id: 'environment-delete-confirm',
-            action: path('nowo_api_studio_environment_delete', {workspaceId: workspace.id, id: environment.id}),
-            csrf_token_id: 'delete' ~ environment.id,
-        }, with_context: false) }}
-    {% endif %}
-</div>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}

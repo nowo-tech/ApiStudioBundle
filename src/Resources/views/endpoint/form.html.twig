@@ -1,51 +1,45 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
-{% set as_active_service = service.id %}
+{#
+  Endpoint create / edit (REQ-UI-003): UiKit form scaffold. Variable: page (View\FormPage from
+  ApiStudioPageFactory::endpointForm(): header page.new_endpoint / page.edit_endpoint with breadcrumbs and a back
+  link; ApiEndpointFormType; Save / Cancel; on edit the delete zone behind the UiKit confirm dialog).
+  Also: enabledLocales, currentLocale.
+  Blocks filled: nowo_ui_styles, nowo_ui_scripts, nowo_ui_form_body (child loop without translations, then the
+  documentation per locale through the FormKit locale tabs).
+#}
+{% extends '@NowoUiKit/page/form.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ service.name }} · {{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
+{% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-form-panel">
-        {{ form_start(form, {attr: {class: 'as-form'}}) }}
-        {% for child in form %}
-            {% if not child.rendered and child.vars.name != 'translations' %}
-                {{ form_row(child) }}
-            {% endif %}
-        {% endfor %}
-
-        <fieldset class="as-form-section as-translations-section">
-            <legend class="as-form-section-title">{{ 'endpoint.translations'|trans({}, 'NowoApiStudioBundle') }}</legend>
-            <p class="as-hint">{{ 'endpoint.doc_tabs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+{% block nowo_ui_form_body %}
+    {% for child in form %}
+        {% if not child.rendered and child.vars.name != 'translations' %}
+            {{ form_row(child) }}
+        {% endif %}
+    {% endfor %}
+    {% if form.translations is defined %}
+        <fieldset class="as-app as-form-section as-translations-section">
+            <legend class="as-form-section-title">{{ 'endpoint.translations'|trans }}</legend>
+            <p class="{{ nowo_ui_class('muted', page.bundle) }}">{{ 'endpoint.doc_tabs_hint'|trans }}</p>
             {{ form_errors(form.translations) }}
             {% set _locale_labels = {} %}
             {% for locale in enabledLocales %}
-                {% set _locale_labels = _locale_labels|merge({(locale): ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle')}) %}
+                {% set _locale_labels = _locale_labels|merge({(locale): ('locale.' ~ locale)|trans}) %}
             {% endfor %}
             {# FormKit locale tabs (mode entries) through the UiKit locale_tabs partial. #}
             {{ include('@NowoFormKitBundle/form/_locale_tabs.html.twig', form.translations.vars.locale_tabs|default({})|merge({
                 field: form.translations,
                 tabs_id: 'endpoint-form-locale',
                 active_locale: currentLocale,
-                tabs_label: 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle'),
+                tabs_label: 'endpoint.doc_languages'|trans,
                 testid: 'endpoint-form-locale-tabs',
                 locale_labels: _locale_labels,
             }), with_context: false) }}
+            {# The tabs render the translation fields: keep form_end from printing the rest again. #}
+            {% do form.translations.setRendered %}
         </fieldset>
-
-        <div class="as-form-actions">
-            <button type="submit" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
-            <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-        </div>
-        {{ form_end(form, {render_rest: false}) }}
-    </div>
-    {% if endpoint is defined and endpoint.id %}
-        {{ include('@NowoApiStudioBundle/_delete_confirm.html.twig', {
-            id: 'endpoint-delete-confirm',
-            action: path('nowo_api_studio_endpoint_delete', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}),
-            csrf_token_id: 'delete' ~ endpoint.id,
-        }, with_context: false) }}
     {% endif %}
-</div>
 {% endblock %}

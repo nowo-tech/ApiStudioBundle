@@ -566,14 +566,13 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
   const i18nDelete = root.dataset.i18nDelete ?? 'Delete';
   const i18nEmptyRequest = root.dataset.i18nEmptyRequest ?? '—';
   const i18nEmptyResponse = root.dataset.i18nEmptyResponse ?? '—';
-  const i18nConfirmDelete = root.dataset.i18nConfirmDelete ?? 'Delete this example?';
   const i18nSaveRequestTitle = root.dataset.i18nSaveRequestTitle ?? 'Save request example';
   let pendingSaveType: 'request' | 'response' | null = null;
   let lastResponseSnapshot: ResponseSnapshot | null = null;
 
   function closeModal(): void {
-    if (modal) {
-      modal.hidden = true;
+    if (modal instanceof HTMLDialogElement && modal.open) {
+      modal.close();
     }
     pendingSaveType = null;
   }
@@ -586,13 +585,16 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
     pendingSaveType = type;
     modalTitle.textContent = title;
     nameInput.value = defaultName;
-    modal.hidden = false;
+    if (modal instanceof HTMLDialogElement && !modal.open) {
+      modal.showModal();
+    }
     nameInput.focus();
     nameInput.select();
   }
 
-  modal?.querySelectorAll('[data-modal-close]').forEach((el) => {
-    el.addEventListener('click', closeModal);
+  // UiKit closes the dialog ([data-nowo-ui-dialog-close], Escape, backdrop): forget the pending save then.
+  modal?.addEventListener('close', () => {
+    pendingSaveType = null;
   });
 
   saveModalBtn?.addEventListener('click', async () => {
@@ -615,10 +617,8 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
 
   nameInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       saveModalBtn?.click();
-    }
-    if (e.key === 'Escape') {
-      closeModal();
     }
   });
 
@@ -643,11 +643,14 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
       '<div class="as-example-item-head">' +
       '<strong></strong>' +
       '<span class="as-example-actions">' +
-      `<button type="button" class="as-btn as-btn-ghost as-example-load">${i18nLoad}</button>` +
-      `<button type="button" class="as-btn as-btn-ghost as-example-delete">${i18nDelete}</button>` +
+      '<button type="button" class="as-btn as-btn-ghost as-example-load"></button>' +
+      '<button type="button" class="as-btn as-btn-ghost as-example-delete"></button>' +
       '</span></div>' +
       (example.body ? '<pre class="as-example-snippet"></pre>' : '');
     div.querySelector('strong')!.textContent = example.name;
+    // Translated labels are text, never markup.
+    div.querySelector('.as-example-load')!.textContent = i18nLoad;
+    div.querySelector('.as-example-delete')!.textContent = i18nDelete;
     const pre = div.querySelector('.as-example-snippet');
     if (pre) {
       pre.textContent = truncateSnippet(example.body);
@@ -678,11 +681,12 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
       '<strong></strong>' +
       '<span class="as-method as-method-default"></span>' +
       '<span class="as-example-actions">' +
-      `<button type="button" class="as-btn as-btn-ghost as-example-delete">${i18nDelete}</button>` +
+      '<button type="button" class="as-btn as-btn-ghost as-example-delete"></button>' +
       '</span></div>' +
       (example.response_body ? '<pre class="as-example-snippet"></pre>' : '');
     div.querySelector('strong')!.textContent = example.name;
     div.querySelector('.as-method')!.textContent = String(example.status_code);
+    div.querySelector('.as-example-delete')!.textContent = i18nDelete;
     const pre = div.querySelector('.as-example-snippet');
     if (pre) {
       pre.textContent = truncateSnippet(example.response_body);
@@ -818,7 +822,7 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
     }
 
     if (target.closest('.as-example-delete')) {
-      void deleteExample('request', item);
+      deleteExample('request', item);
     }
   });
 
@@ -829,14 +833,38 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
       return;
     }
 
-    void deleteExample('response', item);
+    deleteExample('response', item);
   });
 
-  async function deleteExample(type: 'request' | 'response', item: HTMLElement): Promise<void> {
-    if (!confirm(i18nConfirmDelete)) {
+  // Delete goes through the UiKit confirm <dialog> (no window.confirm: strict CSP / page contract).
+  const deleteDialog = document.getElementById('tester-example-delete-modal');
+  let pendingDelete: { type: 'request' | 'response'; item: HTMLElement } | null = null;
+
+  function deleteExample(type: 'request' | 'response', item: HTMLElement): void {
+    if (!(deleteDialog instanceof HTMLDialogElement)) {
       return;
     }
+    pendingDelete = { type, item };
+    if (!deleteDialog.open) {
+      deleteDialog.showModal();
+    }
+  }
 
+  deleteDialog?.addEventListener('close', () => {
+    pendingDelete = null;
+  });
+
+  document.getElementById('tester-example-delete-confirm')?.addEventListener('click', () => {
+    const pending = pendingDelete;
+    if (deleteDialog instanceof HTMLDialogElement && deleteDialog.open) {
+      deleteDialog.close();
+    }
+    if (pending) {
+      void performDeleteExample(pending.type, pending.item);
+    }
+  });
+
+  async function performDeleteExample(type: 'request' | 'response', item: HTMLElement): Promise<void> {
     const id = item.dataset.exampleId;
     const template = type === 'request' ? deleteRequestTemplate : deleteResponseTemplate;
     if (!template || !id) {
@@ -1065,6 +1093,25 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       sendButton.disabled = false;
       sendButton.textContent = sendLabel;
+    }
+  });
+});
+
+// Response panel tabs (body / headers / console).
+document.querySelectorAll<HTMLButtonElement>('[data-response-tab]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const name = tab.getAttribute('data-response-tab');
+    document.querySelectorAll('[data-response-tab]').forEach((t) => {
+      t.classList.toggle('is-active', t === tab);
+    });
+    document.querySelectorAll<HTMLElement>('[data-response-panel]').forEach((panel) => {
+      const active = panel.getAttribute('data-response-panel') === name;
+      panel.classList.toggle('is-active', active);
+      panel.hidden = !active;
+    });
+    const responseToolbar = document.querySelector<HTMLElement>('.as-response-body-toolbar');
+    if (responseToolbar) {
+      responseToolbar.hidden = name !== 'body';
     }
   });
 });

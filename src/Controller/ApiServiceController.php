@@ -19,6 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '/workspaces/{workspaceId}/services', name: 'nowo_api_studio_service_')]
 final class ApiServiceController extends AbstractController
 {
+    use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
 
     public function __construct(
@@ -34,9 +35,8 @@ final class ApiServiceController extends AbstractController
     {
         $workspace = $this->requireWorkspace($workspaceId);
 
-        return $this->render('@NowoApiStudioBundle/service/index.html.twig', [
-            'workspace' => $workspace,
-            'services'  => $workspace->getServices(),
+        return $this->renderPage('@NowoApiStudioBundle/service/index.html.twig', [
+            'page' => $this->pages()->serviceIndex($workspace, $workspace->getServices()),
         ]);
     }
 
@@ -54,7 +54,7 @@ final class ApiServiceController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($service);
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.created');
+            $this->flash('success', 'flash.created');
 
             return $this->redirectToRoute('nowo_api_studio_service_show', [
                 'workspaceId' => $workspaceId,
@@ -62,11 +62,9 @@ final class ApiServiceController extends AbstractController
             ]);
         }
 
-        return $this->render('@NowoApiStudioBundle/service/form.html.twig', [
-            'form'      => $form,
-            'title'     => 'page.new_service',
-            'workspace' => $workspace,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/service/form.html.twig', [
+            'page' => $this->pages()->serviceForm($workspace, null, $form->createView()),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}', name: 'show', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET'])]
@@ -75,7 +73,8 @@ final class ApiServiceController extends AbstractController
         $workspace = $this->requireWorkspace($workspaceId);
         $service   = $this->requireService($id, $workspace);
 
-        return $this->render('@NowoApiStudioBundle/service/show.html.twig', [
+        return $this->renderPage('@NowoApiStudioBundle/service/show.html.twig', [
+            'page'            => $this->pages()->serviceShow($workspace, $service),
             'workspace'       => $workspace,
             'service'         => $service,
             'variableCatalog' => $this->environmentContextBuilder->buildVariableCatalog($workspace),
@@ -93,7 +92,7 @@ final class ApiServiceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.updated');
+            $this->flash('success', 'flash.updated');
 
             return $this->redirectToRoute('nowo_api_studio_service_show', [
                 'workspaceId' => $workspaceId,
@@ -101,12 +100,19 @@ final class ApiServiceController extends AbstractController
             ]);
         }
 
-        return $this->render('@NowoApiStudioBundle/service/form.html.twig', [
-            'form'      => $form,
-            'title'     => 'page.edit_service',
-            'workspace' => $workspace,
-            'service'   => $service,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/service/form.html.twig', [
+            'page' => $this->pages()->serviceForm(
+                $workspace,
+                $service,
+                $form->createView(),
+                $this->csrfOnlyForm(
+                    $this->generateUrl('nowo_api_studio_service_delete', ['workspaceId' => $workspaceId, 'id' => $id]),
+                    'delete' . $id,
+                    // The UiKit confirm dialog asks for the name (type-to-confirm); the controller checks it again.
+                    ['confirmation' => $service->getName()],
+                ),
+            ),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
@@ -122,14 +128,14 @@ final class ApiServiceController extends AbstractController
 
         $confirmation = trim((string) $request->request->get('confirmation'));
         if ($confirmation !== $service->getName()) {
-            $this->addFlash('error', 'service.delete_confirmation_mismatch');
+            $this->flash('error', 'service.delete_confirmation_mismatch');
 
             return $this->redirect($this->resolveDeleteRedirect($request, $workspaceId));
         }
 
         $this->entityManager->remove($service);
         $this->entityManager->flush();
-        $this->addFlash('success', 'flash.deleted');
+        $this->flash('success', 'flash.deleted');
 
         return $this->redirect($this->resolveDeleteRedirect($request, $workspaceId));
     }

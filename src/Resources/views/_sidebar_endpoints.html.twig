@@ -1,3 +1,4 @@
+{# Endpoints (and their saved requests) of one service in the API tree. Variables: svc (tree node), active_ep. #}
                         {% for ep in svc.endpoints %}
                             {% set ep_search = (ep.name ~ ' ' ~ ep.method)|lower %}
                             {% for ex in ep.request_examples %}
@@ -28,7 +29,7 @@
                                     <div class="as-tree-use-cases"{% if active_ep != ep.id %} hidden{% endif %}>
                                         {% for ex in ep.request_examples %}
                                             <a href="{{ ex.url }}"
-                                               class="as-tree-use-case{% if app.request.query.get('request_example') == ex.id %} is-active{% endif %}">
+                                               class="as-tree-use-case{% if app.request and app.request.query.get('request_example') == ex.id %} is-active{% endif %}">
                                                 {{ ex.name }}
                                             </a>
                                         {% endfor %}

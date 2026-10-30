@@ -1,0 +1,19 @@
+{#
+  Api Studio workbench (bundle-specific content of the dashboard / show scaffolds): the API tree (workspaces >
+  services > endpoints > saved requests) beside the page content. Embed it and fill as_workbench_main:
+
+      {% embed '@NowoApiStudioBundle/_workbench.html.twig' with {bundle: page.bundle, nav_active: {workspace: id}} %}
+          {% block as_workbench_main %}…{% endblock %}
+      {% endembed %}
+
+  Optional: nav_active ({workspace, service, endpoint} ids of the open branch), bundle (theme exceptions).
+#}
+{% set bundle = bundle|default(null) %}
+<div class="as-app as-workbench" data-testid="api-studio-workbench">
+    <div class="as-workbench__aside">
+        {{ include('@NowoApiStudioBundle/_sidebar_tree.html.twig', {nav_active: nav_active|default({}), bundle: bundle}, false) }}
+    </div>
+    <div class="as-workbench__main">
+        {% block as_workbench_main %}{% endblock %}
+    </div>
+</div>

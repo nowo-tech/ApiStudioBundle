@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Service\ImportExport;
 
-use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
-
-use function is_array;
 
 /**
  * Exports environment variables to JSON, YAML, or .env format.
@@ -67,81 +64,56 @@ final class EnvironmentVariableExporter
 
     public function render(ApiEnvironment $environment, string $format): string
     {
+        if ($format === 'env') {
+            return $this->toDotEnv([$environment], false);
+        }
+
         return $this->renderData($this->exportEnvironment($environment), $format);
     }
 
     public function renderWorkspace(ApiWorkspace $workspace, string $format): string
     {
+        if ($format === 'env') {
+            return $this->toDotEnv($workspace->getEnvironments(), true);
+        }
+
         return $this->renderData($this->exportWorkspace($workspace), $format);
     }
 
     /** @param array<string, mixed> $data */
     private function renderData(array $data, string $format): string
     {
-        return match ($format) {
-            'yaml'  => $this->parser->encodeYaml($data),
-            'env'   => $this->toDotEnv($data),
-            default => $this->parser->encodeJson($data),
-        };
-    }
-
-    /** @param array<string, mixed> $data */
-    private function toDotEnv(array $data): string
-    {
-        $lines = ['# API Studio environment export'];
-        if (isset($data['environment']) && is_array($data['environment'])) {
-            $lines[] = '# Environment: ' . ($data['environment']['name'] ?? 'unknown');
-        }
-
-        $variables = $data['variables'] ?? [];
-        if (!is_array($variables) && isset($data['environments']) && is_array($data['environments'])) {
-            foreach ($data['environments'] as $environment) {
-                if (!is_array($environment)) {
-                    continue;
-                }
-                $lines[] = '';
-                $lines[] = '# ' . ($environment['environment']['name'] ?? 'environment');
-                foreach ($environment['variables'] ?? [] as $variable) {
-                    if (!is_array($variable)) {
-                        continue;
-                    }
-                    $lines = array_merge($lines, $this->dotEnvLines($variable));
-                }
-            }
-
-            return implode("\n", $lines) . "\n";
-        }
-
-        foreach ($variables as $variable) {
-            if (!is_array($variable)) {
-                continue;
-            }
-            $lines = array_merge($lines, $this->dotEnvLines($variable));
-        }
-
-        return implode("\n", $lines) . "\n";
+        return $format === 'yaml' ? $this->parser->encodeYaml($data) : $this->parser->encodeJson($data);
     }
 
     /**
-     * @param array<string, mixed> $variable
+     * .env lines built from the entities: one block per environment (headed by its name when the whole workspace is
+     * exported), each variable as KEY=value (key upper-cased, dots and dashes as underscores) after its description.
      *
-     * @return list<string>
+     * @param iterable<ApiEnvironment> $environments
      */
-    private function dotEnvLines(array $variable): array
+    private function toDotEnv(iterable $environments, bool $workspace): string
     {
-        try {
-            $normalized = VariableSyntax::normalizeKey((string) ($variable['key'] ?? ''));
-        } catch (InvalidArgumentException) {
-            $normalized = (string) ($variable['key'] ?? '');
+        $lines = ['# API Studio environment export'];
+        foreach ($environments as $environment) {
+            if ($workspace) {
+                $lines[] = '';
+                $lines[] = '# ' . $environment->getName();
+            } else {
+                $lines[] = '# Environment: ' . $environment->getName();
+            }
+
+            foreach ($environment->getVariables() as $variable) {
+                $description = $variable->getDescription();
+                if ($description !== null && $description !== '') {
+                    $lines[] = '# ' . $description;
+                }
+                $key     = strtoupper(str_replace(['.', '-'], '_', $variable->getVariableKey()));
+                $lines[] = $key . '=' . $this->escapeEnvValue($variable->getValue());
+            }
         }
 
-        $key   = strtoupper(str_replace(['.', '-'], '_', $normalized));
-        $value = (string) ($variable['value'] ?? '');
-        if (isset($variable['description']) && $variable['description'] !== '') {
-            return ['# ' . $variable['description'], $key . '=' . $this->escapeEnvValue($value)];
-        }
-
-        return [$key . '=' . $this->escapeEnvValue($value)];
+        return implode("\n", $lines) . "\n";
     }
 
     private function escapeEnvValue(string $value): string

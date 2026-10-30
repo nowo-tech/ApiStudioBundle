@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-10-20
+**Last audited**: 2026-10-30
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -80,6 +80,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ImportExportController.php` | Import/export hub and actions | FR-CTRL-001, FR-IMP-001 |
 | `Controller/ApiExecuteController.php` | In-browser request execution API | FR-CTRL-001, FR-EXEC-001 |
 | `Controller/LocaleController.php` | Locale switcher route | FR-CTRL-001, FR-I18N-001 |
+| `Controller/ApiStudioPageTrait.php` | Page factory, rendering with the shared page variables, translated flashes, CSRF-only delete forms of the confirm contract | FR-CTRL-001, FR-UI-003 |
+| `Controller/CsrfOnlyFormValidationTrait.php` | Validates CSRF-only POSTs (delete buttons) through `CsrfOnlyType` | FR-CTRL-001, FR-SEC-001 |
 
 ## Forms (`src/Form/`)
 
@@ -93,6 +95,9 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Form/ApiEnvironmentVariableFormType.php` | Environment variable row (key, value, secret flag) | FR-FORM-001, FR-SEC-002 |
 | `Form/JsonMapType.php` | Key/value JSON map field | FR-FORM-001 |
 | `Form/ImportFileFormType.php` | OpenAPI/Postman upload form | FR-FORM-001, FR-IMP-001 |
+| `Form/ClientSideFieldsType.php` | Unmapped client-side controls (tree filter, format radios) rendered as form views | FR-FORM-001 |
+| `Form/CsrfOnlyType.php` | Root-less CSRF-only POST form (flat `_token`) for deletes | FR-FORM-001, FR-SEC-001 |
+| `Form/KeyValueRowType.php` | Header / query parameter row of the request console | FR-FORM-001, FR-EXEC-004 |
 
 ## Models (`src/Model/`)
 
@@ -116,6 +121,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Service/StudioNavigationProvider.php` | Sidebar workspace→service→endpoint tree | FR-TWIG-001 |
 | `Service/HistorySanitizer.php` | Redacts secrets/PII from history URL, headers and bodies before persistence | FR-OBS-001 |
 | `Service/WorkspaceEnvironmentInitializer.php` | Seeds a new workspace with the configured `environments` (first = default) | FR-CFG-001, FR-ORM-003 |
+| `Service/EndpointTesterFormFactory.php` | Builds the request console form view (environment, method, URL, body, scripts, params, headers) | FR-FORM-001, FR-EXEC-001 |
 
 ## Services — ImportExport (`src/Service/ImportExport/`)
 
@@ -153,11 +159,19 @@ This file proves that **every production source artifact** under `src/` is refer
 | `EventListener/LocaleSubscriber.php` | Request locale from session/config | FR-I18N-001 |
 | `EventListener/EntityManagerRecoverySubscriber.php` | Resets a closed Api Studio entity manager at request start (worker mode) | FR-ORM-003 |
 
-## Twig extension (`src/Twig/`)
+## Twig extensions (`src/Twig/`)
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Twig/ApiStudioExtension.php` | Nav globals, method CSS, variable helpers | FR-TWIG-001 |
+| `Twig/ApiStudioExtension.php` | Nav tree, locales / layout globals, method CSS, variable helpers | FR-TWIG-001 |
+| `Twig/ApiStudioFormsExtension.php` | Form views for templates: CSRF-only form, tree filter, service dialog forms | FR-TWIG-001, FR-FORM-001 |
+
+## UiKit page contract (`src/Ui/`)
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Ui/ApiStudioPages.php` | Layout resolution (`ui.layout_template` / `nowo_ui_kit.layouts.admin`), deprecated pre-1.10 layout bridge, labels | FR-UI-003, FR-CFG-001 |
+| `Ui/ApiStudioPageFactory.php` | UiKit view models of every page (headers, actions, breadcrumbs, rows, sections, delete zone) | FR-UI-003 |
 
 ## SOAP transport (`src/Soap/`)
 
@@ -184,7 +198,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
 | `Resources/assets/src/api-tester.ts` | In-browser request tester panel | FR-UI-001, FR-EXEC-001 |
-| `Resources/assets/src/api-studio-shell.ts` | Studio shell chrome and navigation | FR-UI-001 |
+| `Resources/assets/src/api-studio-shell.ts` | Workbench: API tree, service collections, service dialogs (UiKit `<dialog>`), console sub-tabs | FR-UI-001, FR-UI-003 |
 | `Resources/assets/src/api-body-tools.ts` | Request body editor helpers | FR-UI-001, FR-EXEC-004 |
 | `Resources/assets/src/api-script-runtime.ts` | Pre/post-request script runner | FR-UI-001 |
 | `Resources/assets/src/api-endpoint-doc.ts` | Endpoint documentation panel | FR-UI-001 |
@@ -200,23 +214,23 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/public/api-body-tools.js` | Built body-tools bundle | FR-UI-001 |
 | `Resources/public/api-script-runtime.js` | Built script-runtime bundle | FR-UI-001 |
 | `Resources/public/api-endpoint-doc.js` | Built endpoint-doc bundle | FR-UI-001 |
-| `Resources/public/api-studio-theme.css` | Studio theme stylesheet | FR-UI-002 |
+| `Resources/public/api-studio-theme.css` | Workbench / console stylesheet on the UiKit tokens | FR-UI-002 |
 
 ## Twig views (`src/Resources/views/`)
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Resources/views/layout.html.twig` | Base studio layout | FR-TWIG-001 |
-| `Resources/views/base.html.twig` | Page shell extending the configurable `layout_template` (REQ-UI-001) | FR-TWIG-001 |
-| `Resources/views/_delete_confirm.html.twig` | Delete button + UiKit confirm dialog (CSP-safe, CSRF token) | FR-TWIG-001, FR-SEC-001 |
-| `Resources/views/_sidebar_tree.html.twig` | Workspace/service sidebar tree | FR-TWIG-001 |
+| `Resources/views/_legacy_layout.html.twig` | Deprecated bridge around a pre-1.10 host layout | FR-UI-003 |
+| `Resources/views/_workbench.html.twig` | Workbench: API tree beside the page content | FR-TWIG-001, FR-UI-003 |
+| `Resources/views/_styles.html.twig` | Api Studio stylesheet tag (`nowo_ui_styles`) | FR-UI-003 |
+| `Resources/views/_scripts.html.twig` | Api Studio script tags (deferred, CSP nonce) | FR-UI-003 |
+| `Resources/views/_sidebar_tree.html.twig` | API tree (one query) and client-side filter | FR-TWIG-001 |
 | `Resources/views/_sidebar_endpoints.html.twig` | Endpoint list in sidebar | FR-TWIG-001 |
-| `Resources/views/_locale_switcher.html.twig` | Locale dropdown partial | FR-TWIG-001, FR-I18N-001 |
 | `Resources/views/_variable_catalog.html.twig` | Environment variable reference | FR-TWIG-001, FR-EXEC-002 |
 | `Resources/views/_endpoint_expandable_list.html.twig` | Collapsible endpoint list | FR-TWIG-001 |
 | `Resources/views/_service_collection_list.html.twig` | Service listing partial | FR-TWIG-001 |
-| `Resources/views/_service_kebab_menu.html.twig` | Service context menu | FR-TWIG-001 |
-| `Resources/views/_service_action_modals.html.twig` | Service action modals | FR-TWIG-001 |
+| `Resources/views/_service_kebab_menu.html.twig` | Service actions through the UiKit kebab | FR-TWIG-001, FR-UI-003 |
+| `Resources/views/_service_action_modals.html.twig` | Service export / import / type-to-confirm delete dialogs (UiKit `<dialog>`) | FR-TWIG-001, FR-UI-003 |
 | `Resources/views/dashboard/index.html.twig` | Dashboard overview | FR-TWIG-001 |
 | `Resources/views/workspace/index.html.twig` | Workspace index | FR-TWIG-001 |
 | `Resources/views/workspace/form.html.twig` | Workspace form | FR-TWIG-001, FR-FORM-001 |
@@ -244,22 +258,23 @@ This file proves that **every production source artifact** under `src/` is refer
 | Entities | 9 | 9 |
 | Enums | 3 | 3 |
 | Repositories | 9 | 9 |
-| Controllers | 10 | 10 |
-| Forms | 8 | 8 |
+| Controllers | 12 | 12 |
+| Forms | 11 | 11 |
 | Models | 2 | 2 |
-| Services — core | 11 | 11 |
+| Services — core | 12 | 12 |
 | Services — ImportExport | 7 | 7 |
 | Security | 5 | 5 |
 | CLI commands | 2 | 2 |
 | Event listeners | 2 | 2 |
-| Twig extension | 1 | 1 |
+| Twig extensions | 2 | 2 |
+| UiKit page contract | 2 | 2 |
 | SOAP transport | 3 | 3 |
 | Translations | 7 | 7 |
 | TypeScript source | 7 | 7 |
 | Public assets — built | 6 | 6 |
 | Twig views | 27 | 27 |
-| **Total production sources** | **128** | **128** |
+| **Total production sources** | **137** | **137** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `git ls-files src | wc -l` → **128** (2026-10-20).
+Audit command (production count): `git ls-files src | wc -l` → **137** (2026-10-30).

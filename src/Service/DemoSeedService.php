@@ -861,6 +861,9 @@ XML);
     }
 
     /**
+     * Existing endpoints are returned untouched; $configure (translations, examples) only runs on a new endpoint, so
+     * the add* helpers below never meet an existing translation or example.
+     *
      * @param callable(ApiEndpoint): void $configure
      */
     private function ensureEndpoint(ApiService $service, string $slug, callable $configure): ApiEndpoint
@@ -885,10 +888,6 @@ XML);
     private function addTranslations(ApiEndpoint $endpoint, array $locales): void
     {
         foreach ($locales as $locale => $data) {
-            if ($endpoint->getTranslation($locale) !== null) {
-                continue;
-            }
-
             $translation = new ApiEndpointTranslation($locale);
             $translation->setTitle($data['title'] ?? null);
             $translation->setDescription($data['description'] ?? null);
@@ -904,12 +903,6 @@ XML);
         ?string $body,
         array $headers = [],
     ): void {
-        foreach ($endpoint->getRequestExamples() as $example) {
-            if ($example->getName() === $name) {
-                return;
-            }
-        }
-
         $example = new ApiRequestExample($name);
         $example->setRequestBody($body);
         if ($headers !== []) {
@@ -925,12 +918,6 @@ XML);
         int $statusCode,
         string $body,
     ): void {
-        foreach ($endpoint->getResponseExamples() as $example) {
-            if ($example->getName() === $name) {
-                return;
-            }
-        }
-
         $example = new ApiResponseExample($name, $statusCode);
         $example->setResponseBody($body);
         $endpoint->addResponseExample($example);

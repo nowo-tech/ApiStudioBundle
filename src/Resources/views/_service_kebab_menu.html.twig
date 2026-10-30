@@ -1,56 +1,32 @@
-{# Kebab menu for a service collection. Requires service, workspace. #}
+{#
+  Service actions menu: the UiKit kebab partial. Export / Import open the shared dialogs of
+  _service_action_modals.html.twig (api-studio-shell.js fills them from the data-* attributes); Delete opens the
+  type-to-confirm dialog. Variables: service, workspace; optional delete_redirect (local path after the delete).
+#}
 {% set delete_redirect = delete_redirect|default(path('nowo_api_studio_workspace_show', {id: workspace.id})) %}
-<div class="as-kebab-menu" data-kebab-menu>
-    <button type="button"
-            class="as-kebab-btn"
-            data-kebab-toggle
-            aria-haspopup="menu"
-            aria-expanded="false"
-            title="{{ 'actions.more_options'|trans({}, 'NowoApiStudioBundle') }}">⋮</button>
-    <div class="as-kebab-panel" role="menu" hidden>
-        <button type="button"
-                class="as-kebab-item"
-                role="menuitem"
-                data-service-action="export"
-                data-service-name="{{ service.name|e('html_attr') }}"
-                data-export-openapi-url="{{ path('nowo_api_studio_io_export_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.export'|trans({}, 'NowoApiStudioBundle') }}
-        </button>
-        <button type="button"
-                class="as-kebab-item"
-                role="menuitem"
-                data-service-action="import"
-                data-service-name="{{ service.name|e('html_attr') }}"
-                data-import-openapi-url="{{ path('nowo_api_studio_io_import_openapi_service', {workspaceId: workspace.id, serviceId: service.id}) }}"
-                data-import-postman-url="{{ path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.import'|trans({}, 'NowoApiStudioBundle') }}
-        </button>
-        <span class="as-kebab-separator" role="separator"></span>
-        <a role="menuitem"
-           class="as-kebab-item"
-           href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}">
-            {{ 'action.open_service'|trans({}, 'NowoApiStudioBundle') }}
-        </a>
-        <a role="menuitem"
-           class="as-kebab-item"
-           href="{{ path('nowo_api_studio_endpoint_index', {workspaceId: workspace.id, serviceId: service.id}) }}">
-            {{ 'action.view_endpoints'|trans({}, 'NowoApiStudioBundle') }}
-        </a>
-        <a role="menuitem"
-           class="as-kebab-item"
-           href="{{ path('nowo_api_studio_service_edit', {workspaceId: workspace.id, id: service.id}) }}">
-            {{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}
-        </a>
-        <span class="as-kebab-separator" role="separator"></span>
-        <button type="button"
-                class="as-kebab-item as-kebab-item-danger"
-                role="menuitem"
-                data-service-action="delete"
-                data-service-name="{{ service.name|e('html_attr') }}"
-                data-delete-url="{{ path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}) }}"
-                data-delete-token="{{ csrf_token('delete' ~ service.id) }}"
-                data-delete-redirect="{{ delete_redirect|e('html_attr') }}">
-            {{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}
-        </button>
-    </div>
-</div>
+{{ include('@NowoUiKitBundle/partials/_kebab.html.twig', {
+    label: 'actions.more_options'|trans({}, 'NowoApiStudioBundle'),
+    items: [
+        {label: 'action.export'|trans({}, 'NowoApiStudioBundle'), href: '#as-service-export-modal', attr: {
+            'data-service-action': 'export',
+            'data-service-name': service.name,
+            'data-export-openapi-url': path('nowo_api_studio_io_export_openapi_service', {workspaceId: workspace.id, serviceId: service.id}),
+        }},
+        {label: 'action.import'|trans({}, 'NowoApiStudioBundle'), href: '#as-service-import-modal', attr: {
+            'data-service-action': 'import',
+            'data-service-name': service.name,
+            'data-import-openapi-url': path('nowo_api_studio_io_import_openapi_service', {workspaceId: workspace.id, serviceId: service.id}),
+            'data-import-postman-url': path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}),
+        }},
+        {label: 'action.open_service'|trans({}, 'NowoApiStudioBundle'), href: path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id})},
+        {label: 'action.view_endpoints'|trans({}, 'NowoApiStudioBundle'), href: path('nowo_api_studio_endpoint_index', {workspaceId: workspace.id, serviceId: service.id})},
+        {label: 'action.edit'|trans({}, 'NowoApiStudioBundle'), href: path('nowo_api_studio_service_edit', {workspaceId: workspace.id, id: service.id})},
+        {label: 'action.delete'|trans({}, 'NowoApiStudioBundle'), href: '#as-service-delete-modal', danger: true, attr: {
+            'data-service-action': 'delete',
+            'data-service-name': service.name,
+            'data-delete-url': path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}),
+            'data-delete-token': csrf_token('delete' ~ service.id),
+            'data-delete-redirect': delete_redirect,
+        }},
+    ],
+}, false) }}

@@ -52,6 +52,31 @@ final class TwigPathsPassTest extends TestCase
         rmdir($projectDir);
     }
 
+    public function testFollowsAliasChainToTheRealLoader(): void
+    {
+        $loader    = new Definition(FilesystemLoader::class);
+        $container = new ContainerBuilder();
+        $container->setDefinition('app.twig_loader', $loader);
+        $container->setAlias('twig.loader.decorated', 'app.twig_loader');
+        $container->setAlias('twig.loader.native', 'twig.loader.decorated');
+
+        (new TwigPathsPass())->process($container);
+
+        self::assertSame('addPath', $loader->getMethodCalls()[0][0]);
+    }
+
+    public function testAliasToMissingServiceFallsBackToNativeFilesystemLoader(): void
+    {
+        $fallback  = new Definition(FilesystemLoader::class);
+        $container = new ContainerBuilder();
+        $container->setAlias('twig.loader.native', 'missing.loader');
+        $container->setDefinition('twig.loader.native_filesystem', $fallback);
+
+        (new TwigPathsPass())->process($container);
+
+        self::assertSame('addPath', $fallback->getMethodCalls()[0][0]);
+    }
+
     public function testNoOpWhenTwigLoaderMissing(): void
     {
         $container = new ContainerBuilder();

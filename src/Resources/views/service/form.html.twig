@@ -1,35 +1,12 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{#
+  Service create / edit (REQ-UI-003): UiKit form scaffold. Variable: page (View\FormPage from
+  ApiStudioPageFactory::serviceForm(): header page.new_service / page.edit_service with breadcrumbs and a back
+  link; ApiServiceFormType; Save / Cancel; on edit the delete zone (CSRF-only POST with the service name behind the UiKit type-to-confirm
+  dialog)). Blocks filled: nowo_ui_styles (the form body is the scaffold's REQ-TWIG-003 child loop).
+#}
+{% extends '@NowoUiKit/page/form.html.twig' %}
 
-{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }} · {{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-form-panel">
-        {{ form_start(form, {attr: {class: 'as-form'}}) }}
-        {{ form_errors(form) }}
-        {% for child in form %}
-            {% if not child.rendered %}
-                {{ form_row(child) }}
-            {% endif %}
-        {% endfor %}
-        <div class="as-form-actions">
-            <button type="submit" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
-            <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-        </div>
-        {{ form_end(form) }}
-    </div>
-    {% if service is defined and service.id %}
-        {% set _delete_form = api_studio_csrf_form(path('nowo_api_studio_service_delete', {workspaceId: workspace.id, id: service.id}), 'delete' ~ service.id) %}
-        {{ form_start(_delete_form, {attr: {class: 'as-delete-form', onsubmit: "return confirm('" ~ ('confirm.delete'|trans({}, 'NowoApiStudioBundle')|e('js')) ~ "');"}}) }}
-            {% for child in _delete_form %}
-                {% if not child.rendered %}
-                    {{ form_row(child) }}
-                {% endif %}
-            {% endfor %}
-            <button type="submit" class="as-btn as-btn-danger">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-        {{ form_end(_delete_form) }}
-    {% endif %}
-</div>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}

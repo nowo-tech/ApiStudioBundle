@@ -1,34 +1,18 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{#
+  Import (REQ-UI-003): UiKit form scaffold. Variable: page (View\FormPage from ApiStudioPageFactory::import():
+  header = import title / import.help with breadcrumbs and a back link; ImportFileFormType (file, optional mode /
+  importVariables) as multipart; submit import.submit; cancel = the service, the environment or the hub).
+  Blocks filled: nowo_ui_styles, nowo_ui_form_body (the child loop without the form type's own submit button: the
+  scaffold renders the submit).
+#}
+{% extends '@NowoUiKit/page/form.html.twig' %}
 
-{% block title %}{{ title|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }}{% endblock %}
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
+{% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-form-panel">
-        <h1 style="margin:0 0 8px;font-size:18px">{{ title|trans({}, 'NowoApiStudioBundle') }}</h1>
-        <p class="as-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
-
-        {{ form_start(form, {attr: {class: 'as-form', enctype: 'multipart/form-data'}}) }}
-        {{ form_errors(form) }}
-        {# Fields (file, optional mode / importVariables) follow the FormType; the submit button stays in the actions bar. #}
-        {% for child in form %}
-            {% if not child.rendered and 'button' not in child.vars.block_prefixes %}
-                {{ form_row(child) }}
-            {% endif %}
-        {% endfor %}
-        <div class="as-form-actions">
-            {{ form_widget(form.submit) }}
-            {% if service is defined and service %}
-                <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-            {% elseif environment is defined and environment %}
-                <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-            {% else %}
-                <a href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</a>
-            {% endif %}
-        </div>
-        {{ form_end(form) }}
-    </div>
-</div>
+{% block nowo_ui_form_body %}
+    {% if form.submit is defined %}{% do form.submit.setRendered %}{% endif %}
+    {{ parent() }}
 {% endblock %}

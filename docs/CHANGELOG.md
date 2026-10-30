@@ -52,6 +52,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **UiKit page contract (REQ-UI-003).** Every page extends a UiKit scaffold (`page/dashboard`, `page/list`, `page/show`, `page/form`) fed by UiKit view models (`Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory`); the host themes them once in `nowo_ui_kit` (`layouts.admin`, `theme`, `css_framework`). Breadcrumbs, back links, KPI tiles, pagination, empty states, row actions and the delete zone come from UiKit. The API tree and the request console are the workbench content of the dashboard and show pages (`_workbench.html.twig`). Page contract test (`PageContractTestCase`, 28 fixtures). See [TEMPLATES.md](TEMPLATES.md).
+- `nowo_api_studio.ui.layout_template: null` (new default) = `nowo_ui_kit.layouts.admin`; a pre-1.10 layout (only `{% block body %}`) is wrapped in a deprecated bridge.
+- Translated labels for every editor field (workspace, service, endpoint, environment, variable) in the 7 catalogues; the FormKit `api_studio` profile only applies help / placeholder keys that exist (`convention_requires_translation`).
+
+### Changed
+
+- **No CDN, no own HTML shell:** the Tabler / Google Fonts layout (`layout.html.twig`, `base.html.twig`), the rail, the top bar, the theme toggle and the bundle locale menu are removed; the host (UiKit) layout owns the chrome, the UiKit theme owns light / dark. `api-studio-theme.css` maps its colours to the `--nowo-ui-*` tokens and only styles the workbench.
+- Deletes (workspace, service, endpoint, environment) go through the UiKit confirm contract (`<dialog>`; the service delete is type-to-confirm); the service export / import / delete modals and the save / delete example dialogs are UiKit native `<dialog>`s; the service menu is the UiKit kebab. No inline `onsubmit` / `confirm()` / inline script remains (strict CSP); deleting a saved example no longer uses `window.confirm()` and a documentation save error no longer uses `window.alert()`.
+- Flash messages are translated by the controllers (the UiKit layouts print them as given); invalid form submissions answer HTTP 422.
+- The FormKit `api_studio` profile no longer adds Bootstrap classes (`form-control`, `form-select`, `mb-2`…): the host form theme does; script / JSON fields use the semantic `as-code-input` class instead of `font-monospace`. Method / protocol / auth choices print their values instead of untranslated enum case names.
+
+### Deprecated
+
+- `nowo_api_studio.ui.css_framework` (now `null` by default): set `nowo_ui_kit.css_framework`. When set it still seeds UiKit / FormKit.
+- A `ui.layout_template` that does not render the UiKit canonical blocks (bridge removed in 2.0).
+
+### Fixed
+
+- **Routes no longer load without the host's import.** On Symfony ≥ 7.3 the controllers (which carry `#[Route]`) were autoconfigured with `routing.controller`, so a host with the default `config/routes.yaml` (`controllers: { resource: routing.controllers }`) got every Api Studio route without importing the bundle routes — bypassing the opt-in import, its prefix and `when@` guards. The controllers are now registered with `autoconfigure: false` (`controller.service_arguments` + `container.service_subscriber` only).
+- Imports crashed with "Mime component is not installed": `symfony/mime` (used by the upload `File` constraint) is now required.
+- Invalid JSON in a headers / query textarea, an empty or invalid variable key, a new variable row or an empty variable value no longer answer HTTP 500 (form errors instead).
+- The workspace `.env` export listed no variable (header line only).
+- Table prefixes on join tables crashed on Doctrine ORM 3 (latent: no bundle entity has a join table).
+- The service delete from the edit page always failed the name check (the form posted no `confirmation`).
+- Saved-example buttons in the request console set their translated labels as text, not HTML.
+- README / INSTALLATION: the route import is `@ApiStudioBundle/Resources/config/routes.yaml` (the bundle alias), not `@NowoApiStudioBundle/...`.
+
+### Tests
+
+- PHP line coverage gate: every `src/` class is measured (the 30 `phpunit.xml.dist` exclusions are gone); CI fails below 99%. Functional tests for every controller, unit tests for importers, exporters, entities, repositories, commands and the DI extension.
+
 ## [1.9.2] - 2026-10-29
 
 ApiStudio: schema sync no longer drops host tables See [UPGRADING](UPGRADING.md#to-192).

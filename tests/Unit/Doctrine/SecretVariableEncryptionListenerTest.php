@@ -6,6 +6,8 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Doctrine;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -154,6 +156,17 @@ final class SecretVariableEncryptionListenerTest extends TestCase
         $em->flush();
 
         self::assertSame('https://b.example', $this->storedValue($em, $variable));
+    }
+
+    public function testPreUpdateLeavesNonStringNewValuesAlone(): void
+    {
+        $variable  = (new ApiEnvironmentVariable('api_token', 'plain'))->setSecret(true);
+        $changeSet = ['value' => ['plain', null]];
+        $args      = new PreUpdateEventArgs($variable, $this->createStub(EntityManagerInterface::class), $changeSet);
+
+        (new SecretVariableEncryptionListener($this->cipher, true))->preUpdate($args);
+
+        self::assertNull($args->getNewValue('value'));
     }
 
     private function createEntityManager(bool $enabled = true): EntityManager

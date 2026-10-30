@@ -1,32 +1,22 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{#
+  Environments of a workspace (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
+  ApiStudioPageFactory::environmentIndex(): header section.environments with New environment; columns name,
+  variables; rows {id, name, default, variables, href, edit}; row actions Open / Edit; EmptyState).
+  Blocks filled: nowo_ui_styles, nowo_ui_list_row (name + default badge).
+#}
+{% extends '@NowoUiKit/page/list.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }}{% endblock %}
-
-{% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_environment_new', {workspaceId: workspace.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_environment'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-data-table-wrap">
-        <table class="as-data-table">
-            <thead><tr><th>{{ 'field.name'|trans({}, 'NowoApiStudioBundle') }}</th><th>{{ 'field.variables'|trans({}, 'NowoApiStudioBundle') }}</th></tr></thead>
-            <tbody>
-            {% for environment in environments %}
-                <tr>
-                    <td>
-                        <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>
-                        {% if environment.isDefault %}<span class="as-topbar-badge">{{ 'env.default'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}
-                    </td>
-                    <td>{{ environment.variables|length }}</td>
-                </tr>
-            {% else %}
-                <tr><td colspan="2" class="as-empty">{{ 'empty.environments'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+{% block nowo_ui_list_row %}
+    {% set _cell = nowo_ui_class('table_cell', page.bundle) %}
+    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1">
+        <a href="{{ row.href }}">{{ row.name }}</a>
+        {% if row.default %}<span class="{{ nowo_ui_class('badge_info', page.bundle) }}">{{ 'env.default'|trans }}</span>{% endif %}
+    </td>
+    <td class="{{ _cell }} nowo-ui-cell--end" data-label="{{ 'field.variables'|trans }}">{{ row.variables }}</td>
 {% endblock %}

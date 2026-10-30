@@ -9,8 +9,8 @@ nowo_api_studio:
     environments: [dev, test, prod]
     ui:
         path: '/api-studio'
-        layout_template: '@NowoApiStudioBundle/layout.html.twig'
-        css_framework: custom
+        layout_template: null    # null = nowo_ui_kit.layouts.admin (UiKit page contract)
+        # css_framework: deprecated since 1.10 — set nowo_ui_kit.css_framework instead
         default_locale: en
         locales: [en, es, fr, it]
         request_timeout_seconds: 30
@@ -43,8 +43,8 @@ nowo_api_studio:
 | `table_prefix` | Prefix for all bundle tables and unique indexes (default `api_studio_`). Lowercase letters, numbers, and underscores only. |
 | `environments` | Environments created automatically when a workspace is created from the UI (default `dev`, `test`, `prod`); the first one is marked as default. Slugs are derived from the names (lowercase, non-alphanumerics → `_`). Set `[]` to create workspaces without environments. Imports and the demo seeder are not affected. |
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
-| `ui.layout_template` | Twig layout extended by `@NowoApiStudioBundle/base.html.twig` (global `nowo_api_studio_layout_template`). Default is the bundle shell. Point to your app layout or a bridge that extends it to embed Api Studio in host chrome (REQ-UI-001). |
-| `ui.css_framework` | `bootstrap5` \| `tailwind` \| `foundation` \| `custom` (default). `custom` loads Tabler CDN + `as-*` / `nowo-ui-*` classes. Other values skip Tabler and expect host styles. When UiKit is present and `nowo_ui_kit` is not set by the host, Api Studio seeds `nowo_ui_kit.css_framework` / `icon_set` from this value (REQ-UI-001-kit). |
+| `ui.layout_template` | Layout the Api Studio pages (UiKit page scaffolds) extend. `null` (default; the 1.x default `@NowoApiStudioBundle/layout.html.twig` reads as null) = `nowo_ui_kit.layouts.admin`, configured once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that only renders `{% block body %}` is wrapped in a deprecated bridge (removed in 2.0). Twig global `nowo_api_studio_layout_template`. See [TEMPLATES.md](TEMPLATES.md#layout). |
+| `ui.css_framework` | **Deprecated since 1.10** (default `null`): the CSS stack is `nowo_ui_kit.css_framework`. When set (and the host did not set `nowo_ui_kit.css_framework` / `nowo_form_kit.css_framework`), it still seeds UiKit (`css_framework`, `icon_set: bootstrap-icons`) and FormKit, and triggers a deprecation. The bundle loads no CSS framework (no CDN). |
 | `ui.default_locale` | Default UI/documentation locale (default `en`). |
 | `ui.locales` | Enabled UI/documentation locales. |
 | `ui.request_timeout_seconds` | HTTP client timeout (`timeout` + `max_duration`) for the request console, SOAP included (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
@@ -80,9 +80,46 @@ nowo_api_studio:
 
 Creates tables such as `acme_api_workspace`, `acme_api_endpoint`, etc. After changing the prefix on an existing database, run `nowo:api-studio:sync-schema` (or migrate manually).
 
-### Embedding in the host layout (REQ-UI-001)
+### Embedding in the host layout (REQ-UI-001 / REQ-UI-003)
 
-1. Set `ui.layout_template` to a Twig template that extends your project layout (e.g. `base.html.twig`) and maps Api Studio blocks (`body`, `topbar_title`, `stylesheets`, `javascripts`).
-2. Bundle pages extend `@NowoApiStudioBundle/base.html.twig`, which extends that layout and stacks **UiKit** (`nowo-ui.css`) plus Api Studio CSS/JS with `{{ parent() }}`.
-3. In your bridge (or overrides of `stylesheets` / `javascripts`), keep `{{ parent() }}` so host and package assets still load.
-4. Or override `templates/bundles/NowoApiStudioBundle/layout.html.twig` / `base.html.twig` as needed.
+Api Studio pages extend the UiKit page scaffolds; the host chooses the shell and the look once, in UiKit, for every UiKit
+bundle (no Api Studio template to copy):
+
+```yaml
+# config/packages/nowo_ui_kit.yaml (host app)
+nowo_ui_kit:
+    css_framework: bootstrap5          # bootstrap5 | bootstrap4 | tailwind | foundation | tabler | custom | none
+    icon_set: bootstrap-icons
+    layouts:
+        admin: 'layouts/admin.html.twig' # your layout or a one-file bridge rendering the UiKit canonical blocks
+    theme:
+        tokens: { primary: '#7c3aed' }   # --nowo-ui-* tokens (Api Studio maps its workbench colours to them)
+        bundles:
+            NowoApiStudioBundle: { classes: { table: 'table table-sm' } }   # optional per-bundle exception
+```
+
+A one-file bridge over the host base layout (UiKit 2.11+ `_bridge.html.twig`):
+
+```twig
+{# templates/layouts/admin.html.twig #}
+{% extends 'base.html.twig' %}
+{% use '@NowoUiKit/layout/_bridge.html.twig' %}
+{% block title %}{{ block('nowo_ui_bridge_title') }}{% endblock %}
+{% block stylesheets %}{{ parent() }}{{ block('nowo_ui_bridge_assets') }}{% endblock %}
+{% block body %}{{ block('nowo_ui_bridge_body') }}{% endblock %}
+{% block javascripts %}{{ parent() }}{{ include(nowo_ui_partial('scripts')) }}{{ block('nowo_ui_bridge_end') }}{% endblock %}
+```
+
+Framework choices, all without touching Api Studio templates:
+
+| `nowo_ui_kit.css_framework` | Result on the Api Studio pages |
+| --- | --- |
+| `bootstrap5` / `bootstrap4` | Theme slots print Bootstrap classes (buttons, tables, cards, badges); load Bootstrap in your layout |
+| `tailwind` | Theme slots print Tailwind utilities; build them in your Tailwind pipeline |
+| `foundation` | Theme slots print Foundation classes |
+| `custom` / `none` | Only the semantic `nowo-ui-*` classes (UiKit `nowo-ui.css`) — style them in your CSS or remap with `theme.classes` |
+
+`ui.layout_template` stays available for an Api Studio-only layout (it wins over `nowo_ui_kit.layouts.admin`). Api
+Studio assets (`api-studio-theme.css`, scripts) stack in `nowo_ui_styles` / `nowo_ui_scripts` after `{{ parent() }}`.
+Row actions follow `nowo_ui_kit.row_actions_display` (`icon` | `text` | `icon_text`); confirm dialogs and modals are
+UiKit `<dialog>` elements (no inline handlers, strict CSP friendly). See [TEMPLATES.md](TEMPLATES.md).

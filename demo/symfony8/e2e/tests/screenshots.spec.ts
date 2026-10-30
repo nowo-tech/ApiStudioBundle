@@ -5,8 +5,8 @@ import { openCreatePostConsole, openReferenceWorkspace, waitForToolbar } from '.
 
 /**
  * REQ-DEMO-013 — README screenshots (captured as PNG, converted to WebP by scripts/to-webp.mjs).
- * API Studio is a full-viewport app shell (rail + sidebar tree + content), so captures are the
- * whole viewport with the Symfony WebProfiler toolbar at the bottom.
+ * API Studio pages render in the demo host layout (UiKit page contract): demo masthead, page header,
+ * the workbench (API tree + content) and the Symfony WebProfiler toolbar at the bottom.
  */
 const outDir = process.env.SCREENSHOT_DIR
   ? resolve(process.env.SCREENSHOT_DIR)
@@ -21,9 +21,10 @@ test.beforeAll(() => {
 test.describe('API Studio screenshots', () => {
   test('workspace-services — workspace with REST/SOAP services and endpoints', async ({ page }) => {
     await openReferenceWorkspace(page);
-    await expect(page.locator('.as-content').getByText('JSONPlaceholder').first()).toBeVisible();
+    const collections = page.locator('[data-testid="api-studio-service-collections"]');
+    await expect(collections.getByText('JSONPlaceholder').first()).toBeVisible();
     // The first service is expanded by default and shows its endpoints.
-    await expect(page.locator('.as-content').getByText('Consulta por referencia catastral').first()).toBeVisible();
+    await expect(collections.getByText('Consulta por referencia catastral').first()).toBeVisible();
     await waitForToolbar(page);
     await page.screenshot({ path: resolve(outDir, 'workspace-services.png') });
   });
@@ -32,12 +33,9 @@ test.describe('API Studio screenshots', () => {
     await openCreatePostConsole(page);
     await expect(page.locator('[data-subpanel="body"] textarea').first()).toHaveValue(/"userId": 1/);
     // JSONPlaceholder is a public echo API (needs outbound network); it answers 201 with id 101.
-    // Dark theme: the light theme renders the response body with very low contrast.
-    await page.locator('#as-theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await page.locator('#tester-send').click();
     await expect(page.locator('#tester-status')).toContainText('201', { timeout: 30_000 });
-    await page.locator('#as-theme-toggle').blur();
+    await page.locator('#tester-send').blur();
     await page.evaluate(() => {
       document.querySelectorAll<HTMLElement>('*').forEach((el) => { if (el.scrollTop) el.scrollTop = 0; });
       window.scrollTo(0, 0);

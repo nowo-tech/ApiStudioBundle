@@ -59,6 +59,23 @@ final class ApiStudioExtensionTest extends TestCase
         self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree'], $names);
         self::assertSame('as-method-get', $extension->methodClass('get'));
         self::assertSame('as-method-default', $extension->methodClass('OPTIONS'));
+        self::assertSame('as-method-post', $extension->methodClass('post'));
+        self::assertSame('as-method-put', $extension->methodClass('PUT'));
+        self::assertSame('as-method-patch', $extension->methodClass('patch'));
+        self::assertSame('as-method-delete', $extension->methodClass('DELETE'));
+        self::assertSame('as-method-soap', $extension->methodClass('soap'));
+        self::assertSame('{{token}}', $extension->formatVariable('token'));
+    }
+
+    public function testLayoutAndCssFrameworkGlobalsDefaultToNull(): void
+    {
+        $extension = new ApiStudioExtension(
+            new LocaleManager(new RequestStack(), ['en'], 'en'),
+            new StudioNavigationProvider($this->createMock(ApiWorkspaceRepository::class), $this->createMock(UrlGeneratorInterface::class)),
+        );
+
+        self::assertNull($extension->getGlobals()[ApiStudioExtension::GLOBAL_LAYOUT_TEMPLATE]);
+        self::assertNull($extension->getGlobals()[ApiStudioExtension::GLOBAL_CSS_FRAMEWORK]);
     }
 
     private function extension(ApiWorkspaceRepository $repository): ApiStudioExtension
