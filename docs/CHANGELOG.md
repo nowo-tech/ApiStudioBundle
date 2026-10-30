@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.10.0] - 2026-10-30](#1100---2026-10-30)
 - [[1.9.2] - 2026-10-29](#192---2026-10-29)
 - [[1.9.1] - 2026-10-28](#191---2026-10-28)
 - [[1.9.0] - 2026-10-28](#190---2026-10-28)
@@ -51,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100---2026-07-16)
 
 ## [Unreleased]
+
+## [1.10.0] - 2026-10-30
+
+UiKit page contract, opt-in routes, 99.9% coverage gate, FormKit page types; security: .env export no longer executes stored values (GHSA pending), secrets as placeholders, response size cap, literal security switches. See [UPGRADING](UPGRADING.md#to-1100).
 
 ### Security
 
@@ -103,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - PHP line coverage gate: every `src/` class is measured (the 30 `phpunit.xml.dist` exclusions are gone); CI fails below 99%. Functional tests for every controller, unit tests for importers, exporters, entities, repositories, commands and the DI extension.
+
+[1.10.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.10.0
 
 ## [1.9.2] - 2026-10-29
 
