@@ -3,7 +3,7 @@
 Since **1.10** every Api Studio page extends a [UiKitBundle](https://github.com/nowo-tech/UiKitBundle) page scaffold
 (REQ-UI-003). The host themes the scaffolds once (`nowo_ui_kit.layouts`, `nowo_ui_kit.theme`) and every Api Studio
 page follows; the bundle ships no HTML layout, no CDN asset, no framework class of its own and no local copy of the
-UiKit partials (pagination, flashes, page header, dialog, confirm, kebab, locale switcher).
+UiKit partials (pagination, flashes, page header, dialog, confirm, kebab).
 
 Templates live in `src/Resources/views/` (Twig namespace `@NowoApiStudioBundle`). Overriding one file and the
 upgrade trade-off are described in [USAGE.md](USAGE.md#overriding-twig-templates-req-twig-001).
@@ -59,7 +59,7 @@ model); the show pages also receive the entities their data blocks read (`worksp
 | Partial | Purpose | Override notes |
 | --- | --- | --- |
 | `_workbench.html.twig` | Two-column workbench (API tree beside the content); embed it and fill `as_workbench_main`. Variables `bundle`, `nav_active` (`{workspace, service, endpoint}`) | The one layout partial of the bundle |
-| `_sidebar_tree.html.twig` | API tree from `api_studio_nav_tree()` (one query), client-side filter (`api_studio_tree_filter_form()`), UiKit locale switcher | Meant for overriding (variables `nav_active`, `bundle`) |
+| `_sidebar_tree.html.twig` | API tree from `api_studio_nav_tree()` (one query), client-side filter (`api_studio_tree_filter_form()`) | Meant for overriding (variables `nav_active`, `bundle`) |
 | `_sidebar_endpoints.html.twig` | Endpoints and saved requests of one service in the tree (`svc`, `active_ep`) | — |
 | `_service_collection_list.html.twig` | Collapsible services with their endpoints (`services`, `workspace`, `bundle`) | — |
 | `_endpoint_expandable_list.html.twig` | Endpoint rows with their saved requests (`endpoints`, `service`, `workspace`) | — |

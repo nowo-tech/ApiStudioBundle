@@ -3,7 +3,7 @@
   meant for overriding (templates/bundles/NowoApiStudioBundle/_sidebar_tree.html.twig).
   Variables: nav_active ({workspace, service, endpoint}: the open branch), bundle.
   The filter is a Symfony Form view rendered without a form element (client-side only: api-studio-shell.js reads
-  #as-tree-filter; REQ-TWIG-005). The locale switcher is the UiKit partial (links to the locale route).
+  #as-tree-filter; REQ-TWIG-005). The locale switch (route nowo_api_studio_locale_switch) belongs to the host layout.
 #}
 {% set bundle = bundle|default(null) %}
 {% set active_ws = nav_active.workspace|default(null) %}
@@ -39,19 +39,4 @@
             <p class="{{ nowo_ui_class('muted', bundle) }} as-tree-empty">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
         {% endfor %}
     </nav>
-    {% if nowo_api_studio_locales|length > 1 %}
-        {% set _request = app.request %}
-        {% set _locales = [] %}
-        {% for locale in nowo_api_studio_locales %}
-            {% set _locales = _locales|merge([{
-                code: locale,
-                label: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle'),
-                href: path('nowo_api_studio_locale_switch', {_locale: locale}),
-                current: _request and _request.locale == locale,
-            }]) %}
-        {% endfor %}
-        <div class="as-sidebar-foot">
-            {{ include('@NowoUiKitBundle/partials/_locale_switcher.html.twig', {locales: _locales, current: _request ? _request.locale : null, compact: true}, false) }}
-        </div>
-    {% endif %}
 </aside>

@@ -35,7 +35,6 @@
   .as-workbench { grid-template-columns: minmax(0, 1fr); }
   .as-workbench__aside { position: static; max-height: 24rem; }
 }
-.as-sidebar-foot { padding: 10px 16px; border-top: 1px solid var(--as-border-subtle); }
 .as-tree-empty { padding: 8px 16px 8px 28px; color: var(--as-text-muted); font-size: 13px; }
 .as-method--compact { font-size: 9px; padding: 1px 4px; min-width: auto; }
 .as-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }

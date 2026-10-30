@@ -69,7 +69,6 @@ final class PageContractTest extends PageContractTestCase
         self::assertMatchesRegularExpression('#class="as-tree-group is-open" data-tree-group>\s*<div class="as-tree-label is-active"#', $html);
         self::assertStringContainsString('class="as-tree-svc is-active"', $html);
         self::assertStringContainsString('id="as-tree-filter"', $html);
-        self::assertStringContainsString('nowo-ui-locale-switcher', $html);
     }
 
     public function testServiceDialogsAreNativeDialogsOpenedFromTheKebab(): void

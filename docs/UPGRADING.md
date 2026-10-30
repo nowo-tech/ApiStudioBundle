@@ -86,7 +86,7 @@ php bin/console assets:install
 - **Removed templates:** `layout.html.twig` (Tabler CDN shell: rail, top bar, theme toggle), `base.html.twig`,
   `_delete_confirm.html.twig`, `_locale_switcher.html.twig`. Overrides of these files under
   `templates/bundles/NowoApiStudioBundle/` are ignored now: delete them. The theme toggle and the locale switcher of the
-  host layout (UiKit `_theme_toggle` / `_locale_switcher`) replace them; the API tree shows a UiKit locale switcher.
+  host layout (UiKit `_theme_toggle` / `_locale_switcher`, linking to the `nowo_api_studio_locale_switch` route) replace them.
 - **Page templates** extend UiKit scaffolds and read `page` (view model) instead of the old blocks `title`,
   `topbar_title`, `topbar_badge`, `topbar_actions`, `body`, `stylesheets`, `javascripts`. Overrides of page templates
   must be redone on the new blocks (`nowo_ui_list_row`, `nowo_ui_show_sections`, `nowo_ui_form_body`,

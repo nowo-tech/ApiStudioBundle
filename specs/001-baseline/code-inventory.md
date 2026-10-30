@@ -224,7 +224,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/views/_workbench.html.twig` | Workbench: API tree beside the page content | FR-TWIG-001, FR-UI-003 |
 | `Resources/views/_styles.html.twig` | Api Studio stylesheet tag (`nowo_ui_styles`) | FR-UI-003 |
 | `Resources/views/_scripts.html.twig` | Api Studio script tags (deferred, CSP nonce) | FR-UI-003 |
-| `Resources/views/_sidebar_tree.html.twig` | API tree, filter and UiKit locale switcher | FR-TWIG-001, FR-I18N-001 |
+| `Resources/views/_sidebar_tree.html.twig` | API tree (one query) and client-side filter | FR-TWIG-001 |
 | `Resources/views/_sidebar_endpoints.html.twig` | Endpoint list in sidebar | FR-TWIG-001 |
 | `Resources/views/_variable_catalog.html.twig` | Environment variable reference | FR-TWIG-001, FR-EXEC-002 |
 | `Resources/views/_endpoint_expandable_list.html.twig` | Collapsible endpoint list | FR-TWIG-001 |

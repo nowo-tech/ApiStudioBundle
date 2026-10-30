@@ -55,7 +55,7 @@ final class Configuration implements ConfigurationInterface
                         ->end()
                         ->scalarNode('layout_template')
                             ->defaultNull()
-                            ->info('Layout the Api Studio pages (UiKit page scaffolds) extend. Null (default) = nowo_ui_kit.layouts.admin, set once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-2.0 layout that renders {% block body %} is wrapped in a deprecated bridge.')
+                            ->info('Layout the Api Studio pages (UiKit page scaffolds) extend. Null (default) = nowo_ui_kit.layouts.admin, set once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that renders {% block body %} is wrapped in a deprecated bridge.')
                         ->end()
                         ->enumNode('css_framework')
                             ->values(self::CSS_FRAMEWORKS)

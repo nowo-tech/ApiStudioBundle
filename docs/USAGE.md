@@ -172,7 +172,7 @@ path to the namespace), so overrides always win. The namespace is registered onl
 | `import_export/import.html.twig` | Import form (`page/form`) |
 | `import_export/_workspace_panel.html.twig` | Workspace import / export card |
 | `_workbench.html.twig` | Workbench: API tree beside the page content |
-| `_sidebar_tree.html.twig` | API tree, filter and locale switcher |
+| `_sidebar_tree.html.twig` | API tree and filter |
 | `_sidebar_endpoints.html.twig` | Endpoints and saved requests of one service in the tree |
 | `_endpoint_expandable_list.html.twig` | Expandable endpoint rows with saved requests |
 | `_service_collection_list.html.twig` | Collapsible services (endpoint collections) |

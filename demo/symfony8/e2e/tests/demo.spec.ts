@@ -22,7 +22,7 @@ test.describe('API Studio demo', () => {
 
   test('request console shows the endpoint body and documented examples', async ({ page }) => {
     await openCreatePostConsole(page);
-    await expect(page.getByRole('heading', { name: 'Create post' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Create post' })).toBeVisible();
     await expect(page.locator('[data-subpanel="body"] textarea').first()).toHaveValue(/"userId": 1/);
     await page.locator('[data-subtab="docs"]').click();
     await expect(page.locator('#tester-request-examples')).toContainText('Minimal JSON body');
