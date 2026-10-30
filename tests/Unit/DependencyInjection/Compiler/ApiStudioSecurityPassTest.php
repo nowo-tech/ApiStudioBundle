@@ -201,6 +201,20 @@ final class ApiStudioSecurityPassTest extends TestCase
         self::assertFalse($container->hasDefinition(ApiStudioAccessSubscriber::class));
     }
 
+    public function testMissingSecurityParameterMeansNoCustomAccessChecker(): void
+    {
+        $container = $this->baseContainer();
+        $container->getParameterBag()->remove(Configuration::ALIAS . '.security');
+        $container->setParameter(Configuration::ALIAS . '.security.allow_unauthenticated', false);
+        $container->setParameter(Configuration::ALIAS . '.security.effective_access_roles', []);
+        $container->setDefinition('security.authorization_checker', new Definition());
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('both empty');
+
+        (new ApiStudioSecurityPass())->process($container);
+    }
+
     private function baseContainer(): ContainerBuilder
     {
         $container = new ContainerBuilder();

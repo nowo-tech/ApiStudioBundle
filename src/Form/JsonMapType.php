@@ -8,10 +8,10 @@ use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
+use Symfony\Component\Form\Exception\TransformationFailedException;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use UnexpectedValueException;
 
 use function is_array;
 use function is_scalar;
@@ -48,7 +48,8 @@ final class JsonMapType extends AbstractType
 
                 $decoded = json_decode($value, true);
                 if (!is_array($decoded)) {
-                    throw new UnexpectedValueException('Invalid JSON object.');
+                    // A form error (not an exception escaping the request) when the textarea is not a JSON object.
+                    throw new TransformationFailedException('Invalid JSON object.', 0, null, 'Invalid JSON object.');
                 }
 
                 $map = [];
@@ -69,7 +70,7 @@ final class JsonMapType extends AbstractType
         $resolver->setDefaults([
             'attr' => [
                 'rows'        => 6,
-                'class'       => 'font-monospace',
+                'class'       => 'as-code-input',
                 'placeholder' => '{"Authorization": "Bearer {{token}}"}',
             ],
         ]);

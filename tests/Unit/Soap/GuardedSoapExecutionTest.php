@@ -89,6 +89,37 @@ final class GuardedSoapExecutionTest extends TestCase
         self::assertContains('SOAPAction: "urn:ping#Ping"', $calls[1][2]['headers']);
     }
 
+    public function testNonJsonBodyCallsTheOperationWithoutParameters(): void
+    {
+        $client = new MockHttpClient(static fn (string $method): MockResponse => $method === 'GET'
+            ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+            : new MockResponse(self::RESPONSE, ['http_code' => 200]));
+
+        $result = $this->executor($client)->execute($this->endpoint()->setRequestBodyTemplate('not json'));
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertStringContainsString('Ping', (string) $result->requestBody);
+    }
+
+    public function testBlockedWsdlUrlIsNeverRequested(): void
+    {
+        $calls  = 0;
+        $client = new MockHttpClient(static function () use (&$calls): MockResponse {
+            ++$calls;
+
+            return new MockResponse('');
+        });
+        $endpoint = $this->endpoint();
+        $endpoint->getService()?->setBaseUrl('http://127.0.0.1/service.wsdl');
+
+        $result = $this->executor($client)->execute($endpoint);
+
+        self::assertFalse($result->success);
+        self::assertSame('WSDL URL is not allowed (SSRF or allowlist).', $result->errorMessage);
+        self::assertSame('http://127.0.0.1/service.wsdl', $result->requestUrl);
+        self::assertSame(0, $calls);
+    }
+
     #[DataProvider('internalLocations')]
     public function testInternalSoapAddressLocationIsRejected(string $location): void
     {

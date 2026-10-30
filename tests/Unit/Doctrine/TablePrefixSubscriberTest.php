@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
+use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -36,6 +37,29 @@ final class TablePrefixSubscriberTest extends TestCase
         self::assertArrayHasKey('uniqueConstraints', $table);
         self::assertIsArray($table['uniqueConstraints']);
         self::assertArrayHasKey('myapp_api_uniq_workspace_slug', $table['uniqueConstraints']);
+    }
+
+    public function testPrefixesIndexesAndJoinTables(): void
+    {
+        $metadata = new ClassMetadata(ApiWorkspace::class);
+        $metadata->setPrimaryTable([
+            'name'    => 'workspace',
+            'indexes' => ['idx_workspace_name' => ['columns' => ['name']]],
+        ]);
+        $metadata->mapField(['fieldName' => 'id', 'type' => 'integer', 'id' => true]);
+        $metadata->mapManyToMany(['fieldName' => 'tags', 'targetEntity' => ApiService::class, 'joinTable' => ['name' => 'workspace_tag']]);
+        $metadata->mapOneToMany(['fieldName' => 'services', 'targetEntity' => ApiService::class, 'mappedBy' => 'workspace']);
+
+        (new TablePrefixSubscriber('p_'))->loadClassMetadata(new LoadClassMetadataEventArgs(
+            $metadata,
+            $this->createStub(EntityManagerInterface::class),
+        ));
+
+        /** @var array<string, mixed> $table */
+        $table = $metadata->table;
+        self::assertIsArray($table['indexes']);
+        self::assertArrayHasKey('p_idx_workspace_name', $table['indexes']);
+        self::assertSame('p_workspace_tag', $metadata->getAssociationMapping('tags')['joinTable']['name']);
     }
 
     public function testIgnoresEntitiesOutsideBundleNamespace(): void

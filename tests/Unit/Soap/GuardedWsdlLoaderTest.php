@@ -6,7 +6,9 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Soap;
 
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Soap\GuardedWsdlLoader;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use RuntimeException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -88,5 +90,26 @@ final class GuardedWsdlLoaderTest extends TestCase
     private static function document(string $import): string
     {
         return '<definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema"><xsd:import schemaLocation="' . $import . '"/></definitions>';
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function references(): iterable
+    {
+        yield 'absolute url' => ['https://a.example/x/root.wsdl', 'https://b.example/t.xsd', 'https://b.example/t.xsd'];
+        yield 'scheme relative' => ['https://a.example/x/root.wsdl', '//c.example/t.xsd', 'https://c.example/t.xsd'];
+        yield 'host relative' => ['https://a.example:8443/x/root.wsdl', '/types/t.xsd', 'https://a.example:8443/types/t.xsd'];
+        yield 'document relative' => ['https://a.example/x/root.wsdl', 'types/t.xsd', 'https://a.example/x/types/t.xsd'];
+        yield 'document relative without path' => ['https://a.example', 't.xsd', 'https://a.example/t.xsd'];
+        yield 'base without host' => ['root.wsdl', 't.xsd', 't.xsd'];
+    }
+
+    #[DataProvider('references')]
+    public function testResolvesImportLocationsAgainstTheImportingDocument(string $base, string $reference, string $expected): void
+    {
+        $resolve = new ReflectionMethod(GuardedWsdlLoader::class, 'resolveUrl');
+
+        self::assertSame($expected, $resolve->invoke(null, $base, $reference));
     }
 }

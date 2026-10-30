@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 
 use function is_array;
 
@@ -54,14 +55,12 @@ final class TablePrefixSubscriber
 
         $metadata->setPrimaryTable($table);
 
-        foreach ($metadata->associationMappings as $fieldName => $mapping) {
-            if (!isset($mapping['joinTable']['name'])) {
-                continue;
+        // ORM 3 association mappings are objects: rename the join table in place (writing the array shape back
+        // through ArrayAccess fails, JoinTableMapping::fromMappingArray() expects an array).
+        foreach ($metadata->associationMappings as $mapping) {
+            if ($mapping instanceof ManyToManyOwningSideMapping) {
+                $mapping->joinTable->name = $this->tablePrefix . $mapping->joinTable->name;
             }
-
-            $joinTable                                              = $mapping['joinTable'];
-            $joinTable['name']                                      = $this->tablePrefix . $joinTable['name'];
-            $metadata->associationMappings[$fieldName]['joinTable'] = $joinTable;
         }
     }
 
