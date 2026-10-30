@@ -125,3 +125,22 @@ Framework choices, all without touching Api Studio templates:
 Studio assets (`api-studio-theme.css`, scripts) stack in `nowo_ui_styles` / `nowo_ui_scripts` after `{{ parent() }}`.
 Row actions follow `nowo_ui_kit.row_actions_display` (`icon` | `text` | `icon_text`); confirm dialogs and modals are
 UiKit `<dialog>` elements (no inline handlers, strict CSP friendly). See [TEMPLATES.md](TEMPLATES.md).
+
+### Forms (FormKit profile `api_studio`)
+
+Every Api Studio form type is a FormKit type bound to the profile `api_studio` (REQ-TWIG-005 rule 11). The bundle
+prepends that profile (translation domain `NowoApiStudioBundle`, the semantic `nowo-ui-input` class, help / placeholder
+keys only when translated) unless the host defines it. Override it in the host instead of forking templates:
+
+```yaml
+# config/packages/nowo_form_kit.yaml (host app)
+nowo_form_kit:
+    profiles:
+        api_studio:
+            alias: api_studio
+            translation_domain: NowoApiStudioBundle
+            defaults:
+                attr: { class: 'nowo-ui-input form-control' }
+```
+
+The form theme follows the host / UiKit (`nowo_ui_kit.css_framework`); the pages set no `form_themes` of their own.

@@ -190,7 +190,7 @@ Protect the UI with Symfony `access_control` on the configured path (default `/a
 
 ### Forms in the templates (REQ-TWIG-005)
 
-Every control in the API Studio views is a Symfony Form view; the templates never contain raw `<form>` / `<input>` / `<select>` / `<textarea>` markup (`make check-no-raw-html-form`, part of `release-check`):
+Every control in the API Studio views is a Symfony Form view built from a **FormKit type** (profile `api_studio`, `#[FormKitConfig]` + `FormOptionsTrait`, REQ-TWIG-005 rule 11 — editors, imports, CSRF-only deletes, client-side controls, tester rows); the templates never contain raw `<form>` / `<input>` / `<select>` / `<textarea>` markup (`make check-no-raw-html-form`, part of `release-check`):
 
 - **Editors** (workspace, service, endpoint, environment, import): FormKit-configured types rendered with `form_start`, the child loop (`{% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}`) and `form_end`.
 - **Delete buttons:** `CsrfOnlyType` (flat `_token`, token id `delete<id>`) built by the controllers and passed to the page as the `FormView` of the UiKit delete `Action` (form page delete zone, behind the UiKit confirm dialog; the service form also carries `confirmation`). `api_studio_csrf_form(action, csrfTokenId)` stays available for host templates. The controllers validate the POST with the same type.

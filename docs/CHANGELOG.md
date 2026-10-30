@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every form type is a FormKit type** (REQ-TWIG-005 rule 11): `ClientSideFieldsType`, `KeyValueRowType` and `CsrfOnlyType` join the editors on the `api_studio` profile (`#[FormKitConfig]` + `FormOptionsTrait`); field names, ids and the `csrf_token_id` of the delete forms are unchanged. A test keeps every `src/Form/*Type.php` FormKit-integrated.
 - Requires `nowo-tech/ui-kit-bundle` `^2.17.2` and `nowo-tech/form-kit-bundle` `^2.14` (the page-contract view models and FormKit options the pages use).
 
 ### Added
