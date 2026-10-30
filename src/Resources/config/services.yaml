@@ -13,6 +13,15 @@ services:
             - '../../Form/'
             - '../../Soap/'
             - '../../ApiStudioBundle.php'
+            - '../../Controller/'
+
+    # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
+    # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without
+    # importing routes.yaml, bypassing its prefix and when@ guards). Routes are opt-in through routes.yaml only.
+    Nowo\ApiStudioBundle\Controller\:
+        resource: '../../Controller/'
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
 
     Nowo\ApiStudioBundle\Repository\:
         resource: '../../Repository/'
@@ -36,10 +45,14 @@ services:
             $maxRedirects: '%nowo_api_studio.execution_max_redirects%'
 
     Nowo\ApiStudioBundle\Controller\DashboardController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
         arguments:
             $listPageSize: '%nowo_api_studio.ui.list_page_size%'
 
     Nowo\ApiStudioBundle\Controller\ApiWorkspaceController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
         arguments:
             $listPageSize: '%nowo_api_studio.ui.list_page_size%'
 
