@@ -1,0 +1,11 @@
+{# A pre-1.10 host layout that already prints the UiKit flashes and scripts itself. #}
+<!DOCTYPE html>
+<html lang="en">
+<head><title>{% block title %}{% endblock %}</title>{% block stylesheets %}{% endblock %}</head>
+<body class="legacy-host-flashes">
+    <div id="host-flashes">{% block nowo_ui_flashes %}{% endblock %}</div>
+    {% block body %}{% endblock %}
+    {% block javascripts %}{% endblock %}
+    {% block nowo_ui_scripts %}{% endblock %}
+</body>
+</html>

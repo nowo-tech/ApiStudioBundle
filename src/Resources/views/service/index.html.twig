@@ -1,16 +1,21 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
+{#
+  Services of a workspace (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
+  ApiStudioPageFactory::serviceIndex(): header section.services with New service; columns name, protocol, base URL,
+  endpoints; rows {id, name, protocol, base_url, endpoints, href, edit, list}; row actions Open service / View all
+  endpoints / Edit; EmptyState). Blocks filled: nowo_ui_styles, nowo_ui_list_row.
+#}
+{% extends '@NowoUiKit/page/list.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ 'section.services'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }}{% endblock %}
-
-{% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_service_new', {workspaceId: workspace.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_service'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <p class="as-hint">{{ 'service.collections_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-    {% include '@NowoApiStudioBundle/_service_collection_list.html.twig' with {services: services} %}
-</div>
+{% block nowo_ui_list_row %}
+    {% set _cell = nowo_ui_class('table_cell', page.bundle) %}
+    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1"><a href="{{ row.href }}">{{ row.name }}</a></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.protocol'|trans }}"><span class="as-app"><span class="as-method as-method-default">{{ row.protocol }}</span></span></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.base_url'|trans }}" data-nowo-ui-priority="2"><code class="{{ nowo_ui_class('code', page.bundle) }}">{{ row.base_url }}</code></td>
+    <td class="{{ _cell }} nowo-ui-cell--end" data-label="{{ 'section.endpoints'|trans }}" data-nowo-ui-priority="2">{{ row.endpoints }}</td>
 {% endblock %}

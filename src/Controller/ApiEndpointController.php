@@ -32,6 +32,7 @@ use function is_string;
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints', name: 'nowo_api_studio_endpoint_')]
 final class ApiEndpointController extends AbstractController
 {
+    use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
 
     public function __construct(
@@ -52,8 +53,8 @@ final class ApiEndpointController extends AbstractController
     {
         $context = $this->requireContext($workspaceId, $serviceId);
 
-        return $this->render('@NowoApiStudioBundle/endpoint/index.html.twig', $context + [
-            'endpoints' => $context['service']->getEndpoints(),
+        return $this->renderPage('@NowoApiStudioBundle/endpoint/index.html.twig', [
+            'page' => $this->pages()->endpointIndex($context['workspace'], $context['service'], $context['service']->getEndpoints()),
         ]);
     }
 
@@ -72,7 +73,7 @@ final class ApiEndpointController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($endpoint);
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.created');
+            $this->flash('success', 'flash.created');
 
             return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
                 'workspaceId' => $workspaceId,
@@ -83,12 +84,11 @@ final class ApiEndpointController extends AbstractController
 
         $locale = $this->localeManager->resolveLocale();
 
-        return $this->render('@NowoApiStudioBundle/endpoint/form.html.twig', $context + [
-            'form'           => $form,
-            'title'          => 'page.new_endpoint',
+        return $this->renderPage('@NowoApiStudioBundle/endpoint/form.html.twig', [
+            'page'           => $this->pages()->endpointForm($context['workspace'], $context['service'], null, $form->createView()),
             'enabledLocales' => $this->localeManager->getEnabledLocales(),
             'currentLocale'  => $locale,
-        ]);
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}', name: 'show', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['GET'])]
@@ -103,7 +103,8 @@ final class ApiEndpointController extends AbstractController
             $endpoint->getHeaders(),
         );
 
-        return $this->render('@NowoApiStudioBundle/endpoint/show.html.twig', $context + [
+        return $this->renderPage('@NowoApiStudioBundle/endpoint/show.html.twig', $context + [
+            'page'                  => $this->pages()->endpointShow($context['workspace'], $context['service'], $endpoint),
             'endpoint'              => $endpoint,
             'translation'           => $endpoint->getTranslation($locale),
             'enabledLocales'        => $this->localeManager->getEnabledLocales(),
@@ -254,7 +255,7 @@ final class ApiEndpointController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.updated');
+            $this->flash('success', 'flash.updated');
 
             return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
                 'workspaceId' => $workspaceId,
@@ -265,13 +266,20 @@ final class ApiEndpointController extends AbstractController
 
         $locale = $this->localeManager->resolveLocale();
 
-        return $this->render('@NowoApiStudioBundle/endpoint/form.html.twig', $context + [
-            'form'           => $form,
-            'title'          => 'page.edit_endpoint',
-            'endpoint'       => $endpoint,
+        return $this->renderPage('@NowoApiStudioBundle/endpoint/form.html.twig', [
+            'page' => $this->pages()->endpointForm(
+                $context['workspace'],
+                $context['service'],
+                $endpoint,
+                $form->createView(),
+                $this->csrfOnlyForm(
+                    $this->generateUrl('nowo_api_studio_endpoint_delete', ['workspaceId' => $workspaceId, 'serviceId' => $serviceId, 'id' => $id]),
+                    'delete' . $id,
+                ),
+            ),
             'enabledLocales' => $this->localeManager->getEnabledLocales(),
             'currentLocale'  => $locale,
-        ]);
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
@@ -287,7 +295,7 @@ final class ApiEndpointController extends AbstractController
 
         $this->entityManager->remove($endpoint);
         $this->entityManager->flush();
-        $this->addFlash('success', 'flash.deleted');
+        $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_endpoint_index', [
             'workspaceId' => $workspaceId,

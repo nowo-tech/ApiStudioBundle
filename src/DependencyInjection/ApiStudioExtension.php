@@ -17,6 +17,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use function array_key_exists;
 use function is_array;
 use function is_string;
+use function trigger_deprecation;
 
 /**
  * Loads bundle configuration and registers services.
@@ -58,9 +59,9 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
-     * When FormKit is installed, register the {@code api_studio} profile (labels domain +
-     * Bootstrap/UiKit-friendly field classes). Forms select it via {@code #[FormKitConfig]}.
-     * Does not change the host {@code default_profile}.
+     * When FormKit is installed, register the {@code api_studio} profile (labels domain + the semantic
+     * {@code nowo-ui-input} class). Forms select it via {@code #[FormKitConfig]}. Does not change the host
+     * {@code default_profile}; seeds FormKit {@code css_framework} only from the deprecated {@code ui.css_framework}.
      */
     private function prependFormKitDefaults(ContainerBuilder $container): void
     {
@@ -83,15 +84,16 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $seed = [];
 
         if (!$hostHasCssFramework) {
-            $config = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
-            $ui     = $config['ui'];
-            $fw     = (string) ($ui['css_framework'] ?? 'custom');
-            // FormKit accepts only bootstrap|tailwind|foundation|none (not bootstrap5 / custom / …).
-            $seed['css_framework'] = match ($fw) {
-                'tailwind'   => 'tailwind',
-                'foundation' => 'foundation',
-                default      => 'bootstrap',
-            };
+            // Deprecated ui.css_framework (null = leave FormKit's own default).
+            $fw = $this->legacyCssFramework($container);
+            if ($fw !== null) {
+                // FormKit accepts only bootstrap|tailwind|foundation|none (not bootstrap5 / custom / …).
+                $seed['css_framework'] = match ($fw) {
+                    'tailwind'   => 'tailwind',
+                    'foundation' => 'foundation',
+                    default      => 'bootstrap',
+                };
+            }
         }
 
         if (!$hostHasProfile) {
@@ -99,24 +101,11 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
                 'api_studio' => [
                     'alias'              => 'api_studio',
                     'translation_domain' => 'NowoApiStudioBundle',
-                    'defaults'           => [
-                        'attr'     => ['class' => 'nowo-ui-input form-control'],
-                        'row_attr' => ['class' => 'mb-2'],
-                    ],
-                    'field_types' => [
-                        'checkbox' => [
-                            'attr'     => ['class' => 'form-check-input'],
-                            'row_attr' => ['class' => 'form-check mb-2'],
-                        ],
-                        'choice' => [
-                            'attr' => ['class' => 'form-select'],
-                        ],
-                        'file' => [
-                            'attr' => ['class' => 'nowo-ui-input form-control'],
-                        ],
-                        'textarea' => [
-                            'attr' => ['class' => 'nowo-ui-input form-control'],
-                        ],
+                    // Auto help / placeholder keys only when the catalogue has them (labels are always keys).
+                    'convention_requires_translation' => true,
+                    // Semantic hooks only (REQ-UI-003): framework classes come from the host form theme.
+                    'defaults' => [
+                        'attr' => ['class' => 'nowo-ui-input'],
                     ],
                 ],
             ];
@@ -128,9 +117,8 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
-     * When UiKit is installed, seed nowo_ui_kit.css_framework / icon_set from
-     * ui.css_framework so kit macros resolve the same stack.
-     * Does not override keys the host already set under nowo_ui_kit.
+     * When UiKit is installed and the deprecated ui.css_framework is set, seed nowo_ui_kit.css_framework / icon_set
+     * from it (BC for 1.x hosts). Does not override keys the host already set under nowo_ui_kit.
      */
     private function prependUiKitDefaults(ContainerBuilder $container): void
     {
@@ -149,24 +137,32 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             }
         }
 
-        if ($hostHasCssFramework && $hostHasIconSet) {
+        // Deprecated ui.css_framework: seeds the UiKit stack only when set (null = UiKit's own defaults).
+        $fw = $this->legacyCssFramework($container);
+        if ($fw === null || ($hostHasCssFramework && $hostHasIconSet)) {
             return;
         }
 
-        $config   = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
-        $ui       = is_array($config['ui'] ?? null) ? $config['ui'] : [];
         $defaults = [];
-
         if (!$hostHasCssFramework) {
-            $fw                        = (string) ($ui['css_framework'] ?? 'custom');
-            $defaults['css_framework'] = $fw === 'bootstrap' ? 'bootstrap5' : $fw;
+            $defaults['css_framework'] = $fw;
         }
         if (!$hostHasIconSet) {
-            $fw                   = (string) ($defaults['css_framework'] ?? $ui['css_framework'] ?? 'custom');
-            $defaults['icon_set'] = $fw === 'tabler' ? 'tabler-icons' : 'bootstrap-icons';
+            $defaults['icon_set'] = 'bootstrap-icons';
         }
 
         $container->prependExtensionConfig('nowo_ui_kit', $defaults);
+    }
+
+    /**
+     * The deprecated `ui.css_framework` of the host configuration, null when not set.
+     */
+    private function legacyCssFramework(ContainerBuilder $container): ?string
+    {
+        $config = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
+        $fw     = $config['ui']['css_framework'] ?? null;
+
+        return is_string($fw) ? $fw : null;
     }
 
     public function load(array $configs, ContainerBuilder $container): void
@@ -183,6 +179,9 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.ui.path', $config['ui']['path']);
         $container->setParameter(Configuration::ALIAS . '.ui.layout_template', $config['ui']['layout_template']);
         $container->setParameter(Configuration::ALIAS . '.ui.css_framework', $config['ui']['css_framework']);
+        if ($config['ui']['css_framework'] !== null) {
+            trigger_deprecation('nowo-tech/api-studio-bundle', '1.10', 'The "nowo_api_studio.ui.css_framework" option is deprecated: set "nowo_ui_kit.css_framework" (UiKit page contract) instead.');
+        }
         $container->setParameter(Configuration::ALIAS . '.ui.default_locale', $config['ui']['default_locale']);
         $container->setParameter(Configuration::ALIAS . '.ui.locales', $config['ui']['locales']);
         $container->setParameter(

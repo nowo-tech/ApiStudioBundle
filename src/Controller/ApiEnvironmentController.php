@@ -18,6 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '/workspaces/{workspaceId}/environments', name: 'nowo_api_studio_environment_')]
 final class ApiEnvironmentController extends AbstractController
 {
+    use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
 
     public function __construct(
@@ -32,9 +33,8 @@ final class ApiEnvironmentController extends AbstractController
     {
         $workspace = $this->requireWorkspace($workspaceId);
 
-        return $this->render('@NowoApiStudioBundle/environment/index.html.twig', [
-            'workspace'    => $workspace,
-            'environments' => $workspace->getEnvironments(),
+        return $this->renderPage('@NowoApiStudioBundle/environment/index.html.twig', [
+            'page' => $this->pages()->environmentIndex($workspace, $workspace->getEnvironments()),
         ]);
     }
 
@@ -56,7 +56,7 @@ final class ApiEnvironmentController extends AbstractController
 
             $this->entityManager->persist($environment);
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.created');
+            $this->flash('success', 'flash.created');
 
             return $this->redirectToRoute('nowo_api_studio_environment_show', [
                 'workspaceId' => $workspaceId,
@@ -64,21 +64,20 @@ final class ApiEnvironmentController extends AbstractController
             ]);
         }
 
-        return $this->render('@NowoApiStudioBundle/environment/form.html.twig', [
-            'form'      => $form,
-            'title'     => 'page.new_environment',
-            'workspace' => $workspace,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/environment/form.html.twig', [
+            'page' => $this->pages()->environmentForm($workspace, null, $form->createView()),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}', name: 'show', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET'])]
     public function show(int $workspaceId, int $id): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId);
+        $environment = $this->requireEnvironment($id, $workspace);
 
-        return $this->render('@NowoApiStudioBundle/environment/show.html.twig', [
-            'workspace'   => $workspace,
-            'environment' => $this->requireEnvironment($id, $workspace),
+        return $this->renderPage('@NowoApiStudioBundle/environment/show.html.twig', [
+            'page'        => $this->pages()->environmentShow($workspace, $environment),
+            'environment' => $environment,
         ]);
     }
 
@@ -96,7 +95,7 @@ final class ApiEnvironmentController extends AbstractController
             }
 
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.updated');
+            $this->flash('success', 'flash.updated');
 
             return $this->redirectToRoute('nowo_api_studio_environment_show', [
                 'workspaceId' => $workspaceId,
@@ -104,12 +103,14 @@ final class ApiEnvironmentController extends AbstractController
             ]);
         }
 
-        return $this->render('@NowoApiStudioBundle/environment/form.html.twig', [
-            'form'        => $form,
-            'title'       => 'page.edit_environment',
-            'workspace'   => $workspace,
-            'environment' => $environment,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/environment/form.html.twig', [
+            'page' => $this->pages()->environmentForm(
+                $workspace,
+                $environment,
+                $form->createView(),
+                $this->csrfOnlyForm($this->generateUrl('nowo_api_studio_environment_delete', ['workspaceId' => $workspaceId, 'id' => $id]), 'delete' . $id),
+            ),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
@@ -125,7 +126,7 @@ final class ApiEnvironmentController extends AbstractController
 
         $this->entityManager->remove($environment);
         $this->entityManager->flush();
-        $this->addFlash('success', 'flash.deleted');
+        $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_environment_index', ['workspaceId' => $workspaceId]);
     }

@@ -1,19 +1,23 @@
-<section class="as-form-panel" style="margin-top:24px">
-    <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.export_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
-    <div class="as-io-links">
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_openapi_workspace', {workspaceId: workspace.id}) }}">{{ 'export.openapi.workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'json'}) }}">JSON</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'yaml'}) }}">YAML</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: 'env'}) }}">.env</a>
-    </div>
-</section>
-
-<section class="as-form-panel" style="margin-top:16px">
-    <h2 style="font-size:15px;margin:0 0 12px">{{ 'import_export.import_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
-    <div class="as-io-links">
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}">{{ 'import_export.hub_title'|trans({}, 'NowoApiStudioBundle') }}</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_openapi', {workspaceId: workspace.id}) }}">OpenAPI</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_postman', {workspaceId: workspace.id}) }}">Postman</a>
-        <a class="as-btn" href="{{ path('nowo_api_studio_io_import_variables_workspace', {workspaceId: workspace.id}) }}">{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}</a>
+{# Workspace import / export links (workspace page). Variables: workspace; optional bundle. #}
+{% set bundle = bundle|default(null) %}
+<section class="{{ nowo_ui_class('card', bundle) }}" data-testid="api-studio-workspace-io"{{ nowo_ui_attrs('card', bundle) }}>
+    <header class="{{ nowo_ui_class('card_header', bundle) }}">
+        <h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'import_export.hub_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
+    </header>
+    <div class="{{ nowo_ui_class('card_body', bundle) }}">
+        <p class="{{ nowo_ui_class('muted', bundle) }}">{{ 'import_export.export_title'|trans({}, 'NowoApiStudioBundle') }}</p>
+        <div class="{{ nowo_ui_class('toolbar', bundle) }} as-io-links">
+            <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_export_openapi_workspace', {workspaceId: workspace.id}) }}">{{ 'export.openapi.workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
+            {% for format, label in {json: 'JSON', yaml: 'YAML', env: '.env'} %}
+                <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_export_variables_workspace', {workspaceId: workspace.id, format: format}) }}">{{ label }}</a>
+            {% endfor %}
+        </div>
+        <p class="{{ nowo_ui_class('muted', bundle) }}">{{ 'import_export.import_title'|trans({}, 'NowoApiStudioBundle') }}</p>
+        <div class="{{ nowo_ui_class('toolbar', bundle) }} as-io-links">
+            <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_hub', {workspaceId: workspace.id}) }}">{{ 'import_export.hub_title'|trans({}, 'NowoApiStudioBundle') }}</a>
+            <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_import_openapi', {workspaceId: workspace.id}) }}">OpenAPI</a>
+            <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_import_postman', {workspaceId: workspace.id}) }}">Postman</a>
+            <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_import_variables_workspace', {workspaceId: workspace.id}) }}">{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}</a>
+        </div>
     </div>
 </section>

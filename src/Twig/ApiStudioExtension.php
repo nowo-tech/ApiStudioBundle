@@ -16,15 +16,17 @@ use Twig\TwigFunction;
  */
 final class ApiStudioExtension extends AbstractExtension implements GlobalsInterface
 {
+    /** `ui.layout_template` (null = the UiKit admin layout); kept for host templates, the pages use page.layout. */
     public const GLOBAL_LAYOUT_TEMPLATE = 'nowo_api_studio_layout_template';
 
+    /** Deprecated `ui.css_framework` (null when not set); the CSS stack is nowo_ui_kit.css_framework. */
     public const GLOBAL_CSS_FRAMEWORK = 'nowo_api_studio_css_framework';
 
     public function __construct(
         private readonly LocaleManager $localeManager,
         private readonly StudioNavigationProvider $navigationProvider,
-        private readonly string $layoutTemplate,
-        private readonly string $cssFramework,
+        private readonly ?string $layoutTemplate = null,
+        private readonly ?string $cssFramework = null,
     ) {
     }
 

@@ -1,39 +1,19 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% import '@NowoUiKitBundle/macros/ui.html.twig' as ui %}
+{#
+  Workspaces (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
+  ApiStudioPageFactory::workspaceIndex(): header page.workspaces with New workspace; columns name, slug; rows
+  {id, name, slug, href, edit}; row actions Open / Edit; Pagination (ui.list_page_size); EmptyState).
+  Blocks filled: nowo_ui_styles, nowo_ui_list_row (the name links to the workspace, slug in the code slot).
+#}
+{% extends '@NowoUiKit/page/list.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ 'page.workspaces'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-
-{% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_workspace_new') }}" class="{{ ui.btn('primary', null, nowo_api_studio_css_framework) }} as-btn as-btn-primary">+ {{ 'action.new_workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-data-table-wrap nowo-ui-table-wrap">
-        <table class="as-data-table {{ ui.table(nowo_api_studio_css_framework) }}">
-            <thead>
-                <tr>
-                    <th>{{ 'field.name'|trans({}, 'NowoApiStudioBundle') }}</th>
-                    <th>{{ 'field.slug'|trans({}, 'NowoApiStudioBundle') }}</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for workspace in workspaces %}
-                <tr>
-                    <td><a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}">{{ workspace.name }}</a></td>
-                    <td><code>{{ workspace.slug }}</code></td>
-                    <td class="as-table-actions"><a class="{{ ui.btn('secondary', 'sm', nowo_api_studio_css_framework) }} as-btn" href="{{ path('nowo_api_studio_workspace_edit', {id: workspace.id}) }}">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a></td>
-                </tr>
-            {% else %}
-                <tr><td colspan="3" class="as-empty {{ ui.empty(nowo_api_studio_css_framework) }}">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% if pagination.total_pages > 1 %}
-        {{ include('@NowoUiKitBundle/partials/_pagination.html.twig', {pagination: pagination, item_count: workspaces|length, route: 'nowo_api_studio_workspace_index', framework: nowo_api_studio_css_framework}) }}
-    {% endif %}
-</div>
+{% block nowo_ui_list_row %}
+    {% set _cell = nowo_ui_class('table_cell', page.bundle) %}
+    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1"><a href="{{ row.href }}">{{ row.name }}</a></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.slug'|trans }}" data-nowo-ui-priority="2"><code class="{{ nowo_ui_class('code', page.bundle) }}">{{ row.slug }}</code></td>
 {% endblock %}

@@ -14,6 +14,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '', name: 'nowo_api_studio_')]
 final class DashboardController extends AbstractController
 {
+    use ApiStudioPageTrait;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $serviceRepository,
@@ -25,12 +27,17 @@ final class DashboardController extends AbstractController
     #[Route('', name: 'dashboard', methods: ['GET'])]
     public function index(): Response
     {
-        return $this->render('@NowoApiStudioBundle/dashboard/index.html.twig', [
-            // REQ-PERF-001: bounded list + COUNT queries instead of hydrating every row.
+        // REQ-PERF-001: bounded list + COUNT queries instead of hydrating every row.
+        $workspaceCount = $this->workspaceRepository->count([]);
+        $serviceCount   = $this->serviceRepository->count([]);
+        $endpointCount  = $this->endpointRepository->count([]);
+
+        return $this->renderPage('@NowoApiStudioBundle/dashboard/index.html.twig', [
+            'page'           => $this->pages()->dashboard($workspaceCount, $serviceCount, $endpointCount),
             'workspaces'     => $this->workspaceRepository->findBy([], ['name' => 'ASC'], $this->listPageSize),
-            'workspaceCount' => $this->workspaceRepository->count([]),
-            'serviceCount'   => $this->serviceRepository->count([]),
-            'endpointCount'  => $this->endpointRepository->count([]),
+            'workspaceCount' => $workspaceCount,
+            'serviceCount'   => $serviceCount,
+            'endpointCount'  => $endpointCount,
         ]);
     }
 }

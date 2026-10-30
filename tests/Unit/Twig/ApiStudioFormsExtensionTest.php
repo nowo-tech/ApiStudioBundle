@@ -7,7 +7,10 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\Twig;
 use Nowo\ApiStudioBundle\Form\ClientSideFieldsType;
 use Nowo\ApiStudioBundle\Twig\ApiStudioFormsExtension;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Form\Extension\Csrf\CsrfExtension;
 use Symfony\Component\Form\Forms;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Twig\TwigFunction;
 
 final class ApiStudioFormsExtensionTest extends TestCase
@@ -37,5 +40,19 @@ final class ApiStudioFormsExtensionTest extends TestCase
         self::assertFalse($form->get('as-export-format')->isRequired());
         self::assertSame('x-id', $form->createView()->children['as-export-format']->vars['id']);
         self::assertSame('as-export-format', $form->createView()->children['as-export-format']->vars['full_name']);
+    }
+
+    public function testCsrfFormIsARootlessPostWithTheTokenId(): void
+    {
+        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
+        $tokens->method('getToken')->willReturnCallback(static fn (string $id): CsrfToken => new CsrfToken($id, 'token-' . $id));
+        $factory = Forms::createFormFactoryBuilder()->addExtension(new CsrfExtension($tokens))->getFormFactory();
+
+        $view = (new ApiStudioFormsExtension($factory))->csrfForm('/api-studio/workspaces/1/delete', 'delete1');
+
+        self::assertSame('', $view->vars['full_name']);
+        self::assertSame('/api-studio/workspaces/1/delete', $view->vars['action']);
+        self::assertSame('POST', $view->vars['method']);
+        self::assertSame('token-delete1', $view['_token']->vars['value']);
     }
 }

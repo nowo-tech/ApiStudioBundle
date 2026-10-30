@@ -1,89 +1,92 @@
-{# Shared modals for service export, import and delete.
-   REQ-TWIG-005: every control is a Symfony Form view (api_studio_service_modal_forms()); ids and names stay as
-   api-studio-shell.js expects. Plain form_div_layout widgets keep the API Studio markup independent of the host theme.
-   The export format radios are client-side only and stay outside any form element, as before. #}
+{#
+  Shared service dialogs (export, import, delete): UiKit native <dialog> (partials/_dialog.html.twig; no inline
+  handlers). api-studio-shell.js fills them from the menu item that opens them (service name, URLs, CSRF token).
+  REQ-TWIG-005: every control is a Symfony Form view (api_studio_service_modal_forms()); ids and names stay as
+  api-studio-shell.js expects. Plain form_div_layout widgets keep the markup independent of the host form theme. The
+  export format radios are client-side only and stay outside any form element.
+  Optional: bundle (theme exceptions).
+#}
+{% set bundle = bundle|default(null) %}
 {% set _modal_forms = api_studio_service_modal_forms() %}
 {% form_theme _modal_forms.export_format 'form_div_layout.html.twig' %}
 {% form_theme _modal_forms.import_format 'form_div_layout.html.twig' %}
 {% form_theme _modal_forms.import 'form_div_layout.html.twig' %}
 {% form_theme _modal_forms.delete 'form_div_layout.html.twig' %}
-<div id="as-service-export-modal" class="as-modal" hidden>
-    <div class="as-modal-backdrop" data-modal-close></div>
-    <div class="as-modal-card" role="dialog" aria-labelledby="as-service-export-title">
-        <h3 id="as-service-export-title" class="as-modal-title">{{ 'service.export_title'|trans({}, 'NowoApiStudioBundle') }}</h3>
-        <p id="as-service-export-subtitle" class="as-modal-subtitle"></p>
+
+{% set _export_body %}
+    <p id="as-service-export-subtitle" class="as-modal-subtitle"></p>
+    <fieldset class="as-format-options">
+        <legend class="as-modal-label">{{ 'io.format'|trans({}, 'NowoApiStudioBundle') }}</legend>
+        {% for option in _modal_forms.export_format['as-export-format'] %}
+            <div class="as-format-option">{{ form_widget(option) }} {{ form_label(option) }}</div>
+        {% endfor %}
+    </fieldset>
+{% endset %}
+{% set _export_footer %}
+    <button type="button" id="as-service-export-confirm" class="{{ nowo_ui_class('btn_primary', bundle) }}">{{ 'action.export'|trans({}, 'NowoApiStudioBundle') }}</button>
+    <button type="button" class="{{ nowo_ui_class('btn_secondary', bundle) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+{% endset %}
+{{ include(nowo_ui_partial('dialog', bundle), {id: 'as-service-export-modal', title: 'service.export_title'|trans({}, 'NowoApiStudioBundle'), body: _export_body, footer: _export_footer, bundle: bundle, close_label: 'action.close'|trans({}, 'NowoApiStudioBundle')}, false) }}
+
+{% set _import = _modal_forms.import %}
+{% set _import_body %}
+    <p id="as-service-import-subtitle" class="as-modal-subtitle"></p>
+    {{ form_start(_import, {attr: {id: 'as-service-import-form', class: nowo_ui_class('form', bundle)}}) }}
+        {# Client-side format switch (api-studio-shell.js reads input[name="as-import-format"]), inside the import form
+           without its own form element. #}
         <fieldset class="as-format-options">
             <legend class="as-modal-label">{{ 'io.format'|trans({}, 'NowoApiStudioBundle') }}</legend>
-            {% for option in _modal_forms.export_format['as-export-format'] %}
+            {% for option in _modal_forms.import_format['as-import-format'] %}
                 <div class="as-format-option">{{ form_widget(option) }} {{ form_label(option) }}</div>
             {% endfor %}
         </fieldset>
-        <div class="as-form-actions">
-            <button type="button" id="as-service-export-confirm" class="as-btn as-btn-primary">{{ 'action.export'|trans({}, 'NowoApiStudioBundle') }}</button>
-            <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+        {{ form_label(_import.file, null, {id: 'as-service-import-file', label_attr: {class: 'as-modal-label'}}) }}
+        {{ form_widget(_import.file, {id: 'as-service-import-file', attr: {class: nowo_ui_class('input', bundle) ~ ' as-input-file', accept: '.json,.yaml,.yml'}}) }}
+        <div id="as-import-postman-vars" class="as-checkbox-label" hidden>
+            {{ form_widget(_import.importVariables) }} {{ form_label(_import.importVariables) }}
         </div>
-    </div>
-</div>
+        <p class="{{ nowo_ui_class('muted', bundle) }} as-modal-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
+        <div class="{{ nowo_ui_class('form_actions', bundle) }}">
+            {{ form_widget(_import.submit, {attr: {class: nowo_ui_class('btn_primary', bundle)}}) }}
+            <button type="button" class="{{ nowo_ui_class('btn_secondary', bundle) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+        </div>
+        {% for child in _import %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+    {{ form_end(_import) }}
+{% endset %}
+{{ include(nowo_ui_partial('dialog', bundle), {id: 'as-service-import-modal', title: 'service.import_title'|trans({}, 'NowoApiStudioBundle'), body: _import_body, size: 'lg', bundle: bundle, close_label: 'action.close'|trans({}, 'NowoApiStudioBundle')}, false) }}
 
-<div id="as-service-import-modal" class="as-modal" hidden>
-    <div class="as-modal-backdrop" data-modal-close></div>
-    <div class="as-modal-card as-modal-card-wide" role="dialog" aria-labelledby="as-service-import-title">
-        <h3 id="as-service-import-title" class="as-modal-title">{{ 'service.import_title'|trans({}, 'NowoApiStudioBundle') }}</h3>
-        <p id="as-service-import-subtitle" class="as-modal-subtitle"></p>
-        {% set _import = _modal_forms.import %}
-        {{ form_start(_import, {attr: {id: 'as-service-import-form', class: 'as-form'}}) }}
-            {# Client-side format switch (api-studio-shell.js reads input[name="as-import-format"]); rendered inside the
-               import form as before, without its own form element. #}
-            <fieldset class="as-format-options">
-                <legend class="as-modal-label">{{ 'io.format'|trans({}, 'NowoApiStudioBundle') }}</legend>
-                {% for option in _modal_forms.import_format['as-import-format'] %}
-                    <div class="as-format-option">{{ form_widget(option) }} {{ form_label(option) }}</div>
-                {% endfor %}
-            </fieldset>
-            {{ form_label(_import.file, null, {id: 'as-service-import-file', label_attr: {class: 'as-modal-label'}}) }}
-            {{ form_widget(_import.file, {id: 'as-service-import-file', attr: {class: 'as-input as-input-file', accept: '.json,.yaml,.yml'}}) }}
-            <div id="as-import-postman-vars" class="as-checkbox-label" hidden>
-                {{ form_widget(_import.importVariables) }} {{ form_label(_import.importVariables) }}
-            </div>
-            <p class="as-hint as-modal-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
-            <div class="as-form-actions">
-                {{ form_widget(_import.submit) }}
-                <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
-            </div>
-            {% for child in _import %}
-                {% if not child.rendered %}
-                    {{ form_row(child) }}
-                {% endif %}
-            {% endfor %}
-        {{ form_end(_import) }}
-    </div>
-</div>
-
-<div id="as-service-delete-modal"
-     class="as-modal"
-     hidden
-     data-warning-template="{{ 'service.delete_warning'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-confirm-template="{{ 'service.delete_confirm_label'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}">
-    <div class="as-modal-backdrop" data-modal-close></div>
-    <div class="as-modal-card" role="dialog" aria-labelledby="as-service-delete-title">
-        <h3 id="as-service-delete-title" class="as-modal-title">{{ 'service.delete_title'|trans({}, 'NowoApiStudioBundle') }}</h3>
-        <p id="as-service-delete-warning" class="as-modal-warning"></p>
-        {% set _delete = _modal_forms.delete %}
-        {{ form_start(_delete, {attr: {id: 'as-service-delete-form'}}) }}
-            {{ form_widget(_delete._token) }}
-            {{ form_widget(_delete.redirect) }}
-            {# The label text is filled by api-studio-shell.js (service name). #}
-            {{ form_label(_delete.confirmation, ' ', {label_attr: {class: 'as-modal-label', id: 'as-service-delete-label'}}) }}
-            {{ form_widget(_delete.confirmation) }}
-            <div class="as-form-actions">
-                <button type="submit" id="as-service-delete-submit" class="as-btn as-btn-danger" disabled>{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
-            </div>
-            {% for child in _delete %}
-                {% if not child.rendered %}
-                    {{ form_row(child) }}
-                {% endif %}
-            {% endfor %}
-        {{ form_end(_delete) }}
-    </div>
-</div>
+{% set _delete = _modal_forms.delete %}
+{% set _delete_body %}
+    <p id="as-service-delete-warning" class="as-modal-warning"></p>
+    {{ form_start(_delete, {attr: {id: 'as-service-delete-form', class: nowo_ui_class('form', bundle)}}) }}
+        {{ form_widget(_delete._token) }}
+        {{ form_widget(_delete.redirect) }}
+        {# The label text is filled by api-studio-shell.js (service name). #}
+        {{ form_label(_delete.confirmation, ' ', {label_attr: {class: 'as-modal-label', id: 'as-service-delete-label'}}) }}
+        {{ form_widget(_delete.confirmation, {attr: _delete.confirmation.vars.attr|merge({class: nowo_ui_class('input', bundle)})}) }}
+        <div class="{{ nowo_ui_class('form_actions', bundle) }}">
+            <button type="submit" id="as-service-delete-submit" class="{{ nowo_ui_class('btn_danger_solid', bundle) }}" disabled>{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+            <button type="button" class="{{ nowo_ui_class('btn_secondary', bundle) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+        </div>
+        {% for child in _delete %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+    {{ form_end(_delete) }}
+{% endset %}
+{{ include(nowo_ui_partial('dialog', bundle), {
+    id: 'as-service-delete-modal',
+    title: 'service.delete_title'|trans({}, 'NowoApiStudioBundle'),
+    body: _delete_body,
+    bundle: bundle,
+    close_label: 'action.close'|trans({}, 'NowoApiStudioBundle'),
+    attr: {
+        'data-warning-template': 'service.delete_warning'|trans({}, 'NowoApiStudioBundle'),
+        'data-confirm-template': 'service.delete_confirm_label'|trans({}, 'NowoApiStudioBundle'),
+    },
+}, false) }}

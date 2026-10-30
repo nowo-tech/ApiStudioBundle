@@ -1,52 +1,50 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
+{#
+  Dashboard (REQ-UI-003): UiKit dashboard scaffold. Variable: page (View\DashboardPage from
+  ApiStudioPageFactory::dashboard(): header page.dashboard / dashboard.subtitle with New workspace; KPI tiles
+  workspaces (link to the list), services, endpoints).
+  Also: workspaces (first ui.list_page_size workspaces), workspaceCount.
+  Blocks filled: nowo_ui_styles, nowo_ui_scripts, nowo_ui_dashboard_cards (workbench: API tree + projects card).
+#}
+{% extends '@NowoUiKit/page/dashboard.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ 'page.dashboard'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ 'page.dashboard'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-
-{% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_workspace_new') }}" class="as-btn as-btn-primary">+ {{ 'action.new_workspace'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-page-header">
-        <div>
-            <h1>{{ 'page.dashboard'|trans({}, 'NowoApiStudioBundle') }}</h1>
-            <p>{{ 'dashboard.subtitle'|trans({}, 'NowoApiStudioBundle') }}</p>
-        </div>
-    </div>
+{% block nowo_ui_scripts %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_scripts.html.twig') }}
+{% endblock %}
 
-    <div class="as-stats">
-        <div class="as-stat-card">
-            <div class="as-stat-label">{{ 'dashboard.stat.workspaces'|trans({}, 'NowoApiStudioBundle') }}</div>
-            <div class="as-stat-value">{{ workspaceCount }}</div>
-        </div>
-        <div class="as-stat-card">
-            <div class="as-stat-label">{{ 'dashboard.stat.services'|trans({}, 'NowoApiStudioBundle') }}</div>
-            <div class="as-stat-value">{{ serviceCount }}</div>
-        </div>
-        <div class="as-stat-card">
-            <div class="as-stat-label">{{ 'dashboard.stat.endpoints'|trans({}, 'NowoApiStudioBundle') }}</div>
-            <div class="as-stat-value">{{ endpointCount }}</div>
-        </div>
-    </div>
-
-    <h2 style="font-size:16px;margin:0 0 16px">{{ 'dashboard.projects'|trans({}, 'NowoApiStudioBundle') }}</h2>
-    <div class="as-project-grid">
-        {% for workspace in workspaces %}
-            {% set colors = ['#7c3aed', '#2563eb', '#0891b2', '#ea580c', '#16a34a'] %}
-            {% set color = colors[loop.index0 % colors|length] %}
-            <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-project-card">
-                <div class="as-project-icon" style="background:{{ color }}22;color:{{ color }}">⬡</div>
-                <h3>{{ workspace.name }}</h3>
-                <p>{{ workspace.slug }} · {{ workspace.services|length }} {{ 'section.services'|trans({}, 'NowoApiStudioBundle')|lower }}</p>
-            </a>
-        {% else %}
-            <p style="color:var(--as-text-muted)">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
-        {% endfor %}
-    </div>
-    {% if workspaceCount > workspaces|length %}
-        <p><a href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'action.view_all'|trans({}, 'NowoApiStudioBundle') }}</a></p>
-    {% endif %}
-</div>
+{% block nowo_ui_dashboard_cards %}
+    {% set _b = page.bundle %}
+    {% embed '@NowoApiStudioBundle/_workbench.html.twig' with {bundle: _b} %}
+        {% block as_workbench_main %}
+            <section class="{{ nowo_ui_class('card', bundle) }}" data-testid="api-studio-projects"{{ nowo_ui_attrs('card', bundle) }}>
+                <header class="{{ nowo_ui_class('card_header', bundle) }}">
+                    <h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'dashboard.projects'|trans({}, 'NowoApiStudioBundle') }}</h2>
+                </header>
+                <div class="{{ nowo_ui_class('card_body', bundle) }}">
+                    {% if workspaces is empty %}
+                        {{ include(nowo_ui_partial('empty', bundle), {message: 'empty.workspaces'|trans({}, 'NowoApiStudioBundle'), bundle: bundle}, false) }}
+                    {% else %}
+                        <div class="as-project-grid">
+                            {% for workspace in workspaces %}
+                                <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-project-card as-project-card--{{ loop.index0 % 5 }}">
+                                    <span class="as-project-icon" aria-hidden="true">⬡</span>
+                                    <h3>{{ workspace.name }}</h3>
+                                    <p>{{ workspace.slug }} · {{ workspace.services|length }} {{ 'section.services'|trans({}, 'NowoApiStudioBundle')|lower }}</p>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% if workspaceCount > workspaces|length %}
+                            <p><a href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'action.view_all'|trans({}, 'NowoApiStudioBundle') }}</a></p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </section>
+        {% endblock %}
+    {% endembed %}
 {% endblock %}

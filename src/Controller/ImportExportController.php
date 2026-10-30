@@ -31,6 +31,8 @@ use Throwable;
 #[Route(path: '/workspaces/{workspaceId}', name: 'nowo_api_studio_io_')]
 final class ImportExportController extends AbstractController
 {
+    use ApiStudioPageTrait;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $serviceRepository,
@@ -48,8 +50,8 @@ final class ImportExportController extends AbstractController
     #[Route('/import-export', name: 'hub', requirements: ['workspaceId' => '\d+'], methods: ['GET'])]
     public function hub(int $workspaceId): Response
     {
-        return $this->render('@NowoApiStudioBundle/import_export/hub.html.twig', [
-            'workspace' => $this->requireWorkspace($workspaceId),
+        return $this->renderPage('@NowoApiStudioBundle/import_export/hub.html.twig', [
+            'page' => $this->pages()->importExportHub($this->requireWorkspace($workspaceId)),
         ]);
     }
 
@@ -252,17 +254,13 @@ final class ImportExportController extends AbstractController
 
                 return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
             } catch (Throwable $e) {
-                $this->addFlash('error', 'import.error');
+                $this->flash('error', 'import.error');
             }
         }
 
-        return $this->render('@NowoApiStudioBundle/import_export/import.html.twig', [
-            'workspace'   => $workspace,
-            'service'     => $service,
-            'environment' => $environment,
-            'form'        => $form,
-            'title'       => $titleKey,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/import_export/import.html.twig', [
+            'page' => $this->pages()->import($workspace, $titleKey, $form->createView(), $service, $environment),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     /**

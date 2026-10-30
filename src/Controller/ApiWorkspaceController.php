@@ -9,6 +9,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Form\ApiWorkspaceFormType;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer;
+use Nowo\UiKitBundle\View\Pagination;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route(path: '/workspaces', name: 'nowo_api_studio_workspace_')]
 final class ApiWorkspaceController extends AbstractController
 {
+    use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
 
     public function __construct(
@@ -35,9 +37,13 @@ final class ApiWorkspaceController extends AbstractController
         $totalPages = max(1, (int) ceil($total / $this->listPageSize));
         $page       = min(max(1, $request->query->getInt('page', 1)), $totalPages);
 
-        return $this->render('@NowoApiStudioBundle/workspace/index.html.twig', [
-            'workspaces' => $this->repository->findBy([], ['name' => 'ASC'], $this->listPageSize, ($page - 1) * $this->listPageSize),
-            'pagination' => ['page' => $page, 'per_page' => $this->listPageSize, 'total' => $total, 'total_pages' => $totalPages],
+        $workspaces = $this->repository->findBy([], ['name' => 'ASC'], $this->listPageSize, ($page - 1) * $this->listPageSize);
+
+        return $this->renderPage('@NowoApiStudioBundle/workspace/index.html.twig', [
+            'page' => $this->pages()->workspaceIndex(
+                $workspaces,
+                new Pagination($page, $this->listPageSize, $total, $totalPages, 'nowo_api_studio_workspace_index'),
+            ),
         ]);
     }
 
@@ -52,22 +58,24 @@ final class ApiWorkspaceController extends AbstractController
             $this->environmentInitializer->initialize($workspace);
             $this->entityManager->persist($workspace);
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.created');
+            $this->flash('success', 'flash.created');
 
             return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
         }
 
-        return $this->render('@NowoApiStudioBundle/workspace/form.html.twig', [
-            'form'  => $form,
-            'title' => 'page.new_workspace',
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/workspace/form.html.twig', [
+            'page' => $this->pages()->workspaceForm(null, $form->createView()),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function show(int $id): Response
     {
-        return $this->render('@NowoApiStudioBundle/workspace/show.html.twig', [
-            'workspace' => $this->requireWorkspace($id),
+        $workspace = $this->requireWorkspace($id);
+
+        return $this->renderPage('@NowoApiStudioBundle/workspace/show.html.twig', [
+            'page'      => $this->pages()->workspaceShow($workspace),
+            'workspace' => $workspace,
         ]);
     }
 
@@ -80,16 +88,18 @@ final class ApiWorkspaceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->flush();
-            $this->addFlash('success', 'flash.updated');
+            $this->flash('success', 'flash.updated');
 
             return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $id]);
         }
 
-        return $this->render('@NowoApiStudioBundle/workspace/form.html.twig', [
-            'form'      => $form,
-            'title'     => 'page.edit_workspace',
-            'workspace' => $workspace,
-        ]);
+        return $this->renderPage('@NowoApiStudioBundle/workspace/form.html.twig', [
+            'page' => $this->pages()->workspaceForm(
+                $workspace,
+                $form->createView(),
+                $this->csrfOnlyForm($this->generateUrl('nowo_api_studio_workspace_delete', ['id' => $id]), 'delete' . $id),
+            ),
+        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
@@ -104,7 +114,7 @@ final class ApiWorkspaceController extends AbstractController
 
         $this->entityManager->remove($workspace);
         $this->entityManager->flush();
-        $this->addFlash('success', 'flash.deleted');
+        $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_workspace_index');
     }

@@ -1,42 +1,10 @@
 /**
- * Api Studio shell UI: theme toggle, sidebar, and layout chrome helpers.
+ * Api Studio workbench UI (REQ-UI-003): API tree, service collections, endpoint rows, the service dialogs (UiKit
+ * native <dialog>) and the request console sub-tabs. The page chrome (theme, locale, layout) belongs to UiKit / the
+ * host layout.
  *
  * @packageDocumentation
  */
-
-const STORAGE_KEY = 'nowo_api_studio_theme';
-
-type Theme = 'light' | 'dark';
-
-/**
- * Read the current document theme from the root data attribute.
- *
- * @returns The active theme (`light` or `dark`).
- */
-function getTheme(): Theme {
-  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-}
-
-/**
- * Persist and apply a theme to the document root and toggle button.
- *
- * @param theme Theme to apply.
- * @returns void
- */
-function setTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem(STORAGE_KEY, theme);
-  const btn = document.getElementById('as-theme-toggle');
-  if (btn) {
-    btn.textContent = theme === 'dark' ? '☀' : '☾';
-  }
-}
-
-document.getElementById('as-theme-toggle')?.addEventListener('click', () => {
-  setTheme(getTheme() === 'dark' ? 'light' : 'dark');
-});
-
-setTheme(getTheme());
 
 document.querySelectorAll<HTMLElement>('[data-tree-toggle]').forEach((el) => {
   function toggle(): void {
@@ -89,98 +57,6 @@ document.querySelectorAll<HTMLButtonElement>('[data-service-collection-toggle]')
   });
 });
 
-function resetKebabPanel(panel: HTMLElement): void {
-  panel.style.removeProperty('top');
-  panel.style.removeProperty('left');
-}
-
-function positionKebabPanel(toggle: HTMLButtonElement, panel: HTMLElement): void {
-  panel.hidden = false;
-  panel.style.visibility = 'hidden';
-
-  const rect = toggle.getBoundingClientRect();
-  const panelWidth = panel.offsetWidth;
-  const panelHeight = panel.offsetHeight;
-  const margin = 8;
-  const gap = 4;
-
-  let left = rect.right - panelWidth;
-  left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
-
-  let top = rect.bottom + gap;
-  if (top + panelHeight > window.innerHeight - margin) {
-    top = Math.max(margin, rect.top - panelHeight - gap);
-  }
-
-  panel.style.top = `${top}px`;
-  panel.style.left = `${left}px`;
-  panel.style.visibility = '';
-}
-
-function closeKebabMenus(except: HTMLElement | null = null): void {
-  document.querySelectorAll<HTMLElement>('[data-kebab-menu]').forEach((menu) => {
-    if (except && menu === except) {
-      return;
-    }
-
-    menu.classList.remove('is-open');
-    const panel = menu.querySelector<HTMLElement>('.as-kebab-panel');
-    const toggle = menu.querySelector<HTMLButtonElement>('[data-kebab-toggle]');
-    if (panel) {
-      panel.hidden = true;
-      resetKebabPanel(panel);
-    }
-    if (toggle) {
-      toggle.setAttribute('aria-expanded', 'false');
-    }
-  });
-}
-
-function repositionOpenKebabMenus(): void {
-  document.querySelectorAll<HTMLElement>('[data-kebab-menu].is-open').forEach((menu) => {
-    const panel = menu.querySelector<HTMLElement>('.as-kebab-panel');
-    const toggle = menu.querySelector<HTMLButtonElement>('[data-kebab-toggle]');
-    if (panel && toggle && !panel.hidden) {
-      positionKebabPanel(toggle, panel);
-    }
-  });
-}
-
-document.querySelectorAll<HTMLButtonElement>('[data-kebab-toggle]').forEach((btn) => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const menu = btn.closest('[data-kebab-menu]') as HTMLElement | null;
-    const panel = menu?.querySelector<HTMLElement>('.as-kebab-panel');
-    if (!menu || !panel) {
-      return;
-    }
-
-    const willOpen = !menu.classList.contains('is-open');
-    closeKebabMenus(willOpen ? menu : null);
-    menu.classList.toggle('is-open', willOpen);
-    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-
-    if (willOpen) {
-      positionKebabPanel(btn, panel);
-    } else {
-      panel.hidden = true;
-      resetKebabPanel(panel);
-    }
-  });
-});
-
-document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  if (target.closest('[data-kebab-menu]')) {
-    return;
-  }
-  closeKebabMenus();
-});
-
-window.addEventListener('scroll', repositionOpenKebabMenus, true);
-window.addEventListener('resize', repositionOpenKebabMenus);
-
 document.querySelectorAll<HTMLButtonElement>('[data-endpoint-toggle]').forEach((btn) => {
   btn.addEventListener('click', () => {
     const block = btn.closest('[data-endpoint-block]');
@@ -211,48 +87,32 @@ document.querySelectorAll<HTMLButtonElement>('[data-tree-ep-toggle]').forEach((b
   });
 });
 
-const localeMenu = document.getElementById('as-locale-menu');
-const localeBtn = document.getElementById('as-locale-btn');
-if (localeMenu && localeBtn) {
-  localeBtn.addEventListener('click', () => {
-    localeMenu.classList.toggle('is-open');
-  });
-  document.addEventListener('click', (e) => {
-    if (!localeMenu.contains(e.target as Node)) {
-      localeMenu.classList.remove('is-open');
-    }
-  });
-}
-
-function closeModal(modal: HTMLElement | null): void {
-  if (!modal) {
-    return;
-  }
-  modal.hidden = true;
-}
-
+/**
+ * Open a UiKit dialog (native <dialog>); closing is handled by the UiKit dialog runtime ([data-nowo-ui-dialog-close],
+ * Escape, backdrop).
+ *
+ * @param modal The dialog element.
+ * @returns void
+ */
 function openModal(modal: HTMLElement | null): void {
-  if (!modal) {
-    return;
+  if (modal instanceof HTMLDialogElement && !modal.open) {
+    modal.showModal();
   }
-  modal.hidden = false;
 }
 
-document.querySelectorAll<HTMLElement>('[data-modal-close]').forEach((el) => {
-  el.addEventListener('click', () => {
-    closeModal(el.closest('.as-modal') as HTMLElement | null);
-  });
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') {
-    return;
+/**
+ * Close the UiKit kebab menu (details-based or popover) that holds an item.
+ *
+ * @param item The clicked menu item.
+ * @returns void
+ */
+function closeMenuOf(item: Element): void {
+  item.closest('details')?.removeAttribute('open');
+  const popover = item.closest<HTMLElement>('[popover]');
+  if (popover && typeof popover.hidePopover === 'function' && popover.matches(':popover-open')) {
+    popover.hidePopover();
   }
-  document.querySelectorAll<HTMLElement>('.as-modal:not([hidden])').forEach((modal) => {
-    closeModal(modal);
-  });
-  closeKebabMenus();
-});
+}
 
 const exportModal = document.getElementById('as-service-export-modal');
 const exportSubtitle = document.getElementById('as-service-export-subtitle');
@@ -307,11 +167,10 @@ deleteInput?.addEventListener('input', () => {
   deleteSubmit.disabled = deleteInput.value !== deleteExpectedName;
 });
 
-document.querySelectorAll<HTMLButtonElement>('[data-service-action]').forEach((btn) => {
+document.querySelectorAll<HTMLElement>('[data-service-action]').forEach((btn) => {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    closeKebabMenus();
+    closeMenuOf(btn);
 
     const action = btn.getAttribute('data-service-action');
     const serviceName = btn.getAttribute('data-service-name') ?? '';

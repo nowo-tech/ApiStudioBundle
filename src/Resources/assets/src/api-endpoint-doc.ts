@@ -128,9 +128,27 @@ document.addEventListener('DOMContentLoaded', () => {
     setEditing(false);
   });
 
+  const errorEl = document.getElementById('endpoint-doc-error');
+
+  /**
+   * Show a save error next to the editor (no window.alert: the page contract keeps feedback in the page).
+   *
+   * @param message Error text (printed as text, never markup).
+   * @returns void
+   */
+  function showError(message: string): void {
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+    }
+  }
+
   saveButton.addEventListener('click', async () => {
     if (!saveUrl) return;
     saveButton.disabled = true;
+    if (errorEl) {
+      errorEl.hidden = true;
+    }
 
     try {
       const response = await fetch(saveUrl, {
@@ -163,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderView(data.locale);
       setEditing(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      showError(e instanceof Error ? e.message : String(e));
     } finally {
       saveButton.disabled = false;
     }

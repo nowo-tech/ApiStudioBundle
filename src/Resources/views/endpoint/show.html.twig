@@ -1,336 +1,348 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
-{% set as_active_service = service.id %}
-{% set as_active_endpoint = endpoint.id %}
-{# REQ-TWIG-005: the tester controls are Symfony Form views (testerForm, built by EndpointTesterFormFactory). They are
-   client-side only (api-tester.js / api-endpoint-doc.js read them by id or class) and spread over several blocks, so
-   they are rendered with form_widget / form_label without a surrounding form element. #}
+{#
+  Request console (REQ-UI-003): UiKit show scaffold. Variable: page (View\ShowPage from
+  ApiStudioPageFactory::endpointShow(): header = endpoint name / method + path with Environments and Edit;
+  breadcrumbs). Also: workspace, service, endpoint, testerForm (EndpointTesterFormFactory), documentationByLocale,
+  enabledLocales, defaultLocale, currentLocale, environments, environmentMaps, variableCatalog, mergedHeaders,
+  history, the execute / examples / documentation URLs and CSRF tokens, loadRequestExampleId.
+  Blocks filled: nowo_ui_styles, nowo_ui_scripts (shell, body tools, documentation editor, script runtime, tester),
+  nowo_ui_show_sections (workbench: API tree + the console), nowo_ui_modals (save example and delete example
+  dialogs: UiKit <dialog>).
+  REQ-TWIG-005: the tester controls are Symfony Form views (testerForm). They are client-side only (api-tester.js /
+  api-endpoint-doc.js read them by id or class) and spread over several regions, so they are rendered with
+  form_widget / form_label without a surrounding form element.
+#}
+{% extends '@NowoUiKit/page/show.html.twig' %}
 {% form_theme testerForm 'form_div_layout.html.twig' %}
 
-{% block title %}{{ endpoint.name }}{% endblock %}
-{% block topbar_title %}{{ workspace.name }} / {{ service.name }}{% endblock %}
-{% block topbar_badge %}<span class="as-topbar-badge">{{ service.protocol.value|upper }}</span>{% endblock %}
-
-{% block topbar_actions %}
-    {{ form_widget(testerForm.environment) }}
-    <a href="{{ path('nowo_api_studio_environment_index', {workspaceId: workspace.id}) }}" class="as-btn">{{ 'section.environments'|trans({}, 'NowoApiStudioBundle') }}</a>
-    <a href="{{ path('nowo_api_studio_endpoint_edit', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}) }}" class="as-btn">{{ 'action.edit'|trans({}, 'NowoApiStudioBundle') }}</a>
-{% endblock %}
-
-{% block body %}
-<div class="as-console" id="api-studio-tester"
-     data-execute-url="{{ executeUrl }}"
-     data-csrf-token="{{ csrfToken }}"
-     data-env-sync-url="{{ envSyncUrlTemplate|e('html_attr') }}"
-     data-env-sync-csrf="{{ envSyncCsrfToken|e('html_attr') }}"
-     data-environment-maps="{{ environmentMaps|json_encode|e('html_attr') }}"
-     data-service-protocol="{{ service.protocol.value|e('html_attr') }}"
-     data-endpoint-content-type="{{ endpoint.contentType|e('html_attr') }}"
-     data-endpoint-path="{{ endpoint.path|e('html_attr') }}"
-     data-query-params="{{ endpoint.queryParams|json_encode|e('html_attr') }}"
-     data-merged-headers="{{ mergedHeaders|json_encode|e('html_attr') }}"
-     data-service-pre-script="{{ service.preRequestScript|default('')|e('html_attr') }}"
-     data-service-post-script="{{ service.postRequestScript|default('')|e('html_attr') }}"
-     data-default-body="{{ endpoint.requestBodyTemplate|default('')|e('html_attr') }}"
-     data-save-request-url="{{ saveRequestExampleUrl|e('html_attr') }}"
-     data-save-response-url="{{ saveResponseExampleUrl|e('html_attr') }}"
-     data-delete-request-url="{{ deleteRequestExampleUrlTemplate|e('html_attr') }}"
-     data-delete-response-url="{{ deleteResponseExampleUrlTemplate|e('html_attr') }}"
-     data-examples-csrf="{{ examplesCsrfToken|e('html_attr') }}"
-     data-i18n-load="{{ 'examples.load'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-delete="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-empty-request="{{ 'examples.empty_request'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-empty-response="{{ 'examples.empty_response'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-confirm-delete="{{ 'examples.confirm_delete'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-save-request-title="{{ 'examples.save_request_title'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-body-valid-json="{{ 'tester.body_valid_json'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-body-valid-json-vars="{{ 'tester.body_valid_json_vars'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-body-valid-xml="{{ 'tester.body_valid_xml'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-body-valid-xml-vars="{{ 'tester.body_valid_xml_vars'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     data-i18n-body-empty="{{ 'tester.body_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
-     {% if loadRequestExampleId %}data-load-request-example="{{ loadRequestExampleId }}"{% endif %}>
-
-    <div class="as-doc-panel" id="endpoint-doc-panel"
-         data-save-url="{{ saveDocumentationUrl|e('html_attr') }}"
-         data-csrf="{{ documentationCsrfToken|e('html_attr') }}"
-         data-ui-locale="{{ currentLocale|e('html_attr') }}"
-         data-enabled-locales="{{ enabledLocales|json_encode|e('html_attr') }}"
-         data-documentation="{{ documentationByLocale|json_encode|e('html_attr') }}"
-         data-fallback-title="{{ endpoint.name|e('html_attr') }}"
-         data-empty-description="{{ 'endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}">
-        <div class="as-doc-panel-head">
-            <span class="as-doc-panel-actions">
-                <button type="button" id="endpoint-doc-edit" class="as-btn as-btn-ghost">{{ 'endpoint.doc_edit'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" id="endpoint-doc-save" class="as-btn as-btn-primary" hidden>{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" id="endpoint-doc-cancel" class="as-btn" hidden>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
-            </span>
-        </div>
-        {# Read-only documentation per locale: UiKit locale_tabs partial (api-endpoint-doc.js edits the open panel). #}
-        {% set _doc_panels = [] %}
-        {% for locale in enabledLocales %}
-            {% set _doc = documentationByLocale[locale]|default({}) %}
-            {% set _doc_html %}
-                <h2 class="as-doc-title" data-doc-title>{{ _doc.title|default('') ?: endpoint.name }}</h2>
-                <p class="as-doc-description{% if not _doc.description|default('') %} is-empty{% endif %}" data-doc-description>{{ _doc.description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}</p>
-            {% endset %}
-            {% set _doc_panels = _doc_panels|merge([{locale: locale, content: _doc_html, name: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle')}]) %}
-        {% endfor %}
-        <div id="endpoint-doc-view">
-            {{ include(nowo_ui_partial('locale_tabs'), {
-                id: 'endpoint-doc-locale',
-                panels: _doc_panels,
-                label: 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle'),
-                default_locale: defaultLocale,
-                active_locale: currentLocale,
-                attr: {'data-testid': 'endpoint-doc-locale-tabs'},
-            }, with_context: false) }}
-        </div>
-        <div id="endpoint-doc-edit-form" class="as-doc-edit-form" hidden>
-            {{ form_label(testerForm.docTitle, 'endpoint.doc_title'|trans({}, 'NowoApiStudioBundle')) }}
-            {{ form_widget(testerForm.docTitle) }}
-            {{ form_label(testerForm.docDescription) }}
-            {{ form_widget(testerForm.docDescription) }}
-            <p class="as-hint">{{ 'endpoint.doc_tabs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-        </div>
-    </div>
-
-    <div class="as-url-bar">
-        {% if service.protocol.value == 'rest' %}
-            <span id="tester-method-wrap" class="as-method-select-wrap as-method {{ api_studio_method_class(endpoint.method.value) }}">
-                {{ form_widget(testerForm.method, {attr: testerForm.method.vars.attr|merge({'aria-label': 'tester.http_method'|trans({}, 'NowoApiStudioBundle')})}) }}
-            </span>
-        {% else %}
-            <span class="as-url-method as-method {{ api_studio_method_class(endpoint.method.value) }}">{{ endpoint.method.value }}</span>
-        {% endif %}
-        {{ form_widget(testerForm.urlDisplay) }}
-        <span id="tester-url-unresolved" class="as-var-warning" hidden title="{{ 'tester.unresolved_vars'|trans({}, 'NowoApiStudioBundle') }}">⚠</span>
-        <span class="as-persist-vars">{{ form_widget(testerForm.persistVariables) }} {{ form_label(testerForm.persistVariables) }}</span>
-        <button type="button" id="tester-send" class="as-btn as-btn-primary">{{ 'tester.send'|trans({}, 'NowoApiStudioBundle') }}</button>
-        <button type="button" id="tester-save-request" class="as-btn" title="{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}</button>
-    </div>
-
-    <div class="as-console-split">
-        <section class="as-console-request">
-            <div class="as-subtabs" data-subtabs="request">
-                <button type="button" class="as-subtab is-active" data-subtab="body">{{ 'tester.tab.body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="params">{{ 'tester.tab.params'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="headers">{{ 'tester.tab.headers'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="variables">{{ 'tester.tab.variables'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="pre">{{ 'tester.tab.pre_script'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="post">{{ 'tester.tab.post_script'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-subtab="docs">{{ 'tester.tab.docs'|trans({}, 'NowoApiStudioBundle') }}</button>
-            </div>
-            <div class="as-panel-body">
-                <div class="as-subpanel is-active" data-subpanel="body">
-                    <div class="as-body-toolbar">
-                        <span class="as-body-format-label">{{ 'tester.body_format'|trans({'%format%': service.protocol.value == 'soap' or 'xml' in endpoint.contentType|lower ? 'XML' : 'JSON'}, 'NowoApiStudioBundle') }}</span>
-                        <button type="button" id="tester-body-format" class="as-btn as-btn-ghost">{{ 'tester.format_body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                        <button type="button" id="tester-body-validate" class="as-btn as-btn-ghost">{{ 'tester.validate_body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                        <span id="tester-body-validation" class="as-body-validation" hidden></span>
-                    </div>
-                    <p class="as-hint">{{ 'tester.variables_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    {{ form_widget(testerForm.body) }}
-                </div>
-                <div class="as-subpanel" data-subpanel="params">
-                    <p class="as-hint">{{ 'tester.params_editable_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    <table class="as-kv-table" id="tester-params-table">
-                        <thead>
-                            <tr>
-                                <th style="width:32px"></th>
-                                <th>{{ 'field.key'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th>{{ 'field.value'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th>{{ 'tester.resolved'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th style="width:36px"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="tester-params-body">
-                        {% for row in testerForm.params %}
-                            <tr class="as-kv-row" data-param-row>
-                                <td>{{ form_widget(row.enabled) }}</td>
-                                <td>{{ form_widget(row.key) }}</td>
-                                <td>{{ form_widget(row.value) }}</td>
-                                <td><code class="as-resolved-param"></code></td>
-                                <td><button type="button" class="as-btn as-btn-ghost as-kv-remove" title="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}">×</button></td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                    <button type="button" class="as-btn" id="tester-params-add" style="margin-top:10px">+ {{ 'tester.add_param'|trans({}, 'NowoApiStudioBundle') }}</button>
-                </div>
-                <div class="as-subpanel" data-subpanel="headers">
-                    <p class="as-hint">{{ 'tester.headers_editable_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    <table class="as-kv-table" id="tester-headers-table">
-                        <thead>
-                            <tr>
-                                <th style="width:32px"></th>
-                                <th>{{ 'field.key'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th>{{ 'field.value'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th>{{ 'tester.resolved'|trans({}, 'NowoApiStudioBundle') }}</th>
-                                <th style="width:36px"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="tester-headers-body">
-                        {% for row in testerForm.headers %}
-                            <tr class="as-kv-row" data-header-row>
-                                <td>{{ form_widget(row.enabled) }}</td>
-                                <td>{{ form_widget(row.key) }}</td>
-                                <td>{{ form_widget(row.value) }}</td>
-                                <td><code class="as-resolved-header"></code></td>
-                                <td><button type="button" class="as-btn as-btn-ghost as-kv-remove" title="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}">×</button></td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                    <button type="button" class="as-btn" id="tester-headers-add" style="margin-top:10px">+ {{ 'tester.add_header'|trans({}, 'NowoApiStudioBundle') }}</button>
-                    {% if service.authType.value != 'none' %}
-                        <p class="as-hint" style="margin-top:12px">{{ 'tester.auth_hint'|trans({'%type%': service.authType.value}, 'NowoApiStudioBundle') }}</p>
-                    {% endif %}
-                </div>
-                <div class="as-subpanel" data-subpanel="variables">
-                    <p class="as-hint">{{ 'tester.variables_scope'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    {% include '@NowoApiStudioBundle/_variable_catalog.html.twig' with {variableCatalog: variableCatalog, environments: environments, workspace: workspace} %}
-                </div>
-                <div class="as-subpanel" data-subpanel="pre">
-                    <p class="as-hint">{{ 'tester.pre_script_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    {% if service.preRequestScript %}
-                        <p class="as-hint"><strong>{{ 'tester.service_pre_script'|trans({}, 'NowoApiStudioBundle') }}</strong> ({{ 'tester.service_script_readonly'|trans({}, 'NowoApiStudioBundle') }})</p>
-                        <pre class="as-script-readonly">{{ service.preRequestScript }}</pre>
-                    {% endif %}
-                    {{ form_widget(testerForm.preScript) }}
-                </div>
-                <div class="as-subpanel" data-subpanel="post">
-                    <p class="as-hint">{{ 'tester.post_script_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    {% if service.postRequestScript %}
-                        <p class="as-hint"><strong>{{ 'tester.service_post_script'|trans({}, 'NowoApiStudioBundle') }}</strong> ({{ 'tester.service_script_readonly'|trans({}, 'NowoApiStudioBundle') }})</p>
-                        <pre class="as-script-readonly">{{ service.postRequestScript }}</pre>
-                    {% endif %}
-                    {{ form_widget(testerForm.postScript) }}
-                </div>
-                <div class="as-subpanel" data-subpanel="docs">
-                    <div class="as-doc-summary">
-                        <strong class="as-examples-heading">{{ 'endpoint.doc_summary'|trans({}, 'NowoApiStudioBundle') }}</strong>
-                        <h3 id="endpoint-doc-title-docs">{{ documentationByLocale[currentLocale].title|default('') ?: endpoint.name }}</h3>
-                        <p id="endpoint-doc-desc-docs" class="as-doc-description{% if not documentationByLocale[currentLocale].description|default('') %} is-empty{% endif %}">
-                            {{ documentationByLocale[currentLocale].description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}
-                        </p>
-                    </div>
-                    <p class="as-hint">{{ 'examples.docs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-                    <div class="as-examples-grid">
-                        <div>
-                            <strong class="as-examples-heading">{{ 'section.request_examples'|trans({}, 'NowoApiStudioBundle') }}</strong>
-                            <div id="tester-request-examples" class="as-examples-list">
-                            {% for example in endpoint.requestExamples %}
-                                <div class="as-example-item" data-example-id="{{ example.id }}" data-example-type="request"
-                                     data-example-payload="{{ {body: example.requestBody, headers: example.headers, query_params: example.queryParams}|json_encode|e('html_attr') }}">
-                                    <div class="as-example-item-head">
-                                        <strong>{{ example.name }}</strong>
-                                        <span class="as-example-actions">
-                                            <button type="button" class="as-btn as-btn-ghost as-example-load">{{ 'examples.load'|trans({}, 'NowoApiStudioBundle') }}</button>
-                                            <button type="button" class="as-btn as-btn-ghost as-example-delete">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-                                        </span>
-                                    </div>
-                                    {% if example.requestBody %}<pre class="as-example-snippet">{{ example.requestBody|length > 200 ? example.requestBody|slice(0, 200) ~ '…' : example.requestBody }}</pre>{% endif %}
-                                </div>
-                            {% else %}
-                                <p class="as-examples-empty">{{ 'examples.empty_request'|trans({}, 'NowoApiStudioBundle') }}</p>
-                            {% endfor %}
-                            </div>
-                        </div>
-                        <div>
-                            <strong class="as-examples-heading">{{ 'section.response_examples'|trans({}, 'NowoApiStudioBundle') }}</strong>
-                            <div id="tester-response-examples" class="as-examples-list">
-                            {% for example in endpoint.responseExamples %}
-                                <div class="as-example-item" data-example-id="{{ example.id }}" data-example-type="response"
-                                     data-example-payload="{{ {status_code: example.statusCode, response_body: example.responseBody, response_headers: example.headers}|json_encode|e('html_attr') }}">
-                                    <div class="as-example-item-head">
-                                        <strong>{{ example.name }}</strong>
-                                        <span class="as-method as-method-default">{{ example.statusCode }}</span>
-                                        <span class="as-example-actions">
-                                            <button type="button" class="as-btn as-btn-ghost as-example-delete">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
-                                        </span>
-                                    </div>
-                                    {% if example.responseBody %}<pre class="as-example-snippet">{{ example.responseBody|length > 200 ? example.responseBody|slice(0, 200) ~ '…' : example.responseBody }}</pre>{% endif %}
-                                </div>
-                            {% else %}
-                                <p class="as-examples-empty">{{ 'examples.empty_response'|trans({}, 'NowoApiStudioBundle') }}</p>
-                            {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="as-console-response">
-            <div class="as-response-meta">
-                <span id="tester-status">{{ 'tester.response_placeholder'|trans({}, 'NowoApiStudioBundle') }}</span>
-                <span id="tester-duration" style="color:var(--as-text-muted)"></span>
-                <span class="as-response-meta-actions">
-                    <button type="button" id="tester-save-response" class="as-btn" disabled title="{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}</button>
-                </span>
-            </div>
-            <div class="as-response-tabs">
-                <button type="button" class="as-subtab is-active" data-response-tab="body">{{ 'tester.tab.body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-response-tab="headers">{{ 'tester.tab.headers'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" class="as-subtab" data-response-tab="console">{{ 'tester.tab.script_console'|trans({}, 'NowoApiStudioBundle') }}</button>
-            </div>
-            <div class="as-body-toolbar as-response-body-toolbar" data-response-panel="body">
-                <button type="button" id="tester-response-format" class="as-btn as-btn-ghost">{{ 'tester.format_body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <button type="button" id="tester-response-validate" class="as-btn as-btn-ghost">{{ 'tester.validate_body'|trans({}, 'NowoApiStudioBundle') }}</button>
-                <span id="tester-response-validation" class="as-body-validation" hidden></span>
-            </div>
-            <pre id="tester-response" class="as-response-pre as-response-panel is-active" data-response-panel="body">{{ 'tester.response_hint'|trans({}, 'NowoApiStudioBundle') }}</pre>
-            <pre id="tester-response-headers" class="as-response-pre as-response-panel" data-response-panel="headers" hidden></pre>
-            <pre id="tester-script-log" class="as-response-pre as-response-panel" data-response-panel="console" hidden></pre>
-        </section>
-    </div>
-
-    {% if history|length > 0 %}
-    <div style="padding:8px 16px;border-top:1px solid var(--as-border);background:var(--as-bg-panel);font-size:12px;color:var(--as-text-muted)">
-        {{ 'section.history'|trans({}, 'NowoApiStudioBundle') }}:
-        {% for item in history %}
-            <span style="margin-right:12px">
-                <span class="as-method {{ item.success ? 'as-method-get' : 'as-method-delete' }}" style="min-width:auto;padding:1px 5px">{{ item.responseStatus ?? 'ERR' }}</span>
-                {{ item.executedAt|date('H:i:s') }} ({{ item.durationMs }}ms)
-            </span>
-        {% endfor %}
-    </div>
-    {% endif %}
-</div>
-
-<div id="tester-example-modal" class="as-modal" hidden>
-    <div class="as-modal-backdrop" data-modal-close></div>
-    <div class="as-modal-card" role="dialog" aria-labelledby="tester-example-modal-title">
-        <h3 id="tester-example-modal-title" class="as-modal-title"></h3>
-        {{ form_label(testerForm.exampleName) }}
-        {{ form_widget(testerForm.exampleName) }}
-        <div class="as-form-actions">
-            <button type="button" id="tester-example-save" class="as-btn as-btn-primary">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
-            <button type="button" class="as-btn" data-modal-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block javascripts %}
+{% block nowo_ui_styles %}
     {{ parent() }}
-    <script src="{{ asset('api-body-tools.js', 'nowo_api_studio') }}"></script>
-    <script src="{{ asset('api-endpoint-doc.js', 'nowo_api_studio') }}"></script>
-    <script src="{{ asset('api-script-runtime.js', 'nowo_api_studio') }}"></script>
-    <script src="{{ asset('api-tester.js', 'nowo_api_studio') }}"></script>
-    <script>
-    document.querySelectorAll('[data-response-tab]').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        var name = tab.getAttribute('data-response-tab');
-        document.querySelectorAll('[data-response-tab]').forEach(function (t) { t.classList.toggle('is-active', t === tab); });
-        document.querySelectorAll('[data-response-panel]').forEach(function (p) {
-          var active = p.getAttribute('data-response-panel') === name;
-          p.classList.toggle('is-active', active);
-          p.hidden = !active;
-        });
-        var responseToolbar = document.querySelector('.as-response-body-toolbar');
-        if (responseToolbar) responseToolbar.hidden = name !== 'body';
-      });
-    });
-    </script>
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
+{% endblock %}
+
+{% block nowo_ui_scripts %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_scripts.html.twig', {scripts: ['api-studio-shell.js', 'api-body-tools.js', 'api-endpoint-doc.js', 'api-script-runtime.js', 'api-tester.js']}) }}
+{% endblock %}
+
+{% block nowo_ui_show_sections %}
+    {% embed '@NowoApiStudioBundle/_workbench.html.twig' with {bundle: page.bundle, nav_active: {workspace: workspace.id, service: service.id, endpoint: endpoint.id}} %}
+        {% block as_workbench_main %}
+            <div class="as-console" id="api-studio-tester"
+                 data-execute-url="{{ executeUrl }}"
+                 data-csrf-token="{{ csrfToken }}"
+                 data-env-sync-url="{{ envSyncUrlTemplate|e('html_attr') }}"
+                 data-env-sync-csrf="{{ envSyncCsrfToken|e('html_attr') }}"
+                 data-environment-maps="{{ environmentMaps|json_encode|e('html_attr') }}"
+                 data-service-protocol="{{ service.protocol.value|e('html_attr') }}"
+                 data-endpoint-content-type="{{ endpoint.contentType|e('html_attr') }}"
+                 data-endpoint-path="{{ endpoint.path|e('html_attr') }}"
+                 data-query-params="{{ endpoint.queryParams|json_encode|e('html_attr') }}"
+                 data-merged-headers="{{ mergedHeaders|json_encode|e('html_attr') }}"
+                 data-service-pre-script="{{ service.preRequestScript|default('')|e('html_attr') }}"
+                 data-service-post-script="{{ service.postRequestScript|default('')|e('html_attr') }}"
+                 data-default-body="{{ endpoint.requestBodyTemplate|default('')|e('html_attr') }}"
+                 data-save-request-url="{{ saveRequestExampleUrl|e('html_attr') }}"
+                 data-save-response-url="{{ saveResponseExampleUrl|e('html_attr') }}"
+                 data-delete-request-url="{{ deleteRequestExampleUrlTemplate|e('html_attr') }}"
+                 data-delete-response-url="{{ deleteResponseExampleUrlTemplate|e('html_attr') }}"
+                 data-examples-csrf="{{ examplesCsrfToken|e('html_attr') }}"
+                 data-i18n-load="{{ 'examples.load'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-delete="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-empty-request="{{ 'examples.empty_request'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-empty-response="{{ 'examples.empty_response'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-save-request-title="{{ 'examples.save_request_title'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-body-valid-json="{{ 'tester.body_valid_json'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-body-valid-json-vars="{{ 'tester.body_valid_json_vars'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-body-valid-xml="{{ 'tester.body_valid_xml'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-body-valid-xml-vars="{{ 'tester.body_valid_xml_vars'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 data-i18n-body-empty="{{ 'tester.body_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}"
+                 {% if loadRequestExampleId %}data-load-request-example="{{ loadRequestExampleId }}"{% endif %}>
+
+                <div class="as-doc-panel" id="endpoint-doc-panel"
+                     data-save-url="{{ saveDocumentationUrl|e('html_attr') }}"
+                     data-csrf="{{ documentationCsrfToken|e('html_attr') }}"
+                     data-ui-locale="{{ currentLocale|e('html_attr') }}"
+                     data-enabled-locales="{{ enabledLocales|json_encode|e('html_attr') }}"
+                     data-documentation="{{ documentationByLocale|json_encode|e('html_attr') }}"
+                     data-fallback-title="{{ endpoint.name|e('html_attr') }}"
+                     data-empty-description="{{ 'endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}">
+                    <div class="as-doc-panel-head">
+                        <span class="as-doc-panel-actions">
+                            <button type="button" id="endpoint-doc-edit" class="as-btn as-btn-ghost">{{ 'endpoint.doc_edit'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" id="endpoint-doc-save" class="as-btn as-btn-primary" hidden>{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" id="endpoint-doc-cancel" class="as-btn" hidden>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+                        </span>
+                    </div>
+                    {# Read-only documentation per locale: UiKit locale_tabs partial (api-endpoint-doc.js edits the open panel). #}
+                    {% set _doc_panels = [] %}
+                    {% for locale in enabledLocales %}
+                        {% set _doc = documentationByLocale[locale]|default({}) %}
+                        {% set _doc_html %}
+                            <h2 class="as-doc-title" data-doc-title>{{ _doc.title|default('') ?: endpoint.name }}</h2>
+                            <p class="as-doc-description{% if not _doc.description|default('') %} is-empty{% endif %}" data-doc-description>{{ _doc.description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}</p>
+                        {% endset %}
+                        {% set _doc_panels = _doc_panels|merge([{locale: locale, content: _doc_html, name: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle')}]) %}
+                    {% endfor %}
+                    <div id="endpoint-doc-view">
+                        {{ include(nowo_ui_partial('locale_tabs'), {
+                            id: 'endpoint-doc-locale',
+                            panels: _doc_panels,
+                            label: 'endpoint.doc_languages'|trans({}, 'NowoApiStudioBundle'),
+                            default_locale: defaultLocale,
+                            active_locale: currentLocale,
+                            attr: {'data-testid': 'endpoint-doc-locale-tabs'},
+                        }, with_context: false) }}
+                    </div>
+                    <div id="endpoint-doc-edit-form" class="as-doc-edit-form" hidden>
+                        {{ form_label(testerForm.docTitle, 'endpoint.doc_title'|trans({}, 'NowoApiStudioBundle')) }}
+                        {{ form_widget(testerForm.docTitle) }}
+                        {{ form_label(testerForm.docDescription) }}
+                        {{ form_widget(testerForm.docDescription) }}
+                        <p class="as-hint">{{ 'endpoint.doc_tabs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                        <p id="endpoint-doc-error" class="as-doc-error" role="alert" hidden></p>
+                    </div>
+                </div>
+
+                <div class="as-url-bar">
+                    {% if service.protocol.value == 'rest' %}
+                        <span id="tester-method-wrap" class="as-method-select-wrap as-method {{ api_studio_method_class(endpoint.method.value) }}">
+                            {{ form_widget(testerForm.method, {attr: testerForm.method.vars.attr|merge({'aria-label': 'tester.http_method'|trans({}, 'NowoApiStudioBundle')})}) }}
+                        </span>
+                    {% else %}
+                        <span class="as-url-method as-method {{ api_studio_method_class(endpoint.method.value) }}">{{ endpoint.method.value }}</span>
+                    {% endif %}
+                    <span class="as-env-select">{{ form_label(testerForm.environment) }}{{ form_widget(testerForm.environment) }}</span>
+                    {{ form_widget(testerForm.urlDisplay) }}
+                    <span id="tester-url-unresolved" class="as-var-warning" hidden title="{{ 'tester.unresolved_vars'|trans({}, 'NowoApiStudioBundle') }}">⚠</span>
+                    <span class="as-persist-vars">{{ form_widget(testerForm.persistVariables) }} {{ form_label(testerForm.persistVariables) }}</span>
+                    <button type="button" id="tester-send" class="as-btn as-btn-primary">{{ 'tester.send'|trans({}, 'NowoApiStudioBundle') }}</button>
+                    <button type="button" id="tester-save-request" class="as-btn" title="{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}</button>
+                </div>
+
+                <div class="as-console-split">
+                    <section class="as-console-request">
+                        <div class="as-subtabs" data-subtabs="request">
+                            <button type="button" class="as-subtab is-active" data-subtab="body">{{ 'tester.tab.body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="params">{{ 'tester.tab.params'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="headers">{{ 'tester.tab.headers'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="variables">{{ 'tester.tab.variables'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="pre">{{ 'tester.tab.pre_script'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="post">{{ 'tester.tab.post_script'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-subtab="docs">{{ 'tester.tab.docs'|trans({}, 'NowoApiStudioBundle') }}</button>
+                        </div>
+                        <div class="as-panel-body">
+                            <div class="as-subpanel is-active" data-subpanel="body">
+                                <div class="as-body-toolbar">
+                                    <span class="as-body-format-label">{{ 'tester.body_format'|trans({'%format%': service.protocol.value == 'soap' or 'xml' in endpoint.contentType|lower ? 'XML' : 'JSON'}, 'NowoApiStudioBundle') }}</span>
+                                    <button type="button" id="tester-body-format" class="as-btn as-btn-ghost">{{ 'tester.format_body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                    <button type="button" id="tester-body-validate" class="as-btn as-btn-ghost">{{ 'tester.validate_body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                    <span id="tester-body-validation" class="as-body-validation" hidden></span>
+                                </div>
+                                <p class="as-hint">{{ 'tester.variables_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                {{ form_widget(testerForm.body) }}
+                            </div>
+                            <div class="as-subpanel" data-subpanel="params">
+                                <p class="as-hint">{{ 'tester.params_editable_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                <table class="as-kv-table" id="tester-params-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="as-kv-col-toggle"></th>
+                                            <th>{{ 'field.key'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th>{{ 'field.value'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th>{{ 'tester.resolved'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th class="as-kv-col-remove"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tester-params-body">
+                                    {% for row in testerForm.params %}
+                                        <tr class="as-kv-row" data-param-row>
+                                            <td>{{ form_widget(row.enabled) }}</td>
+                                            <td>{{ form_widget(row.key) }}</td>
+                                            <td>{{ form_widget(row.value) }}</td>
+                                            <td><code class="as-resolved-param"></code></td>
+                                            <td><button type="button" class="as-btn as-btn-ghost as-kv-remove" title="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}">×</button></td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                                <button type="button" class="as-btn as-kv-add" id="tester-params-add">+ {{ 'tester.add_param'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            </div>
+                            <div class="as-subpanel" data-subpanel="headers">
+                                <p class="as-hint">{{ 'tester.headers_editable_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                <table class="as-kv-table" id="tester-headers-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="as-kv-col-toggle"></th>
+                                            <th>{{ 'field.key'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th>{{ 'field.value'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th>{{ 'tester.resolved'|trans({}, 'NowoApiStudioBundle') }}</th>
+                                            <th class="as-kv-col-remove"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tester-headers-body">
+                                    {% for row in testerForm.headers %}
+                                        <tr class="as-kv-row" data-header-row>
+                                            <td>{{ form_widget(row.enabled) }}</td>
+                                            <td>{{ form_widget(row.key) }}</td>
+                                            <td>{{ form_widget(row.value) }}</td>
+                                            <td><code class="as-resolved-header"></code></td>
+                                            <td><button type="button" class="as-btn as-btn-ghost as-kv-remove" title="{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}">×</button></td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                                <button type="button" class="as-btn as-kv-add" id="tester-headers-add">+ {{ 'tester.add_header'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                {% if service.authType.value != 'none' %}
+                                    <p class="as-hint as-hint--spaced">{{ 'tester.auth_hint'|trans({'%type%': service.authType.value}, 'NowoApiStudioBundle') }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="as-subpanel" data-subpanel="variables">
+                                <p class="as-hint">{{ 'tester.variables_scope'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                {{ include('@NowoApiStudioBundle/_variable_catalog.html.twig', {variableCatalog: variableCatalog, environments: environments, workspace: workspace, bundle: page.bundle}, false) }}
+                            </div>
+                            <div class="as-subpanel" data-subpanel="pre">
+                                <p class="as-hint">{{ 'tester.pre_script_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                {% if service.preRequestScript %}
+                                    <p class="as-hint"><strong>{{ 'tester.service_pre_script'|trans({}, 'NowoApiStudioBundle') }}</strong> ({{ 'tester.service_script_readonly'|trans({}, 'NowoApiStudioBundle') }})</p>
+                                    <pre class="as-script-readonly">{{ service.preRequestScript }}</pre>
+                                {% endif %}
+                                {{ form_widget(testerForm.preScript) }}
+                            </div>
+                            <div class="as-subpanel" data-subpanel="post">
+                                <p class="as-hint">{{ 'tester.post_script_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                {% if service.postRequestScript %}
+                                    <p class="as-hint"><strong>{{ 'tester.service_post_script'|trans({}, 'NowoApiStudioBundle') }}</strong> ({{ 'tester.service_script_readonly'|trans({}, 'NowoApiStudioBundle') }})</p>
+                                    <pre class="as-script-readonly">{{ service.postRequestScript }}</pre>
+                                {% endif %}
+                                {{ form_widget(testerForm.postScript) }}
+                            </div>
+                            <div class="as-subpanel" data-subpanel="docs">
+                                <div class="as-doc-summary">
+                                    <strong class="as-examples-heading">{{ 'endpoint.doc_summary'|trans({}, 'NowoApiStudioBundle') }}</strong>
+                                    <h3 id="endpoint-doc-title-docs">{{ documentationByLocale[currentLocale].title|default('') ?: endpoint.name }}</h3>
+                                    <p id="endpoint-doc-desc-docs" class="as-doc-description{% if not documentationByLocale[currentLocale].description|default('') %} is-empty{% endif %}">
+                                        {{ documentationByLocale[currentLocale].description|default('') ?: ('endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')) }}
+                                    </p>
+                                </div>
+                                <p class="as-hint">{{ 'examples.docs_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                <div class="as-examples-grid">
+                                    <div>
+                                        <strong class="as-examples-heading">{{ 'section.request_examples'|trans({}, 'NowoApiStudioBundle') }}</strong>
+                                        <div id="tester-request-examples" class="as-examples-list">
+                                        {% for example in endpoint.requestExamples %}
+                                            <div class="as-example-item" data-example-id="{{ example.id }}" data-example-type="request"
+                                                 data-example-payload="{{ {body: example.requestBody, headers: example.headers, query_params: example.queryParams}|json_encode|e('html_attr') }}">
+                                                <div class="as-example-item-head">
+                                                    <strong>{{ example.name }}</strong>
+                                                    <span class="as-example-actions">
+                                                        <button type="button" class="as-btn as-btn-ghost as-example-load">{{ 'examples.load'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                                        <button type="button" class="as-btn as-btn-ghost as-example-delete">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                                    </span>
+                                                </div>
+                                                {% if example.requestBody %}<pre class="as-example-snippet">{{ example.requestBody|length > 200 ? example.requestBody|slice(0, 200) ~ '…' : example.requestBody }}</pre>{% endif %}
+                                            </div>
+                                        {% else %}
+                                            <p class="as-examples-empty">{{ 'examples.empty_request'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                        {% endfor %}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <strong class="as-examples-heading">{{ 'section.response_examples'|trans({}, 'NowoApiStudioBundle') }}</strong>
+                                        <div id="tester-response-examples" class="as-examples-list">
+                                        {% for example in endpoint.responseExamples %}
+                                            <div class="as-example-item" data-example-id="{{ example.id }}" data-example-type="response"
+                                                 data-example-payload="{{ {status_code: example.statusCode, response_body: example.responseBody, response_headers: example.headers}|json_encode|e('html_attr') }}">
+                                                <div class="as-example-item-head">
+                                                    <strong>{{ example.name }}</strong>
+                                                    <span class="as-method as-method-default">{{ example.statusCode }}</span>
+                                                    <span class="as-example-actions">
+                                                        <button type="button" class="as-btn as-btn-ghost as-example-delete">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                                    </span>
+                                                </div>
+                                                {% if example.responseBody %}<pre class="as-example-snippet">{{ example.responseBody|length > 200 ? example.responseBody|slice(0, 200) ~ '…' : example.responseBody }}</pre>{% endif %}
+                                            </div>
+                                        {% else %}
+                                            <p class="as-examples-empty">{{ 'examples.empty_response'|trans({}, 'NowoApiStudioBundle') }}</p>
+                                        {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="as-console-response">
+                        <div class="as-response-meta">
+                            <span id="tester-status">{{ 'tester.response_placeholder'|trans({}, 'NowoApiStudioBundle') }}</span>
+                            <span id="tester-duration" class="as-muted"></span>
+                            <span class="as-response-meta-actions">
+                                <button type="button" id="tester-save-response" class="as-btn" disabled title="{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            </span>
+                        </div>
+                        <div class="as-response-tabs">
+                            <button type="button" class="as-subtab is-active" data-response-tab="body">{{ 'tester.tab.body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-response-tab="headers">{{ 'tester.tab.headers'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" class="as-subtab" data-response-tab="console">{{ 'tester.tab.script_console'|trans({}, 'NowoApiStudioBundle') }}</button>
+                        </div>
+                        <div class="as-body-toolbar as-response-body-toolbar" data-response-panel="body">
+                            <button type="button" id="tester-response-format" class="as-btn as-btn-ghost">{{ 'tester.format_body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <button type="button" id="tester-response-validate" class="as-btn as-btn-ghost">{{ 'tester.validate_body'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            <span id="tester-response-validation" class="as-body-validation" hidden></span>
+                        </div>
+                        <pre id="tester-response" class="as-response-pre as-response-panel is-active" data-response-panel="body">{{ 'tester.response_hint'|trans({}, 'NowoApiStudioBundle') }}</pre>
+                        <pre id="tester-response-headers" class="as-response-pre as-response-panel" data-response-panel="headers" hidden></pre>
+                        <pre id="tester-script-log" class="as-response-pre as-response-panel" data-response-panel="console" hidden></pre>
+                    </section>
+                </div>
+
+                {% if history|length > 0 %}
+                <div class="as-history" data-testid="api-studio-history">
+                    {{ 'section.history'|trans({}, 'NowoApiStudioBundle') }}:
+                    {% for item in history %}
+                        <span class="as-history-item">
+                            <span class="as-method as-method--compact {{ item.success ? 'as-method-get' : 'as-method-delete' }}">{{ item.responseStatus ?? 'ERR' }}</span>
+                            {{ item.executedAt|date('H:i:s') }} ({{ item.durationMs }}ms)
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        {% endblock %}
+    {% endembed %}
+{% endblock %}
+
+{% block nowo_ui_modals %}
+    {{ parent() }}
+    {% set _b = page.bundle %}
+    {% set _save_body %}
+        <div class="as-app">
+            {{ form_label(testerForm.exampleName) }}
+            {{ form_widget(testerForm.exampleName) }}
+        </div>
+    {% endset %}
+    {% set _save_footer %}
+        <button type="button" id="tester-example-save" class="{{ nowo_ui_class('btn_primary', _b) }}">{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
+        <button type="button" class="{{ nowo_ui_class('btn_secondary', _b) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+    {% endset %}
+    {{ include(nowo_ui_partial('dialog', _b), {
+        id: 'tester-example-modal',
+        title: 'examples.save_request_title'|trans({}, 'NowoApiStudioBundle'),
+        body: _save_body,
+        footer: _save_footer,
+        bundle: _b,
+        close_label: 'action.close'|trans({}, 'NowoApiStudioBundle'),
+    }, false) }}
+    {% set _delete_footer %}
+        <button type="button" id="tester-example-delete-confirm" class="{{ nowo_ui_class('btn_danger_solid', _b) }}">{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+        <button type="button" class="{{ nowo_ui_class('btn_secondary', _b) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+    {% endset %}
+    {{ include(nowo_ui_partial('dialog', _b), {
+        id: 'tester-example-delete-modal',
+        title: 'action.delete'|trans({}, 'NowoApiStudioBundle'),
+        body: '<p>' ~ ('examples.confirm_delete'|trans({}, 'NowoApiStudioBundle')|e) ~ '</p>',
+        footer: _delete_footer,
+        size: 'sm',
+        bundle: _b,
+        close_label: 'action.close'|trans({}, 'NowoApiStudioBundle'),
+    }, false) }}
 {% endblock %}

@@ -78,12 +78,10 @@ final class TestKernel extends Kernel
         $container->extension('nowo_api_studio', [
             'enabled' => true,
             'ui'      => [
-                'path'            => '/api-studio',
-                'default_locale'  => 'en',
-                'locales'         => ['es', 'en'],
-                'layout_template' => '@NowoApiStudioBundle/layout.html.twig',
-                'css_framework'   => 'custom',
-                'required_roles'  => [],
+                'path'           => '/api-studio',
+                'default_locale' => 'en',
+                'locales'        => ['es', 'en'],
+                'required_roles' => [],
                 // One row per page so the pagination of the workspace list is exercised (REQ-PERF-001).
                 'list_page_size' => 1,
             ],

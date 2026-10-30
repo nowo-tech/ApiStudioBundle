@@ -1,29 +1,21 @@
-{% extends '@NowoApiStudioBundle/base.html.twig' %}
-{% set as_active_workspace = workspace.id %}
-{% set as_active_service = service.id %}
+{#
+  Endpoints of a service (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
+  ApiStudioPageFactory::endpointIndex(): header section.endpoints / base URL with New endpoint; columns method, name,
+  path, saved requests; rows {id, method, name, path, examples, href, edit}; row actions Open / Edit; EmptyState).
+  Blocks filled: nowo_ui_styles, nowo_ui_list_row (method badge, the name links to the request console).
+#}
+{% extends '@NowoUiKit/page/list.html.twig' %}
+{% trans_default_domain 'NowoApiStudioBundle' %}
 
-{% block title %}{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}{% endblock %}
-{% block topbar_title %}{{ service.name }}{% endblock %}
-
-{% block topbar_actions %}
-    <a href="{{ path('nowo_api_studio_endpoint_new', {workspaceId: workspace.id, serviceId: service.id}) }}" class="as-btn as-btn-primary">+ {{ 'action.new_endpoint'|trans({}, 'NowoApiStudioBundle') }}</a>
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
 {% endblock %}
 
-{% block body %}
-<div class="as-content-inner">
-    <div class="as-service-collection as-service-collection-standalone is-open" data-service-collection>
-        <div class="as-service-collection-head as-service-collection-head-compact">
-            <span class="as-method as-method-default as-service-protocol">{{ service.protocol.value|upper }}</span>
-            <strong class="as-service-collection-name">{{ service.name }}</strong>
-            <code class="as-service-collection-url">{{ service.baseUrl }}</code>
-            {% include '@NowoApiStudioBundle/_service_kebab_menu.html.twig' with {
-                delete_redirect: path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}),
-            } %}
-        </div>
-        <div class="as-service-collection-body">
-            <p class="as-hint">{{ 'examples.list_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
-            {% include '@NowoApiStudioBundle/_endpoint_expandable_list.html.twig' with {endpoints: endpoints} %}
-        </div>
-    </div>
-</div>
+{% block nowo_ui_list_row %}
+    {% set _cell = nowo_ui_class('table_cell', page.bundle) %}
+    <td class="{{ _cell }}" data-label="{{ 'field.method'|trans }}"><span class="as-app"><span class="as-method {{ api_studio_method_class(row.method) }}">{{ row.method }}</span></span></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1"><a href="{{ row.href }}">{{ row.name }}</a></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.path'|trans }}" data-nowo-ui-priority="2"><code class="{{ nowo_ui_class('code', page.bundle) }}">{{ row.path }}</code></td>
+    <td class="{{ _cell }} nowo-ui-cell--end" data-label="{{ 'examples.use_cases'|trans }}" data-nowo-ui-priority="3">{{ row.examples }}</td>
 {% endblock %}

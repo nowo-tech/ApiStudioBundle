@@ -61,6 +61,12 @@ services:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $cssFramework: '%nowo_api_studio.ui.css_framework%'
 
+    # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
+    Nowo\ApiStudioBundle\Ui\ApiStudioPages:
+        arguments:
+            $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
+            $twig: '@twig'
+
     Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
         arguments:
             $tablePrefix: '%nowo_api_studio.table_prefix%'

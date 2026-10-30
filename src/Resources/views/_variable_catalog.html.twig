@@ -1,30 +1,35 @@
-<div class="as-data-table-wrap">
-    <table class="as-data-table as-var-table">
-        <thead>
+{#
+  Workspace variable catalogue (placeholder, description, secret flag) and links to the environments that hold the
+  values. Variables: variableCatalog, environments, workspace; optional bundle.
+#}
+{% set bundle = bundle|default(null) %}
+<div class="{{ nowo_ui_class('table_wrap', bundle) }}">
+    <table class="{{ nowo_ui_class('table', bundle) }} as-var-table">
+        <thead class="{{ nowo_ui_class('table_head', bundle) }}">
             <tr>
-                <th>{{ 'variables.syntax'|trans({}, 'NowoApiStudioBundle') }}</th>
-                <th>{{ 'field.description'|trans({}, 'NowoApiStudioBundle') }}</th>
-                <th></th>
+                <th scope="col" class="{{ nowo_ui_class('table_head_cell', bundle) }}">{{ 'variables.syntax'|trans({}, 'NowoApiStudioBundle') }}</th>
+                <th scope="col" class="{{ nowo_ui_class('table_head_cell', bundle) }}">{{ 'field.description'|trans({}, 'NowoApiStudioBundle') }}</th>
+                <th scope="col" class="{{ nowo_ui_class('table_head_cell', bundle) }}">{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</th>
             </tr>
         </thead>
         <tbody>
         {% for item in variableCatalog %}
-            <tr>
-                <td><code class="as-var">{{ api_studio_var(item.key) }}</code></td>
-                <td>{{ item.description ?? '—' }}</td>
-                <td>{% if item.secret %}<span class="as-topbar-badge">{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}</td>
+            <tr class="{{ nowo_ui_class('table_row', bundle) }}">
+                <td class="{{ nowo_ui_class('table_cell', bundle) }}"><code class="{{ nowo_ui_class('code', bundle) }} as-var">{{ api_studio_var(item.key) }}</code></td>
+                <td class="{{ nowo_ui_class('table_cell', bundle) }}">{{ item.description ?? '—' }}</td>
+                <td class="{{ nowo_ui_class('table_cell', bundle) }}">{% if item.secret %}<span class="{{ nowo_ui_class('badge_warning', bundle) }}">{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}</td>
             </tr>
         {% else %}
-            <tr><td colspan="3" class="as-empty">{{ 'empty.variables'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
+            <tr class="{{ nowo_ui_class('table_row', bundle) }}"><td colspan="3" class="{{ nowo_ui_class('table_cell_muted', bundle) }}">{{ 'empty.variables'|trans({}, 'NowoApiStudioBundle') }}</td></tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
-    {% if environments|length > 0 %}
-<p class="as-hint" style="margin-top:12px">
-    {{ 'variables.manage'|trans({}, 'NowoApiStudioBundle') }}
-    {% for environment in environments %}
-        <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>{% if not loop.last %}, {% endif %}
-    {% endfor %}
-</p>
+{% if environments|length > 0 %}
+    <p class="{{ nowo_ui_class('muted', bundle) }}">
+        {{ 'variables.manage'|trans({}, 'NowoApiStudioBundle') }}
+        {% for environment in environments %}
+            <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </p>
 {% endif %}

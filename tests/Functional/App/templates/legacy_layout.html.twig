@@ -1,0 +1,12 @@
+{# A pre-1.10 host layout: renders body / stylesheets / javascripts only (wrapped in the deprecated bridge). #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>{% block title %}{% endblock %} · Legacy host</title>
+    {% block stylesheets %}<link rel="stylesheet" href="/host.css">{% endblock %}
+</head>
+<body class="legacy-host">
+    <main id="legacy-host-main">{% block body %}{% endblock %}</main>
+    {% block javascripts %}<script src="/host.js" defer></script>{% endblock %}
+</body>
+</html>

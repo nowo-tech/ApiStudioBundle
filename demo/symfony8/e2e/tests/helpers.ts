@@ -3,9 +3,9 @@ import { expect, type Page } from '@playwright/test';
 /** Opens the seeded "APIs de referencia" workspace from the API Studio dashboard (ids change on every reseed). */
 export async function openReferenceWorkspace(page: Page): Promise<void> {
   await page.goto('/api-studio/');
-  await page.locator('.as-content').getByText('APIs de referencia').first().click();
+  await page.locator('[data-testid="api-studio-projects"]').getByText('APIs de referencia').first().click();
   await expect(page).toHaveURL(/\/api-studio\/workspaces\/\d+$/);
-  await expect(page.locator('.as-topbar-title')).toContainText('APIs de referencia');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('APIs de referencia');
 }
 
 /** Opens the JSONPlaceholder "Create post" endpoint in the request console. */

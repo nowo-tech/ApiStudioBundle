@@ -1,36 +1,57 @@
-<aside class="as-sidebar" id="as-sidebar">
+{#
+  API tree (workspaces > services > endpoints > saved requests) from api_studio_nav_tree() (one query). Bundle partial
+  meant for overriding (templates/bundles/NowoApiStudioBundle/_sidebar_tree.html.twig).
+  Variables: nav_active ({workspace, service, endpoint}: the open branch), bundle.
+  The filter is a Symfony Form view rendered without a form element (client-side only: api-studio-shell.js reads
+  #as-tree-filter; REQ-TWIG-005). The locale switcher is the UiKit partial (links to the locale route).
+#}
+{% set bundle = bundle|default(null) %}
+{% set active_ws = nav_active.workspace|default(null) %}
+{% set active_svc = nav_active.service|default(null) %}
+{% set active_ep = nav_active.endpoint|default(null) %}
+<aside class="{{ nowo_ui_class('card', bundle) }} as-sidebar" id="as-sidebar"{{ nowo_ui_attrs('card', bundle) }}>
     <div class="as-sidebar-head">
-        <h2>{{ 'sidebar.endpoints'|trans({}, 'NowoApiStudioBundle') }}</h2>
-        {# REQ-TWIG-005: client-side filter from a Symfony Form view (api-studio-shell.js reads #as-tree-filter). Rendered
-           without a form element, as before: it is never submitted and must not reload the page on Enter. #}
+        <h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'sidebar.endpoints'|trans({}, 'NowoApiStudioBundle') }}</h2>
         {% set _tree_filter = api_studio_tree_filter_form() %}
         {% form_theme _tree_filter 'form_div_layout.html.twig' %}
         {{ form_widget(_tree_filter.search) }}
     </div>
     <nav class="as-sidebar-tree" id="as-nav-tree" aria-label="{{ 'sidebar.navigation'|trans({}, 'NowoApiStudioBundle') }}">
-        {% set active_ws = as_active_workspace|default(null) %}
-        {% set active_svc = as_active_service|default(null) %}
-        {% set active_ep = as_active_endpoint|default(null) %}
         {% for ws in api_studio_nav_tree() %}
             <div class="as-tree-group{% if active_ws == ws.id %} is-open{% endif %}" data-tree-group>
                 <div class="as-tree-label{% if active_ws == ws.id %} is-active{% endif %}" data-tree-toggle role="button" tabindex="0">
-                    <span class="as-tree-chevron">▶</span>
+                    <span class="as-tree-chevron" aria-hidden="true">▶</span>
                     <a href="{{ ws.url }}">{{ ws.name }}</a>
                 </div>
                 <div class="as-tree-children">
                     {% for svc in ws.services %}
                         <div class="as-tree-svc{% if active_svc == svc.id %} is-active{% endif %}">
-                            <span class="as-method as-method-default" style="font-size:9px;padding:1px 4px;min-width:auto">{{ svc.protocol|upper }}</span>
+                            <span class="as-method as-method-default as-method--compact">{{ svc.protocol|upper }}</span>
                             <a href="{{ svc.url }}">{{ svc.name }}</a>
                         </div>
-                        {% include '@NowoApiStudioBundle/_sidebar_endpoints.html.twig' %}
+                        {{ include('@NowoApiStudioBundle/_sidebar_endpoints.html.twig', {svc: svc, active_ep: active_ep}, false) }}
                     {% else %}
-                        <div class="as-tree-endpoint" style="padding-left:28px;color:var(--as-text-muted)">{{ 'empty.services'|trans({}, 'NowoApiStudioBundle') }}</div>
+                        <div class="as-tree-endpoint as-tree-empty">{{ 'empty.services'|trans({}, 'NowoApiStudioBundle') }}</div>
                     {% endfor %}
                 </div>
             </div>
         {% else %}
-            <p style="padding:16px;color:var(--as-text-muted);font-size:13px">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
+            <p class="{{ nowo_ui_class('muted', bundle) }} as-tree-empty">{{ 'empty.workspaces'|trans({}, 'NowoApiStudioBundle') }}</p>
         {% endfor %}
     </nav>
+    {% if nowo_api_studio_locales|length > 1 %}
+        {% set _request = app.request %}
+        {% set _locales = [] %}
+        {% for locale in nowo_api_studio_locales %}
+            {% set _locales = _locales|merge([{
+                code: locale,
+                label: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle'),
+                href: path('nowo_api_studio_locale_switch', {_locale: locale}),
+                current: _request and _request.locale == locale,
+            }]) %}
+        {% endfor %}
+        <div class="as-sidebar-foot">
+            {{ include('@NowoUiKitBundle/partials/_locale_switcher.html.twig', {locales: _locales, current: _request ? _request.locale : null, compact: true}, false) }}
+        </div>
+    {% endif %}
 </aside>

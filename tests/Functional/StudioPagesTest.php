@@ -122,12 +122,12 @@ final class StudioPagesTest extends WebTestCase
 
         $crawler = $this->client->request('GET', '/api-studio/workspaces');
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('table.as-data-table tbody tr'));
+        self::assertCount(1, $crawler->filter('[data-testid="api-studio-workspaces"] table tbody tr'));
         self::assertGreaterThan(0, $crawler->filter('a[href*="page=2"]')->count());
 
         $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces?page=%d', $total));
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Zulu workspace', $crawler->filter('table.as-data-table tbody')->text());
+        self::assertStringContainsString('Zulu workspace', $crawler->filter('[data-testid="api-studio-workspaces"] table tbody')->text());
 
         // Out-of-range pages are clamped to the last page.
         $this->client->request('GET', '/api-studio/workspaces?page=999');
@@ -157,14 +157,14 @@ final class StudioPagesTest extends WebTestCase
         self::assertStringNotContainsString('api-form-locale-tabs', $html);
         self::assertStringNotContainsString('onsubmit', $html);
         self::assertStringContainsString('js/nowo-ui-tabs.js', $html);
-        self::assertCount(1, $crawler->filter('dialog#endpoint-delete-confirm[data-nowo-ui-confirm] form[action$="/delete"] input[name="_token"]'));
-        self::assertCount(1, $crawler->filter('[data-nowo-confirm-open][data-nowo-confirm-target="endpoint-delete-confirm"]'));
+        $target = (string) $crawler->filter('[data-testid="api-studio-endpoint-delete"][data-nowo-confirm-open]')->attr('data-nowo-confirm-target');
+        self::assertCount(1, $crawler->filter(sprintf('dialog#%s[data-nowo-ui-confirm] form[action$="/delete"] input[name="_token"]', $target)));
     }
 
     public function testEndpointFormMarksAndOpensTheInvalidLocaleTab(): void
     {
         $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));
-        $form    = $crawler->filter('form.as-form')->form();
+        $form    = $crawler->filter('form[name="api_endpoint_form"]')->form();
         $title   = $crawler->filter('#tab-endpoint-form-locale-es-panel input[name$="[title]"]')->attr('name');
         self::assertIsString($title);
         $form[$title] = str_repeat('x', 300);
@@ -210,23 +210,56 @@ final class StudioPagesTest extends WebTestCase
             'input#endpoint-doc-title-input.as-input',
             'textarea#endpoint-doc-desc-input',
             'input#as-tree-filter.as-sidebar-search',
-            'form#as-service-import-form input#as-service-import-file[name="import_file_form[file]"]',
-            'form#as-service-import-form input[name="import_file_form[_token]"]',
-            'form#as-service-import-form input[name="import_file_form[importVariables]"]',
-            'form#as-service-delete-form input#as-service-delete-csrf[name="_token"]',
-            'form#as-service-delete-form input#as-service-delete-redirect[name="redirect"]',
-            'form#as-service-delete-form input#as-service-delete-input[name="confirmation"]',
-            'label#as-service-delete-label',
+            'dialog#tester-example-modal[data-nowo-ui-dialog] input#tester-example-name',
+            'dialog#tester-example-delete-modal[data-nowo-ui-dialog] button#tester-example-delete-confirm',
         ] as $selector) {
             self::assertCount(1, $crawler->filter($selector), $selector);
         }
-        self::assertCount(1, $crawler->filter('input[type="radio"][name="as-export-format"][value="openapi"][checked]'));
-        self::assertCount(2, $crawler->filter('input[type="radio"][name="as-import-format"]'));
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('<script>', $html, 'no inline script (strict CSP)');
+        self::assertStringNotContainsString('as-modal-backdrop', $html);
         self::assertGreaterThan(0, $crawler->filter('#tester-headers-body tr.as-kv-row[data-header-row] input.as-kv-key')->count());
         self::assertCount(
             $crawler->filter('#tester-params-body tr.as-kv-row')->count(),
             $crawler->filter('#tester-params-body input.as-kv-enabled[checked]'),
         );
+    }
+
+    public function testServicePageRendersTheServiceDialogsFromForms(): void
+    {
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/services/%d', $this->ids['workspace'], $this->ids['service']));
+        self::assertResponseIsSuccessful();
+
+        foreach ([
+            'dialog#as-service-import-modal[data-nowo-ui-dialog] form#as-service-import-form input#as-service-import-file[name="import_file_form[file]"]',
+            'form#as-service-import-form input[name="import_file_form[_token]"]',
+            'form#as-service-import-form input[name="import_file_form[importVariables]"]',
+            'dialog#as-service-delete-modal[data-nowo-ui-dialog] form#as-service-delete-form input#as-service-delete-csrf[name="_token"]',
+            'form#as-service-delete-form input#as-service-delete-redirect[name="redirect"]',
+            'form#as-service-delete-form input#as-service-delete-input[name="confirmation"]',
+            'label#as-service-delete-label',
+            'dialog#as-service-export-modal[data-nowo-ui-dialog] button#as-service-export-confirm',
+            '[data-nowo-ui-kebab] a[data-service-action="delete"][data-delete-token]',
+        ] as $selector) {
+            self::assertCount(1, $crawler->filter($selector), $selector);
+        }
+        self::assertCount(1, $crawler->filter('input[type="radio"][name="as-export-format"][value="openapi"][checked]'));
+        self::assertCount(2, $crawler->filter('input[type="radio"][name="as-import-format"]'));
+    }
+
+    public function testServiceDeleteFromTheEditPageNeedsTheTypedName(): void
+    {
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/services/%d/edit', $this->ids['workspace'], $this->ids['service']));
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('dialog[data-nowo-ui-confirm] input[data-nowo-confirm-expected]'));
+
+        $form = $crawler->filter('dialog[data-nowo-ui-confirm] form[action$="/delete"]')->form();
+        $this->client->submit($form);
+
+        self::assertResponseRedirects(sprintf('/api-studio/workspaces/%d', $this->ids['workspace']));
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertNull($entityManager->getRepository(ApiService::class)->find($this->ids['service']));
     }
 
     public function testSidebarTreeIsOneQueryAndMatchesTheEntityCollections(): void
@@ -279,7 +312,7 @@ final class StudioPagesTest extends WebTestCase
         $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/edit', $this->ids['workspace']));
         self::assertResponseIsSuccessful();
 
-        $form = $crawler->filter('form.as-delete-form')->form();
+        $form = $crawler->filter('dialog[data-nowo-ui-confirm] form[action$="/delete"]')->form();
         self::assertSame('POST', $form->getMethod());
         $this->client->submit($form);
 
@@ -320,7 +353,7 @@ final class StudioPagesTest extends WebTestCase
     public function testEndpointDeleteFromConfirmDialog(): void
     {
         $crawler = $this->client->request('GET', $this->endpointUrl('/edit'));
-        $form    = $crawler->filter('dialog#endpoint-delete-confirm form.as-delete-form')->form();
+        $form    = $crawler->filter('dialog[data-nowo-ui-confirm] form[action$="/delete"]')->form();
         $this->client->submit($form);
 
         self::assertResponseRedirects();
