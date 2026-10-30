@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Service;
 
+use Nowo\ApiStudioBundle\Controller\ApiExecuteController;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 
@@ -13,6 +14,10 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 final class EnvironmentContextBuilder
 {
     /**
+     * Variable maps of the request console (`data-environment-maps`). Secret values never reach the browser: a secret
+     * variable is sent as its own placeholder (`{{name}}`), which the console leaves in the request and the server
+     * resolves with the stored value when it executes it ({@see ApiExecuteController}).
+     *
      * @return array<int, array{name: string, is_default: bool, variables: array<string, string>}>
      */
     public function buildMaps(ApiWorkspace $workspace): array
@@ -27,7 +32,7 @@ final class EnvironmentContextBuilder
             $maps[$id] = [
                 'name'       => $environment->getName(),
                 'is_default' => $environment->isDefault(),
-                'variables'  => $environment->getVariableMap(),
+                'variables'  => self::browserVariableMap($environment),
             ];
         }
 
@@ -62,6 +67,23 @@ final class EnvironmentContextBuilder
         usort($catalog, static fn (array $a, array $b): int => strcmp($a['key'], $b['key']));
 
         return $catalog;
+    }
+
+    /**
+     * Variable map with every secret value replaced by its placeholder.
+     *
+     * @return array<string, string>
+     */
+    public static function browserVariableMap(ApiEnvironment $environment): array
+    {
+        $map = $environment->getVariableMap();
+        foreach ($environment->getVariables() as $variable) {
+            if ($variable->isSecret()) {
+                $map[$variable->getVariableKey()] = VariableSyntax::formatKey($variable->getVariableKey());
+            }
+        }
+
+        return $map;
     }
 
     /** @return array<string, string> */

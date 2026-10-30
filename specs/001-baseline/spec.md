@@ -90,7 +90,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 
 ## Success Criteria
 
-- **SC-001**: **137/137** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).
+- **SC-001**: **138/138** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).
 - **SC-002**: Config matches `Configuration.php` and [`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md).
 - **SC-003**: PHPUnit + PHPStan pass; PHP line coverage ≥ 99% of every `src/` class (CI gate, REQ-TEST-003); page contract test green; Playwright happy path in the demo.
 

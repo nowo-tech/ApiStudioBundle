@@ -52,6 +52,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`.env` export ran commands when loaded (M1, GHSA, affects 1.0.0 – 1.9.2).** Values were written unquoted or double-quoted, so Symfony Dotenv (or a shell sourcing the file) executed `$(…)` and expanded `${…}`; line breaks in descriptions or environment names injected extra `KEY=value` lines (e.g. `APP_SECRET`). Values imported from third-party files, Postman collections or persisted by console scripts could carry them. Every value is now single-quoted (or double-quoted with `\\`, `"`, `$`, backtick and line breaks escaped), comment lines carry no control character and keys that are not valid environment variable names are skipped; tests round-trip hostile values through `Dotenv::parse()`.
+- **Secrets no longer reach the browser (L1).** The request console receives `{{name}}` placeholders for secret variables (the server resolves them on execute); execute answers mask secret values in the request and in echoed responses; the edit form shows secrets as an empty password field (empty = unchanged); every Api Studio response is `Cache-Control: no-store, private`. Exports still contain secret values (documented).
+- **`security.allow_unauthenticated` could fail open (L3).** An `%env()%` placeholder was read as `true` at compile time. `enabled`, `security.allow_unauthenticated` and `execution_url_allowlist_required` must now be literal booleans, and `allow_unauthenticated: true` is refused unless `kernel.debug` is true and never in the `prod` environment.
+- **Response size cap (L2):** new `execution_max_response_bytes` (default 10 MiB) for REST, SOAP, raw SOAP and every WSDL / XSD document; a bigger transfer is cancelled and reported.
+- **Secret values starting with the cipher prefix (L4)** were stored in clear and broke every load of their environment (HTTP 500). They are encrypted like any value; a row the key cannot decrypt is loaded as stored.
+- **SOAP credentials (L5)** are sent only to SOAP locations on the service (WSDL) origin, like the WSDL imports.
+- **History (L6):** secret values echoed by the upstream are masked in the stored response headers and body; URLs over 2048 characters are truncated instead of failing the history row.
+- **Imports (I5):** documents with more than 100,000 values (YAML alias bombs) are refused.
+- **Deletes (I2):** deleting a workspace is type-to-confirm and the name is checked on the server, like services.
+- **Input lengths (I4):** example names over 128 and documentation titles over 255 characters answer 400 instead of a database error.
+- Demo: the web port binds to `127.0.0.1` only.
+
+### Changed
+
+- **Every form type is a FormKit type** (REQ-TWIG-005 rule 11): `ClientSideFieldsType`, `KeyValueRowType` and `CsrfOnlyType` join the editors on the `api_studio` profile (`#[FormKitConfig]` + `FormOptionsTrait`); field names, ids and the `csrf_token_id` of the delete forms are unchanged. A test keeps every `src/Form/*Type.php` FormKit-integrated.
+- Requires `nowo-tech/ui-kit-bundle` `^2.17.2` and `nowo-tech/form-kit-bundle` `^2.14` (the page-contract view models and FormKit options the pages use).
+
 ### Added
 
 - **UiKit page contract (REQ-UI-003).** Every page extends a UiKit scaffold (`page/dashboard`, `page/list`, `page/show`, `page/form`) fed by UiKit view models (`Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory`); the host themes them once in `nowo_ui_kit` (`layouts.admin`, `theme`, `css_framework`). Breadcrumbs, back links, KPI tiles, pagination, empty states, row actions and the delete zone come from UiKit. The API tree and the request console are the workbench content of the dashboard and show pages (`_workbench.html.twig`). Page contract test (`PageContractTestCase`, 28 fixtures). See [TEMPLATES.md](TEMPLATES.md).

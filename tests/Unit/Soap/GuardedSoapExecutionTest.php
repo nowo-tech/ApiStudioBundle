@@ -405,6 +405,54 @@ final class GuardedSoapExecutionTest extends TestCase
         self::assertContains($expectedLine, $calls[1][2]['headers'], 'The SOAP call must carry the auth header.');
     }
 
+    public function testAuthHeaderIsNotSentToASoapAddressOnAnotherOrigin(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url, $options];
+
+            // The WSDL names another host as soap:address (third-party mirror, compromised document…).
+            return $method === 'GET'
+                ? new MockResponse(self::wsdl('https://93.184.216.34/soap'))
+                : new MockResponse(self::RESPONSE);
+        });
+
+        $endpoint = $this->endpoint();
+        $endpoint->getService()?->setAuthType(AuthType::Bearer)->setAuthConfig(['token' => '{{secret}}']);
+
+        $result = $this->executor($client)->execute($endpoint, null, null, [], [], ['secret' => 's3cr3t']);
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertCount(2, $calls);
+        self::assertContains('Authorization: Bearer s3cr3t', $calls[0][2]['headers'], 'The WSDL fetch (service origin) carries the credential.');
+        self::assertSame('https://93.184.216.34/soap', $calls[1][1]);
+        self::assertSame([], self::linesNamed($calls[1][2]['headers'], 'Authorization'), 'No credential to another origin.');
+    }
+
+    public function testOversizedSoapResponseIsRejected(): void
+    {
+        $client = new MockHttpClient(static fn (string $method): MockResponse => $method === 'GET'
+            ? new MockResponse(self::wsdl('https://93.184.215.14/soap'))
+            : new MockResponse(self::RESPONSE . str_repeat(' ', 4096)));
+
+        $executor = new RequestExecutor(new NoPrivateNetworkHttpClient($client), new VariableResolver(), new ExecutionUrlValidator([]), 5, null, 0, 2048);
+        $result   = $executor->execute($this->endpoint());
+
+        self::assertFalse($result->success);
+        self::assertStringContainsString('larger than 2048 bytes', (string) $result->errorMessage);
+    }
+
+    public function testOversizedWsdlIsRejected(): void
+    {
+        $client = new MockHttpClient(static fn (): MockResponse => new MockResponse(self::wsdl('https://93.184.215.14/soap') . str_repeat(' ', 8192)));
+
+        $executor = new RequestExecutor(new NoPrivateNetworkHttpClient($client), new VariableResolver(), new ExecutionUrlValidator([]), 5, null, 0, 4096);
+        $result   = $executor->execute($this->endpoint());
+
+        self::assertFalse($result->success);
+        self::assertStringContainsString('larger than 4096 bytes', (string) $result->errorMessage);
+    }
+
     /**
      * @return iterable<string, array{AuthType, array<string, string>, string}>
      */
@@ -522,6 +570,8 @@ final class GuardedSoapExecutionTest extends TestCase
             5,
             0,
             ['Authorization' => 'Bearer t', 'SOAPAction' => 'x', 'CONTENT-TYPE' => 'text/plain', '' => 'empty'],
+            1024 * 1024,
+            'https://93.184.215.14:443',
         );
 
         $soap->__doRequest('<x/>', 'https://93.184.215.14/soap', 'urn:ping#Ping', SOAP_1_2);

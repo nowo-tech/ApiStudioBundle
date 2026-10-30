@@ -9,6 +9,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -51,6 +52,7 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
             // Right after the router (priority 32): a disabled UI is unreachable before other listeners run.
             KernelEvents::REQUEST    => ['onKernelRequest', 30],
             KernelEvents::CONTROLLER => ['onKernelController', 0],
+            KernelEvents::RESPONSE   => ['onKernelResponse', 0],
         ];
     }
 
@@ -66,6 +68,21 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
         if (!$this->enabled && self::isApiStudioRoute($event->getRequest())) {
             throw new NotFoundHttpException('Api Studio is disabled.');
         }
+    }
+
+    /**
+     * Api Studio pages, JSON answers and exports carry workspace data and variable values: never stored by the browser
+     * or a shared cache.
+     */
+    public function onKernelResponse(ResponseEvent $event): void
+    {
+        if (!self::isApiStudioRoute($event->getRequest())) {
+            return;
+        }
+
+        $headers = $event->getResponse()->headers;
+        $headers->set('Cache-Control', 'no-store, private');
+        $headers->set('Pragma', 'no-cache');
     }
 
     public function onKernelController(ControllerEvent $event): void

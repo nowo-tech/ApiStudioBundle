@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\FormKitBundle\Attribute\FormKitConfig;
+use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Override;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -21,10 +23,15 @@ use function is_string;
  * (the API Studio scripts read them by id / name / class). An `html_id` entry in the child options forces the HTML id
  * the scripts rely on. Empty block prefix keeps the child names flat (e.g. `as-export-format`).
  *
+ * FormKit type (profile `api_studio`, REQ-TWIG-005 rule 11).
+ *
  * @extends AbstractType<null>
  */
+#[FormKitConfig('api_studio')]
 final class ClientSideFieldsType extends AbstractType
 {
+    use FormOptionsTrait;
+
     /**
      * @param FormBuilderInterface<mixed> $builder
      * @param array<string, mixed> $options

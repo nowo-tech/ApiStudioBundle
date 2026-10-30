@@ -64,4 +64,24 @@ final class SecretValueCipherTest extends TestCase
         $this->expectException(RuntimeException::class);
         $cipher->decrypt(SecretValueCipher::PREFIX . base64_encode('short'));
     }
+
+    public function testValueThatOnlyLooksEncryptedIsEncrypted(): void
+    {
+        // BW audit L4: user input starting with the prefix is not trusted as ciphertext.
+        $cipher  = new SecretValueCipher('test-key-material');
+        $payload = $cipher->encrypt('nowo_as_enc_v1:not-really-encrypted');
+
+        self::assertNotSame('nowo_as_enc_v1:not-really-encrypted', $payload);
+        self::assertSame('nowo_as_enc_v1:not-really-encrypted', $cipher->decrypt($payload));
+        self::assertSame($payload, $cipher->encrypt($payload), 'A real payload of this key is not encrypted twice.');
+    }
+
+    public function testTryDecryptReturnsNullForForeignPayloads(): void
+    {
+        $cipher = new SecretValueCipher('test-key-material');
+
+        self::assertNull($cipher->tryDecrypt('nowo_as_enc_v1:garbage'));
+        self::assertNull($cipher->tryDecrypt((new SecretValueCipher('other-key'))->encrypt('x')));
+        self::assertSame('plain', $cipher->tryDecrypt('plain'));
+    }
 }

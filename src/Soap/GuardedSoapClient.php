@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Soap;
 
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Nowo\ApiStudioBundle\Service\ResponseBodyReader;
 use SoapClient;
 use SoapFault;
 use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
@@ -34,7 +35,10 @@ final class GuardedSoapClient extends SoapClient
     /**
      * @param string|null $wsdl local WSDL file prepared by {@see GuardedWsdlLoader} (null: non-WSDL mode)
      * @param array<string, mixed> $options SoapClient options
-     * @param array<string, string> $extraHeaders HTTP headers sent with every SOAP call (framing headers are dropped)
+     * @param array<string, string> $extraHeaders HTTP headers (auth, service defaults) sent with the SOAP calls whose
+     *                                            location has the origin $headersOrigin (framing headers are dropped)
+     * @param string|null $headersOrigin origin of the service (WSDL) URL: a `soap:address` on another origin gets no
+     *                                   credential (same rule as {@see GuardedWsdlLoader}); null = never send them
      */
     public function __construct(
         ?string $wsdl,
@@ -44,6 +48,8 @@ final class GuardedSoapClient extends SoapClient
         private readonly int $timeoutSeconds,
         private readonly int $maxRedirects,
         array $extraHeaders = [],
+        private readonly int $maxResponseBytes = ResponseBodyReader::DEFAULT_MAX_BYTES,
+        private readonly ?string $headersOrigin = null,
     ) {
         $this->extraHeaders = self::withoutFramingHeaders($extraHeaders);
         parent::__construct($wsdl, $options);
@@ -76,7 +82,9 @@ final class GuardedSoapClient extends SoapClient
             throw new SoapFault('Client', 'SOAP endpoint location is not allowed (SSRF or allowlist).');
         }
 
-        $headers = $this->extraHeaders + SoapEnvelope::framingHeaders(
+        // Credentials only to the service origin: a WSDL may name any public host as soap:address.
+        $extra   = $this->headersOrigin !== null && GuardedWsdlLoader::origin($location) === $this->headersOrigin ? $this->extraHeaders : [];
+        $headers = $extra + SoapEnvelope::framingHeaders(
             $action,
             $version === SOAP_1_2 ? SoapEnvelope::VERSION_1_2 : SoapEnvelope::VERSION_1_1,
         );
@@ -97,7 +105,7 @@ final class GuardedSoapClient extends SoapClient
         }
 
         // SOAP faults come back with HTTP 500 and an envelope: hand the body to ext-soap whatever the status.
-        $content = $response->getContent(false);
+        $content = ResponseBodyReader::read($this->httpClient, $response, $this->maxResponseBytes);
 
         return $oneWay ? null : $content;
     }

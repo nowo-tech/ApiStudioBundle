@@ -16,6 +16,7 @@ use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
+use Nowo\ApiStudioBundle\Service\VariableSyntax;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +28,7 @@ use function is_array;
 use function is_int;
 use function is_scalar;
 use function is_string;
+use function mb_substr;
 
 #[Route(path: '/execute', name: 'nowo_api_studio_')]
 final class ApiExecuteController extends AbstractController
@@ -99,6 +101,17 @@ final class ApiExecuteController extends AbstractController
             }
         }
 
+        // The console receives secret variables as their own placeholder (EnvironmentContextBuilder::browserVariableMap()):
+        // an override that is still that placeholder means "use the stored secret".
+        if ($environment instanceof ApiEnvironment) {
+            foreach ($environment->getVariables() as $variable) {
+                $key = $variable->getVariableKey();
+                if ($variable->isSecret() && ($variableOverrides[$key] ?? null) === VariableSyntax::formatKey($key)) {
+                    unset($variableOverrides[$key]);
+                }
+            }
+        }
+
         $variableMap = null;
         if ($environment instanceof ApiEnvironment || $variableOverrides !== []) {
             $variableMap = array_merge($environment?->getVariableMap() ?? [], $variableOverrides);
@@ -130,13 +143,15 @@ final class ApiExecuteController extends AbstractController
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
         $history->setEnvironment($environment);
-        $history->setRequestUrl($this->historySanitizer->sanitizeUrl($result->requestUrl, $authNames, $secretValues));
+        // request_url is VARCHAR(2048): truncate instead of losing the history row (and the response) to a DB error.
+        $history->setRequestUrl(mb_substr($this->historySanitizer->sanitizeUrl($result->requestUrl, $authNames, $secretValues), 0, 2048));
         $history->setRequestMethod($result->requestMethod);
         $history->setRequestHeaders($this->historySanitizer->sanitizeHeaders($result->requestHeaders, $authNames, $secretValues));
         $history->setRequestBody($this->historySanitizer->sanitizeBody($result->requestBody, $secretValues));
         $history->setResponseStatus($result->responseStatus);
-        $history->setResponseHeaders($this->historySanitizer->sanitizeHeaders($result->responseHeaders));
-        $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody));
+        // Upstreams may echo credentials (httpbin, error pages, token responses): mask the secret values there too.
+        $history->setResponseHeaders($this->historySanitizer->sanitizeHeaders($result->responseHeaders, [], $secretValues));
+        $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody, $secretValues));
         $history->setDurationMs($result->durationMs);
         $history->setSuccess($result->success);
         $history->setErrorMessage($result->errorMessage);
@@ -145,7 +160,17 @@ final class ApiExecuteController extends AbstractController
         $this->entityManager->flush();
         $this->entityManager->detach($history);
 
-        return new JsonResponse($result->toArray());
+        // The browser never gets secret values back either (resolved Authorization header, echoed tokens).
+        $data = $result->toArray();
+        if ($secretValues !== []) {
+            $data['request_url']      = $this->historySanitizer->sanitizeUrl($result->requestUrl, [], $secretValues);
+            $data['request_headers']  = $this->historySanitizer->sanitizeHeaders($result->requestHeaders, [], $secretValues);
+            $data['request_body']     = $this->historySanitizer->sanitizeBody($result->requestBody, $secretValues);
+            $data['response_headers'] = $this->historySanitizer->sanitizeHeaders($result->responseHeaders, [], $secretValues);
+            $data['response_body']    = $this->historySanitizer->sanitizeBody($result->responseBody, $secretValues);
+        }
+
+        return new JsonResponse($data);
     }
 
     /**

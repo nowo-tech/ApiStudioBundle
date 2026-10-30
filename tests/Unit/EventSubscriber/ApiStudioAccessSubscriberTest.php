@@ -8,8 +8,10 @@ use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -27,9 +29,30 @@ final class ApiStudioAccessSubscriberTest extends TestCase
             [
                 KernelEvents::REQUEST    => ['onKernelRequest', 30],
                 KernelEvents::CONTROLLER => ['onKernelController', 0],
+                KernelEvents::RESPONSE   => ['onKernelResponse', 0],
             ],
             ApiStudioAccessSubscriber::getSubscribedEvents(),
         );
+    }
+
+    public function testApiStudioResponsesAreNeverCachedOthersAreUntouched(): void
+    {
+        $kernel     = $this->createStub(HttpKernelInterface::class);
+        $subscriber = new ApiStudioAccessSubscriber(['ROLE_ADMIN']);
+
+        foreach (['nowo_api_studio_endpoint_show' => 'no-store, private', 'app_home' => null] as $route => $expected) {
+            $request = new Request();
+            $request->attributes->set('_route', $route);
+            $response = new Response();
+            $subscriber->onKernelResponse(new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $response));
+
+            if ($expected === null) {
+                self::assertFalse($response->headers->has('Pragma'), $route);
+            } else {
+                self::assertSame($expected, $response->headers->get('Cache-Control'), $route);
+                self::assertSame('no-cache', $response->headers->get('Pragma'));
+            }
+        }
     }
 
     public function testDisabledBundleAnswers404OnRequest(): void

@@ -74,6 +74,20 @@ composer update nowo-tech/api-studio-bundle
 php bin/console assets:install
 ```
 
+### Security changes (BW audit)
+
+- **Re-generate `.env` exports** made with an earlier version and review them before loading: they may contain
+  `$(…)` / `${…}` that Symfony Dotenv executes / expands, or extra lines injected through descriptions.
+- `nowo_api_studio.enabled`, `security.allow_unauthenticated` and `execution_url_allowlist_required` must be literal
+  booleans (`%env(bool:…)%` is refused). `allow_unauthenticated: true` now needs `kernel.debug` and is refused in `prod`.
+- New `execution_max_response_bytes` (default 10 MiB): raise it if you test APIs that return bigger bodies.
+- Secret variables: the console sends `{{name}}` for secrets and the server resolves them, so a browser script that
+  read a secret with `pm.environment.get()` now gets the placeholder. The edit form shows secrets as an empty password
+  field: leave it empty to keep the value. SOAP credentials are no longer sent to a `soap:address` on another origin
+  than the WSDL.
+- Deleting a workspace asks for its name (checked on the server).
+- Requires UiKit `^2.17.2` and FormKit `^2.14`.
+
 ### Template contract (UiKit page contract, REQ-UI-003)
 
 - The pages now render inside **`nowo_ui_kit.layouts.admin`** (default `@NowoUiKit/layout/admin.html.twig`). Point it at

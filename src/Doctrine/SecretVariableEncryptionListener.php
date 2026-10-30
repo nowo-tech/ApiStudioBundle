@@ -65,7 +65,8 @@ final class SecretVariableEncryptionListener
                 continue;
             }
 
-            if ($this->cipher->isEncrypted($entity->getValue())) {
+            // Already a payload of this key (prefix alone is not enough: user input may start with it).
+            if ($this->cipher->isEncrypted($entity->getValue()) && $this->cipher->tryDecrypt($entity->getValue()) !== null) {
                 continue;
             }
 
@@ -127,8 +128,13 @@ final class SecretVariableEncryptionListener
             return;
         }
 
-        // @igor-ignore - Not shared worker service state.
-        $entity->setValue($this->cipher->decrypt($entity->getValue()));
+        // A value this key cannot decrypt (other key, corrupt row) stays as stored instead of failing every request
+        // that loads the environment; it is re-encrypted on the next save.
+        $plain = $this->cipher->tryDecrypt($entity->getValue());
+        if ($plain !== null) {
+            // @igor-ignore - Not shared worker service state.
+            $entity->setValue($plain);
+        }
     }
 
     /**

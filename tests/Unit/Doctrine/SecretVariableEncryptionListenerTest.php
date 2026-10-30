@@ -158,6 +158,42 @@ final class SecretVariableEncryptionListenerTest extends TestCase
         self::assertSame('https://b.example', $this->storedValue($em, $variable));
     }
 
+    public function testSecretThatLooksEncryptedIsNotStoredInClearAndReloads(): void
+    {
+        // BW audit L4: a value starting with the cipher prefix (typed, imported, persisted by a script).
+        $em       = $this->createEntityManager();
+        $variable = $this->createVariable($em, 'api_token', 'nowo_as_enc_v1:not-really-encrypted', true);
+        $id       = $variable->getId();
+
+        $stored = $this->storedValue($em, $variable);
+        self::assertNotSame('nowo_as_enc_v1:not-really-encrypted', $stored, 'Never stored in clear.');
+        self::assertSame('nowo_as_enc_v1:not-really-encrypted', $this->cipher->decrypt($stored));
+
+        $variable->setValue('nowo_as_enc_v1:edited');
+        $em->flush();
+        self::assertSame('nowo_as_enc_v1:edited', $this->cipher->decrypt($this->storedValue($em, $variable)));
+
+        $em->clear();
+        $loaded = $em->find(ApiEnvironmentVariable::class, $id);
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
+        self::assertSame('nowo_as_enc_v1:edited', $loaded->getValue());
+    }
+
+    public function testUndecryptableRowDoesNotBreakLoading(): void
+    {
+        $em       = $this->createEntityManager();
+        $variable = $this->createVariable($em, 'api_token', 'plain', true);
+        $id       = $variable->getId();
+        $table    = $em->getClassMetadata(ApiEnvironmentVariable::class)->getTableName();
+        $em->getConnection()->executeStatement('UPDATE ' . $table . ' SET value = ? WHERE id = ?', ['nowo_as_enc_v1:corrupt', $id]);
+        $em->clear();
+
+        $loaded = $em->find(ApiEnvironmentVariable::class, $id);
+
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
+        self::assertSame('nowo_as_enc_v1:corrupt', $loaded->getValue(), 'Kept as stored instead of a 500.');
+    }
+
     public function testPreUpdateLeavesNonStringNewValuesAlone(): void
     {
         $variable  = (new ApiEnvironmentVariable('api_token', 'plain'))->setSecret(true);

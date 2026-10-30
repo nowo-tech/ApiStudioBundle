@@ -53,6 +53,7 @@ final class RequestExecutor
         private readonly int $timeoutSeconds,
         ?LoggerInterface $logger = null,
         private readonly int $maxRedirects = 0,
+        private readonly int $maxResponseBytes = ResponseBodyReader::DEFAULT_MAX_BYTES,
     ) {
         $this->logger = $logger ?? new NullLogger();
         // Re-checks the connected IP (DNS rebinding) and every redirect hop, which the pre-flight validator cannot.
@@ -151,7 +152,7 @@ final class RequestExecutor
             }
 
             $response = $this->httpClient->request($method, $url, $options);
-            $content  = $response->getContent(false);
+            $content  = ResponseBodyReader::read($this->httpClient, $response, $this->maxResponseBytes);
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
             $status   = $response->getStatusCode();
             $success  = $status >= 200 && $status < 400;
@@ -220,14 +221,14 @@ final class RequestExecutor
 
         // ext-soap never touches the network itself: the WSDL (and its imports) and every SOAP call go through
         // the guarded HTTP client, so the <soap:address location>, redirects and DNS rebinding are checked too.
-        $wsdlLoader = new GuardedWsdlLoader($this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers);
+        $wsdlLoader = new GuardedWsdlLoader($this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers, $this->maxResponseBytes);
 
         try {
             $client = new GuardedSoapClient($wsdlLoader->load($wsdl), [
                 'trace'      => true,
                 'exceptions' => true,
                 'cache_wsdl' => WSDL_CACHE_NONE,
-            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers);
+            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers, $this->maxResponseBytes, GuardedWsdlLoader::origin($wsdl));
 
             $params = json_decode($body, true);
             if (!is_array($params)) {
@@ -288,7 +289,7 @@ final class RequestExecutor
                 'max_duration'  => $this->timeoutSeconds,
                 'max_redirects' => $this->maxRedirects,
             ]);
-            $content  = $response->getContent(false);
+            $content  = ResponseBodyReader::read($this->httpClient, $response, $this->maxResponseBytes);
             $status   = $response->getStatusCode();
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
 

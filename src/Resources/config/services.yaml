@@ -43,6 +43,7 @@ services:
         arguments:
             $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
             $maxRedirects: '%nowo_api_studio.execution_max_redirects%'
+            $maxResponseBytes: '%nowo_api_studio.execution_max_response_bytes%'
 
     Nowo\ApiStudioBundle\Controller\DashboardController:
         autoconfigure: false

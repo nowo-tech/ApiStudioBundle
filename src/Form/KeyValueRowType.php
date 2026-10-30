@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Form;
 
+use Nowo\FormKitBundle\Attribute\FormKitConfig;
+use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Override;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
@@ -16,10 +18,15 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
  *
  * Client-side only: api-tester reads the row inputs by class (`as-kv-enabled`, `as-kv-key`, `as-kv-value`).
  *
+ * FormKit type (profile `api_studio`, REQ-TWIG-005 rule 11).
+ *
  * @extends AbstractType<array{key?: string|null, value?: string|null}>
  */
+#[FormKitConfig('api_studio')]
 final class KeyValueRowType extends AbstractType
 {
+    use FormOptionsTrait;
+
     /**
      * @param FormBuilderInterface<mixed> $builder
      * @param array<string, mixed> $options

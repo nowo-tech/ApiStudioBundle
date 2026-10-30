@@ -24,10 +24,15 @@ use Symfony\Component\Routing\Attribute\Route;
 use function is_array;
 use function is_scalar;
 use function is_string;
+use function mb_strlen;
+use function sprintf;
 
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints/{endpointId}/examples', name: 'nowo_api_studio_endpoint_examples_')]
 final class EndpointExamplesController extends AbstractController
 {
+    /** Column length of the example names. */
+    private const MAX_NAME_LENGTH = 128;
+
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $serviceRepository,
@@ -50,6 +55,9 @@ final class EndpointExamplesController extends AbstractController
         $name     = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
             return new JsonResponse(['error' => 'Name is required.'], Response::HTTP_BAD_REQUEST);
+        }
+        if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+            return new JsonResponse(['error' => sprintf('Name is longer than %d characters.', self::MAX_NAME_LENGTH)], Response::HTTP_BAD_REQUEST);
         }
 
         $example = new ApiRequestExample($name);
@@ -78,6 +86,9 @@ final class EndpointExamplesController extends AbstractController
         $name     = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
             return new JsonResponse(['error' => 'Name is required.'], Response::HTTP_BAD_REQUEST);
+        }
+        if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+            return new JsonResponse(['error' => sprintf('Name is longer than %d characters.', self::MAX_NAME_LENGTH)], Response::HTTP_BAD_REQUEST);
         }
 
         $statusCode = isset($payload['status_code']) && is_numeric($payload['status_code'])

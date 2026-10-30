@@ -24,6 +24,7 @@ nowo_api_studio:
     execution_url_allowlist_required: false
     execution_url_allowlist: []
     execution_max_redirects: 0
+    execution_max_response_bytes: 10485760   # 10 MiB
     # Examples:
     # execution_url_allowlist_required: true
     # execution_url_allowlist:
@@ -53,9 +54,10 @@ nowo_api_studio:
 | `security.access_roles` | Preferred roles for Api Studio UI (user needs at least one). Empty falls back to `ui.required_roles`; an empty effective list **denies** (never "everyone") and fails container compilation unless `security.access_checker` or `security.allow_unauthenticated` is set. Default `ROLE_ADMIN`. |
 | `security.access_checker` | Optional service id implementing `ApiStudioAccessCheckerInterface`; `canAccess($user)` is called on every Api Studio route in addition to the role check (anonymous users are denied unless `allow_unauthenticated: true`). |
 | CSRF (no key) | With `enabled: true` the container refuses to compile unless `framework.csrf_protection` and `framework.form.csrf_protection` are on (`security.csrf.token_manager` + `form.type_extension.csrf`): delete actions and entity forms rely on form CSRF. |
-| `security.allow_unauthenticated` | **DEV/DEMO only.** When `true`, the UI may load without SecurityBundle / without login. Production **must** keep `false` (default). |
+| `security.allow_unauthenticated` | **DEV/DEMO only.** When `true`, the UI may load without SecurityBundle / without login. Must be a literal boolean (no `%env()%`), requires `kernel.debug` and is refused in the `prod` environment. `enabled` and `execution_url_allowlist_required` must be literal booleans too. |
 | `execution_url_allowlist` | Optional allowlist for outbound URLs. Plain entries match the parsed host exactly (`api.example.com`), as a suffix (`.example.com` / `*.example.com`: apex + subdomains), or as a URL pinning scheme/port/path prefix (`https://api.example.com:8443/v1`); `#…#` entries are regexes on the full URL. Empty = any public URL after SSRF checks unless `execution_url_allowlist_required` is true. |
 | `execution_max_redirects` | Redirects followed when executing requests (default `0`: 3xx responses are returned as-is). Followed hops are still blocked from private networks but are not re-checked against the allowlist. Applies to the SOAP call and WSDL download too; a cross-host hop drops `Authorization`/`Cookie` but forwards custom headers (e.g. an API key header), see [USAGE.md — SOAP services](USAGE.md#soap-services). |
+| `execution_max_response_bytes` | Largest response body read from a remote API, SOAP endpoint or WSDL / XSD document (default 10 MiB, minimum 1024); a bigger transfer is cancelled and the request fails with a clear error. |
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. |
@@ -123,3 +125,22 @@ Framework choices, all without touching Api Studio templates:
 Studio assets (`api-studio-theme.css`, scripts) stack in `nowo_ui_styles` / `nowo_ui_scripts` after `{{ parent() }}`.
 Row actions follow `nowo_ui_kit.row_actions_display` (`icon` | `text` | `icon_text`); confirm dialogs and modals are
 UiKit `<dialog>` elements (no inline handlers, strict CSP friendly). See [TEMPLATES.md](TEMPLATES.md).
+
+### Forms (FormKit profile `api_studio`)
+
+Every Api Studio form type is a FormKit type bound to the profile `api_studio` (REQ-TWIG-005 rule 11). The bundle
+prepends that profile (translation domain `NowoApiStudioBundle`, the semantic `nowo-ui-input` class, help / placeholder
+keys only when translated) unless the host defines it. Override it in the host instead of forking templates:
+
+```yaml
+# config/packages/nowo_form_kit.yaml (host app)
+nowo_form_kit:
+    profiles:
+        api_studio:
+            alias: api_studio
+            translation_domain: NowoApiStudioBundle
+            defaults:
+                attr: { class: 'nowo-ui-input form-control' }
+```
+
+The form theme follows the host / UiKit (`nowo_ui_kit.css_framework`); the pages set no `form_themes` of their own.
