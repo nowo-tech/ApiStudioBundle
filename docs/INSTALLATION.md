@@ -19,9 +19,9 @@ Nowo\FormKitBundle\NowoFormKitBundle::class => ['all' => true],
 Twig\Extra\TwigExtraBundle\TwigExtraBundle::class => ['all' => true],
 ```
 
-Optional host YAML for FormKit: `config/packages/nowo_form_kit.yaml`. If omitted, Api Studio prepends the `api_studio` profile (and aligns `css_framework` from `nowo_api_studio.ui.css_framework` when the host has not set FormKit keys).
+Optional host YAML for FormKit: `config/packages/nowo_form_kit.yaml`. If omitted, Api Studio prepends the `api_studio` profile (semantic `nowo-ui-input` class, help / placeholder keys only when translated); the deprecated `nowo_api_studio.ui.css_framework`, when set, still aligns FormKit `css_framework` if the host has not set it. Configure `nowo_ui_kit.layouts.admin` (see [CONFIGURATION.md](CONFIGURATION.md#embedding-in-the-host-layout-req-ui-001--req-ui-003)).
 
-Import routes from `@NowoApiStudioBundle/Resources/config/routes.yaml` (or use the Flex recipe).
+Import routes from `@ApiStudioBundle/Resources/config/routes.yaml` (or use the Flex recipe).
 
 Run schema sync:
 

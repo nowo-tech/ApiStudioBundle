@@ -67,6 +67,51 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.9.2**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+php bin/console assets:install
+```
+
+### Template contract (UiKit page contract, REQ-UI-003)
+
+- The pages now render inside **`nowo_ui_kit.layouts.admin`** (default `@NowoUiKit/layout/admin.html.twig`). Point it at
+  your layout or a one-file bridge once for every UiKit bundle; see
+  [CONFIGURATION.md](CONFIGURATION.md#embedding-in-the-host-layout-req-ui-001--req-ui-003). Leave
+  `nowo_api_studio.ui.layout_template` unset (`null`). The 1.x default `@NowoApiStudioBundle/layout.html.twig` is read
+  as `null`.
+- A custom `ui.layout_template` that renders `{% block body %}` (pre-1.10) still works through a **deprecated** bridge
+  (deprecation notice; removed in 2.0): render the UiKit canonical blocks or switch to `nowo_ui_kit.layouts.admin`.
+- **Removed templates:** `layout.html.twig` (Tabler CDN shell: rail, top bar, theme toggle), `base.html.twig`,
+  `_delete_confirm.html.twig`, `_locale_switcher.html.twig`. Overrides of these files under
+  `templates/bundles/NowoApiStudioBundle/` are ignored now: delete them. The theme toggle and the locale switcher of the
+  host layout (UiKit `_theme_toggle` / `_locale_switcher`) replace them; the API tree shows a UiKit locale switcher.
+- **Page templates** extend UiKit scaffolds and read `page` (view model) instead of the old blocks `title`,
+  `topbar_title`, `topbar_badge`, `topbar_actions`, `body`, `stylesheets`, `javascripts`. Overrides of page templates
+  must be redone on the new blocks (`nowo_ui_list_row`, `nowo_ui_show_sections`, `nowo_ui_form_body`,
+  `nowo_ui_dashboard_cards`, `nowo_ui_modals`, `nowo_ui_styles`, `nowo_ui_scripts`) — or deleted, which is the
+  recommended path (theme UiKit instead). Variables removed: `title` (form pages), `pagination` (workspace list: now
+  `page.pagination`), `workspaces` / `services` / `endpoints` / `environments` on list pages (now `page.rows`), the
+  `as_active_*` variables (now `nav_active` of `_workbench.html.twig`).
+- **Partials:** `_service_kebab_menu.html.twig` renders the UiKit kebab; `_service_action_modals.html.twig` renders UiKit
+  `<dialog>`s (ids unchanged); `_sidebar_tree.html.twig` takes `nav_active` and `bundle`.
+- Assets: `api-studio-theme.css` no longer styles `html`, `body` or links globally and no longer defines a palette on
+  `:root`; it maps its colours to the `--nowo-ui-*` tokens. Remove overrides that targeted `.as-shell`, `.as-rail`,
+  `.as-topbar`, `.as-flash`, `.as-modal`, `.as-kebab-*` or `--as-bg-app`.
+
+### Configuration
+
+- `nowo_api_studio.ui.css_framework` is **deprecated** (default `null`): move the value to `nowo_ui_kit.css_framework`.
+- The FormKit `api_studio` profile only sets the semantic `nowo-ui-input` class: Bootstrap / Tailwind field classes come
+  from your form theme.
+
+### Behaviour
+
+- Flash messages are translated when added; invalid form submissions return HTTP 422.
+- With Symfony ≥ 7.3 the bundle routes no longer appear through `routing.controllers`: import
+  `@ApiStudioBundle/Resources/config/routes.yaml` explicitly (as documented) if you relied on that side effect.
+
 ## To 1.9.2
 
 From **1.9.1**:

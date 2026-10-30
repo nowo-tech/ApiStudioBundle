@@ -52,8 +52,9 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 ### HTTP UI
 
 - **FR-CTRL-001**: Dashboard, workspace/service/endpoint CRUD, examples, import/export, locale switcher, execute controller.
-- **FR-FORM-001**: Form types for CRUD + `JsonMapType` + import upload.
-- **FR-TWIG-001**: Layout, sidebar tree, tester panels, locale tabs (see inventory).
+- **FR-FORM-001**: Form types for CRUD + `JsonMapType` + import upload; client-side and CSRF-only form views (`ClientSideFieldsType`, `CsrfOnlyType`, `KeyValueRowType`, `EndpointTesterFormFactory`) so no template contains raw form controls (REQ-TWIG-005).
+- **FR-TWIG-001**: Page templates on the UiKit scaffolds, workbench (API tree), tester panels, locale tabs, overridable under `templates/bundles/NowoApiStudioBundle/` (see inventory and `docs/TEMPLATES.md`).
+- **FR-UI-003**: UiKit page contract (REQ-UI-003): every page extends a UiKit scaffold (`dashboard`, `list`, `show`, `form`) fed by view models from `ApiStudioPageFactory`; the layout is `ui.layout_template` or `nowo_ui_kit.layouts.admin` (`ApiStudioPages`, deprecated bridge for pre-1.10 layouts); deletes use the UiKit confirm contract; no CDN, no inline handler; enforced by `PageContractTestCase`.
 
 ### Execution engine
 
@@ -83,15 +84,15 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 ### Frontend
 
 - **FR-UI-001**: TypeScript modules (tester, shell, body tools, script runtime) built to `Resources/public/*.js`.
-- **FR-UI-002**: Theme CSS for studio shell.
+- **FR-UI-002**: Workbench / console CSS mapped to the UiKit `--nowo-ui-*` tokens (no global element rules, no own palette).
 
 ---
 
 ## Success Criteria
 
-- **SC-001**: **128/128** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-20; `git ls-files src | wc -l`).
+- **SC-001**: **137/137** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).
 - **SC-002**: Config matches `Configuration.php` and [`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md).
-- **SC-003**: PHPUnit + PHPStan pass; manual tester smoke in demo.
+- **SC-003**: PHPUnit + PHPStan pass; PHP line coverage ≥ 99% of every `src/` class (CI gate, REQ-TEST-003); page contract test green; Playwright happy path in the demo.
 
 ---
 

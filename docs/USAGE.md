@@ -9,6 +9,7 @@
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
+  - [Override vs upgrade](#override-vs-upgrade)
   - [Override in the application](#override-in-the-application)
   - [Overridable templates](#overridable-templates)
   - [Forms in the templates (REQ-TWIG-005)](#forms-in-the-templates-req-twig-005)
@@ -105,59 +106,85 @@ Executions are stored in history with the headers that were sent (framing header
 
 ## Overriding Twig templates (REQ-TWIG-001)
 
-Bundle templates use the **`@NowoApiStudioBundle`** namespace.
+Bundle templates use the **`@NowoApiStudioBundle`** namespace (`src/Resources/views/`). The pages follow the UiKit page
+contract (REQ-UI-003): each one extends a UiKit scaffold and fills data blocks; the page list, view models and blocks
+are in [TEMPLATES.md](TEMPLATES.md).
+
+### Override vs upgrade
+
+Twig overrides and package upgrades pull in opposite directions; pick the shallowest depth that does the job:
+
+| Depth | How | Customisation | On bundle version bump |
+| --- | --- | --- | --- |
+| **Preferred — no Twig fork** | `nowo_ui_kit.layouts.admin` (your layout or a one-file bridge), `nowo_ui_kit.theme` (classes, attributes, partials, `--nowo-ui-*` tokens, `theme.bundles.NowoApiStudioBundle`), `nowo_api_studio.ui.layout_template` for an Api Studio-only layout | Host chrome + look and feel of every Api Studio page | Vendor templates and fixes apply automatically; no app Twig to re-touch |
+| **Surgical override** | Copy one partial (e.g. `_sidebar_tree.html.twig`) or a thin page that `extends` the bundle page and overrides one block with `{{ parent() }}` | One concern | Only that file is frozen; the rest of the UI still upgrades |
+| **Full-file override** | Copy a page into `templates/bundles/NowoApiStudioBundle/<subpath>` | Total control | That `<subpath>` is **frozen** |
+
+**Freeze rule:** an application file at the override path always wins and will **not** pick up vendor changes for that
+path until you remove it or merge it by hand. Full-file overrides are an escape hatch for deep redesigns, not the
+default integration path.
+
+**Recovering upstream after a freeze:** delete (or rename aside) the app override, clear the cache
+(`php bin/console cache:clear`), diff your copy against the new vendor file under
+`vendor/nowo-tech/api-studio-bundle/src/Resources/views/<subpath>`, and re-apply only surgical customisations if still
+needed.
+
+Renaming or removing a published `<subpath>` or data block is a breaking change, announced in
+[UPGRADING.md](UPGRADING.md) (see "Template contract").
 
 ### Override in the application
 
-Create files under:
+1. Find the `<subpath>` in the table below (path relative to `src/Resources/views/`).
+2. Create `templates/bundles/NowoApiStudioBundle/<subpath>` in the application (same relative path and file name).
+3. Prefer the smallest file. Example (surgical): a custom API tree, everything else keeps upgrading:
 
-```
-templates/bundles/NowoApiStudioBundle/
-```
+   ```twig
+   {# templates/bundles/NowoApiStudioBundle/_sidebar_tree.html.twig #}
+   {# copied from vendor/nowo-tech/api-studio-bundle/src/Resources/views/_sidebar_tree.html.twig, then edited #}
+   ```
 
-Symfony resolves application overrides **before** bundle defaults. Copy only the templates you need to change.
+   Variables of each template are documented in its header comment and in [TEMPLATES.md](TEMPLATES.md).
+4. Clear the cache in dev if needed: `php bin/console cache:clear`.
+5. Treat the file as a fork of that `<subpath>` (freeze rule above).
+
+Symfony searches `templates/bundles/NowoApiStudioBundle/` before the bundle views (`TwigPathsPass` appends the bundle
+path to the namespace), so overrides always win. The namespace is registered only when the bundle is enabled
+(`nowo_api_studio.enabled`, see [CONFIGURATION.md](CONFIGURATION.md)).
 
 ### Overridable templates
 
 | Subpath | Purpose |
 | --- | --- |
-| `base.html.twig` | Page shell: extends `nowo_api_studio_layout_template` and stacks Api Studio CSS/JS with `{{ parent() }}` |
-| `layout.html.twig` | Default full HTML chrome (rail, sidebar, topbar) when `ui.layout_template` points here |
-| `dashboard/index.html.twig` | Landing dashboard |
-| `workspace/index.html.twig` | Workspace list |
-| `workspace/show.html.twig` | Workspace detail |
-| `workspace/form.html.twig` | Create/edit workspace |
-| `service/index.html.twig` | Service list |
-| `service/show.html.twig` | Service detail |
-| `service/form.html.twig` | Create/edit service |
-| `environment/index.html.twig` | Environment list |
-| `environment/show.html.twig` | Environment detail |
-| `environment/form.html.twig` | Create/edit environment |
-| `endpoint/index.html.twig` | Endpoint list |
-| `endpoint/show.html.twig` | Endpoint detail / request console |
-| `endpoint/form.html.twig` | Create/edit endpoint |
-| `import_export/hub.html.twig` | Import/export hub |
-| `import_export/import.html.twig` | Import form |
-| `import_export/_workspace_panel.html.twig` | Workspace import/export panel partial |
-| `_locale_switcher.html.twig` | Locale switcher partial |
-| `_sidebar_tree.html.twig` | Sidebar tree partial |
-| `_sidebar_endpoints.html.twig` | Sidebar endpoints partial |
-| `_endpoint_expandable_list.html.twig` | Expandable endpoint list partial |
-| `_service_collection_list.html.twig` | Service collection list partial |
-| `_service_kebab_menu.html.twig` | Service actions menu partial |
-| `_service_action_modals.html.twig` | Service action modals partial |
-| `_variable_catalog.html.twig` | Variable catalog partial |
+| `dashboard/index.html.twig` | Dashboard (UiKit `page/dashboard`: KPI tiles + workbench with the projects card) |
+| `workspace/index.html.twig` | Workspace list (`page/list`) |
+| `workspace/show.html.twig` | Workspace (`page/show`: details, service collections, import / export) |
+| `workspace/form.html.twig` | Create / edit workspace (`page/form`, delete zone) |
+| `service/index.html.twig` | Service list (`page/list`) |
+| `service/show.html.twig` | Service (`page/show`: details, endpoints with saved requests, variables, imports) |
+| `service/form.html.twig` | Create / edit service (`page/form`, type-to-confirm delete) |
+| `endpoint/index.html.twig` | Endpoint list (`page/list`) |
+| `endpoint/show.html.twig` | Request console (`page/show`) |
+| `endpoint/form.html.twig` | Create / edit endpoint (`page/form`, documentation per locale) |
+| `environment/index.html.twig` | Environment list (`page/list`) |
+| `environment/show.html.twig` | Environment (`page/show`: variables, exports) |
+| `environment/form.html.twig` | Create / edit environment (`page/form`, delete zone) |
+| `import_export/hub.html.twig` | Import / export hub (`page/show`) |
+| `import_export/import.html.twig` | Import form (`page/form`) |
+| `import_export/_workspace_panel.html.twig` | Workspace import / export card |
+| `_workbench.html.twig` | Workbench: API tree beside the page content |
+| `_sidebar_tree.html.twig` | API tree, filter and locale switcher |
+| `_sidebar_endpoints.html.twig` | Endpoints and saved requests of one service in the tree |
+| `_endpoint_expandable_list.html.twig` | Expandable endpoint rows with saved requests |
+| `_service_collection_list.html.twig` | Collapsible services (endpoint collections) |
+| `_service_kebab_menu.html.twig` | Service actions menu (UiKit kebab) |
+| `_service_action_modals.html.twig` | Service export / import / delete dialogs (UiKit `<dialog>`) |
+| `_variable_catalog.html.twig` | Workspace variable catalogue |
+| `_styles.html.twig`, `_scripts.html.twig` | Api Studio asset tags |
+| `_legacy_layout.html.twig` | Deprecated bridge for a pre-1.10 layout (removed in 2.0) |
 
-Example:
-
-```twig
-{# templates/bundles/NowoApiStudioBundle/layout.html.twig #}
-{% extends '@NowoApiStudioBundle/layout.html.twig' %}
-```
-
-Prefer extending or including the original `@NowoApiStudioBundle/...` templates so you keep assets and blocks stable.
-
-**Layout chain (REQ-UI-001):** pages extend `@NowoApiStudioBundle/base.html.twig`, which extends the configurable layout (`nowo_api_studio.ui.layout_template` / Twig global `nowo_api_studio_layout_template`), loads **UiKit** (`nowo-ui.css` / macros from `nowo-tech/ui-kit-bundle`), and injects theme CSS/JS via `{{ parent() }}`. Child templates that override `javascripts` / `stylesheets` must call `{{ parent() }}` so host and Api Studio assets still load.
+**Layout chain (REQ-UI-003):** pages extend a UiKit scaffold, which extends `page.layout` = `ui.layout_template` when set,
+else `nowo_ui_kit.layouts.admin`. Api Studio assets stack in `nowo_ui_styles` / `nowo_ui_scripts` after
+`{{ parent() }}`; overrides of those blocks must keep `{{ parent() }}`.
 
 Protect the UI with Symfony `access_control` on the configured path (default `/api-studio`). See [CONFIGURATION.md](CONFIGURATION.md) (`security.access_roles`, `security.allow_unauthenticated`).
 
@@ -166,7 +193,7 @@ Protect the UI with Symfony `access_control` on the configured path (default `/a
 Every control in the API Studio views is a Symfony Form view; the templates never contain raw `<form>` / `<input>` / `<select>` / `<textarea>` markup (`make check-no-raw-html-form`, part of `release-check`):
 
 - **Editors** (workspace, service, endpoint, environment, import): FormKit-configured types rendered with `form_start`, the child loop (`{% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}`) and `form_end`.
-- **Delete buttons:** `CsrfOnlyType` (flat `_token`, token id `delete<id>`), built in Twig with `api_studio_csrf_form(action, csrfTokenId)`. `_delete_confirm.html.twig` now takes `csrf_token_id` (instead of a pre-computed `token`). The controllers validate with `handleRequest` + `isSubmitted()` / `isValid()`.
+- **Delete buttons:** `CsrfOnlyType` (flat `_token`, token id `delete<id>`) built by the controllers and passed to the page as the `FormView` of the UiKit delete `Action` (form page delete zone, behind the UiKit confirm dialog; the service form also carries `confirmation`). `api_studio_csrf_form(action, csrfTokenId)` stays available for host templates. The controllers validate the POST with the same type.
 - **Layout partials** build their own forms: `api_studio_tree_filter_form()` (sidebar filter) and `api_studio_service_modal_forms()` (export / import format radios, `import_file_form` upload, service delete confirmation).
 - **Endpoint tester** (`endpoint/show.html.twig`): the controller always passes `testerForm` (`EndpointTesterFormFactory`, unmapped client-side controls with the historical ids / classes). Because these controls are spread over several blocks and never submitted, they are rendered with `form_widget` / `form_label` only.
 

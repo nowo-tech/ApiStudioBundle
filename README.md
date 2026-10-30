@@ -1,6 +1,6 @@
 # API Studio Bundle
 
-[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/ApiStudioBundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+[![CI](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ApiStudioBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/api-studio-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/api-studio-bundle.svg)](https://packagist.org/packages/nowo-tech/api-studio-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/ApiStudioBundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ApiStudioBundle) [![Coverage](https://img.shields.io/badge/Coverage-99.92%25-brightgreen)](#tests-and-coverage)
 
 > ⭐ **Found this useful?** Install from [Packagist](https://packagist.org/packages/nowo-tech/api-studio-bundle) and give the repo a star on GitHub.
 
@@ -63,7 +63,7 @@ Import routes:
 ```yaml
 # config/routes.yaml
 nowo_api_studio:
-    resource: '@NowoApiStudioBundle/Resources/config/routes.yaml'
+    resource: '@ApiStudioBundle/Resources/config/routes.yaml'
 ```
 
 Configure:
@@ -192,7 +192,8 @@ make test
 make test-coverage
 ```
 
-- PHP: **99.09%** lines (437/441) of the measured `src/` surface. `phpunit.xml.dist` still excludes Controllers, Forms, Entities, Repositories, DI and several services from `<source>` (see its `<exclude>`); over the whole `src/` tree the suite covers **66.81%** of lines (2401/3594, measured 2026-10-21). Raising that is tracked as an open REQ-TEST-003 item. The 4 uncovered lines are defensive branches in `GuardedWsdlLoader` (temp-file write failures, a non-element XPath node, a base URL without host).
+- PHP: **99.92%** lines (4277/4280) of the whole `src/` tree (`phpunit.xml.dist` excludes only `src/Resources`, measured 2026-10-30). CI and `make test-coverage` fail below **99%** (`composer coverage-check`, `scripts/check-coverage.php`, REQ-TEST-003). The 3 uncovered lines are defensive branches that cannot be reached in-process: `RequestExecutor` without ext-soap (the test image ships it) and the `GuardedWsdlLoader` temp-file failures (`tempnam()` / `file_put_contents()` returning `false`).
+- UI: the page contract test (`tests/Integration/Contract/PageContractTest.php`) renders every page against the UiKit stub host for `none`, `bootstrap5` and `tailwind`.
 - TS/JS: **N/A** (assets are built with Vite; no Vitest suite yet)
 - Python: **N/A**
 
