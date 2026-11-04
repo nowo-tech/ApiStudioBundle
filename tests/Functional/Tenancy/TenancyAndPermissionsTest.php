@@ -8,9 +8,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
+use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioRouteActions;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
@@ -23,6 +25,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\RouterInterface;
 
 use function array_keys;
+use function json_decode;
 use function json_encode;
 use function sort;
 use function sprintf;
@@ -285,6 +288,70 @@ final class TenancyAndPermissionsTest extends WebTestCase
         $this->client->request('POST', sprintf('/orgs/acme/api-studio/execute/%d', $this->ids['endpoint']), [], [], ['HTTP_X_CSRF_TOKEN' => $token, 'CONTENT_TYPE' => 'application/json'], '{}');
         self::assertResponseIsSuccessful();
         self::assertSame(3, $this->freshEm()->getRepository(ApiRequestHistory::class)->count([]));
+    }
+
+    public function testRunOnlyMembersCannotRedirectStoredSecrets(): void
+    {
+        // ER-M1 (audit PoC): a member with workspace.run but not workspace.edit overrides the base URL variable to send
+        // the stored Bearer secret to a host of their choice.
+        $em      = $this->em();
+        $service = $em->find(ApiService::class, $this->ids['service']);
+        $env     = $em->find(ApiEnvironment::class, $this->ids['environment']);
+        self::assertInstanceOf(ApiService::class, $service);
+        self::assertInstanceOf(ApiEnvironment::class, $env);
+        $service->setBaseUrl('{{base_url}}')->setAuthType(AuthType::Bearer)->setAuthConfig(['token' => '{{token}}']);
+        $endpoint = $em->find(ApiEndpoint::class, $this->ids['endpoint']);
+        self::assertInstanceOf(ApiEndpoint::class, $endpoint);
+        $endpoint->setHeaders(['X-Signed' => '{{tenant_key}}:{{token}}', 'X-Trace' => '{{trace}}']);
+        foreach ([['base_url', 'https://192.0.2.10', false], ['token', 'acme-secret-PLACEHOLDER', true], ['tenant_key', 'acme', false], ['trace', 't-1', false]] as [$key, $value, $secret]) {
+            $env->addVariable((new ApiEnvironmentVariable($key, $value))->setSecret($secret));
+        }
+        $em->flush();
+
+        $page                    = $this->client->request('GET', sprintf('/orgs/acme/api-studio/workspaces/%d/services/%d/endpoints/%d', $this->ids['acme'], $this->ids['service'], $this->ids['endpoint']));
+        $token                   = (string) $page->filter('#api-studio-tester')->attr('data-csrf-token');
+        $this->checker()->denied = [ApiStudioAction::WorkspaceEdit];
+        $history                 = $this->em()->getRepository(ApiRequestHistory::class)->count([]);
+        $send                    = function (array $variables) use ($token): array {
+            $this->client->request('POST', sprintf('/orgs/acme/api-studio/execute/%d', $this->ids['endpoint']), [], [], ['HTTP_X_CSRF_TOKEN' => $token, 'CONTENT_TYPE' => 'application/json'], (string) json_encode(['environment_id' => $this->ids['environment'], 'variables' => $variables]));
+
+            return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+        };
+
+        foreach ([['base_url' => 'https://1.1.1.1'], ['token' => 'mine'], ['tenant_key' => 'other']] as $override) {
+            $data = $send($override);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame('override_not_allowed', $data['error']);
+            self::assertSame(array_keys($override), $data['variables']);
+        }
+        self::assertSame($history, $this->em()->getRepository(ApiRequestHistory::class)->count([]), 'nothing executed');
+
+        // The console sends the stored values back unchanged, and free variables may change: allowed.
+        $send(['base_url' => 'https://192.0.2.10', 'token' => '{{token}}', 'trace' => 't-2']);
+        self::assertResponseIsSuccessful();
+
+        // With workspace.edit the runner may point the request elsewhere (the URL guard still applies).
+        $this->checker()->denied = [];
+        $send(['base_url' => 'https://192.0.2.11']);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testForeignEnvironmentIsRefusedWithAndWithoutTheFilter(): void
+    {
+        // ER-I3: an environment hidden by the tenant filter answers the same 400 as another workspace's.
+        $em   = $this->em();
+        $beta = $em->find(ApiWorkspace::class, $this->ids['beta']);
+        self::assertInstanceOf(ApiWorkspace::class, $beta);
+        $foreign = new ApiEnvironment('Beta env', 'beta-env');
+        $beta->addEnvironment($foreign);
+        $em->persist($foreign);
+        $em->flush();
+
+        $page  = $this->client->request('GET', sprintf('/orgs/acme/api-studio/workspaces/%d/services/%d/endpoints/%d', $this->ids['acme'], $this->ids['service'], $this->ids['endpoint']));
+        $token = (string) $page->filter('#api-studio-tester')->attr('data-csrf-token');
+        self::assertSelectorNotExists('script[src*="api-script-runtime"]', 'scripts.mode: disabled loads no runtime');
+        $this->client->request('POST', sprintf('/orgs/acme/api-studio/execute/%d', $this->ids['endpoint']), [], [], ['HTTP_X_CSRF_TOKEN' => $token, 'CONTENT_TYPE' => 'application/json'], (string) json_encode(['environment_id' => $foreign->getId()]));
+        self::assertResponseStatusCodeSame(400);
     }
 
     public function testEveryRouteHasAnAction(): void

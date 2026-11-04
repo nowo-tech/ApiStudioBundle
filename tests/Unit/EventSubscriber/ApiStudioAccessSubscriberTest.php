@@ -30,6 +30,7 @@ final class ApiStudioAccessSubscriberTest extends TestCase
                 KernelEvents::REQUEST    => ['onKernelRequest', 30],
                 KernelEvents::CONTROLLER => ['onKernelController', 0],
                 KernelEvents::RESPONSE   => ['onKernelResponse', 0],
+                KernelEvents::EXCEPTION  => ['onKernelException', 0],
             ],
             ApiStudioAccessSubscriber::getSubscribedEvents(),
         );

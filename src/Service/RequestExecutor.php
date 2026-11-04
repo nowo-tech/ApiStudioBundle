@@ -521,6 +521,59 @@ final class RequestExecutor
     }
 
     /**
+     * Variables a runner without `workspace.edit` may not change (ER-M1): those that decide where the request goes or
+     * which credential it carries — referenced in the base URL, the path, the endpoint query parameters, the auth
+     * configuration, or a service / endpoint header that also references a secret variable. Every variable of the
+     * URL is protected, so the request origin (scheme, host, port) cannot change; the resolver is single-pass, so an
+     * override cannot smuggle another placeholder in.
+     *
+     * @return list<string>
+     */
+    public static function protectedVariables(ApiEndpoint $endpoint, ApiService $service, ?ApiEnvironment $environment): array
+    {
+        $secrets = [];
+        foreach ($environment?->getVariables() ?? [] as $variable) {
+            if ($variable->isSecret()) {
+                $secrets[$variable->getVariableKey()] = true;
+            }
+        }
+
+        $templates  = [$service->getBaseUrl(), $endpoint->getPath(), ...array_values($endpoint->getQueryParams())];
+        $authConfig = $service->getAuthConfig();
+        array_walk_recursive($authConfig, static function (mixed $value) use (&$templates): void {
+            if (is_string($value)) {
+                $templates[] = $value;
+            }
+        });
+        foreach ([...array_values($service->getDefaultHeaders()), ...array_values($endpoint->getHeaders())] as $header) {
+            foreach (self::keysIn($header) as $key) {
+                if (isset($secrets[$key])) {
+                    $templates[] = $header;
+
+                    break;
+                }
+            }
+        }
+
+        $keys = [];
+        foreach ($templates as $template) {
+            foreach (self::keysIn($template) as $key) {
+                $keys[$key] = true;
+            }
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function keysIn(string $template): array
+    {
+        return preg_match_all(VariableSyntax::PLACEHOLDER_PATTERN, $template, $matches) > 0 ? $matches[1] : [];
+    }
+
+    /**
      * @param list<string> $keys
      */
     private function unreadableSecretFailure(ApiEndpoint $endpoint, ?HttpMethod $methodOverride, array $keys): ApiExecutionResult

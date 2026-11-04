@@ -97,6 +97,18 @@ Follow-ups of the 1.10.1 security review (Appendix EQ):
 - **EQ-I6**: the slug race safety net recognises the slug unique index by its name (or its `table.column` list on
   SQLite), not by the word "slug" in the driver message.
 - **EQ-I7**: `nowo:api-studio:secrets:status --tenant=type:id` (empty: the instance tenant) reports one tenant only.
+- **ER-M1** (1.11 review): without `workspace.edit`, `/execute` refuses (422 `override_not_allowed`, logged with ids
+  only) any change to a variable used in the URL, the auth configuration or a header that carries a secret, so a
+  runner cannot send the stored secrets to a host of their choice.
+- **ER-L1**: `symfony/yaml` now requires `^7.4.23 || ^8.1.11` (YAML parse-time advisory GHSA-hwfg-qwvh-2wfx, reachable
+  through YAML imports); the lock is updated and `composer audit` is clean.
+- **ER-I1**: the console's JSON routes answer a refused action with `{"error":"forbidden"}` (403).
+- **ER-I2**: default history actor ids are namespaced (`u:` + identifier, `h:` + hash) and a host resolver's id must be
+  1–64 printable characters.
+- **ER-I3**: `/execute` answers 400 for an environment that is unknown, hidden by the tenant filter or of another
+  workspace.
+- **ER-I6**: the route scope listener resets the router context between worker requests; `scripts.mode: disabled` does
+  not load `api-script-runtime.js`.
 
 ## [1.10.1] - 2026-11-04
 

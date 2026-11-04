@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
+use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
@@ -21,6 +22,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,7 +32,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 
+use function array_intersect;
 use function array_key_exists;
+use function array_values;
+use function count;
 use function is_array;
 use function is_int;
 use function is_scalar;
@@ -50,6 +55,7 @@ final class ApiExecuteController extends AbstractController
         return parent::getSubscribedServices() + [
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            'logger'                      => '?' . LoggerInterface::class,
         ];
     }
 
@@ -92,9 +98,8 @@ final class ApiExecuteController extends AbstractController
         $environmentId = $payload['environment_id'] ?? null;
         if (is_int($environmentId) || (is_string($environmentId) && ctype_digit($environmentId))) {
             $environment = $this->environmentRepository->find((int) $environmentId);
-            if (!$environment instanceof ApiEnvironment) {
-                $environment = null;
-            } elseif (!self::belongsToEndpointWorkspace($environment, $endpoint)) {
+            // Unknown, hidden by the tenant filter or of another workspace: the same 400 (ER-I3).
+            if (!$environment instanceof ApiEnvironment || !self::belongsToEndpointWorkspace($environment, $endpoint)) {
                 // Never resolve another workspace's variables/secrets into this endpoint's request.
                 return new JsonResponse(['error' => 'Environment does not belong to the endpoint workspace.'], Response::HTTP_BAD_REQUEST);
             }
@@ -139,6 +144,23 @@ final class ApiExecuteController extends AbstractController
                 if ($variable->isSecret() && $override !== null && VariableSyntax::isPlaceholder($override) && VariableSyntax::normalizeKey($override) === $key) {
                     unset($variableOverrides[$key]);
                 }
+            }
+        }
+
+        // ER-M1: without workspace.edit, a runner may not change the variables that decide where the request goes or
+        // which credential it carries (that would send the stored secrets to a host of their choice). Values the
+        // console sends unchanged (the stored ones) are fine.
+        $service = $endpoint->getService();
+        if ($service !== null && !$this->authorization()->can(ApiStudioAction::WorkspaceEdit, $service->getWorkspace())) {
+            $refused = $this->refusedOverrides($endpoint, $service, $environment, $variableOverrides);
+            if ($refused !== null) {
+                $this->logRefusedOverride($endpoint, $environment, $refused);
+
+                return new JsonResponse([
+                    'error'     => 'override_not_allowed',
+                    'message'   => 'Changing these variables needs the right to edit the workspace: they decide where the request goes or which credential it carries.',
+                    'variables' => $refused,
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         }
 
@@ -207,6 +229,48 @@ final class ApiExecuteController extends AbstractController
         $status = $result->errorCode === ApiExecutionResult::ERROR_SECRET_UNREADABLE ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
 
         return new JsonResponse($data, $status);
+    }
+
+    /**
+     * The protected variables a runner without `workspace.edit` changed (null: nothing refused).
+     *
+     * @param array<string, string> $overrides
+     *
+     * @return list<string>|null
+     */
+    private function refusedOverrides(ApiEndpoint $endpoint, ApiService $service, ?ApiEnvironment $environment, array $overrides): ?array
+    {
+        $stored  = $environment?->getVariableMap() ?? [];
+        $changed = [];
+        foreach ($overrides as $key => $value) {
+            if (!array_key_exists($key, $stored) || $stored[$key] !== $value) {
+                $changed[] = (string) $key;
+            }
+        }
+
+        $refused = array_values(array_intersect($changed, RequestExecutor::protectedVariables($endpoint, $service, $environment)));
+
+        return $refused === [] ? null : $refused;
+    }
+
+    /**
+     * @param list<string> $variables
+     */
+    private function logRefusedOverride(ApiEndpoint $endpoint, ?ApiEnvironment $environment, array $variables): void
+    {
+        if (!$this->container->has('logger')) {
+            return;
+        }
+
+        /** @var LoggerInterface $logger */
+        $logger = $this->container->get('logger');
+        $logger->warning('Api Studio request refused: a runner without workspace.edit changed a protected variable or the request origin', [
+            'bundle'         => 'api-studio',
+            'action'         => 'execute_override_refused',
+            'endpoint_id'    => $endpoint->getId(),
+            'environment_id' => $environment?->getId(),
+            'variable_count' => count($variables),
+        ]);
     }
 
     /**

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Security;
 
 use Symfony\Component\Security\Core\User\UserInterface;
+use UnexpectedValueException;
 
 use function hash;
 use function method_exists;
+use function preg_match;
 use function strlen;
+use function substr;
 
 /**
  * `nowo_api_studio.history.scope`: `endpoint` (default, 1.10 behaviour) = one history per endpoint, shared; `user` =
@@ -33,7 +36,11 @@ final readonly class ApiStudioHistoryScope
     }
 
     /**
-     * Actor id of $user (null: anonymous). Default: the user identifier, hashed (sha256) when longer than 64 characters.
+     * Actor id of $user (null: anonymous). Default: `u:` + the user identifier when it fits (≤ 62 characters), else
+     * `h:` + its SHA-256 (62 hex characters): the namespaces keep a raw identifier from ever equalling a hashed one
+     * (ER-I2). A host resolver's id must be 1–64 printable ASCII characters without spaces.
+     *
+     * @throws UnexpectedValueException when the host resolver returns another shape
      */
     public function actorId(?object $user): ?string
     {
@@ -42,7 +49,12 @@ final readonly class ApiStudioHistoryScope
         }
 
         if ($this->actorResolver instanceof ApiStudioActorResolverInterface) {
-            return $this->actorResolver->actorId($user);
+            $actor = $this->actorResolver->actorId($user);
+            if (preg_match('/^[\x21-\x7E]{1,64}$/', $actor) !== 1) {
+                throw new UnexpectedValueException('ApiStudioActorResolverInterface::actorId() must return 1 to 64 printable ASCII characters without spaces.');
+            }
+
+            return $actor;
         }
 
         $identifier = $user instanceof UserInterface ? $user->getUserIdentifier() : (method_exists($user, '__toString') ? (string) $user : '');
@@ -50,6 +62,6 @@ final readonly class ApiStudioHistoryScope
             return null;
         }
 
-        return strlen($identifier) > 64 ? hash('sha256', $identifier) : $identifier;
+        return strlen($identifier) <= 62 ? 'u:' . $identifier : 'h:' . substr(hash('sha256', $identifier), 0, 62);
     }
 }

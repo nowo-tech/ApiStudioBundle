@@ -51,7 +51,7 @@ final class ApiExecuteControllerBranchesTest extends TestCase
         self::assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
     }
 
-    public function testNonJsonPayloadAndUnknownEnvironmentExecuteWithoutEnvironment(): void
+    public function testNonJsonPayloadRunsAndUnknownEnvironmentIsRefused(): void
     {
         $endpoint = $this->endpoint(new ApiWorkspace('Mine', 'mine'));
         $client   = new MockHttpClient(static fn (): MockResponse => new MockResponse('ok', ['http_code' => 200]));
@@ -59,8 +59,9 @@ final class ApiExecuteControllerBranchesTest extends TestCase
         $response = $this->controller($endpoint, null, $client)->execute($this->request('not json'), 1);
         self::assertSame(Response::HTTP_OK, $response->getStatusCode());
 
+        // ER-I3: an unknown (or tenant-filtered) environment id is refused like a foreign one.
         $response = $this->controller($endpoint, null, $client)->execute($this->request('{"environment_id": "7"}'), 1);
-        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
     }
 
     public function testPayloadOverridesHeadersQueryMethodAndSecretVariables(): void

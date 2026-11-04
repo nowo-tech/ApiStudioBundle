@@ -21,7 +21,8 @@
 
 {% block nowo_ui_scripts %}
     {{ parent() }}
-    {{ include('@NowoApiStudioBundle/_scripts.html.twig', {scripts: ['api-studio-shell.js', 'api-body-tools.js', 'api-endpoint-doc.js', 'api-script-runtime.js', 'api-tester.js']}) }}
+    {# scripts.mode: disabled loads no script runtime at all (api-tester.js runs requests without it). #}
+    {{ include('@NowoApiStudioBundle/_scripts.html.twig', {scripts: nowo_api_studio_scripts_enabled() ? ['api-studio-shell.js', 'api-body-tools.js', 'api-endpoint-doc.js', 'api-script-runtime.js', 'api-tester.js'] : ['api-studio-shell.js', 'api-body-tools.js', 'api-endpoint-doc.js', 'api-tester.js']}) }}
 {% endblock %}
 
 {% block nowo_ui_show_sections %}

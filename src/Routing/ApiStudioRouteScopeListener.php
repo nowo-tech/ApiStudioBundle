@@ -10,6 +10,7 @@ use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RequestContextAwareInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 use function is_array;
 use function is_scalar;
@@ -24,7 +25,7 @@ use function str_starts_with;
  * when the request finishes (sub-requests, worker mode). Outside Api Studio requests nothing is set: the host passes
  * the parameters itself.
  */
-final readonly class ApiStudioRouteScopeListener implements EventSubscriberInterface
+final readonly class ApiStudioRouteScopeListener implements EventSubscriberInterface, ResetInterface
 {
     /** Route parameter names the bundle uses itself: not allowed as ui.path placeholders. */
     public const RESERVED_PARAMETERS = ['id', 'workspaceId', 'serviceId', 'endpointId', 'environmentId', 'exampleId', 'format', '_locale', '_format', '_controller', '_route'];
@@ -86,6 +87,25 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
     public function onKernelFinishRequest(FinishRequestEvent $event): void
     {
         $this->restore($event->getRequest());
+    }
+
+    /**
+     * Worker safety net: an Api Studio request that never finished (fatal path) leaves no placeholder value in the
+     * shared router context for the next request.
+     */
+    public function reset(): void
+    {
+        if ($this->placeholders === []) {
+            return;
+        }
+
+        $context    = $this->router->getContext();
+        $parameters = $context->getParameters();
+        foreach ($this->placeholders as $name) {
+            unset($parameters[$name]);
+        }
+        // @igor-ignore - Clears the per-request router context values between worker requests.
+        $context->setParameters($parameters);
     }
 
     private function restore(Request $request): void

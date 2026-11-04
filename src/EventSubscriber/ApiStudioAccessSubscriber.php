@@ -9,16 +9,21 @@ use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioRouteActions;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+use function in_array;
 use function is_string;
 use function sprintf;
 
@@ -35,6 +40,17 @@ use function sprintf;
 final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterface
 {
     public const ROUTE_PREFIX = 'nowo_api_studio_';
+
+    /** Routes the console calls with fetch(): a refused action answers JSON there (ER-I1). */
+    public const JSON_ROUTES = [
+        'nowo_api_studio_execute',
+        'nowo_api_studio_environment_sync_variables',
+        'nowo_api_studio_endpoint_save_documentation',
+        'nowo_api_studio_endpoint_examples_save_request',
+        'nowo_api_studio_endpoint_examples_save_response',
+        'nowo_api_studio_endpoint_examples_delete_request',
+        'nowo_api_studio_endpoint_examples_delete_response',
+    ];
 
     /**
      * @param list<string> $requiredRoles
@@ -57,6 +73,8 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
             KernelEvents::REQUEST    => ['onKernelRequest', 30],
             KernelEvents::CONTROLLER => ['onKernelController', 0],
             KernelEvents::RESPONSE   => ['onKernelResponse', 0],
+            // Before the framework's error renderer (-128): JSON routes get JSON.
+            KernelEvents::EXCEPTION => ['onKernelException', 0],
         ];
     }
 
@@ -87,6 +105,20 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
         $headers = $event->getResponse()->headers;
         $headers->set('Cache-Control', 'no-store, private');
         $headers->set('Pragma', 'no-cache');
+    }
+
+    /**
+     * A refused action on a JSON route answers `{"error":"forbidden"}` with a 403 (not the HTML error page).
+     */
+    public function onKernelException(ExceptionEvent $event): void
+    {
+        $exception = $event->getThrowable();
+        $route     = $event->getRequest()->attributes->get('_route');
+        if (!in_array($route, self::JSON_ROUTES, true) || (!$exception instanceof AccessDeniedHttpException && !$exception instanceof AccessDeniedException)) {
+            return;
+        }
+
+        $event->setResponse(new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN));
     }
 
     public function onKernelController(ControllerEvent $event): void

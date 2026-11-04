@@ -18,6 +18,22 @@ import {
 const RT = window.ApiStudioScriptRuntime;
 const BT = window.ApiStudioBodyTools;
 
+/**
+ * Without the script runtime (`scripts.mode: disabled`): a context that carries the request as is and runs nothing.
+ */
+function requestOnlyContext(variables: StringMap, body: string, headers: StringMap, queryParams: StringMap): ScriptContext {
+  const request = { body, headers: { ...headers }, queryParams: { ...queryParams } };
+
+  return {
+    pm: { request } as unknown as ScriptContext['pm'],
+    getVariables: () => ({ ...variables }),
+    getLogs: () => [],
+    getDirtyKeys: () => ({}),
+    runTests: () => [],
+    setResponse: () => undefined,
+  };
+}
+
 type KvTableConfig = {
   bodyId: string;
   addBtnId: string;
@@ -335,6 +351,10 @@ function clearScriptLog(): void {
 }
 
 function runScripts(scripts: Array<{ code: string; label: string }>, ctx: ScriptContext): void {
+  if (!RT) {
+    return;
+  }
+
   scripts.forEach((item) => {
     if (!item.code || !String(item.code).trim()) {
       return;
@@ -984,12 +1004,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let variables = getMergedVariables(root);
     const headerTemplates = collectHeadersFromTable();
     const paramTemplates = collectParamsFromTable();
-    const scriptCtx = RT.createPm({
-      baseVariables: variables,
-      requestBody: bodyField.value,
-      requestHeaders: headerTemplates,
-      requestQueryParams: paramTemplates,
-    });
+    const scriptCtx = RT
+      ? RT.createPm({
+          baseVariables: variables,
+          requestBody: bodyField.value,
+          requestHeaders: headerTemplates,
+          requestQueryParams: paramTemplates,
+        })
+      : requestOnlyContext(variables, bodyField.value, headerTemplates, paramTemplates);
 
     try {
       runScripts(

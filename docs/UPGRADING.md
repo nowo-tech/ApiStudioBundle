@@ -84,6 +84,11 @@ composer update nowo-tech/api-studio-bundle
   must be lowercase letters / digits with single `-` or `_` between them; unchanged legacy slugs are accepted.
 - **Doctrine**: the bundle registers a disabled ORM filter `nowo_api_studio_tenant` (prepended under
   `doctrine.orm.filters`); it is only enabled during Api Studio requests with tenancy on.
+- **Runners**: a user with `workspace.run` but not `workspace.edit` can no longer change the URL, auth or
+  secret-header variables from the console (`/execute` → 422 `override_not_allowed`).
+- **Dependencies**: `symfony/yaml` `^7.4.23 || ^8.1.11` (security advisory); run `composer update symfony/yaml`.
+- **History actor ids** (`history.scope: user`) are `u:<identifier>` or `h:<hash>`; a custom resolver must return
+  1–64 printable characters.
 - **Secrets**: every secret value is encrypted afresh on save (no pass-through of payload-shaped input); values stored by
   earlier releases read as before. `secrets:status` accepts `--tenant=type:id`.
 - **Placeholders**: `attr.placeholder` of the service base URL and the variable key fields are translation keys

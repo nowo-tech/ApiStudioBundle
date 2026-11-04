@@ -209,6 +209,23 @@ final class RequestExecutorTest extends TestCase
         self::assertSame([], $this->calls);
     }
 
+    public function testProtectedVariablesCoverTheUrlTheAuthAndSecretHeaders(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $environment->addVariable((new ApiEnvironmentVariable('token', 'x'))->setSecret(true));
+        $environment->addVariable(new ApiEnvironmentVariable('trace', 't'));
+        $endpoint = $this->endpoint('{{host}}', '/{{path}}')
+            ->setQueryParams(['q' => '{{query}}'])
+            ->setHeaders(['X-Signed' => '{{kid}}:{{token}}', 'X-Trace' => '{{trace}}']);
+        $service = $endpoint->getService();
+        self::assertInstanceOf(ApiService::class, $service);
+        $service->setAuthConfig(['username' => '{{user}}', 'nested' => ['password' => '{{pass}}'], 'n' => 1])
+            ->setDefaultHeaders(['X-Plain' => '{{plain}}']);
+
+        self::assertSame(['host', 'path', 'query', 'user', 'pass', 'kid', 'token'], RequestExecutor::protectedVariables($endpoint, $service, $environment));
+        self::assertSame(['host', 'path', 'query', 'user', 'pass'], RequestExecutor::protectedVariables($endpoint, $service, null), 'no environment: no secret header');
+    }
+
     public function testReferencedVariablesFollowTheRequestPrecedence(): void
     {
         $endpoint = $this->endpoint('{{host}}', '/{{path}}')

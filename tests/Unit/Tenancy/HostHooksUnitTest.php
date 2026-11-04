@@ -35,7 +35,9 @@ use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -47,10 +49,12 @@ use Symfony\Component\Routing\RequestContextAwareInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\User\InMemoryUser;
+use UnexpectedValueException;
 
 use function range;
 use function str_repeat;
 use function strlen;
+use function substr;
 
 /**
  * Units of the 1.11 host hooks: tenant value object, context and listener, authorization decisions, history actor,
@@ -208,9 +212,13 @@ final class HostHooksUnitTest extends TestCase
         self::assertTrue($scope->isPerUser());
         self::assertFalse((new ApiStudioHistoryScope())->isPerUser());
         self::assertNull($scope->actorId(null));
-        self::assertSame('ada', $scope->actorId(new InMemoryUser('ada', null)));
-        self::assertSame(64, strlen((string) $scope->actorId(new InMemoryUser(str_repeat('a', 80), null))), 'long identifiers are hashed');
-        self::assertSame('as-string', $scope->actorId(new class implements Stringable {
+        self::assertSame('u:ada', $scope->actorId(new InMemoryUser('ada', null)));
+        $hashed = (string) $scope->actorId(new InMemoryUser(str_repeat('a', 80), null));
+        self::assertSame(64, strlen($hashed), 'long identifiers are hashed');
+        self::assertStringStartsWith('h:', $hashed);
+        // ER-I2: an identifier equal to a hashed id stays in its own namespace.
+        self::assertNotSame($hashed, $scope->actorId(new InMemoryUser(substr($hashed, 2), null)));
+        self::assertSame('u:as-string', $scope->actorId(new class implements Stringable {
             public function __toString(): string
             {
                 return 'as-string';
@@ -225,6 +233,15 @@ final class HostHooksUnitTest extends TestCase
             }
         };
         self::assertSame('public-id', (new ApiStudioHistoryScope(ApiStudioHistoryScope::SCOPE_USER, $resolver))->actorId(new InMemoryUser('ada', null)));
+
+        $bad = new class implements ApiStudioActorResolverInterface {
+            public function actorId(object $user): string
+            {
+                return str_repeat('x', 65);
+            }
+        };
+        $this->expectException(UnexpectedValueException::class);
+        (new ApiStudioHistoryScope(ApiStudioHistoryScope::SCOPE_USER, $bad))->actorId(new InMemoryUser('ada', null));
     }
 
     public function testRouteScopeParametersAreSetAndRestored(): void
@@ -259,6 +276,14 @@ final class HostHooksUnitTest extends TestCase
         self::assertSame('previous', $context->getParameter('org'));
         self::assertFalse($context->hasParameter('team'));
 
+        $context->setParameter('team', 'left-over');
+        $listener->reset();
+        self::assertFalse($context->hasParameter('org'), 'reset() clears the placeholders (worker safety net)');
+        self::assertFalse($context->hasParameter('team'));
+        $context->setParameter('org', 'previous');
+        (new ApiStudioRouteScopeListener($router))->reset();
+        self::assertTrue($context->hasParameter('org'), 'no placeholders: nothing to clear');
+
         $host = new Request(attributes: ['_route' => 'app_home', 'org' => 'zzz']);
         $listener->onKernelRequest(new RequestEvent($kernel, $host, HttpKernelInterface::MAIN_REQUEST));
         $listener->onKernelFinishRequest(new FinishRequestEvent($kernel, $host, HttpKernelInterface::MAIN_REQUEST));
@@ -272,6 +297,25 @@ final class HostHooksUnitTest extends TestCase
 
         $this->expectException(NotFoundHttpException::class);
         $subscriber->onKernelController(new ControllerEvent($this->createStub(HttpKernelInterface::class), static fn (): null => null, $request, HttpKernelInterface::MAIN_REQUEST));
+    }
+
+    public function testJsonRoutesAnswerJsonWhenForbidden(): void
+    {
+        $subscriber = new ApiStudioAccessSubscriber([]);
+        $kernel     = $this->createStub(HttpKernelInterface::class);
+
+        $json = new ExceptionEvent($kernel, new Request(attributes: ['_route' => 'nowo_api_studio_endpoint_save_documentation']), HttpKernelInterface::MAIN_REQUEST, new AccessDeniedHttpException('no'));
+        $subscriber->onKernelException($json);
+        $response = $json->getResponse();
+        self::assertInstanceOf(Response::class, $response);
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame('{"error":"forbidden"}', $response->getContent());
+
+        foreach ([['nowo_api_studio_workspace_edit', new AccessDeniedHttpException()], ['nowo_api_studio_execute', new NotFoundHttpException()]] as [$route, $exception]) {
+            $event = new ExceptionEvent($kernel, new Request(attributes: ['_route' => $route]), HttpKernelInterface::MAIN_REQUEST, $exception);
+            $subscriber->onKernelException($event);
+            self::assertNull($event->getResponse(), $route);
+        }
     }
 
     public function testTwigCanRejectsUnknownActions(): void
