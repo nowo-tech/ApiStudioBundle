@@ -134,8 +134,9 @@ final class ApiExecuteController extends AbstractController
         // an override that is still that placeholder means "use the stored secret".
         if ($environment instanceof ApiEnvironment) {
             foreach ($environment->getVariables() as $variable) {
-                $key = $variable->getVariableKey();
-                if ($variable->isSecret() && ($variableOverrides[$key] ?? null) === VariableSyntax::formatKey($key)) {
+                $key      = $variable->getVariableKey();
+                $override = $variableOverrides[$key] ?? null;
+                if ($variable->isSecret() && $override !== null && VariableSyntax::isPlaceholder($override) && VariableSyntax::normalizeKey($override) === $key) {
                     unset($variableOverrides[$key]);
                 }
             }

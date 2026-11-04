@@ -88,7 +88,11 @@ final class RequestExecutor
 
         // Fail closed: a secret that cannot be decrypted has no value, so a request that needs it is never sent (it
         // would carry the bare placeholder). A value the caller supplied for that key (console override) is used.
-        $unreadable = array_values(array_diff($environment?->getUnreadableVariableKeys() ?? [], array_keys($variableMap)));
+        // An empty value or a placeholder (`{{ token }}`, spaced or not) is no value: the key stays unavailable.
+        $unreadable = array_values(array_filter(
+            $environment?->getUnreadableVariableKeys() ?? [],
+            static fn (string $key): bool => ($variableMap[$key] ?? '') === '' || VariableSyntax::isPlaceholder($variableMap[$key]),
+        ));
         if ($unreadable !== []) {
             $needed = array_values(array_intersect($unreadable, self::referencedVariables($endpoint, $service, $overrideBody, $overrideHeaders, $overrideQueryParams, $replaceQueryParams, $replaceHeaders)));
             if ($needed !== []) {

@@ -8,6 +8,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Security\SecretValueCipher;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,6 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 use function count;
+use function explode;
 use function implode;
 use function in_array;
 use function is_string;
@@ -40,6 +43,7 @@ final class SecretsStatusCommand extends Command
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly SecretValueCipher $cipher,
+        private readonly ?ApiStudioTenantContext $tenantContext = null,
     ) {
         parent::__construct();
     }
@@ -47,6 +51,27 @@ final class SecretsStatusCommand extends Command
     protected function configure(): void
     {
         $this->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: text or json', 'text');
+        $this->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Only the secrets of one tenant, as type:id (empty: the instance tenant); tenancy on');
+    }
+
+    private function tenantOption(mixed $option): ?ApiStudioTenant
+    {
+        if ($option === null) {
+            return null;
+        }
+
+        if ($this->tenantContext?->isEnabled() !== true) {
+            throw new RuntimeException('--tenant needs nowo_api_studio.tenancy.enabled.');
+        }
+
+        $value = is_string($option) ? $option : '';
+        if ($value === '') {
+            return ApiStudioTenant::instance();
+        }
+
+        $parts = explode(':', $value, 2);
+
+        return new ApiStudioTenant($parts[0], $parts[1] ?? '');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -62,14 +87,20 @@ final class SecretsStatusCommand extends Command
         }
 
         // Scalar rows: the stored values as they are in the database (no entity, no decryption listener).
-        $rows = $manager->createQueryBuilder()
+        $query = $manager->createQueryBuilder()
             ->select('v.id AS id', 'v.value AS value')
             ->from(ApiEnvironmentVariable::class, 'v')
             ->where('v.secret = :secret')
             ->setParameter('secret', true)
-            ->orderBy('v.id', 'ASC')
-            ->getQuery()
-            ->toIterable();
+            ->orderBy('v.id', 'ASC');
+        $tenant = $this->tenantOption($input->getOption('tenant'));
+        if ($tenant instanceof ApiStudioTenant) {
+            $query->join('v.environment', 'e')->join('e.workspace', 'w')
+                ->andWhere('w.tenantType = :tenant_type AND w.tenantId = :tenant_id')
+                ->setParameter('tenant_type', $tenant->type)
+                ->setParameter('tenant_id', $tenant->id);
+        }
+        $rows = $query->getQuery()->toIterable();
 
         $plain      = 0;
         $encrypted  = 0;
@@ -82,11 +113,7 @@ final class SecretsStatusCommand extends Command
                 continue;
             }
 
-            $decrypted = $this->cipher->tryDecrypt($value);
-            // A payload wrapped a second time by a release before 1.10.1 decrypts to another payload.
-            if ($decrypted !== null && $this->cipher->isWrappedPayload($decrypted)) {
-                $decrypted = $this->cipher->tryDecrypt($decrypted);
-            }
+            $decrypted = $this->cipher->openStored($value);
             if ($decrypted === null) {
                 $unreadable[] = (int) $row['id'];
 

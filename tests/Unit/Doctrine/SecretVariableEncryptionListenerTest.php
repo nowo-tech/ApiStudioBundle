@@ -177,16 +177,65 @@ final class SecretVariableEncryptionListenerTest extends TestCase
 
         $stored = $this->storedValue($em, $variable);
         self::assertNotSame('nowo_as_enc_v1:not-really-encrypted', $stored, 'Never stored in clear.');
-        self::assertSame('nowo_as_enc_v1:not-really-encrypted', $this->cipher->decrypt($stored));
+        self::assertSame('nowo_as_enc_v1:not-really-encrypted', $this->cipher->openStored($stored));
 
         $variable->setValue('nowo_as_enc_v1:edited');
         $em->flush();
-        self::assertSame('nowo_as_enc_v1:edited', $this->cipher->decrypt($this->storedValue($em, $variable)));
+        self::assertSame('nowo_as_enc_v1:edited', $this->cipher->openStored($this->storedValue($em, $variable)));
 
         $em->clear();
         $loaded = $em->find(ApiEnvironmentVariable::class, $id);
         self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
         self::assertSame('nowo_as_enc_v1:edited', $loaded->getValue());
+    }
+
+    public function testTypedValueThatIsAWellFormedPayloadReadsBackAsTyped(): void
+    {
+        // EQ-I1: a typed value shaped like a payload (even a real one of this key) is a value, never a payload.
+        $typed    = $this->cipher->encrypt('someone-elses-secret');
+        $foreign  = (new SecretValueCipher('placeholder-other-key'))->encrypt('x');
+        $em       = $this->createEntityManager();
+        $variable = $this->createVariable($em, 'api_token', $typed, true);
+        $other    = $this->addVariable($em, $variable, 'other_token', $foreign);
+        self::assertNotSame($typed, $this->storedValue($em, $variable), 'EQ-L1 side effect: never stored as given.');
+        $em->clear();
+
+        $loaded = $em->find(ApiEnvironmentVariable::class, $variable->getId());
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
+        self::assertFalse($loaded->isUnreadable());
+        self::assertSame($typed, $loaded->getValue());
+
+        $loadedOther = $em->find(ApiEnvironmentVariable::class, $other->getId());
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loadedOther);
+        self::assertFalse($loadedOther->isUnreadable(), 'a typed foreign payload is not "needs re-entry"');
+        self::assertSame($foreign, $loadedOther->getValue());
+    }
+
+    public function testWithEncryptionOffAPayloadShapedValueIsStillEncryptedAndReadsBack(): void
+    {
+        $typed    = 'nowo_as_enc_v1:' . base64_encode(str_repeat('y', 48));
+        $em       = $this->createEntityManager(false);
+        $variable = $this->createVariable($em, 'api_token', $typed, true);
+        $plain    = $this->addVariable($em, $variable, 'plain_token', 'just-text');
+        self::assertSame('just-text', $this->storedValue($em, $plain), 'encryption off: plain values stay plain');
+        $em->clear();
+
+        $loaded = $em->find(ApiEnvironmentVariable::class, $variable->getId());
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
+        self::assertFalse($loaded->isUnreadable());
+        self::assertSame($typed, $loaded->getValue());
+    }
+
+    public function testPastingTheStoredPayloadKeepsTheVariableUnreadable(): void
+    {
+        // EQ-I3: the payload itself is not a new value; the flag stays and the ciphertext is never handed out.
+        [$em, $loaded] = $this->loadUnreadable('nowo_as_enc_v1:corrupt');
+        $loaded->setValue($loaded->getStoredValue());
+
+        self::assertTrue($loaded->isUnreadable());
+        self::assertSame('', $loaded->getValue());
+        $em->flush();
+        self::assertSame('nowo_as_enc_v1:corrupt', $this->storedValue($em, $loaded));
     }
 
     public function testUndecryptableRowDoesNotBreakLoading(): void
@@ -358,6 +407,18 @@ final class SecretVariableEncryptionListenerTest extends TestCase
 
         $em->persist($workspace);
         $em->persist($env);
+        $em->persist($variable);
+        $em->flush();
+
+        return $variable;
+    }
+
+    private function addVariable(EntityManager $em, ApiEnvironmentVariable $sibling, string $key, string $value): ApiEnvironmentVariable
+    {
+        $environment = $sibling->getEnvironment();
+        self::assertInstanceOf(ApiEnvironment::class, $environment);
+        $variable = (new ApiEnvironmentVariable($key, $value))->setSecret(true);
+        $environment->addVariable($variable);
         $em->persist($variable);
         $em->flush();
 

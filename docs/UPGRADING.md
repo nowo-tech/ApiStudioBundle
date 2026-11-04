@@ -84,6 +84,8 @@ composer update nowo-tech/api-studio-bundle
   must be lowercase letters / digits with single `-` or `_` between them; unchanged legacy slugs are accepted.
 - **Doctrine**: the bundle registers a disabled ORM filter `nowo_api_studio_tenant` (prepended under
   `doctrine.orm.filters`); it is only enabled during Api Studio requests with tenancy on.
+- **Secrets**: every secret value is encrypted afresh on save (no pass-through of payload-shaped input); values stored by
+  earlier releases read as before. `secrets:status` accepts `--tenant=type:id`.
 - **Placeholders**: `attr.placeholder` of the service base URL and the variable key fields are translation keys
   (`api_service_form.base_url.placeholder`, `api_environment_variable_form.variable_key.placeholder`) with an
   `%example%` parameter; overridden themes see strings.

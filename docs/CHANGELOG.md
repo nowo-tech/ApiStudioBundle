@@ -83,6 +83,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   form themes can test them as strings); the rendered text is unchanged.
 - `routes.yaml` delegates to a route loader (type `nowo_api_studio`); route names, paths and the import are unchanged.
 
+### Fixed
+
+Follow-ups of the 1.10.1 security review (Appendix EQ):
+
+- **EQ-I1**: secret values are always encrypted from the value as typed (imports, env sync and scripts included), never
+  passed through when they already look like a payload. Stored payloads therefore only come from the cipher, and a
+  typed value shaped like a payload reads back as typed instead of being flagged *needs re-entry*. With
+  `secrets.encrypt: false`, such a value is still encrypted, so it reads back as text.
+- **EQ-I3**: pasting the stored (foreign) payload into an unreadable secret keeps it unreadable.
+- **EQ-I2**: a console override of `''` or of a placeholder (`{{ token }}`, spaced or not) does not stand in for an
+  unreadable secret: the request is still not sent. The secret marker check accepts the spaced form too.
+- **EQ-I6**: the slug race safety net recognises the slug unique index by its name (or its `table.column` list on
+  SQLite), not by the word "slug" in the driver message.
+- **EQ-I7**: `nowo:api-studio:secrets:status --tenant=type:id` (empty: the instance tenant) reports one tenant only.
+
 ## [1.10.1] - 2026-11-04
 
 ### Fixed
