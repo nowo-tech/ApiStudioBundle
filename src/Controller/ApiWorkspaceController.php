@@ -58,7 +58,7 @@ final class ApiWorkspaceController extends AbstractController
     public function new(Request $request): Response
     {
         $tenant    = $this->authorization()->tenant();
-        $workspace = (new ApiWorkspace('New workspace', 'new_workspace'))->assignTenant($tenant);
+        $workspace = (new ApiWorkspace('New workspace', ''))->assignTenant($tenant);
         $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace);
         $form->handleRequest($request);
 

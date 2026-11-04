@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Form;
 
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Form\EventListener\SlugFromName;
 use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Symfony\Component\Form\AbstractType;
@@ -20,7 +21,9 @@ final class ApiWorkspaceFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $this->addText($builder, 'name', []);
-        $this->addText($builder, 'slug', []);
+        // Empty: derived from the name (SlugFromName).
+        $this->addText($builder, 'slug', ['required' => false, 'empty_data' => '', 'help' => 'field.slug_help']);
+        SlugFromName::attach($builder);
         $this->addTextarea($builder, 'description', ['required' => false]);
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
     }

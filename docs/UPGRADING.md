@@ -80,6 +80,10 @@ composer update nowo-tech/api-studio-bundle
   [USAGE.md — Tenants and permissions](USAGE.md#tenants-and-permissions)); with the defaults the schema is unchanged.
 - **Permissions**: with `security.permission_checker` unset everything stays granted. Hosts that wrapped the bundle
   with their own route guard and Doctrine filter can move the decisions into a checker and a tenant resolver.
+- **Slugs**: the new-workspace form starts with an empty slug (derived from the name on save). A new or edited slug
+  must be lowercase letters / digits with single `-` or `_` between them; unchanged legacy slugs are accepted.
+- **Doctrine**: the bundle registers a disabled ORM filter `nowo_api_studio_tenant` (prepended under
+  `doctrine.orm.filters`); it is only enabled during Api Studio requests with tenancy on.
 - **Placeholders**: `attr.placeholder` of the service base URL and the variable key fields are translation keys
   (`api_service_form.base_url.placeholder`, `api_environment_variable_form.variable_key.placeholder`) with an
   `%example%` parameter; overridden themes see strings.

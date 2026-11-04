@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
+use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
@@ -14,6 +15,7 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
+use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -65,6 +67,10 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
                             'type'      => 'attribute',
                             'is_bundle' => true,
                         ],
+                    ],
+                    // Tenancy defence in depth: registered disabled, enabled per Api Studio request (TenantSqlFilterListener).
+                    'filters' => [
+                        TenantSqlFilter::NAME => ['class' => TenantSqlFilter::class, 'enabled' => false],
                     ],
                 ],
             ]);
@@ -272,7 +278,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
-     * @param array{enabled: bool, resolver: ?string} $tenancy
+     * @param array{enabled: bool, resolver: ?string, sql_filter: bool} $tenancy
      */
     private function registerTenancy(ContainerBuilder $container, array $tenancy): void
     {
@@ -284,6 +290,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         }
 
         $container->getDefinition(ApiStudioTenantContext::class)->setArgument('$enabled', $enabled);
+        $container->getDefinition(TenantSqlFilterListener::class)->setArgument('$enabled', $enabled && $tenancy['sql_filter']);
         $container->getDefinition(ApiStudioTenantListener::class)
             ->setArgument('$enabled', $enabled)
             ->setArgument('$resolver', $enabled ? new Reference((string) $resolver) : null);

@@ -87,6 +87,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ApiStudioAction`, `ApiStudioRouteActions::MAP`): not viewable → 404, not granted → 403, forbidden actions hidden in
   every page; Twig `nowo_api_studio_can()`; script fields gated by `workspace.edit_scripts`.
 - `ApiWorkspaceCreatedEvent` (inside the creating transaction) and `ApiWorkspaceDeletedEvent`.
+- **Tenant SQL filter** (`tenancy.sql_filter`, default true with tenancy): defence in depth that narrows every bundle
+  query of an Api Studio request (workspaces and every row under them) to the tenant and the visible workspaces.
+- **Tenant commands**: `nowo:api-studio:tenant:orphans` (read-only), `nowo:api-studio:tenant:move <id> --to-type
+  --to-id [--dry-run]` (`ApiWorkspaceMovedEvent`), `nowo:api-studio:tenant:unsuffix-slugs --tenant-type --tenant-id
+  [--dry-run]`.
+- **Slugs**: an empty slug is derived from the name; a new or edited slug must match `^[a-z0-9]+(?:[-_][a-z0-9]+)*$`
+  (≤ 128 characters). Existing slugs of another shape stay valid until they are edited.
 - **Placeholders in `ui.path`** (`/organizations/{organization}/api-studio`) with `ui.path_requirements`; the bundle's
   own links carry the current values (router context, restored after each request).
 - `ui.locale_scope` (`routes` | `global` | `none`), `history.scope: user` (+ `ApiStudioActorResolverInterface`,

@@ -240,3 +240,5 @@ variables.unreadable_unsecret_refused: 'Dieses Geheimnis kann nicht entschlüsse
 api_service_form.base_url.placeholder: '%example%'
 api_environment_variable_form.variable_key.placeholder: '%example%'
 tester.scripts_disabled: 'Pre- und Post-Request-Skripte sind auf dieser Instanz deaktiviert: Die für diesen Endpunkt oder seinen Dienst gespeicherten Skripte bleiben erhalten, werden aber nicht ausgeführt.'
+slug.invalid: 'Der Slug "%slug%" darf nur Kleinbuchstaben, Ziffern und einzelne - oder _ dazwischen enthalten (höchstens 128 Zeichen).'
+field.slug_help: 'Leer lassen, um ihn aus dem Namen abzuleiten.'

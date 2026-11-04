@@ -27,6 +27,7 @@ nowo_api_studio:
     tenancy:                     # 1.11
         enabled: false           # literal boolean; maps tenant_type / tenant_id on the workspace table
         # resolver: App\ApiStudio\MyTenantResolver               # required when enabled
+        sql_filter: true         # defence-in-depth Doctrine filter during Api Studio requests
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
         # actor_resolver: App\ApiStudio\MyActorResolver
@@ -74,6 +75,7 @@ nowo_api_studio:
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
 | `security.permission_checker` | **1.11.** Service id implementing `ApiStudioPermissionCheckerInterface`: `isGranted(?user, ApiStudioAction, ApiStudioSubject)` and `visibleWorkspaceIds(?user, tenant)`. Not viewable workspaces answer 404, viewable ones without the action 403, and pages hide forbidden actions. Null = everything granted to whoever passes the role / access checks (1.10 behaviour). See [USAGE.md — Tenants and permissions](USAGE.md#tenants-and-permissions). |
 | `tenancy.enabled` | **1.11.** Workspaces belong to a tenant resolved per request; lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per tenant. Maps `tenant_type` / `tenant_id` (and swaps the slug index): a migration. Literal boolean. Default `false` (no schema change). |
+| `tenancy.sql_filter` | **1.11.** With tenancy (default `true`): the Doctrine filter `nowo_api_studio_tenant` narrows every bundle query of an Api Studio request to the tenant and the visible workspaces (defence in depth; the controllers' explicit checks stay the control). |
 | `tenancy.resolver` | **1.11.** Service id implementing `ApiStudioTenantResolverInterface` (required with tenancy). A null tenant answers 404. |
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |

@@ -13,6 +13,7 @@ use LogicException;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+use Nowo\ApiStudioBundle\Validator\SlugFormat;
 use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
@@ -23,6 +24,7 @@ use SortDirection;
 #[ORM\Table(name: 'workspace')]
 #[ORM\UniqueConstraint(name: 'uniq_workspace_slug', columns: ['slug'])]
 #[UniqueSlug]
+#[SlugFormat]
 class ApiWorkspace
 {
     #[ORM\Id]

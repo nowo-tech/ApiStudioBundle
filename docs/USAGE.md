@@ -146,6 +146,15 @@ nowo_api_studio:
   `api_studio_uniq_workspace_tenant_slug (tenant_type, tenant_id, slug)` and add `api_studio_idx_workspace_tenant
   (tenant_type, tenant_id)`; then backfill the tenant of existing workspaces from the host's own data. Existing rows
   start in the instance tenant `('', '')`. `doctrine:migrations:diff` generates the DDL.
+- **Defence in depth**: with `tenancy.sql_filter` (default) the Doctrine filter `nowo_api_studio_tenant` is enabled
+  during Api Studio requests; it does not cover entities already loaded, DBAL queries or DQL UPDATE / DELETE, which is
+  why the controllers check every workspace explicitly.
+- **Maintenance commands** (tenancy on): `nowo:api-studio:tenant:orphans [--json]` lists workspaces without a tenant;
+  `nowo:api-studio:tenant:move <id> --to-type=… --to-id=… [--dry-run]` moves one (refused when the slug is taken at the
+  destination; dispatches `ApiWorkspaceMovedEvent`); `nowo:api-studio:tenant:unsuffix-slugs --tenant-type=…
+  --tenant-id=… [--dry-run]` strips `-2`, `-3`… suffixes when the base slug is free in the tenant.
+- **Slugs**: leave the slug empty to derive it from the name; new or edited slugs must match
+  `^[a-z0-9]+(?:[-_][a-z0-9]+)*$` (≤ 128).
 
 ## Overriding Twig templates (REQ-TWIG-001)
 

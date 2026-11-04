@@ -240,3 +240,5 @@ variables.unreadable_unsecret_refused: 'This secret cannot be decrypted: enter i
 api_service_form.base_url.placeholder: '%example%'
 api_environment_variable_form.variable_key.placeholder: '%example%'
 tester.scripts_disabled: 'Pre- and post-request scripts are disabled on this instance: the scripts stored for this endpoint or its service are kept but not run.'
+slug.invalid: 'The slug "%slug%" may only contain lowercase letters, digits and single - or _ between them (at most 128 characters).'
+field.slug_help: 'Leave empty to derive it from the name.'

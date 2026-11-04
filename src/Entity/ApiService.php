@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
+use Nowo\ApiStudioBundle\Validator\SlugFormat;
 use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
@@ -22,6 +23,7 @@ use SortDirection;
 #[ORM\Table(name: 'service')]
 #[ORM\UniqueConstraint(name: 'uniq_service_workspace_slug', columns: ['workspace_id', 'slug'])]
 #[UniqueSlug(scope: 'workspace')]
+#[SlugFormat]
 class ApiService
 {
     #[ORM\Id]

@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Form;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Form\EventListener\SlugFromName;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
@@ -29,7 +30,9 @@ final class ApiEndpointFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $this->addText($builder, 'name', []);
-        $this->addText($builder, 'slug', []);
+        // Empty: derived from the name (SlugFromName).
+        $this->addText($builder, 'slug', ['required' => false, 'empty_data' => '', 'help' => 'field.slug_help']);
+        SlugFromName::attach($builder);
         $this->addWithDefaults($builder, 'method', EnumType::class, [
             'class'                     => HttpMethod::class,
             'choice_label'              => static fn (HttpMethod $method): string => $method->value,

@@ -240,3 +240,5 @@ variables.unreadable_unsecret_refused: 'Dit geheim kan niet worden ontsleuteld: 
 api_service_form.base_url.placeholder: '%example%'
 api_environment_variable_form.variable_key.placeholder: '%example%'
 tester.scripts_disabled: 'Pre- en post-requestscripts zijn uitgeschakeld op deze instantie: de scripts die voor dit endpoint of zijn service zijn opgeslagen blijven bewaard maar worden niet uitgevoerd.'
+slug.invalid: 'De slug "%slug%" mag alleen kleine letters, cijfers en een enkele - of _ daartussen bevatten (maximaal 128 tekens).'
+field.slug_help: 'Laat leeg om hem uit de naam af te leiden.'

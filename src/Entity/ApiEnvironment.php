@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Validator\SlugFormat;
 use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
@@ -20,6 +21,7 @@ use SortDirection;
 #[ORM\Table(name: 'environment')]
 #[ORM\UniqueConstraint(name: 'uniq_environment_workspace_slug', columns: ['workspace_id', 'slug'])]
 #[UniqueSlug(scope: 'workspace')]
+#[SlugFormat]
 class ApiEnvironment
 {
     #[ORM\Id]

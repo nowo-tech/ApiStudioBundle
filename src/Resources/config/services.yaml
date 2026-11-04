@@ -105,5 +105,5 @@ services:
     # Form Kit injects FormOptionsMerger into tagged form types (FormOptionsMergerInjectorCompilerPass).
     Nowo\ApiStudioBundle\Form\:
         resource: '../../Form/'
-        exclude: '../../Form/DataTransformer/'
+        exclude: ['../../Form/DataTransformer/', '../../Form/EventListener/']
         tags: ['form.type']

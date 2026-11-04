@@ -240,3 +240,5 @@ variables.unreadable_unsecret_refused: 'Este segredo não pode ser decifrado: in
 api_service_form.base_url.placeholder: '%example%'
 api_environment_variable_form.variable_key.placeholder: '%example%'
 tester.scripts_disabled: 'Os scripts antes e depois do pedido estão desativados nesta instância: os guardados para este endpoint ou o seu serviço são mantidos, mas não são executados.'
+slug.invalid: 'O slug "%slug%" só pode conter minúsculas, dígitos e um único - ou _ entre eles (no máximo 128 caracteres).'
+field.slug_help: 'Deixe vazio para o derivar do nome.'
