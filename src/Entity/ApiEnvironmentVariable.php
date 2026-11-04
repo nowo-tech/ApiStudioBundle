@@ -103,7 +103,8 @@ class ApiEnvironmentVariable
         }
 
         // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
-        $this->value      = $value;
+        $this->value = $value;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->unreadable = false;
 
         return $this;
