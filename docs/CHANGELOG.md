@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.10.1] - 2026-11-04](#1101---2026-11-04)
 - [[1.10.0] - 2026-10-30](#1100---2026-10-30)
 - [[1.9.2] - 2026-10-29](#192---2026-10-29)
 - [[1.9.1] - 2026-10-28](#191---2026-10-28)
@@ -53,6 +54,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tenants** (`tenancy.enabled`, `ApiStudioTenantResolverInterface`): every workspace belongs to a tenant resolved per
+  request; the dashboard, lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per
+  tenant. Opt-in mapping: without it the schema is unchanged.
+- **Per-workspace, per-action permissions** (`security.permission_checker`, `ApiStudioPermissionCheckerInterface`,
+  `ApiStudioAction`, `ApiStudioRouteActions::MAP`): not viewable → 404, not granted → 403, forbidden actions hidden in
+  every page; Twig `nowo_api_studio_can()`; script fields gated by `workspace.edit_scripts`.
+- `ApiWorkspaceCreatedEvent` (inside the creating transaction) and `ApiWorkspaceDeletedEvent`.
+- **Tenant SQL filter** (`tenancy.sql_filter`, default true with tenancy): defence in depth that narrows every bundle
+  query of an Api Studio request (workspaces and every row under them) to the tenant and the visible workspaces.
+- **Tenant commands**: `nowo:api-studio:tenant:orphans` (read-only), `nowo:api-studio:tenant:move <id> --to-type
+  --to-id [--dry-run]` (`ApiWorkspaceMovedEvent`), `nowo:api-studio:tenant:unsuffix-slugs --tenant-type --tenant-id
+  [--dry-run]`.
+- **Slugs**: an empty slug is derived from the name; a new or edited slug must match `^[a-z0-9]+(?:[-_][a-z0-9]+)*$`
+  (≤ 128 characters). Existing slugs of another shape stay valid until they are edited.
+- **Placeholders in `ui.path`** (`/organizations/{organization}/api-studio`) with `ui.path_requirements`; the bundle's
+  own links carry the current values (router context, restored after each request).
+- `ui.locale_scope` (`routes` | `global` | `none`), `history.scope: user` (+ `ApiStudioActorResolverInterface`,
+  opt-in `executed_by` column), `scripts.mode: disabled`, `seed-demo --tenant-type/--tenant-id`.
+
+### Changed
+
+- **`ui.locale_scope` defaults to `routes`**: the Api Studio locale no longer replaces the locale of the host's own
+  pages (a fix; set `global` for the 1.10 behaviour).
+- Form placeholders are translation keys with `attr_translation_parameters` instead of `StaticMessage` objects (host
+  form themes can test them as strings); the rendered text is unchanged.
+- `routes.yaml` delegates to a route loader (type `nowo_api_studio`); route names, paths and the import are unchanged.
+
+## [1.10.1] - 2026-11-04
+
 ### Fixed
 
 - **Duplicate slugs give a form error (422), never a 500.** Workspaces (unique in the instance), services and
@@ -78,40 +110,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   otherwise. With `secrets.encrypt: false`, payloads written while encryption was on are still decrypted (or flagged)
   on load instead of being used as values.
 
-### Added (1.11.0)
-
-- **Tenants** (`tenancy.enabled`, `ApiStudioTenantResolverInterface`): every workspace belongs to a tenant resolved per
-  request; the dashboard, lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per
-  tenant. Opt-in mapping: without it the schema is unchanged.
-- **Per-workspace, per-action permissions** (`security.permission_checker`, `ApiStudioPermissionCheckerInterface`,
-  `ApiStudioAction`, `ApiStudioRouteActions::MAP`): not viewable → 404, not granted → 403, forbidden actions hidden in
-  every page; Twig `nowo_api_studio_can()`; script fields gated by `workspace.edit_scripts`.
-- `ApiWorkspaceCreatedEvent` (inside the creating transaction) and `ApiWorkspaceDeletedEvent`.
-- **Tenant SQL filter** (`tenancy.sql_filter`, default true with tenancy): defence in depth that narrows every bundle
-  query of an Api Studio request (workspaces and every row under them) to the tenant and the visible workspaces.
-- **Tenant commands**: `nowo:api-studio:tenant:orphans` (read-only), `nowo:api-studio:tenant:move <id> --to-type
-  --to-id [--dry-run]` (`ApiWorkspaceMovedEvent`), `nowo:api-studio:tenant:unsuffix-slugs --tenant-type --tenant-id
-  [--dry-run]`.
-- **Slugs**: an empty slug is derived from the name; a new or edited slug must match `^[a-z0-9]+(?:[-_][a-z0-9]+)*$`
-  (≤ 128 characters). Existing slugs of another shape stay valid until they are edited.
-- **Placeholders in `ui.path`** (`/organizations/{organization}/api-studio`) with `ui.path_requirements`; the bundle's
-  own links carry the current values (router context, restored after each request).
-- `ui.locale_scope` (`routes` | `global` | `none`), `history.scope: user` (+ `ApiStudioActorResolverInterface`,
-  opt-in `executed_by` column), `scripts.mode: disabled`, `seed-demo --tenant-type/--tenant-id`.
-
-### Changed (1.11.0)
-
-- **`ui.locale_scope` defaults to `routes`**: the Api Studio locale no longer replaces the locale of the host's own
-  pages (a fix; set `global` for the 1.10 behaviour).
-- Form placeholders are translation keys with `attr_translation_parameters` instead of `StaticMessage` objects (host
-  form themes can test them as strings); the rendered text is unchanged.
-- `routes.yaml` delegates to a route loader (type `nowo_api_studio`); route names, paths and the import are unchanged.
-
 ### Added
 
 - `nowo:api-studio:secrets:status [--format=text|json]`: read-only report of the secret variables (plain, encrypted,
   cannot be decrypted, with the ids of the latter, never values). Exit code 1 when any secret cannot be decrypted, for
   deploy checks.
+
+[1.10.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.10.1
 
 ## [1.10.0] - 2026-10-30
 
