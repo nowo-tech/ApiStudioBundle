@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.11.0] - 2026-11-04](#1110---2026-11-04)
 - [[1.10.1] - 2026-11-04](#1101---2026-11-04)
 - [[1.10.0] - 2026-10-30](#1100---2026-10-30)
 - [[1.9.2] - 2026-10-29](#192---2026-10-29)
@@ -53,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100---2026-07-16)
 
 ## [Unreleased]
+
+## [1.11.0] - 2026-11-04
 
 ### Added
 
@@ -109,6 +112,8 @@ Follow-ups of the 1.10.1 security review (Appendix EQ):
   workspace.
 - **ER-I6**: the route scope listener resets the router context between worker requests; `scripts.mode: disabled` does
   not load `api-script-runtime.js`.
+
+[1.11.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.11.0
 
 ## [1.10.1] - 2026-11-04
 

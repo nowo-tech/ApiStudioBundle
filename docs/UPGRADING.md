@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.11.0](#to-1110)
 - [To 1.10.1](#to-1101)
 - [To 1.10.0](#to-1100)
   - [Security changes (BW audit)](#security-changes-bw-audit)
@@ -73,6 +74,13 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+## To 1.11.0
+
+From **1.10.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **Locale**: `ui.locale_scope` now defaults to `routes`. The Api Studio locale (session) is applied to Api Studio
   routes only, not to the host's own pages. Set `global` to keep the 1.10 behaviour.
