@@ -19,7 +19,6 @@ use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\StaticMessage;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
@@ -37,11 +36,12 @@ final class ApiEnvironmentVariableFormType extends AbstractType
         $this->addText($builder, 'variableKey', [
             'label' => 'field.variable_key',
             'attr'  => [
-                'placeholder' => new StaticMessage('{{variable_name}}'),
+                'placeholder' => 'api_environment_variable_form.variable_key.placeholder',
                 'class'       => 'as-var-key-input',
                 'spellcheck'  => 'false',
             ],
-            'help' => 'variables.key_syntax_hint',
+            'attr_translation_parameters' => ['%example%' => '{{variable_name}}'],
+            'help'                        => 'variables.key_syntax_hint',
         ]);
         // An empty value is a valid (empty) variable, not null.
         $this->addText($builder, 'value', ['required' => false, 'empty_data' => '']);

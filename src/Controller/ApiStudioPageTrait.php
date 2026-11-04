@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Nowo\ApiStudioBundle\Form\CsrfOnlyType;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPages;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -27,9 +30,24 @@ trait ApiStudioPageTrait
     public static function getSubscribedServices(): array
     {
         return parent::getSubscribedServices() + [
-            ApiStudioPageFactory::class => ApiStudioPageFactory::class,
-            'translator'                => '?' . TranslatorInterface::class,
+            ApiStudioPageFactory::class   => ApiStudioPageFactory::class,
+            ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            'event_dispatcher'            => '?' . EventDispatcherInterface::class,
+            ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            'translator'                  => '?' . TranslatorInterface::class,
         ];
+    }
+
+    /**
+     * Dispatches a bundle event when the host has an event dispatcher.
+     */
+    private function dispatchEvent(object $event): void
+    {
+        if ($this->container->has('event_dispatcher')) {
+            /** @var EventDispatcherInterface $dispatcher */
+            $dispatcher = $this->container->get('event_dispatcher');
+            $dispatcher->dispatch($event);
+        }
     }
 
     private function pages(): ApiStudioPageFactory

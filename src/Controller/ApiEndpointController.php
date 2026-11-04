@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
+use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
@@ -15,6 +16,7 @@ use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Service\EndpointTesterFormFactory;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
@@ -34,6 +36,7 @@ use function mb_strlen;
 final class ApiEndpointController extends AbstractController
 {
     use ApiStudioPageTrait;
+    use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
     use SlugConflictTrait;
 
@@ -63,13 +66,13 @@ final class ApiEndpointController extends AbstractController
     #[Route('/new', name: 'new', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+'], methods: ['GET', 'POST'])]
     public function new(Request $request, int $workspaceId, int $serviceId): Response
     {
-        $context  = $this->requireContext($workspaceId, $serviceId);
+        $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
         $endpoint = new ApiEndpoint('New endpoint', 'new_endpoint');
         // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $context['service']->addEndpoint($endpoint);
         $this->ensureTranslationLocales($endpoint);
 
-        $form = $this->createForm(ApiEndpointFormType::class, $endpoint);
+        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -119,12 +122,8 @@ final class ApiEndpointController extends AbstractController
             'variableCatalog'       => $this->environmentContextBuilder->buildVariableCatalog($context['workspace']),
             'mergedHeaders'         => $mergedHeaders,
             // REQ-TWIG-005: client-side tester controls as Symfony Form views (ids kept for api-tester.js).
-            'testerForm' => $this->testerFormFactory()->create($endpoint, $context['service'], $context['workspace']->getEnvironments(), $mergedHeaders),
-            'history'    => $this->historyRepository->findBy(
-                ['endpoint' => $endpoint],
-                ['executedAt' => 'DESC'],
-                10,
-            ),
+            'testerForm'         => $this->testerFormFactory()->create($endpoint, $context['service'], $context['workspace']->getEnvironments(), $mergedHeaders),
+            'history'            => $this->history($endpoint, $context['workspace']),
             'executeUrl'         => $this->generateUrl('nowo_api_studio_execute', ['id' => $endpoint->getId()]),
             'csrfToken'          => $this->csrfTokenManager->getToken('api_studio_execute')->getValue(),
             'envSyncCsrfToken'   => $this->csrfTokenManager->getToken('api_studio_env_sync')->getValue(),
@@ -185,7 +184,7 @@ final class ApiEndpointController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($id, $this->requireContext($workspaceId, $serviceId)['service']);
+        $endpoint = $this->requireEndpoint($id, $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit)['service']);
         $payload  = json_decode($request->getContent(), true);
         if (!is_array($payload)) {
             $payload = [];
@@ -253,10 +252,10 @@ final class ApiEndpointController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $workspaceId, int $serviceId, int $id): Response
     {
-        $context  = $this->requireContext($workspaceId, $serviceId);
+        $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
         $endpoint = $this->requireEndpoint($id, $context['service']);
         $this->ensureTranslationLocales($endpoint);
-        $form = $this->createForm(ApiEndpointFormType::class, $endpoint);
+        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -292,7 +291,7 @@ final class ApiEndpointController extends AbstractController
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $workspaceId, int $serviceId, int $id): Response
     {
-        $context  = $this->requireContext($workspaceId, $serviceId);
+        $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
         $endpoint = $this->requireEndpoint($id, $context['service']);
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
@@ -310,13 +309,33 @@ final class ApiEndpointController extends AbstractController
         ]);
     }
 
-    /** @return array{workspace: ApiWorkspace, service: ApiService} */
-    private function requireContext(int $workspaceId, int $serviceId): array
+    /**
+     * The last 10 executions of the endpoint: everybody's (`history.scope: endpoint`, or `history.view_all`), else
+     * the viewer's own only (rows without an actor are shown to `history.view_all` only).
+     *
+     * @return list<ApiRequestHistory>
+     */
+    private function history(ApiEndpoint $endpoint, ApiWorkspace $workspace): array
     {
-        $workspace = $this->workspaceRepository->find($workspaceId);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
+        $criteria = ['endpoint' => $endpoint];
+        if ($this->historyScope()->isPerUser() && !$this->authorization()->can(ApiStudioAction::HistoryViewAll, $workspace)) {
+            $actor = $this->historyScope()->actorId($this->authorization()->user());
+            if ($actor === null) {
+                return [];
+            }
+            $criteria['executedBy'] = $actor;
         }
+
+        /** @var list<ApiRequestHistory> $rows */
+        $rows = $this->historyRepository->findBy($criteria, ['executedAt' => 'DESC'], 10);
+
+        return $rows;
+    }
+
+    /** @return array{workspace: ApiWorkspace, service: ApiService} */
+    private function requireContext(int $workspaceId, int $serviceId, ApiStudioAction $action = ApiStudioAction::WorkspaceView): array
+    {
+        $workspace = $this->authorization()->requireWorkspace($this->workspaceRepository->find($workspaceId), $action);
 
         $service = $this->serviceRepository->find($serviceId);
         if (!$service instanceof ApiService || $service->getWorkspace()?->getId() !== $workspace->getId()) {

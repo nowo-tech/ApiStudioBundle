@@ -94,4 +94,17 @@ final class SecretValueCipherTest extends TestCase
         self::assertFalse($cipher->isWrappedPayload('nowo_as_enc_v1:***'), 'Not base64.');
         self::assertFalse($cipher->isWrappedPayload('plain'));
     }
+
+    public function testEncryptValueAlwaysEncryptsAndOpenStoredReadsItBack(): void
+    {
+        $cipher  = new SecretValueCipher('placeholder-key-material');
+        $payload = $cipher->encrypt('inner');
+
+        self::assertNotSame($payload, $cipher->encryptValue($payload), 'never a pass-through');
+        self::assertSame($payload, $cipher->openStored($cipher->encryptValue($payload)));
+        self::assertSame("\0nowo_as_raw:x", $cipher->openStored($cipher->encryptValue("\0nowo_as_raw:x")));
+        self::assertSame('plain', $cipher->openStored($cipher->encryptValue('plain')));
+        self::assertSame('legacy', $cipher->openStored('legacy'));
+        self::assertNull($cipher->openStored('nowo_as_enc_v1:corrupt'));
+    }
 }

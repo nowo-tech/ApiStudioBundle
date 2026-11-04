@@ -54,7 +54,8 @@ final class ApiExecuteControllerTest extends TestCase
 
         $response = $this->controller($endpoint, $env, new MockHttpClient())->execute($this->request(), 1);
 
-        self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        // 1.11: an endpoint outside any workspace is outside every scope: not found, before the environment check.
+        self::assertSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
     }
 
     public function testExecutesWithEnvironmentFromSameWorkspace(): void

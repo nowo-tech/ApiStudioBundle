@@ -54,6 +54,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tenants** (`tenancy.enabled`, `ApiStudioTenantResolverInterface`): every workspace belongs to a tenant resolved per
+  request; the dashboard, lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per
+  tenant. Opt-in mapping: without it the schema is unchanged.
+- **Per-workspace, per-action permissions** (`security.permission_checker`, `ApiStudioPermissionCheckerInterface`,
+  `ApiStudioAction`, `ApiStudioRouteActions::MAP`): not viewable → 404, not granted → 403, forbidden actions hidden in
+  every page; Twig `nowo_api_studio_can()`; script fields gated by `workspace.edit_scripts`.
+- `ApiWorkspaceCreatedEvent` (inside the creating transaction) and `ApiWorkspaceDeletedEvent`.
+- **Tenant SQL filter** (`tenancy.sql_filter`, default true with tenancy): defence in depth that narrows every bundle
+  query of an Api Studio request (workspaces and every row under them) to the tenant and the visible workspaces.
+- **Tenant commands**: `nowo:api-studio:tenant:orphans` (read-only), `nowo:api-studio:tenant:move <id> --to-type
+  --to-id [--dry-run]` (`ApiWorkspaceMovedEvent`), `nowo:api-studio:tenant:unsuffix-slugs --tenant-type --tenant-id
+  [--dry-run]`.
+- **Slugs**: an empty slug is derived from the name; a new or edited slug must match `^[a-z0-9]+(?:[-_][a-z0-9]+)*$`
+  (≤ 128 characters). Existing slugs of another shape stay valid until they are edited.
+- **Placeholders in `ui.path`** (`/organizations/{organization}/api-studio`) with `ui.path_requirements`; the bundle's
+  own links carry the current values (router context, restored after each request).
+- `ui.locale_scope` (`routes` | `global` | `none`), `history.scope: user` (+ `ApiStudioActorResolverInterface`,
+  opt-in `executed_by` column), `scripts.mode: disabled`, `seed-demo --tenant-type/--tenant-id`.
+
+### Changed
+
+- **`ui.locale_scope` defaults to `routes`**: the Api Studio locale no longer replaces the locale of the host's own
+  pages (a fix; set `global` for the 1.10 behaviour).
+- Form placeholders are translation keys with `attr_translation_parameters` instead of `StaticMessage` objects (host
+  form themes can test them as strings); the rendered text is unchanged.
+- `routes.yaml` delegates to a route loader (type `nowo_api_studio`); route names, paths and the import are unchanged.
+
+### Fixed
+
+Follow-ups of the 1.10.1 security review (Appendix EQ):
+
+- **EQ-I1**: secret values are always encrypted from the value as typed (imports, env sync and scripts included), never
+  passed through when they already look like a payload. Stored payloads therefore only come from the cipher, and a
+  typed value shaped like a payload reads back as typed instead of being flagged *needs re-entry*. With
+  `secrets.encrypt: false`, such a value is still encrypted, so it reads back as text.
+- **EQ-I3**: pasting the stored (foreign) payload into an unreadable secret keeps it unreadable.
+- **EQ-I2**: a console override of `''` or of a placeholder (`{{ token }}`, spaced or not) does not stand in for an
+  unreadable secret: the request is still not sent. The secret marker check accepts the spaced form too.
+- **EQ-I6**: the slug race safety net recognises the slug unique index by its name (or its `table.column` list on
+  SQLite), not by the word "slug" in the driver message.
+- **EQ-I7**: `nowo:api-studio:secrets:status --tenant=type:id` (empty: the instance tenant) reports one tenant only.
+- **ER-M1** (1.11 review): without `workspace.edit`, `/execute` refuses (422 `override_not_allowed`, logged with ids
+  only) any change to a variable used in the URL, the auth configuration or a header that carries a secret, so a
+  runner cannot send the stored secrets to a host of their choice.
+- **ER-L1**: `symfony/yaml` now requires `^7.4.23 || ^8.1.11` (YAML parse-time advisory GHSA-hwfg-qwvh-2wfx, reachable
+  through YAML imports); the lock is updated and `composer audit` is clean.
+- **ER-I1**: the console's JSON routes answer a refused action with `{"error":"forbidden"}` (403).
+- **ER-I2**: default history actor ids are namespaced (`u:` + identifier, `h:` + hash) and a host resolver's id must be
+  1–64 printable characters.
+- **ER-I3**: `/execute` answers 400 for an environment that is unknown, hidden by the tenant filter or of another
+  workspace.
+- **ER-I6**: the route scope listener resets the router context between worker requests; `scripts.mode: disabled` does
+  not load `api-script-runtime.js`.
+
 ## [1.10.1] - 2026-11-04
 
 ### Fixed

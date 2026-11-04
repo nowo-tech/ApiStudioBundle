@@ -47,6 +47,9 @@ class ApiEnvironmentVariable
     /** Not mapped: a request to stop treating an unreadable value as secret was refused (form error). */
     private bool $secretChangeRefused = false;
 
+    /** Not mapped: {@see self::$value} holds the payload the encryption listener wrote during this flush. */
+    private bool $holdsCiphertext = false;
+
     public function __construct(string $variableKey, string $value = '')
     {
         $this->variableKey = VariableSyntax::normalizeKey($variableKey);
@@ -98,7 +101,9 @@ class ApiEnvironmentVariable
      */
     public function setValue(string $value): self
     {
-        if ($this->unreadable && $value === '') {
+        // Keeps an unreadable secret as stored: '' is the write-only field's "unchanged", and pasting the stored
+        // payload itself is not a new value (it would hand the ciphertext out).
+        if ($this->unreadable && ($value === '' || $value === $this->value)) {
             return $this;
         }
 
@@ -106,8 +111,44 @@ class ApiEnvironmentVariable
         $this->value = $value;
         // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->unreadable = false;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->holdsCiphertext = false;
 
         return $this;
+    }
+
+    /**
+     * Stores the payload the encryption listener computed for this flush.
+     *
+     * @internal for the encryption listener only
+     */
+    public function storeCiphertext(string $payload): void
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->value = $payload;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->holdsCiphertext = true;
+    }
+
+    /**
+     * Puts the decrypted value back after a load or a flush.
+     *
+     * @internal for the encryption listener only
+     */
+    public function restorePlaintext(string $plaintext): void
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->value = $plaintext;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->holdsCiphertext = false;
+    }
+
+    /**
+     * @internal for the encryption listener only
+     */
+    public function holdsCiphertext(): bool
+    {
+        return $this->holdsCiphertext;
     }
 
     /**

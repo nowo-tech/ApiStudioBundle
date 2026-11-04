@@ -24,6 +24,7 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 use function base64_encode;
+use function json_encode;
 
 /**
  * REST / GraphQL request building: URL, query, headers, auth, body and the outcome logged without secrets.
@@ -190,6 +191,39 @@ final class RequestExecutorTest extends TestCase
         $result   = $this->executor()->execute($endpoint, $environment, variables: ['token' => 'typed-in-console']);
         self::assertTrue($result->success, 'A value typed in the console is used.');
         self::assertSame('Bearer typed-in-console', $result->requestHeaders['Authorization']);
+    }
+
+    public function testEmptyOrPlaceholderOverridesOfAnUnreadableSecretAreNoValue(): void
+    {
+        // EQ-I2: '' or the secret's own placeholder (spaced or not) never stands in for the unreadable value.
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $token       = (new ApiEnvironmentVariable('token', 'nowo_as_enc_v1:payload'))->setSecret(true);
+        $token->markUnreadable();
+        $environment->addVariable($token);
+        $endpoint = $this->endpoint(self::BASE, '/me')->setHeaders(['Authorization' => 'Bearer {{token}}']);
+
+        foreach (['', '{{ token }}', '{{token}}', '{{other}}'] as $override) {
+            $result = $this->executor()->execute($endpoint, $environment, variables: ['token' => $override]);
+            self::assertSame(ApiExecutionResult::ERROR_SECRET_UNREADABLE, $result->errorCode, (string) json_encode($override));
+        }
+        self::assertSame([], $this->calls);
+    }
+
+    public function testProtectedVariablesCoverTheUrlTheAuthAndSecretHeaders(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $environment->addVariable((new ApiEnvironmentVariable('token', 'x'))->setSecret(true));
+        $environment->addVariable(new ApiEnvironmentVariable('trace', 't'));
+        $endpoint = $this->endpoint('{{host}}', '/{{path}}')
+            ->setQueryParams(['q' => '{{query}}'])
+            ->setHeaders(['X-Signed' => '{{kid}}:{{token}}', 'X-Trace' => '{{trace}}']);
+        $service = $endpoint->getService();
+        self::assertInstanceOf(ApiService::class, $service);
+        $service->setAuthConfig(['username' => '{{user}}', 'nested' => ['password' => '{{pass}}'], 'n' => 1])
+            ->setDefaultHeaders(['X-Plain' => '{{plain}}']);
+
+        self::assertSame(['host', 'path', 'query', 'user', 'pass', 'kid', 'token'], RequestExecutor::protectedVariables($endpoint, $service, $environment));
+        self::assertSame(['host', 'path', 'query', 'user', 'pass'], RequestExecutor::protectedVariables($endpoint, $service, null), 'no environment: no secret header');
     }
 
     public function testReferencedVariablesFollowTheRequestPrecedence(): void

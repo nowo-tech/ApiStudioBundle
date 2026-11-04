@@ -56,7 +56,7 @@ final class ApiStudioExtensionTest extends TestCase
         $extension = $this->extension($this->createMock(ApiWorkspaceRepository::class));
         $names     = array_map(static fn ($function): string => $function->getName(), $extension->getFunctions());
 
-        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree'], $names);
+        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree', 'nowo_api_studio_scripts_enabled', 'nowo_api_studio_can'], $names);
         self::assertSame('as-method-get', $extension->methodClass('get'));
         self::assertSame('as-method-default', $extension->methodClass('OPTIONS'));
         self::assertSame('as-method-post', $extension->methodClass('post'));

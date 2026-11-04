@@ -8,6 +8,7 @@
 - [Testing requests](#testing-requests)
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
+- [Tenants and permissions](#tenants-and-permissions)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
   - [Override vs upgrade](#override-vs-upgrade)
   - [Override in the application](#override-in-the-application)
@@ -103,6 +104,57 @@ SOAP executions send the same HTTP headers as REST: the service auth (`basic` / 
 The same headers (without the framing ones) are sent when downloading the WSDL, so WSDLs behind auth work, but only to documents on the **same origin** (scheme, host, port) as the WSDL URL: `<xsd:import>` / `<wsdl:import>` documents on another host are fetched without them so credentials never leak to a third party. Redirects follow `execution_max_redirects`; when a redirect leaves the host, the HTTP client drops `Authorization`/`Cookie` but custom headers (e.g. an API key header) are forwarded, so keep `execution_max_redirects: 0` (default) for credentialed SOAP services unless you trust the redirect targets. API key auth is header-only (there is no query-string variant, for REST or SOAP).
 
 Executions are stored in history with the headers that were sent (framing headers excluded in JSON-parameters mode; included in raw-envelope mode, where they are part of the request you wrote), redacted by `HistorySanitizer` exactly like REST: the auth header, the configured API key header and values of secret environment variables are replaced by `[REDACTED]`, and secret values are masked in the stored SOAP envelope (in both modes).
+
+## Tenants and permissions
+
+Since 1.11 a host can give every tenant (organization, team…) its own studio and decide per workspace and per action
+who may do what. Everything is opt-in: without configuration the bundle behaves as in 1.10.
+
+```yaml
+nowo_api_studio:
+    ui:
+        path: '/organizations/{organization}/api-studio'
+        path_requirements: {organization: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'}
+        locale_scope: none
+    tenancy:
+        enabled: true
+        resolver: App\ApiStudio\OrganizationTenantResolver
+    security:
+        permission_checker: App\ApiStudio\ApiStudioPermissionChecker
+    history:
+        scope: user
+```
+
+- **Tenant resolver** (`ApiStudioTenantResolverInterface::resolve(Request): ?ApiStudioTenant`): called once per Api
+  Studio request after routing; identify only (e.g. read `{organization}`), never authorize. `null` → 404. Commands
+  run as a tenant with `ApiStudioTenantContext::runAs()`; `nowo:api-studio:seed-demo --tenant-type=… --tenant-id=…`.
+- **Permission checker** (`ApiStudioPermissionCheckerInterface`): `isGranted(?object $user, ApiStudioAction $action,
+  ApiStudioSubject $subject)` and `visibleWorkspaceIds(?object $user, ApiStudioTenant $tenant): ?list<int>` (null = all
+  of the tenant). Actions: `studio.open`, `workspace.create`, `workspace.view`, `workspace.run`, `workspace.edit`,
+  `workspace.edit_scripts`, `workspace.manage`, `workspace.import`, `workspace.export`, `workspace.export_variables`,
+  `history.view_all`. Deny unknown actions. `ApiStudioRouteActions::MAP` lists the action of every route (a route
+  missing from it answers 404).
+- **Outcomes**: a workspace of another tenant, not in `visibleWorkspaceIds()` or without `workspace.view` answers 404;
+  viewable without the action 403 (`{"error":"forbidden"}` on `/execute`); `studio.open` denied 404,
+  `workspace.create` denied 403. Pages and the Twig function `nowo_api_studio_can('workspace.edit', workspace)` hide
+  what is not granted; script fields are left out of the forms without `workspace.edit_scripts`.
+- **Events**: `ApiWorkspaceCreatedEvent` (workspace, tenant, user) is dispatched inside the creating transaction — a
+  host listener writes atomically with the workspace, and an exception rolls it back; `ApiWorkspaceDeletedEvent` after
+  a delete.
+- **Migration** (tenancy): `ALTER TABLE api_studio_workspace ADD tenant_type VARCHAR(32) NOT NULL DEFAULT '', ADD
+  tenant_id VARCHAR(64) NOT NULL DEFAULT ''`, replace the unique index `api_studio_uniq_workspace_slug` by
+  `api_studio_uniq_workspace_tenant_slug (tenant_type, tenant_id, slug)` and add `api_studio_idx_workspace_tenant
+  (tenant_type, tenant_id)`; then backfill the tenant of existing workspaces from the host's own data. Existing rows
+  start in the instance tenant `('', '')`. `doctrine:migrations:diff` generates the DDL.
+- **Defence in depth**: with `tenancy.sql_filter` (default) the Doctrine filter `nowo_api_studio_tenant` is enabled
+  during Api Studio requests; it does not cover entities already loaded, DBAL queries or DQL UPDATE / DELETE, which is
+  why the controllers check every workspace explicitly.
+- **Maintenance commands** (tenancy on): `nowo:api-studio:tenant:orphans [--json]` lists workspaces without a tenant;
+  `nowo:api-studio:tenant:move <id> --to-type=… --to-id=… [--dry-run]` moves one (refused when the slug is taken at the
+  destination; dispatches `ApiWorkspaceMovedEvent`); `nowo:api-studio:tenant:unsuffix-slugs --tenant-type=…
+  --tenant-id=… [--dry-run]` strips `-2`, `-3`… suffixes when the base slug is free in the tenant.
+- **Slugs**: leave the slug empty to derive it from the name; new or edited slugs must match
+  `^[a-z0-9]+(?:[-_][a-z0-9]+)*$` (≤ 128).
 
 ## Overriding Twig templates (REQ-TWIG-001)
 

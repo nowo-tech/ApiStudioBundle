@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Validator;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
+use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
@@ -61,6 +62,15 @@ final class UniqueSlugValidator extends ConstraintValidator
                 return;
             }
             $query->andWhere('e.' . $constraint->scope . ' = :parent')->setParameter('parent', $parent->getId());
+        }
+
+        // Tenancy on: the workspace slug is unique per tenant (the lookup never crosses tenants, so the message reveals
+        // nothing about other tenants).
+        if ($value instanceof ApiWorkspace && $manager->getClassMetadata(ApiWorkspace::class)->hasField('tenantType')) {
+            $tenant = $value->getTenant();
+            $query->andWhere('e.tenantType = :tenant_type AND e.tenantId = :tenant_id')
+                ->setParameter('tenant_type', $tenant->type)
+                ->setParameter('tenant_id', $tenant->id);
         }
 
         /** @var list<object> $existingRows */

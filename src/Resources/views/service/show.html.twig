@@ -43,6 +43,7 @@
                     {{ include('@NowoApiStudioBundle/_variable_catalog.html.twig', {variableCatalog: variableCatalog, environments: environments, workspace: workspace, bundle: bundle}, false) }}
                 </div>
             </section>
+{% if nowo_api_studio_can('workspace.import', workspace) %}
             <section class="{{ nowo_ui_class('card', bundle) }}" data-testid="api-studio-service-import"{{ nowo_ui_attrs('card', bundle) }}>
                 <header class="{{ nowo_ui_class('card_header', bundle) }}"><h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'import_export.import_title'|trans({}, 'NowoApiStudioBundle') }}</h2></header>
                 <div class="{{ nowo_ui_class('card_body', bundle) }} {{ nowo_ui_class('toolbar', bundle) }}">
@@ -50,6 +51,7 @@
                     <a class="{{ nowo_ui_class('btn_secondary', bundle) }}" href="{{ path('nowo_api_studio_io_import_postman_service', {workspaceId: workspace.id, serviceId: service.id}) }}">{{ 'import.postman.service_short'|trans({}, 'NowoApiStudioBundle') }}</a>
                 </div>
             </section>
+            {% endif %}
         {% endblock %}
     {% endembed %}
 {% endblock %}

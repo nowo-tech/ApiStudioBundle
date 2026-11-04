@@ -88,7 +88,11 @@ final class RequestExecutor
 
         // Fail closed: a secret that cannot be decrypted has no value, so a request that needs it is never sent (it
         // would carry the bare placeholder). A value the caller supplied for that key (console override) is used.
-        $unreadable = array_values(array_diff($environment?->getUnreadableVariableKeys() ?? [], array_keys($variableMap)));
+        // An empty value or a placeholder (`{{ token }}`, spaced or not) is no value: the key stays unavailable.
+        $unreadable = array_values(array_filter(
+            $environment?->getUnreadableVariableKeys() ?? [],
+            static fn (string $key): bool => ($variableMap[$key] ?? '') === '' || VariableSyntax::isPlaceholder($variableMap[$key]),
+        ));
         if ($unreadable !== []) {
             $needed = array_values(array_intersect($unreadable, self::referencedVariables($endpoint, $service, $overrideBody, $overrideHeaders, $overrideQueryParams, $replaceQueryParams, $replaceHeaders)));
             if ($needed !== []) {
@@ -514,6 +518,59 @@ final class RequestExecutor
         }
 
         return array_keys($keys);
+    }
+
+    /**
+     * Variables a runner without `workspace.edit` may not change (ER-M1): those that decide where the request goes or
+     * which credential it carries — referenced in the base URL, the path, the endpoint query parameters, the auth
+     * configuration, or a service / endpoint header that also references a secret variable. Every variable of the
+     * URL is protected, so the request origin (scheme, host, port) cannot change; the resolver is single-pass, so an
+     * override cannot smuggle another placeholder in.
+     *
+     * @return list<string>
+     */
+    public static function protectedVariables(ApiEndpoint $endpoint, ApiService $service, ?ApiEnvironment $environment): array
+    {
+        $secrets = [];
+        foreach ($environment?->getVariables() ?? [] as $variable) {
+            if ($variable->isSecret()) {
+                $secrets[$variable->getVariableKey()] = true;
+            }
+        }
+
+        $templates  = [$service->getBaseUrl(), $endpoint->getPath(), ...array_values($endpoint->getQueryParams())];
+        $authConfig = $service->getAuthConfig();
+        array_walk_recursive($authConfig, static function (mixed $value) use (&$templates): void {
+            if (is_string($value)) {
+                $templates[] = $value;
+            }
+        });
+        foreach ([...array_values($service->getDefaultHeaders()), ...array_values($endpoint->getHeaders())] as $header) {
+            foreach (self::keysIn($header) as $key) {
+                if (isset($secrets[$key])) {
+                    $templates[] = $header;
+
+                    break;
+                }
+            }
+        }
+
+        $keys = [];
+        foreach ($templates as $template) {
+            foreach (self::keysIn($template) as $key) {
+                $keys[$key] = true;
+            }
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function keysIn(string $template): array
+    {
+        return preg_match_all(VariableSyntax::PLACEHOLDER_PATTERN, $template, $matches) > 0 ? $matches[1] : [];
     }
 
     /**

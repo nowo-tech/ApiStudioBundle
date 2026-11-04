@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Form;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Form\EventListener\SlugFromName;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
@@ -29,7 +30,9 @@ final class ApiEndpointFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $this->addText($builder, 'name', []);
-        $this->addText($builder, 'slug', []);
+        // Empty: derived from the name (SlugFromName).
+        $this->addText($builder, 'slug', ['required' => false, 'empty_data' => '', 'help' => 'field.slug_help']);
+        SlugFromName::attach($builder);
         $this->addWithDefaults($builder, 'method', EnumType::class, [
             'class'                     => HttpMethod::class,
             'choice_label'              => static fn (HttpMethod $method): string => $method->value,
@@ -41,8 +44,11 @@ final class ApiEndpointFormType extends AbstractType
         $this->addWithDefaults($builder, 'headers', JsonMapType::class, ['required' => false, 'label' => 'field.headers']);
         $this->addWithDefaults($builder, 'queryParams', JsonMapType::class, ['required' => false, 'label' => 'field.query_params']);
         $this->addTextarea($builder, 'requestBodyTemplate', ['required' => false]);
-        $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
-        $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+        // Scripts run in other users' browsers: only with workspace.edit_scripts (option `scripts`, default true).
+        if ($options['scripts']) {
+            $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+            $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+        }
         $this->addInteger($builder, 'sortOrder', []);
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
         $this->addWithDefaults($builder, 'translations', CollectionType::class, [
@@ -76,6 +82,7 @@ final class ApiEndpointFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
+            'scripts'            => true,
             'data_class'         => ApiEndpoint::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);

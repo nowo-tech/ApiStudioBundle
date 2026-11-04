@@ -41,15 +41,18 @@ final class SecretVariableEncryptionListener
     ) {
     }
 
+    /**
+     * A new secret is always encrypted from its value as typed (1.11): stored payloads only ever come from the cipher.
+     * With encryption off, only a value that looks like a payload is encrypted (so it reads back as text).
+     */
     public function prePersist(PrePersistEventArgs $args): void
     {
-        $entity = $this->secretVariable($args);
-        if (!$entity instanceof ApiEnvironmentVariable) {
+        $entity = $args->getObject();
+        if (!$entity instanceof ApiEnvironmentVariable || !$this->needsEncryption($entity, $entity->getValue())) {
             return;
         }
 
-        // @igor-ignore - Not shared worker service state.
-        $entity->setValue($this->cipher->encrypt($entity->getValue()));
+        $entity->storeCiphertext($this->cipher->encryptValue($entity->getValue()));
     }
 
     /**
@@ -59,20 +62,11 @@ final class SecretVariableEncryptionListener
      */
     public function onFlush(OnFlushEventArgs $args): void
     {
-        if (!$this->enabled) {
-            return;
-        }
-
         $em       = $args->getObjectManager();
         $uow      = $em->getUnitOfWork();
         $metadata = $em->getClassMetadata(ApiEnvironmentVariable::class);
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entity) {
-            if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret() || $entity->isUnreadable()) {
-                continue;
-            }
-
-            // Already a payload of this key (prefix alone is not enough: user input may start with it).
-            if ($this->cipher->isEncrypted($entity->getValue()) && $this->cipher->tryDecrypt($entity->getValue()) !== null) {
+            if (!$entity instanceof ApiEnvironmentVariable || !$this->needsEncryption($entity, $entity->getValue())) {
                 continue;
             }
 
@@ -80,24 +74,25 @@ final class SecretVariableEncryptionListener
                 continue;
             }
 
-            $entity->setValue($this->cipher->encrypt($entity->getValue()));
+            $entity->storeCiphertext($this->cipher->encryptValue($entity->getValue()));
             $uow->recomputeSingleEntityChangeSet($metadata, $entity);
         }
     }
 
     public function preUpdate(PreUpdateEventArgs $args): void
     {
-        $entity = $this->secretVariable($args);
-        if (!$entity instanceof ApiEnvironmentVariable || $entity->isUnreadable() || !$args->hasChangedField('value')) {
+        $entity = $args->getObject();
+        if (!$entity instanceof ApiEnvironmentVariable || !$args->hasChangedField('value')) {
             return;
         }
 
         $newValue = $args->getNewValue('value');
-        if (!is_string($newValue)) {
+        if (!is_string($newValue) || !$this->needsEncryption($entity, $newValue)) {
             return;
         }
 
-        $args->setNewValue('value', $this->cipher->encrypt($newValue));
+        // The entity keeps its plaintext; only the written column is the payload.
+        $args->setNewValue('value', $this->cipher->encryptValue($newValue));
     }
 
     /**
@@ -105,7 +100,7 @@ final class SecretVariableEncryptionListener
      */
     public function postPersist(LifecycleEventArgs $args): void
     {
-        $this->decryptIfNeeded($args);
+        $this->restoreAfterFlush($args);
     }
 
     /**
@@ -113,15 +108,7 @@ final class SecretVariableEncryptionListener
      */
     public function postUpdate(LifecycleEventArgs $args): void
     {
-        $this->decryptIfNeeded($args);
-    }
-
-    /**
-     * @param LifecycleEventArgs<ObjectManager> $args
-     */
-    public function postLoad(LifecycleEventArgs $args): void
-    {
-        $this->decryptIfNeeded($args);
+        $this->restoreAfterFlush($args);
     }
 
     /**
@@ -130,7 +117,7 @@ final class SecretVariableEncryptionListener
      *
      * @param LifecycleEventArgs<ObjectManager> $args
      */
-    private function decryptIfNeeded(LifecycleEventArgs $args): void
+    public function postLoad(LifecycleEventArgs $args): void
     {
         $entity = $args->getObject();
         if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret() || $entity->isUnreadable()) {
@@ -142,19 +129,51 @@ final class SecretVariableEncryptionListener
             return;
         }
 
-        $plain = $this->cipher->tryDecrypt($stored);
-        // Releases before 1.10.1 encrypted an unreadable payload a second time on save: its plaintext is itself a
-        // payload. Unwrap it when the key opens it, else it is unreadable too (never sent as a value).
-        if ($plain !== null && $this->cipher->isWrappedPayload($plain)) {
-            $plain = $this->cipher->tryDecrypt($plain);
-        }
+        $plain = $this->cipher->openStored($stored);
         if ($plain !== null) {
-            // @igor-ignore - Not shared worker service state.
-            $entity->setValue($plain);
+            $entity->restorePlaintext($plain);
 
             return;
         }
 
+        $this->markUnreadable($entity);
+    }
+
+    /**
+     * A secret whose value is a value as typed (not the payload written in this flush, not an unreadable payload):
+     * encrypted when encryption is on, or when it looks like a payload.
+     */
+    private function needsEncryption(ApiEnvironmentVariable $entity, string $value): bool
+    {
+        if (!$entity->isSecret() || $entity->isUnreadable() || $entity->holdsCiphertext()) {
+            return false;
+        }
+
+        return $this->enabled || $this->cipher->isEncrypted($value);
+    }
+
+    /**
+     * @param LifecycleEventArgs<ObjectManager> $args
+     */
+    private function restoreAfterFlush(LifecycleEventArgs $args): void
+    {
+        $entity = $args->getObject();
+        if (!$entity instanceof ApiEnvironmentVariable || !$entity->holdsCiphertext()) {
+            return;
+        }
+
+        $plain = $this->cipher->openStored($entity->getStoredValue());
+        if ($plain !== null) {
+            $entity->restorePlaintext($plain);
+
+            return;
+        }
+
+        $this->markUnreadable($entity);
+    }
+
+    private function markUnreadable(ApiEnvironmentVariable $entity): void
+    {
         $entity->markUnreadable();
         $this->logger?->warning('Api Studio secret variable cannot be decrypted with the configured key: it needs re-entry and is never sent.', [
             'bundle'         => 'api-studio',
@@ -162,22 +181,5 @@ final class SecretVariableEncryptionListener
             'variable_id'    => $entity->getId(),
             'environment_id' => $entity->getEnvironment()?->getId(),
         ]);
-    }
-
-    /**
-     * @param LifecycleEventArgs<ObjectManager> $args
-     */
-    private function secretVariable(LifecycleEventArgs $args): ?ApiEnvironmentVariable
-    {
-        if (!$this->enabled) {
-            return null;
-        }
-
-        $entity = $args->getObject();
-        if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret()) {
-            return null;
-        }
-
-        return $entity;
     }
 }

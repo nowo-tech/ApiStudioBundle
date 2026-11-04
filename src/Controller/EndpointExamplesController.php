@@ -9,17 +9,19 @@ use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiRequestExample;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
 use Nowo\ApiStudioBundle\Entity\ApiService;
-use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestExampleRepository;
 use Nowo\ApiStudioBundle\Repository\ApiResponseExampleRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function is_array;
 use function is_scalar;
@@ -30,8 +32,17 @@ use function sprintf;
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints/{endpointId}/examples', name: 'nowo_api_studio_endpoint_examples_')]
 final class EndpointExamplesController extends AbstractController
 {
+    use AuthorizesTrait;
     /** Column length of the example names. */
     private const MAX_NAME_LENGTH = 128;
+
+    /**
+     * @return array<string|SubscribedService>
+     */
+    public static function getSubscribedServices(): array
+    {
+        return parent::getSubscribedServices() + [ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class];
+    }
 
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
@@ -50,7 +61,7 @@ final class EndpointExamplesController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId);
+        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId, ApiStudioAction::WorkspaceEdit);
         $payload  = $this->decodePayload($request);
         $name     = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
@@ -81,7 +92,7 @@ final class EndpointExamplesController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId);
+        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId, ApiStudioAction::WorkspaceEdit);
         $payload  = $this->decodePayload($request);
         $name     = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
@@ -115,7 +126,7 @@ final class EndpointExamplesController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId);
+        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId, ApiStudioAction::WorkspaceEdit);
         $example  = $this->requestExampleRepository->find($exampleId);
         if (!$example instanceof ApiRequestExample || $example->getEndpoint()?->getId() !== $endpoint->getId()) {
             return new JsonResponse(['error' => 'Example not found.'], Response::HTTP_NOT_FOUND);
@@ -134,7 +145,7 @@ final class EndpointExamplesController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId);
+        $endpoint = $this->requireEndpoint($workspaceId, $serviceId, $endpointId, ApiStudioAction::WorkspaceEdit);
         $example  = $this->responseExampleRepository->find($exampleId);
         if (!$example instanceof ApiResponseExample || $example->getEndpoint()?->getId() !== $endpoint->getId()) {
             return new JsonResponse(['error' => 'Example not found.'], Response::HTTP_NOT_FOUND);
@@ -197,12 +208,9 @@ final class EndpointExamplesController extends AbstractController
         ];
     }
 
-    private function requireEndpoint(int $workspaceId, int $serviceId, int $endpointId): ApiEndpoint
+    private function requireEndpoint(int $workspaceId, int $serviceId, int $endpointId, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiEndpoint
     {
-        $workspace = $this->workspaceRepository->find($workspaceId);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
-        }
+        $workspace = $this->authorization()->requireWorkspace($this->workspaceRepository->find($workspaceId), $action);
 
         $service = $this->serviceRepository->find($serviceId);
         if (!$service instanceof ApiService || $service->getWorkspace()?->getId() !== $workspace->getId()) {

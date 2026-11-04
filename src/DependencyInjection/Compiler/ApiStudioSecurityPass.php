@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\DependencyInjection\Compiler;
 use Nowo\ApiStudioBundle\DependencyInjection\Configuration;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -54,6 +55,10 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
             ->setArgument('$enabled', $enabled)
             ->setArgument('$allowUnauthenticated', $allowUnauthenticated)
             ->addTag('kernel.event_subscriber');
+
+        if ($enabled && $container->has(ApiStudioAuthorization::class)) {
+            $definition->setArgument('$authorization', new Reference(ApiStudioAuthorization::class));
+        }
 
         if ($enabled && self::hasCustomAccessChecker($container)) {
             $definition

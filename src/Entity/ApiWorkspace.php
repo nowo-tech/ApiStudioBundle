@@ -9,7 +9,11 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
+use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+use Nowo\ApiStudioBundle\Validator\SlugFormat;
 use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
@@ -20,6 +24,7 @@ use SortDirection;
 #[ORM\Table(name: 'workspace')]
 #[ORM\UniqueConstraint(name: 'uniq_workspace_slug', columns: ['slug'])]
 #[UniqueSlug]
+#[SlugFormat]
 class ApiWorkspace
 {
     #[ORM\Id]
@@ -59,6 +64,15 @@ class ApiWorkspace
     #[ORM\OrderBy(['name' => SortDirection::Ascending])]
     private Collection $environments;
 
+    /**
+     * Tenant type, mapped (`tenant_type`) only with `nowo_api_studio.tenancy.enabled`
+     * ({@see TablePrefixSubscriber}). '' = instance tenant.
+     */
+    private string $tenantType = '';
+
+    /** Tenant id, mapped (`tenant_id`) only with tenancy on. */
+    private string $tenantId = '';
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private DateTimeImmutable $createdAt;
 
@@ -78,6 +92,30 @@ class ApiWorkspace
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getTenant(): ApiStudioTenant
+    {
+        return new ApiStudioTenant($this->tenantType, $this->tenantId);
+    }
+
+    /**
+     * Sets the tenant of a new workspace. Moving a saved workspace to another tenant is not a UI operation.
+     *
+     * @throws LogicException once the workspace has an id
+     */
+    public function assignTenant(ApiStudioTenant $tenant): self
+    {
+        if ($this->id !== null && !$tenant->equals($this->getTenant())) {
+            throw new LogicException('A saved Api Studio workspace cannot change tenant.');
+        }
+
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->tenantType = $tenant->type;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->tenantId = $tenant->id;
+
+        return $this;
     }
 
     public function getName(): string

@@ -10,6 +10,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Form\ApiEnvironmentFormType;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ApiEnvironmentController extends AbstractController
 {
     use ApiStudioPageTrait;
+    use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
     use SlugConflictTrait;
 
@@ -42,7 +44,7 @@ final class ApiEnvironmentController extends AbstractController
     #[Route('/new', name: 'new', requirements: ['workspaceId' => '\d+'], methods: ['GET', 'POST'])]
     public function new(Request $request, int $workspaceId): Response
     {
-        $workspace   = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $environment = new ApiEnvironment('New environment', 'new_env');
         // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $workspace->addEnvironment($environment);
@@ -86,7 +88,7 @@ final class ApiEnvironmentController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $workspaceId, int $id): Response
     {
-        $workspace   = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $environment = $this->requireEnvironment($id, $workspace);
         $form        = $this->createForm(ApiEnvironmentFormType::class, $environment);
         $form->handleRequest($request);
@@ -119,7 +121,7 @@ final class ApiEnvironmentController extends AbstractController
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $workspaceId, int $id): Response
     {
-        $workspace   = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $environment = $this->requireEnvironment($id, $workspace);
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
@@ -134,12 +136,9 @@ final class ApiEnvironmentController extends AbstractController
         return $this->redirectToRoute('nowo_api_studio_environment_index', ['workspaceId' => $workspaceId]);
     }
 
-    private function requireWorkspace(int $id): ApiWorkspace
+    private function requireWorkspace(int $id, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiWorkspace
     {
-        $workspace = $this->workspaceRepository->find($id);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
-        }
+        $workspace = $this->authorization()->requireWorkspace($this->workspaceRepository->find($id), $action);
 
         return $workspace;
     }

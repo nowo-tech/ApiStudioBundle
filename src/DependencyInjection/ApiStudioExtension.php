@@ -4,9 +4,18 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
+use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
+use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
+use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
+use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
+use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -14,11 +23,16 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\DependencyInjection\Reference;
 
 use function array_key_exists;
+use function array_keys;
+use function implode;
+use function in_array;
 use function is_array;
 use function is_bool;
 use function is_string;
+use function preg_match;
 use function sprintf;
 use function trigger_deprecation;
 
@@ -53,6 +67,10 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
                             'type'      => 'attribute',
                             'is_bundle' => true,
                         ],
+                    ],
+                    // Tenancy defence in depth: registered disabled, enabled per Api Studio request (TenantSqlFilterListener).
+                    'filters' => [
+                        TenantSqlFilter::NAME => ['class' => TenantSqlFilter::class, 'enabled' => false],
                     ],
                 ],
             ]);
@@ -170,6 +188,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $security = $config['security'];
         $flags    = [
             'enabled'                          => $config['enabled'],
+            'tenancy.enabled'                  => $config['tenancy']['enabled'],
             'security.allow_unauthenticated'   => $security['allow_unauthenticated'],
             'execution_url_allowlist_required' => $config['execution_url_allowlist_required'],
         ];
@@ -220,6 +239,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             trigger_deprecation('nowo-tech/api-studio-bundle', '1.10', 'The "nowo_api_studio.ui.css_framework" option is deprecated: set "nowo_ui_kit.css_framework" (UiKit page contract) instead.');
         }
         $container->setParameter(Configuration::ALIAS . '.ui.default_locale', $config['ui']['default_locale']);
+        $container->setParameter(Configuration::ALIAS . '.ui.locale_scope', $config['ui']['locale_scope']);
         $container->setParameter(Configuration::ALIAS . '.ui.locales', $config['ui']['locales']);
         $container->setParameter(
             Configuration::ALIAS . '.ui.locales_requirement',
@@ -233,6 +253,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.execution_max_redirects', $config['execution_max_redirects']);
         $container->setParameter(Configuration::ALIAS . '.execution_max_response_bytes', $config['execution_max_response_bytes']);
         $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.mode', $config['scripts']['mode']);
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(
             Configuration::ALIAS . '.secrets.encryption_key_material',
@@ -249,7 +270,73 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->register(ExecutionUrlValidator::class)
             ->setArgument('$allowlist', $config['execution_url_allowlist']);
 
+        $this->registerTenancy($container, $config['tenancy']);
+        $this->registerPermissions($container, $config['security'], $config['history']);
+        $this->registerPathPlaceholders($container, $config['ui']['path'], $config['ui']['path_requirements']);
+
         $this->registerAccessChecker($container, $config['security'], $config['ui']['required_roles']);
+    }
+
+    /**
+     * @param array{enabled: bool, resolver: ?string, sql_filter: bool} $tenancy
+     */
+    private function registerTenancy(ContainerBuilder $container, array $tenancy): void
+    {
+        $enabled = $tenancy['enabled'];
+        $container->setParameter(Configuration::ALIAS . '.tenancy.enabled', $enabled);
+        $resolver = $tenancy['resolver'];
+        if ($enabled && (!is_string($resolver) || $resolver === '')) {
+            throw new InvalidConfigurationException('nowo_api_studio.tenancy.enabled requires nowo_api_studio.tenancy.resolver (a service implementing ApiStudioTenantResolverInterface).');
+        }
+
+        $container->getDefinition(ApiStudioTenantContext::class)->setArgument('$enabled', $enabled);
+        $container->getDefinition(TenantSqlFilterListener::class)->setArgument('$enabled', $enabled && $tenancy['sql_filter']);
+        $container->getDefinition(ApiStudioTenantListener::class)
+            ->setArgument('$enabled', $enabled)
+            ->setArgument('$resolver', $enabled ? new Reference((string) $resolver) : null);
+    }
+
+    /**
+     * @param array<string, mixed> $security
+     * @param array{scope: string, actor_resolver: ?string} $history
+     */
+    private function registerPermissions(ContainerBuilder $container, array $security, array $history): void
+    {
+        $checker = $security['permission_checker'] ?? null;
+        $container->setAlias(
+            ApiStudioPermissionCheckerInterface::class,
+            is_string($checker) && $checker !== '' ? $checker : LegacyPermissionChecker::class,
+        );
+
+        $container->setParameter(Configuration::ALIAS . '.history.scope', $history['scope']);
+        $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$historyActor', $history['scope'] === ApiStudioHistoryScope::SCOPE_USER);
+        $container->getDefinition(ApiStudioHistoryScope::class)
+            ->setArgument('$scope', $history['scope'])
+            ->setArgument('$actorResolver', is_string($history['actor_resolver']) && $history['actor_resolver'] !== '' ? new Reference($history['actor_resolver']) : null);
+    }
+
+    /**
+     * `ui.path` placeholders ({organization}) must not reuse a route parameter of the bundle, and every
+     * `ui.path_requirements` entry must name one of them.
+     *
+     * @param array<string, string> $requirements
+     */
+    private function registerPathPlaceholders(ContainerBuilder $container, string $path, array $requirements): void
+    {
+        $placeholders = ApiStudioRouteScopeListener::placeholdersOf($path);
+        foreach ($placeholders as $name) {
+            if (preg_match('/^[a-z][a-z0-9_]*$/', $name) !== 1 || in_array($name, ApiStudioRouteScopeListener::RESERVED_PARAMETERS, true)) {
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.ui.path: the placeholder "{%s}" is not allowed (lowercase letters, digits and underscores; not one of %s).', $name, implode(', ', ApiStudioRouteScopeListener::RESERVED_PARAMETERS)));
+            }
+        }
+        foreach (array_keys($requirements) as $name) {
+            if (!in_array($name, $placeholders, true)) {
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.ui.path_requirements: "%s" is not a placeholder of ui.path.', $name));
+            }
+        }
+
+        $container->setParameter(Configuration::ALIAS . '.ui.path_placeholders', $placeholders);
+        $container->setParameter(Configuration::ALIAS . '.ui.path_requirements', $requirements);
     }
 
     public function getAlias(): string
