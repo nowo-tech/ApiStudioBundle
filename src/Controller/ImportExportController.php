@@ -13,6 +13,7 @@ use Nowo\ApiStudioBundle\Model\ImportResult;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiExporter;
@@ -32,6 +33,7 @@ use Throwable;
 final class ImportExportController extends AbstractController
 {
     use ApiStudioPageTrait;
+    use AuthorizesTrait;
 
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
@@ -58,7 +60,7 @@ final class ImportExportController extends AbstractController
     #[Route('/import/openapi', name: 'import_openapi', requirements: ['workspaceId' => '\d+'], methods: ['GET', 'POST'])]
     public function importOpenApi(Request $request, int $workspaceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $form      = $this->createImportForm('openapi');
 
         return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
@@ -73,7 +75,7 @@ final class ImportExportController extends AbstractController
     #[Route('/import/postman', name: 'import_postman', requirements: ['workspaceId' => '\d+'], methods: ['GET', 'POST'])]
     public function importPostman(Request $request, int $workspaceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $form      = $this->createImportForm('postman', showPostmanVariables: true);
 
         return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
@@ -91,7 +93,7 @@ final class ImportExportController extends AbstractController
     #[Route('/import/variables', name: 'import_variables_workspace', requirements: ['workspaceId' => '\d+'], methods: ['GET', 'POST'])]
     public function importVariablesWorkspace(Request $request, int $workspaceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $form      = $this->createImportForm('variables', showMode: true, extensions: ['json', 'yaml', 'yml', 'env']);
 
         return $this->handleImport($request, $form, function (FormInterface $form) use ($workspace): ImportResult {
@@ -109,7 +111,7 @@ final class ImportExportController extends AbstractController
     #[Route('/export/openapi', name: 'export_openapi_workspace', requirements: ['workspaceId' => '\d+'], methods: ['GET'])]
     public function exportOpenApiWorkspace(int $workspaceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceExport);
         $json      = $this->openApiExporter->exportWorkspace($workspace);
 
         return $this->downloadResponse($json, $workspace->getSlug() . '-openapi.json', 'application/json');
@@ -118,7 +120,7 @@ final class ImportExportController extends AbstractController
     #[Route('/export/variables.{format}', name: 'export_variables_workspace', requirements: ['workspaceId' => '\d+', 'format' => 'json|yaml|env'], methods: ['GET'])]
     public function exportVariablesWorkspace(int $workspaceId, string $format): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceExportVariables);
         $content   = $this->variableExporter->renderWorkspace($workspace, $format);
         $extension = $format === 'env' ? 'env' : ($format === 'yaml' ? 'yaml' : 'json');
         $mime      = match ($format) {
@@ -133,7 +135,7 @@ final class ImportExportController extends AbstractController
     #[Route('/services/{serviceId}/import/openapi', name: 'import_openapi_service', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+'], methods: ['GET', 'POST'])]
     public function importOpenApiService(Request $request, int $workspaceId, int $serviceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $service   = $this->requireService($serviceId, $workspace);
         $form      = $this->createImportForm('openapi');
 
@@ -150,7 +152,7 @@ final class ImportExportController extends AbstractController
     #[Route('/services/{serviceId}/import/postman', name: 'import_postman_service', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+'], methods: ['GET', 'POST'])]
     public function importPostmanService(Request $request, int $workspaceId, int $serviceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $service   = $this->requireService($serviceId, $workspace);
         $form      = $this->createImportForm('postman', showPostmanVariables: true);
 
@@ -170,7 +172,7 @@ final class ImportExportController extends AbstractController
     #[Route('/services/{serviceId}/export/openapi', name: 'export_openapi_service', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+'], methods: ['GET'])]
     public function exportOpenApiService(int $workspaceId, int $serviceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceExport);
         $service   = $this->requireService($serviceId, $workspace);
         $json      = $this->openApiExporter->exportService($service);
 
@@ -180,7 +182,7 @@ final class ImportExportController extends AbstractController
     #[Route('/environments/{environmentId}/import/variables', name: 'import_variables_environment', requirements: ['workspaceId' => '\d+', 'environmentId' => '\d+'], methods: ['GET', 'POST'])]
     public function importVariablesEnvironment(Request $request, int $workspaceId, int $environmentId): Response
     {
-        $workspace   = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceImport);
         $environment = $this->requireEnvironment($environmentId, $workspace);
         $form        = $this->createImportForm('variables', showMode: true, extensions: ['json', 'yaml', 'yml', 'env']);
 
@@ -199,7 +201,7 @@ final class ImportExportController extends AbstractController
     #[Route('/environments/{environmentId}/export/variables.{format}', name: 'export_variables_environment', requirements: ['workspaceId' => '\d+', 'environmentId' => '\d+', 'format' => 'json|yaml|env'], methods: ['GET'])]
     public function exportVariablesEnvironment(int $workspaceId, int $environmentId, string $format): Response
     {
-        $workspace   = $this->requireWorkspace($workspaceId);
+        $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceExportVariables);
         $environment = $this->requireEnvironment($environmentId, $workspace);
         $content     = $this->variableExporter->render($environment, $format);
         $extension   = $format === 'env' ? 'env' : ($format === 'yaml' ? 'yaml' : 'json');
@@ -314,12 +316,9 @@ final class ImportExportController extends AbstractController
         return $response;
     }
 
-    private function requireWorkspace(int $id): ApiWorkspace
+    private function requireWorkspace(int $id, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiWorkspace
     {
-        $workspace = $this->workspaceRepository->find($id);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
-        }
+        $workspace = $this->authorization()->requireWorkspace($this->workspaceRepository->find($id), $action);
 
         return $workspace;
     }

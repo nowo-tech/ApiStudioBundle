@@ -8,7 +8,9 @@ nowo_api_studio:
     table_prefix: api_studio_
     environments: [dev, test, prod]
     ui:
-        path: '/api-studio'
+        path: '/api-studio'      # may hold {placeholders} since 1.11, e.g. '/organizations/{organization}/api-studio'
+        path_requirements: {}    # e.g. {organization: '[0-9a-f-]{36}'}; default [^/]+
+        locale_scope: routes     # routes (1.11 default) | global (1.10 behaviour) | none
         layout_template: null    # null = nowo_ui_kit.layouts.admin (UiKit page contract)
         # css_framework: deprecated since 1.10 — set nowo_ui_kit.css_framework instead
         default_locale: en
@@ -21,6 +23,15 @@ nowo_api_studio:
         access_roles: [ROLE_ADMIN]
         allow_unauthenticated: false
         # access_checker: App\Security\MyApiStudioAccessChecker
+        # permission_checker: App\ApiStudio\MyPermissionChecker   # 1.11: per-workspace, per-action decisions
+    tenancy:                     # 1.11
+        enabled: false           # literal boolean; maps tenant_type / tenant_id on the workspace table
+        # resolver: App\ApiStudio\MyTenantResolver               # required when enabled
+    history:
+        scope: endpoint          # endpoint | user (maps executed_by)
+        # actor_resolver: App\ApiStudio\MyActorResolver
+    scripts:
+        mode: inline             # inline | disabled
     execution_url_allowlist_required: false
     execution_url_allowlist: []
     execution_max_redirects: 0
@@ -46,6 +57,8 @@ nowo_api_studio:
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
 | `ui.layout_template` | Layout the Api Studio pages (UiKit page scaffolds) extend. `null` (default; the 1.x default `@NowoApiStudioBundle/layout.html.twig` reads as null) = `nowo_ui_kit.layouts.admin`, configured once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that only renders `{% block body %}` is wrapped in a deprecated bridge (removed in 2.0). Twig global `nowo_api_studio_layout_template`. See [TEMPLATES.md](TEMPLATES.md#layout). |
 | `ui.css_framework` | **Deprecated since 1.10** (default `null`): the CSS stack is `nowo_ui_kit.css_framework`. When set (and the host did not set `nowo_ui_kit.css_framework` / `nowo_form_kit.css_framework`), it still seeds UiKit (`css_framework`, `icon_set: bootstrap-icons`) and FormKit, and triggers a deprecation. The bundle loads no CSS framework (no CDN). |
+| `ui.path_requirements` | **1.11.** Requirements of the `{placeholders}` of `ui.path` (a placeholder without one matches `[^/]+`). Placeholder names must be lowercase identifiers and not a route parameter of the bundle (`id`, `workspaceId`, `serviceId`, `endpointId`, `environmentId`, `exampleId`, `format`, `_locale`…); an entry for an unknown name fails the build. On an Api Studio request the placeholder values become router-context defaults, so every link the bundle generates carries them; elsewhere the host passes them. Requirements set on the host's route import still apply. |
+| `ui.locale_scope` | **1.11.** Which requests get the Api Studio UI locale (session key `_nowo_api_studio_locale`): `routes` (default) = Api Studio routes only; `global` = every request of the host (1.10 behaviour); `none` = never (the host owns the locale). |
 | `ui.default_locale` | Default UI/documentation locale (default `en`). |
 | `ui.locales` | Enabled UI/documentation locales. |
 | `ui.request_timeout_seconds` | HTTP client timeout (`timeout` + `max_duration`) for the request console, SOAP included (1–300, default `30`). Innermost deadline for outbound calls; keep PHP/`max_execution_time` and FrankenPHP/Caddy write limits **above** this value (see [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md)). |
@@ -59,6 +72,12 @@ nowo_api_studio:
 | `execution_max_redirects` | Redirects followed when executing requests (default `0`: 3xx responses are returned as-is). Followed hops are still blocked from private networks but are not re-checked against the allowlist. Applies to the SOAP call and WSDL download too; a cross-host hop drops `Authorization`/`Cookie` but forwards custom headers (e.g. an API key header), see [USAGE.md — SOAP services](USAGE.md#soap-services). |
 | `execution_max_response_bytes` | Largest response body read from a remote API, SOAP endpoint or WSDL / XSD document (default 10 MiB, minimum 1024); a bigger transfer is cancelled and the request fails with a clear error. |
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
+| `security.permission_checker` | **1.11.** Service id implementing `ApiStudioPermissionCheckerInterface`: `isGranted(?user, ApiStudioAction, ApiStudioSubject)` and `visibleWorkspaceIds(?user, tenant)`. Not viewable workspaces answer 404, viewable ones without the action 403, and pages hide forbidden actions. Null = everything granted to whoever passes the role / access checks (1.10 behaviour). See [USAGE.md — Tenants and permissions](USAGE.md#tenants-and-permissions). |
+| `tenancy.enabled` | **1.11.** Workspaces belong to a tenant resolved per request; lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per tenant. Maps `tenant_type` / `tenant_id` (and swaps the slug index): a migration. Literal boolean. Default `false` (no schema change). |
+| `tenancy.resolver` | **1.11.** Service id implementing `ApiStudioTenantResolverInterface` (required with tenancy). A null tenant answers 404. |
+| `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
+| `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
+| `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. Changing it (or `kernel.secret`) makes the stored secrets unreadable: they fail closed (never sent or exported, shown as *Needs re-entry*). `nowo:api-studio:secrets:status` lists them. |
 

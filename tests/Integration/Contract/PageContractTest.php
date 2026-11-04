@@ -141,6 +141,8 @@ final class PageContractTest extends PageContractTestCase
         $twig->addFunction(new TwigFunction('api_studio_nav_tree', ApiStudioPageFixtures::navigationTree(...)));
         $twig->addFunction(new TwigFunction('api_studio_method_class', static fn (string $method): string => 'as-method-' . strtolower($method)));
         $twig->addFunction(new TwigFunction('api_studio_var', static fn (string $key): string => '{{' . $key . '}}'));
+        $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_enabled', static fn (): bool => true));
+        $twig->addFunction(new TwigFunction('nowo_api_studio_can', static fn (): bool => true));
         $twig->addGlobal('nowo_api_studio_locales', ['es', 'en']);
         $twig->addGlobal(ApiStudioExtension::GLOBAL_LAYOUT_TEMPLATE, null);
         $twig->addGlobal(ApiStudioExtension::GLOBAL_CSS_FRAMEWORK, null);

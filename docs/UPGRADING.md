@@ -72,6 +72,25 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+### 1.11.0 (opt-in host hooks)
+
+- **Locale**: `ui.locale_scope` now defaults to `routes`. The Api Studio locale (session) is applied to Api Studio
+  routes only, not to the host's own pages. Set `global` to keep the 1.10 behaviour.
+- **Tenancy / per-user history** are opt-in and need a migration when enabled (see
+  [USAGE.md — Tenants and permissions](USAGE.md#tenants-and-permissions)); with the defaults the schema is unchanged.
+- **Permissions**: with `security.permission_checker` unset everything stays granted. Hosts that wrapped the bundle
+  with their own route guard and Doctrine filter can move the decisions into a checker and a tenant resolver.
+- **Placeholders**: `attr.placeholder` of the service base URL and the variable key fields are translation keys
+  (`api_service_form.base_url.placeholder`, `api_environment_variable_form.variable_key.placeholder`) with an
+  `%example%` parameter; overridden themes see strings.
+- **Routing**: `routes.yaml` now imports a route loader; host imports keep working and the route names and paths are
+  the same. Placeholders in `ui.path` get `[^/]+` unless `ui.path_requirements` says otherwise.
+- New optional constructor arguments (appended): `ApiStudioPageFactory`, `StudioNavigationProvider`,
+  `ApiStudioExtension` (Twig), `DemoSeedService`, `SeedDemoCommand`, `TablePrefixSubscriber`, `ApiStudioAccessSubscriber`,
+  `LocaleSubscriber`. `ApiWorkspaceRepository::navigationRows()` takes an optional scope.
+
+### 1.10.1
+
 No configuration or schema change.
 
 - **Duplicate slugs** now answer 422 with a form error instead of a 500 (workspace, service, environment, endpoint).

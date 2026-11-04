@@ -40,4 +40,35 @@ final class LocaleSubscriberTest extends TestCase
         $subscriber->onKernelRequest(new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
         self::assertSame('es', $request->getLocale());
     }
+
+    public function testRoutesScopeOnlyTouchesApiStudioRoutesAndNoneNeverDoes(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $stack   = new RequestStack();
+        $current = new Request();
+        $current->setSession($session);
+        $stack->push($current);
+        $manager = new LocaleManager($stack, ['en', 'es'], 'en');
+        $manager->setLocale('es');
+        $kernel = $this->createStub(HttpKernelInterface::class);
+
+        $host = new Request(attributes: ['_route' => 'app_home']);
+        $host->setLocale('fr');
+        $studio   = new Request(attributes: ['_route' => 'nowo_api_studio_dashboard']);
+        $unrouted = new Request();
+        $unrouted->setLocale('fr');
+
+        $routes = new LocaleSubscriber($manager, LocaleSubscriber::SCOPE_ROUTES);
+        foreach ([$host, $studio, $unrouted] as $request) {
+            $routes->onKernelRequest(new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
+        }
+        self::assertSame('fr', $host->getLocale(), 'Host pages keep their locale.');
+        self::assertSame('fr', $unrouted->getLocale());
+        self::assertSame('es', $studio->getLocale());
+
+        $other = new Request(attributes: ['_route' => 'nowo_api_studio_dashboard']);
+        $other->setLocale('fr');
+        (new LocaleSubscriber($manager, LocaleSubscriber::SCOPE_NONE))->onKernelRequest(new RequestEvent($kernel, $other, HttpKernelInterface::MAIN_REQUEST));
+        self::assertSame('fr', $other->getLocale(), 'none: the host owns the locale.');
+    }
 }

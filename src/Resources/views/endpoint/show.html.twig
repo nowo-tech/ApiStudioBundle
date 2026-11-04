@@ -38,8 +38,8 @@
                  data-endpoint-path="{{ endpoint.path|e('html_attr') }}"
                  data-query-params="{{ endpoint.queryParams|json_encode|e('html_attr') }}"
                  data-merged-headers="{{ mergedHeaders|json_encode|e('html_attr') }}"
-                 data-service-pre-script="{{ service.preRequestScript|default('')|e('html_attr') }}"
-                 data-service-post-script="{{ service.postRequestScript|default('')|e('html_attr') }}"
+                 data-service-pre-script="{{ nowo_api_studio_scripts_enabled() ? service.preRequestScript|default('')|e('html_attr') : '' }}"
+                 data-service-post-script="{{ nowo_api_studio_scripts_enabled() ? service.postRequestScript|default('')|e('html_attr') : '' }}"
                  data-default-body="{{ endpoint.requestBodyTemplate|default('')|e('html_attr') }}"
                  data-save-request-url="{{ saveRequestExampleUrl|e('html_attr') }}"
                  data-save-response-url="{{ saveResponseExampleUrl|e('html_attr') }}"
@@ -68,7 +68,7 @@
                      data-empty-description="{{ 'endpoint.doc_empty'|trans({}, 'NowoApiStudioBundle')|e('html_attr') }}">
                     <div class="as-doc-panel-head">
                         <span class="as-doc-panel-actions">
-                            <button type="button" id="endpoint-doc-edit" class="as-btn as-btn-ghost">{{ 'endpoint.doc_edit'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            {% if nowo_api_studio_can('workspace.edit', workspace) %}<button type="button" id="endpoint-doc-edit" class="as-btn as-btn-ghost">{{ 'endpoint.doc_edit'|trans({}, 'NowoApiStudioBundle') }}</button>{% endif %}
                             <button type="button" id="endpoint-doc-save" class="as-btn as-btn-primary" hidden>{{ 'action.save'|trans({}, 'NowoApiStudioBundle') }}</button>
                             <button type="button" id="endpoint-doc-cancel" class="as-btn" hidden>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
                         </span>
@@ -114,9 +114,9 @@
                     <span class="as-env-select">{{ form_label(testerForm.environment) }}{{ form_widget(testerForm.environment) }}</span>
                     {{ form_widget(testerForm.urlDisplay) }}
                     <span id="tester-url-unresolved" class="as-var-warning" hidden title="{{ 'tester.unresolved_vars'|trans({}, 'NowoApiStudioBundle') }}">⚠</span>
-                    <span class="as-persist-vars">{{ form_widget(testerForm.persistVariables) }} {{ form_label(testerForm.persistVariables) }}</span>
-                    <button type="button" id="tester-send" class="as-btn as-btn-primary">{{ 'tester.send'|trans({}, 'NowoApiStudioBundle') }}</button>
-                    <button type="button" id="tester-save-request" class="as-btn" title="{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}</button>
+                    {% if nowo_api_studio_can('workspace.edit', workspace) %}<span class="as-persist-vars">{{ form_widget(testerForm.persistVariables) }} {{ form_label(testerForm.persistVariables) }}</span>{% endif %}
+                    {% if nowo_api_studio_can('workspace.run', workspace) %}<button type="button" id="tester-send" class="as-btn as-btn-primary">{{ 'tester.send'|trans({}, 'NowoApiStudioBundle') }}</button>{% endif %}
+                    {% if nowo_api_studio_can('workspace.edit', workspace) %}<button type="button" id="tester-save-request" class="as-btn" title="{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_request'|trans({}, 'NowoApiStudioBundle') }}</button>{% endif %}
                 </div>
 
                 <div class="as-console-split">
@@ -126,8 +126,10 @@
                             <button type="button" class="as-subtab" data-subtab="params">{{ 'tester.tab.params'|trans({}, 'NowoApiStudioBundle') }}</button>
                             <button type="button" class="as-subtab" data-subtab="headers">{{ 'tester.tab.headers'|trans({}, 'NowoApiStudioBundle') }}</button>
                             <button type="button" class="as-subtab" data-subtab="variables">{{ 'tester.tab.variables'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            {% if nowo_api_studio_scripts_enabled() %}
                             <button type="button" class="as-subtab" data-subtab="pre">{{ 'tester.tab.pre_script'|trans({}, 'NowoApiStudioBundle') }}</button>
                             <button type="button" class="as-subtab" data-subtab="post">{{ 'tester.tab.post_script'|trans({}, 'NowoApiStudioBundle') }}</button>
+                            {% endif %}
                             <button type="button" class="as-subtab" data-subtab="docs">{{ 'tester.tab.docs'|trans({}, 'NowoApiStudioBundle') }}</button>
                         </div>
                         <div class="as-panel-body">
@@ -200,6 +202,7 @@
                                 <p class="as-hint">{{ 'tester.variables_scope'|trans({}, 'NowoApiStudioBundle') }}</p>
                                 {{ include('@NowoApiStudioBundle/_variable_catalog.html.twig', {variableCatalog: variableCatalog, environments: environments, workspace: workspace, bundle: page.bundle}, false) }}
                             </div>
+                            {% if nowo_api_studio_scripts_enabled() %}
                             <div class="as-subpanel" data-subpanel="pre">
                                 <p class="as-hint">{{ 'tester.pre_script_hint'|trans({}, 'NowoApiStudioBundle') }}</p>
                                 {% if service.preRequestScript %}
@@ -216,6 +219,9 @@
                                 {% endif %}
                                 {{ form_widget(testerForm.postScript) }}
                             </div>
+                            {% elseif service.preRequestScript or service.postRequestScript or endpoint.preRequestScript or endpoint.postRequestScript %}
+                            <p class="as-hint" data-testid="api-studio-scripts-disabled">{{ 'tester.scripts_disabled'|trans({}, 'NowoApiStudioBundle') }}</p>
+                            {% endif %}
                             <div class="as-subpanel" data-subpanel="docs">
                                 <div class="as-doc-summary">
                                     <strong class="as-examples-heading">{{ 'endpoint.doc_summary'|trans({}, 'NowoApiStudioBundle') }}</strong>
@@ -276,7 +282,7 @@
                             <span id="tester-status">{{ 'tester.response_placeholder'|trans({}, 'NowoApiStudioBundle') }}</span>
                             <span id="tester-duration" class="as-muted"></span>
                             <span class="as-response-meta-actions">
-                                <button type="button" id="tester-save-response" class="as-btn" disabled title="{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}</button>
+                                {% if nowo_api_studio_can('workspace.edit', workspace) %}<button type="button" id="tester-save-response" class="as-btn" disabled title="{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}">{{ 'examples.save_response'|trans({}, 'NowoApiStudioBundle') }}</button>{% endif %}
                             </span>
                         </div>
                         <div class="as-response-tabs">

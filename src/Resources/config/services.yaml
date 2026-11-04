@@ -35,6 +35,24 @@ services:
             $enabledLocales: '%nowo_api_studio.ui.locales%'
             $defaultLocale: '%nowo_api_studio.ui.default_locale%'
 
+    Nowo\ApiStudioBundle\Routing\ApiStudioRouteLoader:
+        arguments:
+            $path: '%nowo_api_studio.ui.path%'
+            $localesRequirement: '%nowo_api_studio.ui.locales_requirement%'
+            $placeholders: '%nowo_api_studio.ui.path_placeholders%'
+            $requirements: '%nowo_api_studio.ui.path_requirements%'
+            $env: '%kernel.environment%'
+        tags: ['routing.loader']
+
+    Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener:
+        arguments:
+            $router: '@router'
+            $placeholders: '%nowo_api_studio.ui.path_placeholders%'
+
+    Nowo\ApiStudioBundle\EventListener\LocaleSubscriber:
+        arguments:
+            $scope: '%nowo_api_studio.ui.locale_scope%'
+
     Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer:
         arguments:
             $defaultEnvironmentNames: '%nowo_api_studio.environments%'
@@ -61,6 +79,7 @@ services:
         arguments:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $cssFramework: '%nowo_api_studio.ui.css_framework%'
+            $scriptsMode: '%nowo_api_studio.scripts.mode%'
 
     # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
     Nowo\ApiStudioBundle\Ui\ApiStudioPages:
@@ -71,6 +90,7 @@ services:
     Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
         arguments:
             $tablePrefix: '%nowo_api_studio.table_prefix%'
+            $tenancy: '%nowo_api_studio.tenancy.enabled%'
 
     Nowo\ApiStudioBundle\Security\SecretValueCipher:
         arguments:

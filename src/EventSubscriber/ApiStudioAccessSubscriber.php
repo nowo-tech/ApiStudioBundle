@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\EventSubscriber;
 
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioRouteActions;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -43,6 +46,7 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
         private ?ApiStudioAccessCheckerInterface $accessChecker = null,
         private ?TokenStorageInterface $tokenStorage = null,
         private bool $allowUnauthenticated = false,
+        private ?ApiStudioAuthorization $authorization = null,
     ) {
     }
 
@@ -97,6 +101,30 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
 
         $this->checkRoles();
         $this->checkAccessChecker();
+        $this->checkRouteAction($event->getRequest());
+    }
+
+    /**
+     * Deny by default: a bundle route without an entry in {@see ApiStudioRouteActions::MAP} answers 404. Every route
+     * needs `studio.open` (else 404) and the creation page `workspace.create` (else 403); workspace actions are checked
+     * by the controllers once the workspace is loaded.
+     */
+    private function checkRouteAction(Request $request): void
+    {
+        if (!$this->authorization instanceof ApiStudioAuthorization) {
+            return;
+        }
+
+        $route  = (string) $request->attributes->get('_route');
+        $action = ApiStudioRouteActions::actionFor($route);
+        if (!$action instanceof ApiStudioAction) {
+            throw new NotFoundHttpException(sprintf('Api Studio route "%s" has no action mapping.', $route));
+        }
+
+        $this->authorization->denyUnlessGranted(ApiStudioAction::StudioOpen);
+        if ($action === ApiStudioAction::WorkspaceCreate) {
+            $this->authorization->denyUnlessGranted(ApiStudioAction::WorkspaceCreate);
+        }
     }
 
     private function checkRoles(): void

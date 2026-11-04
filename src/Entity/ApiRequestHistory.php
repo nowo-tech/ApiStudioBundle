@@ -32,6 +32,9 @@ class ApiRequestHistory
     #[ORM\Column(name: 'executed_at', type: Types::DATETIME_IMMUTABLE)]
     private DateTimeImmutable $executedAt;
 
+    /** Opaque id of who executed the request, mapped (`executed_by`) only with `nowo_api_studio.history.scope: user`. */
+    private ?string $executedBy = null;
+
     #[ORM\Column(name: 'request_url', type: Types::STRING, length: 2048)]
     private string $requestUrl;
 
@@ -72,6 +75,19 @@ class ApiRequestHistory
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getExecutedBy(): ?string
+    {
+        return $this->executedBy;
+    }
+
+    public function setExecutedBy(?string $executedBy): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->executedBy = $executedBy;
+
+        return $this;
     }
 
     public function getEndpoint(): ?ApiEndpoint

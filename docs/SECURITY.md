@@ -86,6 +86,7 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   that references one is not sent, 422 `secret_unreadable`), never exported (`null`), never re-saved as ciphertext.
   `nowo:api-studio:secrets:status` lists their ids. Changing `secrets.encryption_key` / `kernel.secret` without a
   rotation makes every stored secret unreadable this way.
+- **Per-workspace access** (1.11): with `security.permission_checker` a host restricts who may view, run, edit, import or export each workspace (variable exports hold secret values in clear: `workspace.export_variables`), and with `tenancy` each tenant only sees its own workspaces (404 otherwise). Without them:
 - **Secrets are readable by every Api Studio user** (no per-workspace ACL): through exports (clear values, by design), by sending a request to a host they control, or by a browser script reading `pm.environment` after a request (scripts get the placeholder, not the value, but can exfiltrate what the upstream answers). Encryption protects the database at rest, not the UI.
 - Browser scripts (`new Function`) run unsandboxed in the Api Studio origin (see above).
 

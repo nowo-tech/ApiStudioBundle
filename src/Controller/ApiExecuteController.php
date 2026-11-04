@@ -15,6 +15,9 @@ use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
@@ -22,7 +25,10 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function array_key_exists;
 use function is_array;
@@ -34,6 +40,19 @@ use function mb_substr;
 #[Route(path: '/execute', name: 'nowo_api_studio_')]
 final class ApiExecuteController extends AbstractController
 {
+    use AuthorizesTrait;
+
+    /**
+     * @return array<string|SubscribedService>
+     */
+    public static function getSubscribedServices(): array
+    {
+        return parent::getSubscribedServices() + [
+            ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+        ];
+    }
+
     public function __construct(
         private readonly ApiEndpointRepository $endpointRepository,
         private readonly ApiEnvironmentRepository $environmentRepository,
@@ -53,6 +72,15 @@ final class ApiExecuteController extends AbstractController
         $endpoint = $this->endpointRepository->find($id);
         if (!$endpoint instanceof ApiEndpoint) {
             return new JsonResponse(['error' => 'Endpoint not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        // The endpoint's workspace: outside the scope or not viewable → 404, viewable but not runnable → 403.
+        try {
+            $this->authorization()->requireWorkspace($endpoint->getService()?->getWorkspace(), ApiStudioAction::WorkspaceRun);
+        } catch (NotFoundHttpException) {
+            return new JsonResponse(['error' => 'Endpoint not found.'], Response::HTTP_NOT_FOUND);
+        } catch (AccessDeniedHttpException) {
+            return new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN);
         }
 
         $payload = json_decode($request->getContent(), true);
@@ -143,6 +171,9 @@ final class ApiExecuteController extends AbstractController
 
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
+        if ($this->historyScope()->isPerUser()) {
+            $history->setExecutedBy($this->historyScope()->actorId($this->authorization()->user()));
+        }
         $history->setEnvironment($environment);
         // request_url is VARCHAR(2048): truncate instead of losing the history row (and the response) to a DB error.
         $history->setRequestUrl(mb_substr($this->historySanitizer->sanitizeUrl($result->requestUrl, $authNames, $secretValues), 0, 2048));

@@ -6,19 +6,24 @@ namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedEvent;
+use Nowo\ApiStudioBundle\Event\ApiWorkspaceDeletedEvent;
 use Nowo\ApiStudioBundle\Form\ApiWorkspaceFormType;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer;
 use Nowo\UiKitBundle\View\Pagination;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Throwable;
 
 #[Route(path: '/workspaces', name: 'nowo_api_studio_workspace_')]
 final class ApiWorkspaceController extends AbstractController
 {
     use ApiStudioPageTrait;
+    use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
     use SlugConflictTrait;
 
@@ -34,11 +39,12 @@ final class ApiWorkspaceController extends AbstractController
     public function index(Request $request): Response
     {
         // REQ-PERF-001: paginated list (ui.list_page_size rows per page).
-        $total      = $this->repository->count([]);
+        $scope      = $this->authorization()->scope();
+        $total      = $this->repository->countInScope($scope);
         $totalPages = max(1, (int) ceil($total / $this->listPageSize));
         $page       = min(max(1, $request->query->getInt('page', 1)), $totalPages);
 
-        $workspaces = $this->repository->findBy([], ['name' => 'ASC'], $this->listPageSize, ($page - 1) * $this->listPageSize);
+        $workspaces = $this->repository->findInScope($scope, $this->listPageSize, ($page - 1) * $this->listPageSize);
 
         return $this->renderPage('@NowoApiStudioBundle/workspace/index.html.twig', [
             'page' => $this->pages()->workspaceIndex(
@@ -51,17 +57,32 @@ final class ApiWorkspaceController extends AbstractController
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
-        $workspace = new ApiWorkspace('New workspace', 'new_workspace');
+        $tenant    = $this->authorization()->tenant();
+        $workspace = (new ApiWorkspace('New workspace', 'new_workspace'))->assignTenant($tenant);
         $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->environmentInitializer->initialize($workspace);
             $this->entityManager->persist($workspace);
-            if ($this->flushUnlessSlugTaken($form)) {
-                $this->flash('success', 'flash.created');
+            // The created event runs inside the transaction: a host listener writes atomically with the workspace.
+            $connection = $this->entityManager->getConnection();
+            $connection->beginTransaction();
+            try {
+                if ($this->flushUnlessSlugTaken($form)) {
+                    $this->dispatchEvent(new ApiWorkspaceCreatedEvent($workspace, $tenant, $this->authorization()->user()));
+                    $connection->commit();
+                    $this->flash('success', 'flash.created');
 
-                return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
+                    return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
+                }
+                $connection->rollBack();
+            } catch (Throwable $e) {
+                if ($connection->isTransactionActive()) {
+                    $connection->rollBack();
+                }
+
+                throw $e;
             }
         }
 
@@ -84,7 +105,7 @@ final class ApiWorkspaceController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $id): Response
     {
-        $workspace = $this->requireWorkspace($id);
+        $workspace = $this->requireWorkspace($id, ApiStudioAction::WorkspaceManage);
         $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace);
         $form->handleRequest($request);
 
@@ -109,7 +130,7 @@ final class ApiWorkspaceController extends AbstractController
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $id): Response
     {
-        $workspace = $this->requireWorkspace($id);
+        $workspace = $this->requireWorkspace($id, ApiStudioAction::WorkspaceManage);
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
         if (!$this->isCsrfOnlyFormValid($request, 'delete' . $workspace->getId())) {
@@ -122,19 +143,19 @@ final class ApiWorkspaceController extends AbstractController
             return $this->redirectToRoute('nowo_api_studio_workspace_edit', ['id' => $id]);
         }
 
+        $workspaceId = (int) $workspace->getId();
+        $tenant      = $workspace->getTenant();
         $this->entityManager->remove($workspace);
         $this->entityManager->flush();
+        $this->dispatchEvent(new ApiWorkspaceDeletedEvent($workspaceId, $tenant));
         $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_workspace_index');
     }
 
-    private function requireWorkspace(int $id): ApiWorkspace
+    private function requireWorkspace(int $id, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiWorkspace
     {
-        $workspace = $this->repository->find($id);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
-        }
+        $workspace = $this->authorization()->requireWorkspace($this->repository->find($id), $action);
 
         return $workspace;
     }

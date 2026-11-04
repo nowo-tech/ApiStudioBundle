@@ -18,6 +18,8 @@ use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 
 /**
  * Seeds reference API catalog: JSONPlaceholder, LinkedIn, Google Translate, Catastro SOAP, etc.
@@ -28,13 +30,15 @@ final class DemoSeedService
         private readonly EntityManagerInterface $entityManager,
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly ApiServiceRepository $serviceRepository,
+        private readonly ?ApiStudioTenantContext $tenantContext = null,
     ) {
     }
 
     public function seed(bool $fresh = false): void
     {
         if ($fresh) {
-            foreach ($this->workspaceRepository->findAll() as $existing) {
+            // With tenancy only the current tenant's workspaces are removed.
+            foreach ($this->workspaceRepository->findBy($this->tenantCriteria()) as $existing) {
                 $this->entityManager->remove($existing);
             }
 
@@ -55,7 +59,7 @@ final class DemoSeedService
 
     private function ensureReferenceWorkspace(): ApiWorkspace
     {
-        $workspace = $this->workspaceRepository->findOneBy(['slug' => 'demo']);
+        $workspace = $this->workspaceRepository->findOneBy(['slug' => 'demo'] + $this->tenantCriteria());
         if ($workspace instanceof ApiWorkspace) {
             $workspace->setName('APIs de referencia');
             $workspace->setDescription(
@@ -67,13 +71,30 @@ final class DemoSeedService
             return $workspace;
         }
 
-        $workspace = new ApiWorkspace('APIs de referencia', 'demo');
+        $workspace = (new ApiWorkspace('APIs de referencia', 'demo'))->assignTenant($this->tenantContext?->current() ?? ApiStudioTenant::instance());
+        // @igor-ignore - New Doctrine entity built by the seeder; not a shared service.
         $workspace->setDescription(
             'Catálogo demo con APIs públicas documentadas: JSONPlaceholder, LinkedIn, Google Translate, Catastro.',
         );
         $this->entityManager->persist($workspace);
 
         return $workspace;
+    }
+
+    /**
+     * Doctrine criteria of the current tenant (empty without tenancy: the columns are not mapped).
+     *
+     * @return array<string, string>
+     */
+    private function tenantCriteria(): array
+    {
+        if ($this->tenantContext?->isEnabled() !== true) {
+            return [];
+        }
+
+        $tenant = $this->tenantContext->current();
+
+        return ['tenantType' => $tenant->type, 'tenantId' => $tenant->id];
     }
 
     private function ensureEnvironments(ApiWorkspace $workspace): void

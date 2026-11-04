@@ -10,6 +10,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Form\ApiServiceFormType;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ApiServiceController extends AbstractController
 {
     use ApiStudioPageTrait;
+    use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
     use SlugConflictTrait;
 
@@ -44,12 +46,12 @@ final class ApiServiceController extends AbstractController
     #[Route('/new', name: 'new', requirements: ['workspaceId' => '\d+'], methods: ['GET', 'POST'])]
     public function new(Request $request, int $workspaceId): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $service   = new ApiService('New service', 'new_service');
         // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $workspace->addService($service);
 
-        $form = $this->createForm(ApiServiceFormType::class, $service);
+        $form = $this->createForm(ApiServiceFormType::class, $service, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -87,9 +89,9 @@ final class ApiServiceController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $workspaceId, int $id): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $service   = $this->requireService($id, $workspace);
-        $form      = $this->createForm(ApiServiceFormType::class, $service);
+        $form      = $this->createForm(ApiServiceFormType::class, $service, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -121,7 +123,7 @@ final class ApiServiceController extends AbstractController
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $workspaceId, int $id): Response
     {
-        $workspace = $this->requireWorkspace($workspaceId);
+        $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $service   = $this->requireService($id, $workspace);
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
@@ -154,12 +156,9 @@ final class ApiServiceController extends AbstractController
         return $this->generateUrl('nowo_api_studio_workspace_show', ['id' => $workspaceId]);
     }
 
-    private function requireWorkspace(int $id): ApiWorkspace
+    private function requireWorkspace(int $id, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiWorkspace
     {
-        $workspace = $this->workspaceRepository->find($id);
-        if (!$workspace instanceof ApiWorkspace) {
-            throw $this->createNotFoundException('Workspace not found.');
-        }
+        $workspace = $this->authorization()->requireWorkspace($this->workspaceRepository->find($id), $action);
 
         return $workspace;
     }

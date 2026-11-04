@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Service;
 
 use BackedEnum;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 use function array_values;
@@ -22,6 +23,7 @@ final class StudioNavigationProvider
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly ?ApiStudioAuthorization $authorization = null,
     ) {
     }
 
@@ -30,7 +32,8 @@ final class StudioNavigationProvider
     {
         /** @var array<int, array<string, mixed>> $tree workspace id => node (services keyed by id while building) */
         $tree = [];
-        foreach ($this->workspaceRepository->navigationRows() as $row) {
+        // Only the workspaces the current request may see (tenant + visible ids).
+        foreach ($this->workspaceRepository->navigationRows($this->authorization?->scope()) as $row) {
             $wid = $row['wid'];
             $tree[$wid] ??= [
                 'id'       => $wid,

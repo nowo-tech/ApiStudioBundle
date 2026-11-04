@@ -41,8 +41,11 @@ final class ApiEndpointFormType extends AbstractType
         $this->addWithDefaults($builder, 'headers', JsonMapType::class, ['required' => false, 'label' => 'field.headers']);
         $this->addWithDefaults($builder, 'queryParams', JsonMapType::class, ['required' => false, 'label' => 'field.query_params']);
         $this->addTextarea($builder, 'requestBodyTemplate', ['required' => false]);
-        $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
-        $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+        // Scripts run in other users' browsers: only with workspace.edit_scripts (option `scripts`, default true).
+        if ($options['scripts']) {
+            $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+            $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 8, 'class' => 'as-code-input']]);
+        }
         $this->addInteger($builder, 'sortOrder', []);
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
         $this->addWithDefaults($builder, 'translations', CollectionType::class, [
@@ -76,6 +79,7 @@ final class ApiEndpointFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
+            'scripts'            => true,
             'data_class'         => ApiEndpoint::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
