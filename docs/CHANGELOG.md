@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.10.1] - 2026-11-04](#1101---2026-11-04)
 - [[1.10.0] - 2026-10-30](#1100---2026-10-30)
 - [[1.9.2] - 2026-10-29](#192---2026-10-29)
 - [[1.9.1] - 2026-10-28](#191---2026-10-28)
@@ -53,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-04
+
 ### Fixed
 
 - **Duplicate slugs give a form error (422), never a 500.** Workspaces (unique in the instance), services and
@@ -83,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `nowo:api-studio:secrets:status [--format=text|json]`: read-only report of the secret variables (plain, encrypted,
   cannot be decrypted, with the ids of the latter, never values). Exit code 1 when any secret cannot be decrypted, for
   deploy checks.
+
+[1.10.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.10.1
 
 ## [1.10.0] - 2026-10-30
 
