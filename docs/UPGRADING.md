@@ -72,6 +72,22 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+No configuration or schema change.
+
+- **Duplicate slugs** now answer 422 with a form error instead of a 500 (workspace, service, environment, endpoint).
+  A host that de-duplicated slugs itself (for example by suffixing `-2` in a Doctrine listener before validation) keeps
+  working unchanged.
+- **Secrets that cannot be decrypted fail closed.** Run `bin/console nowo:api-studio:secrets:status` after deploying:
+  it lists the ids of secret variables the configured key cannot open (exit code 1). Those variables show *Needs
+  re-entry*; requests that use them are not sent, and exports carry `null`. Enter the values again, or restore the key
+  they were written with (`nowo_api_studio.secrets.encryption_key`, default `kernel.secret`). Before this release such
+  values were sent upstream as ciphertext and wrapped in a second encryption on save. Such a doubly wrapped row is now
+  recognised: it is unwrapped when the key opens the inner payload, and flagged *Needs re-entry* otherwise.
+- `ApiEnvironmentVariable::getValue()` returns `''` for an unreadable secret; `ApiEnvironment::getVariableMap()` leaves
+  it out (`getUnreadableVariableKeys()` lists them). `ApiExecutionResult` has two appended constructor arguments
+  (`errorCode`, `unreadableVariables`); `toArray()` adds `error_code` and `unreadable_variables` only when set.
+- `SecretVariableEncryptionListener` takes an optional logger (appended argument).
+
 ## To 1.10.0
 
 From **1.9.2**:

@@ -16,6 +16,7 @@ use function str_starts_with;
 use function strlen;
 use function substr;
 
+use const SODIUM_CRYPTO_SECRETBOX_MACBYTES;
 use const SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
 
 /**
@@ -41,6 +42,22 @@ final class SecretValueCipher
     public function isEncrypted(string $value): bool
     {
         return str_starts_with($value, self::PREFIX);
+    }
+
+    /**
+     * True when a decrypted value is itself a well-formed payload (prefix, base64, at least a nonce and a MAC): what
+     * releases before 1.10.1 stored when they encrypted an undecryptable payload a second time. A value a user typed
+     * that merely starts with the prefix is not one.
+     */
+    public function isWrappedPayload(string $value): bool
+    {
+        if (!$this->isEncrypted($value)) {
+            return false;
+        }
+
+        $raw = base64_decode(substr($value, strlen(self::PREFIX)), true);
+
+        return $raw !== false && strlen($raw) >= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES + SODIUM_CRYPTO_SECRETBOX_MACBYTES;
     }
 
     /**

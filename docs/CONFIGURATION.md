@@ -60,7 +60,7 @@ nowo_api_studio:
 | `execution_max_response_bytes` | Largest response body read from a remote API, SOAP endpoint or WSDL / XSD document (default 10 MiB, minimum 1024); a bigger transfer is cancelled and the request fails with a clear error. |
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
-| `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. |
+| `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. Changing it (or `kernel.secret`) makes the stored secrets unreadable: they fail closed (never sent or exported, shown as *Needs re-entry*). `nowo:api-studio:secrets:status` lists them. |
 
 ### Host `access_control` example
 

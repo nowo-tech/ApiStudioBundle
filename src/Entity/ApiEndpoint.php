@@ -11,6 +11,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
+use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
 /**
@@ -19,6 +20,7 @@ use SortDirection;
 #[ORM\Entity(repositoryClass: ApiEndpointRepository::class)]
 #[ORM\Table(name: 'endpoint')]
 #[ORM\UniqueConstraint(name: 'uniq_endpoint_service_slug', columns: ['service_id', 'slug'])]
+#[UniqueSlug(scope: 'service')]
 class ApiEndpoint
 {
     #[ORM\Id]

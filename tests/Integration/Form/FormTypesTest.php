@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Integration\Form;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Tools\SchemaTool;
+use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
@@ -47,6 +50,13 @@ final class FormTypesTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+        // The slug uniqueness check (UniqueSlug) queries the tables: an empty in-memory schema.
+        $doctrine = self::getContainer()->get('doctrine');
+        self::assertInstanceOf(ManagerRegistry::class, $doctrine);
+        $em = $doctrine->getManager();
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        (new SchemaTool($em))->createSchema($em->getMetadataFactory()->getAllMetadata());
+
         $factory = self::getContainer()->get('form.factory');
         self::assertInstanceOf(FormFactoryInterface::class, $factory);
         $this->factory = $factory;

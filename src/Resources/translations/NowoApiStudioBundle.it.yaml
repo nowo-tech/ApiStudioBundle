@@ -232,3 +232,8 @@ variables.secret_unchanged: 'Segreto: lascia vuoto per mantenere il valore salva
 workspace.delete_title: 'Elimina workspace'
 workspace.delete_warning: '"%name%" verrà eliminato definitivamente con tutti i servizi, endpoint, ambienti e segreti. Questa azione non può essere annullata.'
 workspace.delete_confirmation_mismatch: 'Il nome di conferma non corrisponde. Il workspace non è stato eliminato.'
+slug.taken: 'Lo slug "%slug%" è già usato qui. Scegline un altro.'
+variables.needs_reentry: 'Da reinserire'
+variables.needs_reentry_help: 'Questo valore non può essere decifrato con la chiave attuale. Inseriscilo di nuovo (fino ad allora le richieste che lo usano non vengono inviate).'
+variables.needs_reentry_count: 'Variabili segrete che non possono essere decifrate con la chiave attuale: %count%. Inseriscile di nuovo; le richieste che le usano non vengono inviate.'
+variables.unreadable_unsecret_refused: 'Questo segreto non può essere decifrato: inserisci di nuovo il valore prima di deselezionare "Segreto".'

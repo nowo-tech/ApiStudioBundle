@@ -13,6 +13,7 @@ use Doctrine\Persistence\Event\LifecycleEventArgs;
 use Doctrine\Persistence\ObjectManager;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Security\SecretValueCipher;
+use Psr\Log\LoggerInterface;
 
 use function is_string;
 
@@ -20,6 +21,10 @@ use function is_string;
  * Encrypts secret environment variable values before flush; decrypts after load and after flush.
  *
  * Managed entities always hold the plaintext value in memory; only the database row holds ciphertext.
+ *
+ * Fail closed: a stored payload that the configured key cannot open (another key, corrupt row) marks the variable
+ * unreadable ({@see ApiEnvironmentVariable::isUnreadable()}). Its payload is never encrypted again, never handed out
+ * (not sent, not exported) and stays byte-identical in the row until someone re-enters the value.
  */
 #[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::postPersist)]
@@ -32,6 +37,7 @@ final class SecretVariableEncryptionListener
     public function __construct(
         private readonly SecretValueCipher $cipher,
         private readonly bool $enabled,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -61,7 +67,7 @@ final class SecretVariableEncryptionListener
         $uow      = $em->getUnitOfWork();
         $metadata = $em->getClassMetadata(ApiEnvironmentVariable::class);
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entity) {
-            if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret()) {
+            if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret() || $entity->isUnreadable()) {
                 continue;
             }
 
@@ -82,7 +88,7 @@ final class SecretVariableEncryptionListener
     public function preUpdate(PreUpdateEventArgs $args): void
     {
         $entity = $this->secretVariable($args);
-        if (!$entity instanceof ApiEnvironmentVariable || !$args->hasChangedField('value')) {
+        if (!$entity instanceof ApiEnvironmentVariable || $entity->isUnreadable() || !$args->hasChangedField('value')) {
             return;
         }
 
@@ -119,22 +125,43 @@ final class SecretVariableEncryptionListener
     }
 
     /**
+     * Decrypts the loaded payload of a secret variable — also with encryption turned off, so a payload written while it
+     * was on is never handed out as a value. A payload the key cannot open marks the variable unreadable (fail closed).
+     *
      * @param LifecycleEventArgs<ObjectManager> $args
      */
     private function decryptIfNeeded(LifecycleEventArgs $args): void
     {
-        $entity = $this->secretVariable($args);
-        if (!$entity instanceof ApiEnvironmentVariable) {
+        $entity = $args->getObject();
+        if (!$entity instanceof ApiEnvironmentVariable || !$entity->isSecret() || $entity->isUnreadable()) {
             return;
         }
 
-        // A value this key cannot decrypt (other key, corrupt row) stays as stored instead of failing every request
-        // that loads the environment; it is re-encrypted on the next save.
-        $plain = $this->cipher->tryDecrypt($entity->getValue());
+        $stored = $entity->getStoredValue();
+        if (!$this->cipher->isEncrypted($stored)) {
+            return;
+        }
+
+        $plain = $this->cipher->tryDecrypt($stored);
+        // Releases before 1.10.1 encrypted an unreadable payload a second time on save: its plaintext is itself a
+        // payload. Unwrap it when the key opens it, else it is unreadable too (never sent as a value).
+        if ($plain !== null && $this->cipher->isWrappedPayload($plain)) {
+            $plain = $this->cipher->tryDecrypt($plain);
+        }
         if ($plain !== null) {
             // @igor-ignore - Not shared worker service state.
             $entity->setValue($plain);
+
+            return;
         }
+
+        $entity->markUnreadable();
+        $this->logger?->warning('Api Studio secret variable cannot be decrypted with the configured key: it needs re-entry and is never sent.', [
+            'bundle'         => 'api-studio',
+            'action'         => 'secret_unreadable',
+            'variable_id'    => $entity->getId(),
+            'environment_id' => $entity->getEnvironment()?->getId(),
+        ]);
     }
 
     /**

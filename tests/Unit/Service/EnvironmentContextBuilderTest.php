@@ -11,6 +11,8 @@ use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
+use function array_intersect_key;
+
 final class EnvironmentContextBuilderTest extends TestCase
 {
     private EnvironmentContextBuilder $builder;
@@ -29,7 +31,9 @@ final class EnvironmentContextBuilderTest extends TestCase
         $workspace->addEnvironment($sandbox);
 
         $production = new ApiEnvironment('Production', 'production');
-        $production->addVariable(new ApiEnvironmentVariable('api_key', 'prod-key'));
+        $unreadable = (new ApiEnvironmentVariable('api_key', 'nowo_as_enc_v1:payload'))->setSecret(true);
+        $unreadable->markUnreadable();
+        $production->addVariable($unreadable);
         $production->addVariable(new ApiEnvironmentVariable('extra', 'only-prod'));
         $workspace->addEnvironment($production);
 
@@ -38,6 +42,15 @@ final class EnvironmentContextBuilderTest extends TestCase
         self::assertCount(2, $catalog);
         self::assertSame('api_key', $catalog[0]['key']);
         self::assertSame('extra', $catalog[1]['key']);
+        self::assertTrue($catalog[0]['needs_reentry'], 'Unreadable in one environment: flagged in the catalogue.');
+        self::assertFalse($catalog[1]['needs_reentry']);
+        self::assertSame([], self::readable($production));
+    }
+
+    /** @return array<string, string> */
+    private static function readable(ApiEnvironment $environment): array
+    {
+        return array_intersect_key($environment->getVariableMap(), ['api_key' => true]);
     }
 
     public function testBuildMapsSkipsUnsavedEnvironmentsAndResolvesMaps(): void

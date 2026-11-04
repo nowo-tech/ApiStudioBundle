@@ -42,24 +42,29 @@ final class EnvironmentContextBuilder
     /**
      * Variable keys available in the workspace (union of all environments).
      *
-     * @return list<array{key: string, secret: bool, description: ?string}>
+     * `needs_reentry`: a secret with this key cannot be decrypted in at least one environment.
+     *
+     * @return list<array{key: string, secret: bool, description: ?string, needs_reentry: bool}>
      */
     public function buildVariableCatalog(ApiWorkspace $workspace): array
     {
-        /** @var array<string, array{key: string, secret: bool, description: ?string}> $catalog */
+        /** @var array<string, array{key: string, secret: bool, description: ?string, needs_reentry: bool}> $catalog */
         $catalog = [];
 
         foreach ($workspace->getEnvironments() as $environment) {
             foreach ($environment->getVariables() as $variable) {
                 $key = $variable->getVariableKey();
                 if (isset($catalog[$key])) {
+                    $catalog[$key]['needs_reentry'] = $catalog[$key]['needs_reentry'] || $variable->isUnreadable();
+
                     continue;
                 }
 
                 $catalog[$key] = [
-                    'key'         => $key,
-                    'secret'      => $variable->isSecret(),
-                    'description' => $variable->getDescription(),
+                    'key'           => $key,
+                    'secret'        => $variable->isSecret(),
+                    'description'   => $variable->getDescription(),
+                    'needs_reentry' => $variable->isUnreadable(),
                 ];
             }
         }

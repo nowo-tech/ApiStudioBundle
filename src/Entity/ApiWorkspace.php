@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
 /**
@@ -18,6 +19,7 @@ use SortDirection;
 #[ORM\Entity(repositoryClass: ApiWorkspaceRepository::class)]
 #[ORM\Table(name: 'workspace')]
 #[ORM\UniqueConstraint(name: 'uniq_workspace_slug', columns: ['slug'])]
+#[UniqueSlug]
 class ApiWorkspace
 {
     #[ORM\Id]

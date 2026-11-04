@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableResolver;
@@ -151,6 +152,66 @@ final class RequestExecutorTest extends TestCase
         self::assertSame([], $this->calls);
         self::assertSame('error', $this->logs[0][0]);
         self::assertSame('(unknown)', $this->logs[0][2]['host']);
+    }
+
+    public function testRequestNeedingAnUnreadableSecretIsNeverSent(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $environment->addVariable(new ApiEnvironmentVariable('host', self::BASE));
+        $token = (new ApiEnvironmentVariable('token', 'nowo_as_enc_v1:payload'))->setSecret(true);
+        $token->markUnreadable();
+        $environment->addVariable($token);
+        $endpoint = $this->endpoint('{{host}}', '/me');
+        $endpoint->getService()?->setAuthType(AuthType::Bearer)->setAuthConfig(['token' => '{{token}}']);
+
+        $result = $this->executor()->execute($endpoint, $environment);
+
+        self::assertSame([], $this->calls, 'Nothing is sent for a secret that cannot be decrypted.');
+        self::assertFalse($result->success);
+        self::assertSame(ApiExecutionResult::ERROR_SECRET_UNREADABLE, $result->errorCode);
+        self::assertSame(['token'], $result->unreadableVariables);
+        self::assertStringContainsString('{{token}}', (string) $result->errorMessage);
+        self::assertStringNotContainsString('payload', (string) $result->errorMessage);
+        self::assertSame('GET', $result->requestMethod);
+        self::assertSame('execute_secret_unreadable', $this->logs[0][2]['action']);
+    }
+
+    public function testUnreadableSecretThatIsNotReferencedOrIsOverriddenDoesNotBlock(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $token       = (new ApiEnvironmentVariable('token', 'nowo_as_enc_v1:payload'))->setSecret(true);
+        $token->markUnreadable();
+        $environment->addVariable($token);
+
+        $result = $this->executor()->execute($this->endpoint(self::BASE, '/open'), $environment);
+        self::assertTrue($result->success, 'Not referenced: the request runs.');
+
+        $endpoint = $this->endpoint(self::BASE, '/me')->setHeaders(['Authorization' => 'Bearer {{token}}']);
+        $result   = $this->executor()->execute($endpoint, $environment, variables: ['token' => 'typed-in-console']);
+        self::assertTrue($result->success, 'A value typed in the console is used.');
+        self::assertSame('Bearer typed-in-console', $result->requestHeaders['Authorization']);
+    }
+
+    public function testReferencedVariablesFollowTheRequestPrecedence(): void
+    {
+        $endpoint = $this->endpoint('{{host}}', '/{{path}}')
+            ->setQueryParams(['q' => '{{query}}'])
+            ->setHeaders(['X-E' => '{{ endpoint_header }}'])
+            ->setRequestBodyTemplate('{"a": "{{body}}"}');
+        $service = $endpoint->getService();
+        self::assertInstanceOf(ApiService::class, $service);
+        $service->setDefaultHeaders(['X-S' => '{{service_header}}'])
+            ->setAuthType(AuthType::Basic)
+            ->setAuthConfig(['username' => '{{user}}', 'nested' => ['password' => '{{pass}}'], 'port' => 8080]);
+
+        self::assertSame(
+            ['host', 'path', 'body', 'query', 'service_header', 'endpoint_header', 'user', 'pass'],
+            RequestExecutor::referencedVariables($endpoint, $service),
+        );
+        self::assertSame(
+            ['host', 'path', 'override_body', 'override_query', 'override_header', 'user', 'pass'],
+            RequestExecutor::referencedVariables($endpoint, $service, '{{override_body}}', ['X-O' => '{{override_header}}'], ['q' => '{{override_query}}'], true, true),
+        );
     }
 
     private function endpoint(string $baseUrl, string $path): ApiEndpoint

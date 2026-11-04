@@ -82,6 +82,10 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 - **Outbound HTTP** (`RequestExecutor`) logs start/finish/failure with method + host only (no Authorization / body dumps) via `LoggerInterface` (REQ-OBS-001).
 - **Empty allowlist** is blocked in production by Flex `when@prod` (`execution_url_allowlist_required: true`); non-prod default remains BC-safe `false`.
 - Legacy plaintext secret rows decrypt as-is until the next save re-encrypts them.
+- **Secrets the configured key cannot decrypt fail closed** (1.10.1): flagged *Needs re-entry*, never sent (a request
+  that references one is not sent, 422 `secret_unreadable`), never exported (`null`), never re-saved as ciphertext.
+  `nowo:api-studio:secrets:status` lists their ids. Changing `secrets.encryption_key` / `kernel.secret` without a
+  rotation makes every stored secret unreadable this way.
 - **Secrets are readable by every Api Studio user** (no per-workspace ACL): through exports (clear values, by design), by sending a request to a host they control, or by a browser script reading `pm.environment` after a request (scripts get the placeholder, not the value, but can exfiltrate what the upstream answers). Encryption protects the database at rest, not the UI.
 - Browser scripts (`new Function`) run unsandboxed in the Api Studio origin (see above).
 

@@ -84,4 +84,14 @@ final class SecretValueCipherTest extends TestCase
         self::assertNull($cipher->tryDecrypt((new SecretValueCipher('other-key'))->encrypt('x')));
         self::assertSame('plain', $cipher->tryDecrypt('plain'));
     }
+
+    public function testWrappedPayloadDetection(): void
+    {
+        $cipher = new SecretValueCipher('placeholder-key-material');
+
+        self::assertTrue($cipher->isWrappedPayload($cipher->encrypt('x')));
+        self::assertFalse($cipher->isWrappedPayload('nowo_as_enc_v1:edited'), 'Typed by a user: too short to be a payload.');
+        self::assertFalse($cipher->isWrappedPayload('nowo_as_enc_v1:***'), 'Not base64.');
+        self::assertFalse($cipher->isWrappedPayload('plain'));
+    }
 }

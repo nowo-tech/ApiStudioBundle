@@ -23,12 +23,18 @@ final class EnvironmentVariableExporter
     {
         $variables = [];
         foreach ($environment->getVariables() as $variable) {
-            $variables[] = [
+            $row = [
                 'key'         => VariableSyntax::formatKey($variable->getVariableKey()),
                 'value'       => $variable->getValue(),
                 'secret'      => $variable->isSecret(),
                 'description' => $variable->getDescription(),
             ];
+            // A secret that cannot be decrypted is exported without a value (never its payload): it needs re-entry.
+            if ($variable->isUnreadable()) {
+                $row['value']         = null;
+                $row['needs_reentry'] = true;
+            }
+            $variables[] = $row;
         }
 
         return [
@@ -121,6 +127,11 @@ final class EnvironmentVariableExporter
                 $description = $variable->getDescription();
                 if ($description !== null && $description !== '') {
                     $lines[] = '# ' . self::comment($description);
+                }
+                if ($variable->isUnreadable()) {
+                    $lines[] = '# ' . $key . ': needs re-entry (cannot be decrypted)';
+
+                    continue;
                 }
                 $value = self::envValue($variable->getValue());
                 if ($value === null) {

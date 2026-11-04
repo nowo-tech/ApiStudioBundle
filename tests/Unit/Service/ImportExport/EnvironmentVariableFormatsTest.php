@@ -163,6 +163,42 @@ final class EnvironmentVariableFormatsTest extends TestCase
         self::assertSame(['only' => '1'], $dev->getVariableMap());
     }
 
+    public function testUnreadableSecretIsExportedWithoutAnyValue(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $token       = (new ApiEnvironmentVariable('token', 'nowo_as_enc_v1:payload'))->setSecret(true)->setDescription('Partner token');
+        $token->markUnreadable();
+        $environment->addVariable($token);
+        $environment->addVariable(new ApiEnvironmentVariable('host', 'https://example.test'));
+        $exporter = new EnvironmentVariableExporter(new DocumentParser());
+
+        $data = $exporter->exportEnvironment($environment);
+        self::assertSame(['key' => '{{token}}', 'value' => null, 'secret' => true, 'description' => 'Partner token', 'needs_reentry' => true], $data['variables'][0]);
+        self::assertArrayNotHasKey('needs_reentry', $data['variables'][1]);
+
+        $dotEnv = $exporter->render($environment, 'env');
+        self::assertSame("# API Studio environment export\n# Environment: Dev\n# Partner token\n# TOKEN: needs re-entry (cannot be decrypted)\nHOST='https://example.test'\n", $dotEnv);
+        foreach (['json', 'yaml', 'env'] as $format) {
+            self::assertStringNotContainsString('nowo_as_enc_', $exporter->render($environment, $format));
+        }
+    }
+
+    public function testImportedRowThatNeedsReentryChangesNothing(): void
+    {
+        $environment = new ApiEnvironment('Dev', 'dev');
+        $environment->addVariable((new ApiEnvironmentVariable('token', 'kept'))->setSecret(true));
+        $importer = new EnvironmentVariableImporter(new DocumentParser(), $this->createStub(EntityManagerInterface::class));
+
+        $result = $importer->importIntoEnvironment($environment, (string) json_encode(['variables' => [
+            ['key' => '{{token}}', 'value' => null, 'secret' => true, 'needs_reentry' => true],
+            ['key' => '{{missing}}', 'value' => null, 'secret' => true, 'needs_reentry' => true],
+            ['key' => '{{fresh}}', 'value' => 'v', 'needs_reentry' => true],
+        ]], JSON_THROW_ON_ERROR), 'merge', 'vars.json');
+
+        self::assertSame(1, $result->variablesCreated, 'Only the row with a value is imported.');
+        self::assertSame(['token' => 'kept', 'fresh' => 'v'], $environment->getVariableMap());
+    }
+
     /**
      * @return array{ApiWorkspace, ApiEnvironment, ApiEnvironment}
      */

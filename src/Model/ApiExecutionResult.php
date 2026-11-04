@@ -9,9 +9,13 @@ namespace Nowo\ApiStudioBundle\Model;
  */
 final class ApiExecutionResult
 {
+    /** The request referenced a secret variable that cannot be decrypted: nothing was sent (fail closed). */
+    public const ERROR_SECRET_UNREADABLE = 'secret_unreadable';
+
     /**
      * @param array<string, string> $requestHeaders
      * @param array<string, string> $responseHeaders
+     * @param list<string> $unreadableVariables keys of the unreadable secret variables the request needed
      */
     public function __construct(
         public readonly string $requestUrl,
@@ -24,13 +28,15 @@ final class ApiExecutionResult
         public readonly int $durationMs,
         public readonly bool $success,
         public readonly ?string $errorMessage = null,
+        public readonly ?string $errorCode = null,
+        public readonly array $unreadableVariables = [],
     ) {
     }
 
     /** @return array<string, mixed> */
     public function toArray(): array
     {
-        return [
+        $data = [
             'request_url'      => $this->requestUrl,
             'request_method'   => $this->requestMethod,
             'request_headers'  => $this->requestHeaders,
@@ -42,5 +48,11 @@ final class ApiExecutionResult
             'success'          => $this->success,
             'error_message'    => $this->errorMessage,
         ];
+        if ($this->errorCode !== null) {
+            $data['error_code']           = $this->errorCode;
+            $data['unreadable_variables'] = $this->unreadableVariables;
+        }
+
+        return $data;
     }
 }

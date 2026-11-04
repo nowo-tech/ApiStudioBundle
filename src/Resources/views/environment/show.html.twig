@@ -3,7 +3,7 @@
   ApiStudioPageFactory::environmentShow(): header = environment name / slug with Import variables and Edit;
   breadcrumbs; section export (JSON, YAML, .env links)). Also: environment (ApiEnvironment: its variables).
   Blocks filled: nowo_ui_styles, nowo_ui_show_sections (variables table, then the export section); secret values are
-  masked.
+  masked, and a secret the configured key cannot decrypt shows "Needs re-entry" (plus a count above the table).
 #}
 {% extends '@NowoUiKit/page/show.html.twig' %}
 {% trans_default_domain 'NowoApiStudioBundle' %}
@@ -18,6 +18,10 @@
     <section class="{{ nowo_ui_class('card', _b) }}" data-testid="api-studio-environment-variables"{{ nowo_ui_attrs('card', _b) }}>
         <header class="{{ nowo_ui_class('card_header', _b) }}"><h2 class="{{ nowo_ui_class('card_title', _b) }}">{{ 'variables.section_title'|trans }}</h2></header>
         <div class="{{ nowo_ui_class('card_body', _b) }}">
+            {% set _unreadable = environment.unreadableVariableKeys|length %}
+            {% if _unreadable > 0 %}
+                <p class="{{ nowo_ui_class('muted', _b) }}" data-testid="api-studio-environment-needs-reentry"><span class="{{ nowo_ui_class('badge_danger', _b) }}">{{ 'variables.needs_reentry'|trans }}</span> {{ 'variables.needs_reentry_count'|trans({'%count%': _unreadable}) }}</p>
+            {% endif %}
             <div class="{{ nowo_ui_class('table_wrap', _b) }}">
                 <table class="{{ nowo_ui_class('table', _b) }}">
                     <thead class="{{ nowo_ui_class('table_head', _b) }}">
@@ -31,7 +35,7 @@
                     {% for variable in environment.variables %}
                         <tr class="{{ nowo_ui_class('table_row', _b) }}">
                             <td class="{{ nowo_ui_class('table_cell', _b) }}"><code class="{{ nowo_ui_class('code', _b) }}">{{ api_studio_var(variable.variableKey) }}</code></td>
-                            <td class="{{ nowo_ui_class('table_cell', _b) }}">{% if variable.secret %}••••••{% else %}{{ variable.value }}{% endif %}</td>
+                            <td class="{{ nowo_ui_class('table_cell', _b) }}">{% if variable.unreadable %}<span class="{{ nowo_ui_class('badge_danger', _b) }}" data-testid="api-studio-variable-needs-reentry">{{ 'variables.needs_reentry'|trans }}</span>{% elseif variable.secret %}••••••{% else %}{{ variable.value }}{% endif %}</td>
                             <td class="{{ nowo_ui_class('table_cell', _b) }}">{{ (variable.secret ? 'common.yes' : 'common.no')|trans }}</td>
                         </tr>
                     {% else %}

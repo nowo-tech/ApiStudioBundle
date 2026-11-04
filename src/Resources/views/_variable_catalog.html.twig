@@ -1,5 +1,6 @@
 {#
-  Workspace variable catalogue (placeholder, description, secret flag) and links to the environments that hold the
+  Workspace variable catalogue (placeholder, description, secret flag, "needs re-entry" when a secret cannot be
+  decrypted in some environment) and links to the environments that hold the
   values. Variables: variableCatalog, environments, workspace; optional bundle.
 #}
 {% set bundle = bundle|default(null) %}
@@ -17,7 +18,7 @@
             <tr class="{{ nowo_ui_class('table_row', bundle) }}">
                 <td class="{{ nowo_ui_class('table_cell', bundle) }}"><code class="{{ nowo_ui_class('code', bundle) }} as-var">{{ api_studio_var(item.key) }}</code></td>
                 <td class="{{ nowo_ui_class('table_cell', bundle) }}">{{ item.description ?? '—' }}</td>
-                <td class="{{ nowo_ui_class('table_cell', bundle) }}">{% if item.secret %}<span class="{{ nowo_ui_class('badge_warning', bundle) }}">{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}</td>
+                <td class="{{ nowo_ui_class('table_cell', bundle) }}">{% if item.secret %}<span class="{{ nowo_ui_class('badge_warning', bundle) }}">{{ 'field.secret'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}{% if item.needs_reentry|default(false) %} <span class="{{ nowo_ui_class('badge_danger', bundle) }}">{{ 'variables.needs_reentry'|trans({}, 'NowoApiStudioBundle') }}</span>{% endif %}</td>
             </tr>
         {% else %}
             <tr class="{{ nowo_ui_class('table_row', bundle) }}"><td colspan="3" class="{{ nowo_ui_class('table_cell_muted', bundle) }}">{{ 'empty.variables'|trans({}, 'NowoApiStudioBundle') }}</td></tr>

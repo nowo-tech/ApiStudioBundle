@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
@@ -170,7 +171,10 @@ final class ApiExecuteController extends AbstractController
             $data['response_body']    = $this->historySanitizer->sanitizeBody($result->responseBody, $secretValues);
         }
 
-        return new JsonResponse($data);
+        // Fail closed (secret that cannot be decrypted): nothing was sent; the console shows the error message.
+        $status = $result->errorCode === ApiExecutionResult::ERROR_SECRET_UNREADABLE ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+
+        return new JsonResponse($data, $status);
     }
 
     /**

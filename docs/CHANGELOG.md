@@ -53,6 +53,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Duplicate slugs give a form error (422), never a 500.** Workspaces (unique in the instance), services and
+  environments (unique in their workspace) and endpoints (unique in their service) carry a `UniqueSlug` class
+  constraint: the form shows "The slug … is already used here" with a 422. That includes saving a second new workspace
+  with the default `new_workspace` slug. A slug taken by another request between validation and flush is caught on the
+  unique index and shown the same way.
+- **A secret that cannot be decrypted fails closed.** A stored `nowo_as_enc_v1:` payload that the configured key cannot
+  open (another key, for example after `APP_SECRET` changed, or a corrupt row) was kept in memory as the variable's
+  value: it was sent upstream as the secret, exported, and wrapped in a second encryption on the next save. Now the
+  variable is flagged *needs re-entry* (`ApiEnvironmentVariable::isUnreadable()`), its value is `''`, and the payload is
+  never handed out:
+  - a request that references it (base URL, path, query, headers, body or auth configuration) is **not sent**: the
+    console gets a 422 with `error_code: secret_unreadable` and the variable names, and the failure is in the history;
+    a value typed in the console for that variable is used, and requests that do not reference it run normally;
+  - saving the environment keeps the stored payload byte-identical (the empty write-only field means "unchanged");
+    entering a new value replaces it; unchecking *Secret* is refused until the value is entered again;
+  - JSON / YAML exports write `"value": null, "needs_reentry": true`, the `.env` export a comment line instead of an
+    assignment; importing such a row changes nothing;
+  - the environment page, the variable catalogue and the variable form show *Needs re-entry*; a warning is logged with
+    the variable and environment ids (no value).
+  A row that an earlier release wrapped twice is unwrapped when the key opens the inner payload, and flagged
+  otherwise. With `secrets.encrypt: false`, payloads written while encryption was on are still decrypted (or flagged)
+  on load instead of being used as values.
+
+### Added
+
+- `nowo:api-studio:secrets:status [--format=text|json]`: read-only report of the secret variables (plain, encrypted,
+  cannot be decrypted, with the ids of the latter, never values). Exit code 1 when any secret cannot be decrypted, for
+  deploy checks.
+
 ## [1.10.0] - 2026-10-30
 
 UiKit page contract, opt-in routes, 99.9% coverage gate, FormKit page types; security: .env export no longer executes stored values (GHSA pending), secrets as placeholders, response size cap, literal security switches. See [UPGRADING](UPGRADING.md#to-1100).

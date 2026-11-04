@@ -21,6 +21,7 @@ final class ApiServiceController extends AbstractController
 {
     use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
+    use SlugConflictTrait;
 
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
@@ -53,13 +54,14 @@ final class ApiServiceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($service);
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.created');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.created');
 
-            return $this->redirectToRoute('nowo_api_studio_service_show', [
-                'workspaceId' => $workspaceId,
-                'id'          => $service->getId(),
-            ]);
+                return $this->redirectToRoute('nowo_api_studio_service_show', [
+                    'workspaceId' => $workspaceId,
+                    'id'          => $service->getId(),
+                ]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/service/form.html.twig', [
@@ -91,13 +93,14 @@ final class ApiServiceController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.updated');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.updated');
 
-            return $this->redirectToRoute('nowo_api_studio_service_show', [
-                'workspaceId' => $workspaceId,
-                'id'          => $id,
-            ]);
+                return $this->redirectToRoute('nowo_api_studio_service_show', [
+                    'workspaceId' => $workspaceId,
+                    'id'          => $id,
+                ]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/service/form.html.twig', [

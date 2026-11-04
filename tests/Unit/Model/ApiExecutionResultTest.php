@@ -36,4 +36,14 @@ final class ApiExecutionResultTest extends TestCase
             'error_message'    => null,
         ], $result->toArray());
     }
+
+    public function testErrorCodeAndUnreadableVariablesAreAddedOnlyWhenSet(): void
+    {
+        $result = new ApiExecutionResult('', 'GET', [], null, null, [], null, 0, false, 'not sent', ApiExecutionResult::ERROR_SECRET_UNREADABLE, ['token']);
+
+        $data = $result->toArray();
+        self::assertSame('secret_unreadable', $data['error_code']);
+        self::assertSame(['token'], $data['unreadable_variables']);
+        self::assertSame('not sent', $data['error_message']);
+    }
 }
