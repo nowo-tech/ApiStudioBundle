@@ -232,3 +232,8 @@ variables.secret_unchanged: 'Geheim: laat leeg om de opgeslagen waarde te behoud
 workspace.delete_title: 'Werkruimte verwijderen'
 workspace.delete_warning: '"%name%" wordt definitief verwijderd met alle services, endpoints, omgevingen en geheimen. Dit kan niet ongedaan worden gemaakt.'
 workspace.delete_confirmation_mismatch: 'De bevestigingsnaam komt niet overeen. De werkruimte is niet verwijderd.'
+slug.taken: 'De slug "%slug%" wordt hier al gebruikt. Kies een andere.'
+variables.needs_reentry: 'Opnieuw invoeren'
+variables.needs_reentry_help: 'Deze waarde kan niet worden ontsleuteld met de huidige sleutel. Voer haar opnieuw in (tot dan worden verzoeken die haar gebruiken niet verzonden).'
+variables.needs_reentry_count: 'Geheime variabelen die niet met de huidige sleutel kunnen worden ontsleuteld: %count%. Voer ze opnieuw in; verzoeken die ze gebruiken worden niet verzonden.'
+variables.unreadable_unsecret_refused: 'Dit geheim kan niet worden ontsleuteld: voer de waarde opnieuw in voordat je "Geheim" uitvinkt.'

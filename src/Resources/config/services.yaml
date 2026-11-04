@@ -80,6 +80,7 @@ services:
         arguments:
             $cipher: '@Nowo\ApiStudioBundle\Security\SecretValueCipher'
             $enabled: '%nowo_api_studio.secrets.encrypt%'
+            $logger: '@?logger'
 
     # Form Kit injects FormOptionsMerger into tagged form types (FormOptionsMergerInjectorCompilerPass).
     Nowo\ApiStudioBundle\Form\:

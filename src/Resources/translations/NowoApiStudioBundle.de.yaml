@@ -232,3 +232,8 @@ variables.secret_unchanged: 'Geheim: leer lassen, um den gespeicherten Wert zu b
 workspace.delete_title: 'Arbeitsbereich löschen'
 workspace.delete_warning: '"%name%" wird mit allen Diensten, Endpunkten, Umgebungen und Geheimnissen endgültig gelöscht. Dies kann nicht rückgängig gemacht werden.'
 workspace.delete_confirmation_mismatch: 'Der Bestätigungsname stimmt nicht überein. Der Arbeitsbereich wurde nicht gelöscht.'
+slug.taken: 'Der Slug "%slug%" wird hier bereits verwendet. Wähle einen anderen.'
+variables.needs_reentry: 'Neu eingeben'
+variables.needs_reentry_help: 'Dieser Wert kann mit dem aktuellen Schlüssel nicht entschlüsselt werden. Gib ihn erneut ein (bis dahin werden Anfragen, die ihn verwenden, nicht gesendet).'
+variables.needs_reentry_count: 'Geheime Variablen, die mit dem aktuellen Schlüssel nicht entschlüsselt werden können: %count%. Gib sie erneut ein; Anfragen, die sie verwenden, werden nicht gesendet.'
+variables.unreadable_unsecret_refused: 'Dieses Geheimnis kann nicht entschlüsselt werden: Gib den Wert erneut ein, bevor du "Geheim" abwählst.'

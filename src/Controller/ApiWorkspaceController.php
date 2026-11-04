@@ -20,6 +20,7 @@ final class ApiWorkspaceController extends AbstractController
 {
     use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
+    use SlugConflictTrait;
 
     public function __construct(
         private readonly ApiWorkspaceRepository $repository,
@@ -57,10 +58,11 @@ final class ApiWorkspaceController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->environmentInitializer->initialize($workspace);
             $this->entityManager->persist($workspace);
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.created');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.created');
 
-            return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
+                return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/workspace/form.html.twig', [
@@ -87,10 +89,11 @@ final class ApiWorkspaceController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.updated');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.updated');
 
-            return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $id]);
+                return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $id]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/workspace/form.html.twig', [

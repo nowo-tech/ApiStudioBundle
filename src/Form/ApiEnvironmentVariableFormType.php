@@ -20,6 +20,8 @@ use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Translation\StaticMessage;
+use Symfony\Component\Validator\Constraints\Callback;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 use function is_array;
 use function is_string;
@@ -43,7 +45,19 @@ final class ApiEnvironmentVariableFormType extends AbstractType
         ]);
         // An empty value is a valid (empty) variable, not null.
         $this->addText($builder, 'value', ['required' => false, 'empty_data' => '']);
-        $this->addCheckbox($builder, 'secret', ['required' => false]);
+        $this->addCheckbox($builder, 'secret', [
+            'required' => false,
+            // An unreadable secret cannot be turned into a plain value (its payload would show): re-enter it first.
+            'constraints' => [new Callback(static function (mixed $value, ExecutionContextInterface $context): void {
+                $field    = $context->getObject();
+                $variable = $field instanceof FormInterface ? $field->getParent()?->getData() : null;
+                if ($variable instanceof ApiEnvironmentVariable && $variable->isSecretChangeRefused()) {
+                    $context->buildViolation('variables.unreadable_unsecret_refused')
+                        ->setTranslationDomain(ApiStudioBundle::TRANSLATION_DOMAIN)
+                        ->addViolation();
+                }
+            })],
+        ]);
         $this->addText($builder, 'description', ['required' => false]);
 
         // Secret values are write-only in the UI: the field is a password input that starts empty, and an empty
@@ -52,11 +66,12 @@ final class ApiEnvironmentVariableFormType extends AbstractType
             $variable = $event->getData();
             if ($variable instanceof ApiEnvironmentVariable && $variable->isSecret()) {
                 $event->getForm()->add('value', PasswordType::class, [
-                    'required'           => false,
-                    'empty_data'         => '',
-                    'always_empty'       => true,
-                    'label'              => 'api_environment_variable_form.value.label',
-                    'help'               => 'variables.secret_unchanged',
+                    'required'     => false,
+                    'empty_data'   => '',
+                    'always_empty' => true,
+                    'label'        => 'api_environment_variable_form.value.label',
+                    // A value the configured key cannot decrypt is never shown or sent: it needs re-entry.
+                    'help'               => $variable->isUnreadable() ? 'variables.needs_reentry_help' : 'variables.secret_unchanged',
                     'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
                     'attr'               => ['class' => 'nowo-ui-input', 'autocomplete' => 'new-password'],
                 ]);

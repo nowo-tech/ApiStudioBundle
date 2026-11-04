@@ -17,12 +17,22 @@ use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Security\SecretValueCipher;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
+use Stringable;
 
+use function base64_encode;
 use function dirname;
 use function extension_loaded;
+use function hash;
+use function json_encode;
+use function random_bytes;
+use function sodium_crypto_secretbox;
+use function str_repeat;
 use function sys_get_temp_dir;
 
 use const PHP_VERSION_ID;
+use const SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
 
 final class SecretVariableEncryptionListenerTest extends TestCase
 {
@@ -191,7 +201,116 @@ final class SecretVariableEncryptionListenerTest extends TestCase
         $loaded = $em->find(ApiEnvironmentVariable::class, $id);
 
         self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
-        self::assertSame('nowo_as_enc_v1:corrupt', $loaded->getValue(), 'Kept as stored instead of a 500.');
+        self::assertTrue($loaded->isUnreadable(), 'Loads (no 500) and is flagged for re-entry.');
+        self::assertSame('', $loaded->getValue(), 'The payload is never handed out as a value.');
+        self::assertSame('nowo_as_enc_v1:corrupt', $loaded->getStoredValue());
+        $environment = $loaded->getEnvironment();
+        self::assertInstanceOf(ApiEnvironment::class, $environment);
+        self::assertSame([], $environment->getVariableMap());
+        self::assertSame(['api_token'], $environment->getUnreadableVariableKeys());
+    }
+
+    public function testUnreadableSecretIsNeverWrappedAgainWhenTheVariableIsSaved(): void
+    {
+        [$em, $loaded] = $this->loadUnreadable('nowo_as_enc_v1:' . base64_encode(str_repeat('x', 40)));
+        $before        = $this->storedValue($em, $loaded);
+
+        // Another field changes and the write-only secret field submits '' ("unchanged"): the payload stays as is.
+        $loaded->setDescription('rotated key?');
+        $loaded->setValue('');
+        $em->flush();
+
+        self::assertSame($before, $this->storedValue($em, $loaded), 'Byte-identical: never re-encrypted as ciphertext.');
+        self::assertTrue($loaded->isUnreadable());
+        self::assertSame('rotated key?', $loaded->getDescription());
+    }
+
+    public function testReenteredValueReplacesTheUnreadablePayload(): void
+    {
+        [$em, $loaded] = $this->loadUnreadable('nowo_as_enc_v1:corrupt');
+
+        $loaded->setValue('fresh-value');
+        $em->flush();
+
+        self::assertFalse($loaded->isUnreadable());
+        self::assertSame('fresh-value', $loaded->getValue());
+        self::assertSame('fresh-value', $this->cipher->decrypt($this->storedValue($em, $loaded)));
+    }
+
+    public function testUnreadableSecretCannotBeTurnedIntoAPlainValue(): void
+    {
+        [$em, $loaded] = $this->loadUnreadable('nowo_as_enc_v1:corrupt');
+
+        $loaded->setSecret(false);
+        $em->flush();
+
+        self::assertTrue($loaded->isSecret());
+        self::assertTrue($loaded->isSecretChangeRefused());
+        self::assertSame('nowo_as_enc_v1:corrupt', $this->storedValue($em, $loaded));
+    }
+
+    public function testUnreadableSecretIsLoggedWithoutItsValue(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<array{string, array<string, mixed>}> */
+            public array $logs = [];
+
+            /** @param array<string, mixed> $context */
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->logs[] = [(string) $message, $context];
+            }
+        };
+
+        $this->loadUnreadable('nowo_as_enc_v1:corrupt', true, $logger);
+
+        self::assertCount(1, $logger->logs);
+        self::assertSame('secret_unreadable', $logger->logs[0][1]['action']);
+        self::assertStringNotContainsString('corrupt', (string) json_encode($logger->logs));
+    }
+
+    public function testPayloadsAreDecryptedOrFlaggedWithEncryptionTurnedOff(): void
+    {
+        [, $loaded] = $this->loadUnreadable($this->cipher->encrypt('still-readable'), false);
+        self::assertFalse($loaded->isUnreadable());
+        self::assertSame('still-readable', $loaded->getValue(), 'A payload is never sent as the value, even with encryption off.');
+
+        [, $broken] = $this->loadUnreadable('nowo_as_enc_v1:corrupt', false);
+        self::assertTrue($broken->isUnreadable());
+    }
+
+    public function testPayloadWrappedTwiceByAnOlderReleaseIsUnwrappedOrFlagged(): void
+    {
+        // Outer layer built by hand: encrypt() returns a payload of its own key unchanged.
+        $nonce         = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        $outer         = SecretValueCipher::PREFIX . base64_encode($nonce . sodium_crypto_secretbox($this->cipher->encrypt('inner-value'), $nonce, hash('sha256', 'test-key-material', true)));
+        [, $recovered] = $this->loadUnreadable($outer, true);
+        self::assertFalse($recovered->isUnreadable());
+        self::assertSame('inner-value', $recovered->getValue());
+
+        $wrappedForeign = $this->cipher->encrypt((new SecretValueCipher('placeholder-old-key'))->encrypt('lost'));
+        // encrypt() keeps a payload of this key as is: a foreign payload is wrapped, as the older listener did.
+        [, $lost] = $this->loadUnreadable($wrappedForeign, true);
+        self::assertTrue($lost->isUnreadable());
+        self::assertSame('', $lost->getValue());
+    }
+
+    /**
+     * @return array{EntityManager, ApiEnvironmentVariable}
+     */
+    private function loadUnreadable(string $stored, bool $enabled = true, ?LoggerInterface $logger = null): array
+    {
+        $em       = $this->createEntityManager($enabled, $logger);
+        $variable = $this->createVariable($em, 'api_token', 'plain', true);
+        $id       = $variable->getId();
+        $table    = $em->getClassMetadata(ApiEnvironmentVariable::class)->getTableName();
+        $em->getConnection()->executeStatement('UPDATE ' . $table . ' SET value = ? WHERE id = ?', [$stored, $id]);
+        $em->clear();
+
+        $loaded = $em->find(ApiEnvironmentVariable::class, $id);
+        self::assertInstanceOf(ApiEnvironmentVariable::class, $loaded);
+
+        return [$em, $loaded];
     }
 
     public function testPreUpdateLeavesNonStringNewValuesAlone(): void
@@ -205,7 +324,7 @@ final class SecretVariableEncryptionListenerTest extends TestCase
         self::assertNull($args->getNewValue('value'));
     }
 
-    private function createEntityManager(bool $enabled = true): EntityManager
+    private function createEntityManager(bool $enabled = true, ?LoggerInterface $logger = null): EntityManager
     {
         $config = ORMSetup::createAttributeMetadataConfiguration(
             [dirname(__DIR__, 3) . '/src/Entity'],
@@ -218,7 +337,7 @@ final class SecretVariableEncryptionListenerTest extends TestCase
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
         $em         = new EntityManager($connection, $config);
 
-        $listener = new SecretVariableEncryptionListener($this->cipher, $enabled);
+        $listener = new SecretVariableEncryptionListener($this->cipher, $enabled, $logger);
         $em->getEventManager()->addEventListener(
             [Events::prePersist, Events::postPersist, Events::onFlush, Events::preUpdate, Events::postUpdate, Events::postLoad],
             $listener,

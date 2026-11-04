@@ -26,6 +26,7 @@ use function in_array;
 use function is_array;
 use function is_string;
 use function parse_url;
+use function sprintf;
 
 use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_UNICODE;
@@ -84,6 +85,16 @@ final class RequestExecutor
         }
 
         $variableMap = $variables ?? ($environment?->getVariableMap() ?? []);
+
+        // Fail closed: a secret that cannot be decrypted has no value, so a request that needs it is never sent (it
+        // would carry the bare placeholder). A value the caller supplied for that key (console override) is used.
+        $unreadable = array_values(array_diff($environment?->getUnreadableVariableKeys() ?? [], array_keys($variableMap)));
+        if ($unreadable !== []) {
+            $needed = array_values(array_intersect($unreadable, self::referencedVariables($endpoint, $service, $overrideBody, $overrideHeaders, $overrideQueryParams, $replaceQueryParams, $replaceHeaders)));
+            if ($needed !== []) {
+                return $this->unreadableSecretFailure($endpoint, $methodOverride, $needed);
+            }
+        }
 
         return match ($service->getProtocol()) {
             ApiProtocol::Soap    => $this->executeSoap($endpoint, $service, $variableMap, $overrideBody, $overrideHeaders, $replaceHeaders),
@@ -459,6 +470,81 @@ final class RequestExecutor
         }
 
         return $flat;
+    }
+
+    /**
+     * Variable keys the request templates reference ({{name}}): base URL, path, query parameters, headers, body and the
+     * service auth configuration, after the console overrides (same precedence as the request itself).
+     *
+     * @param array<string, string> $overrideHeaders
+     * @param array<string, string> $overrideQueryParams
+     *
+     * @return list<string>
+     */
+    public static function referencedVariables(
+        ApiEndpoint $endpoint,
+        ApiService $service,
+        ?string $overrideBody = null,
+        array $overrideHeaders = [],
+        array $overrideQueryParams = [],
+        bool $replaceQueryParams = false,
+        bool $replaceHeaders = false,
+    ): array {
+        $templates = [
+            $service->getBaseUrl(),
+            $endpoint->getPath(),
+            (string) ($overrideBody ?? $endpoint->getRequestBodyTemplate()),
+            ...array_values($replaceQueryParams ? $overrideQueryParams : array_merge($endpoint->getQueryParams(), $overrideQueryParams)),
+            ...array_values($replaceHeaders ? $overrideHeaders : array_merge($service->getDefaultHeaders(), $endpoint->getHeaders(), $overrideHeaders)),
+        ];
+        $authConfig = $service->getAuthConfig();
+        array_walk_recursive($authConfig, static function (mixed $value) use (&$templates): void {
+            if (is_string($value)) {
+                $templates[] = $value;
+            }
+        });
+
+        $keys = [];
+        foreach ($templates as $template) {
+            if (preg_match_all(VariableSyntax::PLACEHOLDER_PATTERN, $template, $matches) > 0) {
+                foreach ($matches[1] as $key) {
+                    $keys[$key] = true;
+                }
+            }
+        }
+
+        return array_keys($keys);
+    }
+
+    /**
+     * @param list<string> $keys
+     */
+    private function unreadableSecretFailure(ApiEndpoint $endpoint, ?HttpMethod $methodOverride, array $keys): ApiExecutionResult
+    {
+        $this->logger->warning('Api Studio request not sent: it needs a secret variable that cannot be decrypted', [
+            'bundle'      => 'api-studio',
+            'action'      => 'execute_secret_unreadable',
+            'endpoint_id' => $endpoint->getId(),
+            'variables'   => $keys,
+        ]);
+
+        return new ApiExecutionResult(
+            requestUrl: '',
+            requestMethod: ($methodOverride ?? $endpoint->getMethod())->value,
+            requestHeaders: [],
+            requestBody: null,
+            responseStatus: null,
+            responseHeaders: [],
+            responseBody: null,
+            durationMs: 0,
+            success: false,
+            errorMessage: sprintf(
+                'Secret variable %s cannot be decrypted with the configured key: re-enter it in the environment. The request was not sent.',
+                implode(', ', array_map(VariableSyntax::formatKey(...), $keys)),
+            ),
+            errorCode: ApiExecutionResult::ERROR_SECRET_UNREADABLE,
+            unreadableVariables: $keys,
+        );
     }
 
     /**

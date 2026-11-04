@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Validator\UniqueSlug;
 use SortDirection;
 
 /**
@@ -18,6 +19,7 @@ use SortDirection;
 #[ORM\Entity(repositoryClass: ApiEnvironmentRepository::class)]
 #[ORM\Table(name: 'environment')]
 #[ORM\UniqueConstraint(name: 'uniq_environment_workspace_slug', columns: ['workspace_id', 'slug'])]
+#[UniqueSlug(scope: 'workspace')]
 class ApiEnvironment
 {
     #[ORM\Id]
@@ -150,10 +152,31 @@ class ApiEnvironment
     {
         $map = [];
         foreach ($this->variables as $variable) {
+            // An unreadable secret has no value: it is left out, so its placeholder is never resolved to anything.
+            if ($variable->isUnreadable()) {
+                continue;
+            }
             $map[$variable->getVariableKey()] = $variable->getValue();
         }
 
         return $map;
+    }
+
+    /**
+     * Keys of the secret variables whose stored value cannot be decrypted (they need re-entry).
+     *
+     * @return list<string>
+     */
+    public function getUnreadableVariableKeys(): array
+    {
+        $keys = [];
+        foreach ($this->variables as $variable) {
+            if ($variable->isUnreadable()) {
+                $keys[] = $variable->getVariableKey();
+            }
+        }
+
+        return $keys;
     }
 
     public function getCreatedAt(): DateTimeImmutable

@@ -20,6 +20,7 @@ final class ApiEnvironmentController extends AbstractController
 {
     use ApiStudioPageTrait;
     use CsrfOnlyFormValidationTrait;
+    use SlugConflictTrait;
 
     public function __construct(
         private readonly ApiWorkspaceRepository $workspaceRepository,
@@ -55,13 +56,14 @@ final class ApiEnvironmentController extends AbstractController
             }
 
             $this->entityManager->persist($environment);
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.created');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.created');
 
-            return $this->redirectToRoute('nowo_api_studio_environment_show', [
-                'workspaceId' => $workspaceId,
-                'id'          => $environment->getId(),
-            ]);
+                return $this->redirectToRoute('nowo_api_studio_environment_show', [
+                    'workspaceId' => $workspaceId,
+                    'id'          => $environment->getId(),
+                ]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/environment/form.html.twig', [
@@ -94,13 +96,14 @@ final class ApiEnvironmentController extends AbstractController
                 $this->clearDefaultFlag($workspace, $environment);
             }
 
-            $this->entityManager->flush();
-            $this->flash('success', 'flash.updated');
+            if ($this->flushUnlessSlugTaken($form)) {
+                $this->flash('success', 'flash.updated');
 
-            return $this->redirectToRoute('nowo_api_studio_environment_show', [
-                'workspaceId' => $workspaceId,
-                'id'          => $id,
-            ]);
+                return $this->redirectToRoute('nowo_api_studio_environment_show', [
+                    'workspaceId' => $workspaceId,
+                    'id'          => $id,
+                ]);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/environment/form.html.twig', [

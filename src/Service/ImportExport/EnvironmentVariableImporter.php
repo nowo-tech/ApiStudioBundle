@@ -13,6 +13,7 @@ use Nowo\ApiStudioBundle\Model\ImportResult;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 
 use function is_array;
+use function is_string;
 
 /**
  * Imports environment variables from JSON, YAML, or .env format.
@@ -149,6 +150,11 @@ final class EnvironmentVariableImporter
             try {
                 $key = VariableSyntax::normalizeKey(trim((string) ($row['key'] ?? '')));
             } catch (InvalidArgumentException) {
+                continue;
+            }
+
+            // An exported secret that could not be decrypted carries no value: it changes nothing here.
+            if (($row['needs_reentry'] ?? false) === true && !is_string($row['value'] ?? null)) {
                 continue;
             }
 

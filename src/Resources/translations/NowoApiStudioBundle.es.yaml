@@ -232,3 +232,8 @@ variables.secret_unchanged: 'Secreto: déjalo vacío para conservar el valor gua
 workspace.delete_title: 'Eliminar espacio de trabajo'
 workspace.delete_warning: 'Se eliminará definitivamente "%name%" con todos sus servicios, endpoints, entornos y secretos. Esta acción no se puede deshacer.'
 workspace.delete_confirmation_mismatch: 'El nombre de confirmación no coincide. El espacio de trabajo no se ha eliminado.'
+slug.taken: 'El slug "%slug%" ya está en uso aquí. Elige otro.'
+variables.needs_reentry: 'Hay que volver a introducirlo'
+variables.needs_reentry_help: 'Este valor no se puede descifrar con la clave actual. Vuelve a introducirlo (hasta entonces no se envían las peticiones que lo usan).'
+variables.needs_reentry_count: 'Variables secretas que no se pueden descifrar con la clave actual: %count%. Vuelve a introducirlas; las peticiones que las usan no se envían.'
+variables.unreadable_unsecret_refused: 'Este secreto no se puede descifrar: vuelve a introducir su valor antes de desmarcar "Secreto".'
