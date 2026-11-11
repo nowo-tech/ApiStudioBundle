@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.0] - 2026-11-11](#1120---2026-11-11)
 - [[1.11.0] - 2026-11-04](#1110---2026-11-04)
 - [[1.10.1] - 2026-11-04](#1101---2026-11-04)
 - [[1.10.0] - 2026-10-30](#1100---2026-10-30)
@@ -55,7 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target 1.12.0 (architecture bar, wave W1: standard Symfony and DDD hosts).
+## [1.12.0] - 2026-11-11
+
+New doctrine entity_manager option (entities only on that manager), after-commit workspace and resource events with IDs only, request-executed event without secrets, a request-free tenancy provider port; secret encryption no longer crashes on other managers. See [UPGRADING](https://github.com/nowo-tech/ApiStudioBundle/blob/v1.12.0/docs/UPGRADING.md#to-1120).
+
 
 ### Added
 
@@ -84,6 +88,8 @@ Target 1.12.0 (architecture bar, wave W1: standard Symfony and DDD hosts).
 
 - `SecretVariableEncryptionListener::onFlush()` read the metadata of `ApiEnvironmentVariable` on every flush of every
   manager; a flush of a manager that does not map the Api Studio entities threw a `MappingException`.
+
+[1.12.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.0
 
 ## [1.11.0] - 2026-11-04
 
