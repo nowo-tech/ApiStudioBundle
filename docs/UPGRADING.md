@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+  - [To 1.12.0](#to-1120)
 - [To 1.11.0](#to-1110)
 - [To 1.10.1](#to-1101)
 - [To 1.10.0](#to-1100)
@@ -73,6 +74,22 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+### To 1.12.0
+
+From **1.11.x**: no configuration change for standard hosts (entities on the default entity manager).
+
+- **Dedicated entity manager (optional):** set `nowo_api_studio.entity_manager: <name>` with that manager declared
+  under `doctrine.orm.entity_managers`. The bundle then stops prepending its mapping to the ORM configuration and maps
+  the entities on that manager only; move the Api Studio tables to its connection (or point it at the same database).
+  Migrations for the Api Studio tables belong to that manager (`doctrine:migrations:diff --em=<name>` or
+  `nowo:api-studio:sync-schema`, which now uses it).
+- **Events:** new `ApiWorkspaceCreatedCommittedEvent`, `ApiStudioResourceChangedEvent`, `ApiRequestExecutedEvent`.
+  `ApiWorkspaceCreatedEvent` gained `workspaceId`, `slug` and an optional fourth constructor argument `actorId`;
+  `ApiStudioSubject` gained `workspaceId`. Nothing removed.
+- **Tenancy:** `tenancy.provider` (request-free) is an alternative to `tenancy.resolver`; setting both fails the build.
+- Hosts that decorated or replaced Api Studio controllers and relied on the autowired default `EntityManagerInterface`
+  now receive the service `nowo_api_studio.entity_manager` (same object in a standard host).
 
 ## To 1.11.0
 

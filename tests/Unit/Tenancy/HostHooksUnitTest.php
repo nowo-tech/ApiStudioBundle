@@ -336,6 +336,8 @@ final class HostHooksUnitTest extends TestCase
     public static function refusedConfigurations(): iterable
     {
         yield 'tenancy without resolver' => [['tenancy' => ['enabled' => true]], 'tenancy.resolver'];
+        yield 'tenancy with resolver and provider' => [['tenancy' => ['enabled' => true, 'resolver' => 'a', 'provider' => 'b']], 'not both'];
+        yield 'entity manager name' => [['entity_manager' => 'api studio'], 'name of a Doctrine entity manager'];
         yield 'reserved placeholder' => [['ui' => ['path' => '/w/{workspaceId}/api-studio']], 'workspaceId'];
         yield 'requirement of no placeholder' => [['ui' => ['path' => '/o/{org}/api-studio', 'path_requirements' => ['team' => '\d+']]], 'team'];
         yield 'tenancy from an env placeholder' => [['tenancy' => ['enabled' => '%env(bool:TENANCY)%', 'resolver' => 'x']], 'Expected "bool"'];

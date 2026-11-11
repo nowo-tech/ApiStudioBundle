@@ -9,6 +9,7 @@ use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiRequestExample;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
 use Nowo\ApiStudioBundle\Entity\ApiService;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestExampleRepository;
 use Nowo\ApiStudioBundle\Repository\ApiResponseExampleRepository;
@@ -16,11 +17,13 @@ use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function is_array;
@@ -33,6 +36,7 @@ use function sprintf;
 final class EndpointExamplesController extends AbstractController
 {
     use AuthorizesTrait;
+    use StudioEventsTrait;
     /** Column length of the example names. */
     private const MAX_NAME_LENGTH = 128;
 
@@ -41,7 +45,11 @@ final class EndpointExamplesController extends AbstractController
      */
     public static function getSubscribedServices(): array
     {
-        return parent::getSubscribedServices() + [ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class];
+        return parent::getSubscribedServices() + [
+            ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            'event_dispatcher'            => '?' . EventDispatcherInterface::class,
+        ];
     }
 
     public function __construct(
@@ -81,6 +89,7 @@ final class EndpointExamplesController extends AbstractController
 
         $this->entityManager->persist($example);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_REQUEST_EXAMPLE, $example->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
 
         return new JsonResponse($this->serializeRequestExample($example));
     }
@@ -115,6 +124,7 @@ final class EndpointExamplesController extends AbstractController
 
         $this->entityManager->persist($example);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_RESPONSE_EXAMPLE, $example->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
 
         return new JsonResponse($this->serializeResponseExample($example));
     }
@@ -134,6 +144,7 @@ final class EndpointExamplesController extends AbstractController
 
         $this->entityManager->remove($example);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_REQUEST_EXAMPLE, $exampleId, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
 
         return new JsonResponse(['deleted' => true]);
     }
@@ -153,6 +164,7 @@ final class EndpointExamplesController extends AbstractController
 
         $this->entityManager->remove($example);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_RESPONSE_EXAMPLE, $exampleId, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
 
         return new JsonResponse(['deleted' => true]);
     }

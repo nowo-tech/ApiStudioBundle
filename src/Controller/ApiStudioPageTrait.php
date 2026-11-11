@@ -24,6 +24,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 trait ApiStudioPageTrait
 {
+    use StudioEventsTrait;
+
     /**
      * @return array<string|SubscribedService>
      */
@@ -36,18 +38,6 @@ trait ApiStudioPageTrait
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
             'translator'                  => '?' . TranslatorInterface::class,
         ];
-    }
-
-    /**
-     * Dispatches a bundle event when the host has an event dispatcher.
-     */
-    private function dispatchEvent(object $event): void
-    {
-        if ($this->container->has('event_dispatcher')) {
-            /** @var EventDispatcherInterface $dispatcher */
-            $dispatcher = $this->container->get('event_dispatcher');
-            $dispatcher->dispatch($event);
-        }
     }
 
     private function pages(): ApiStudioPageFactory

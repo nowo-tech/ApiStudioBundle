@@ -26,6 +26,22 @@ final class ApiStudioExtensionPrependTest extends TestCase
         self::assertSame([], $container->getExtensionConfig('nowo_ui_kit'));
     }
 
+    public function testDoctrineMappingIsPrependedOnlyWithoutADedicatedEntityManager(): void
+    {
+        $container = $this->container();
+        $container->registerExtension(self::stubExtension('doctrine'));
+        (new ApiStudioExtension())->prepend($container);
+        $prepended = $container->getExtensionConfig('doctrine');
+        self::assertCount(1, $prepended);
+        self::assertArrayHasKey('ApiStudioBundle', $prepended[0]['orm']['mappings']);
+
+        // 1.12: with entity_manager nothing goes into the ORM configuration (no phantom "default" manager).
+        $container = $this->container([['entity_manager' => 'api_studio']]);
+        $container->registerExtension(self::stubExtension('doctrine'));
+        (new ApiStudioExtension())->prepend($container);
+        self::assertSame([], $container->getExtensionConfig('doctrine'));
+    }
+
     public function testFormKitProfileIsSeededWithoutCssFrameworkByDefault(): void
     {
         $container = $this->container();

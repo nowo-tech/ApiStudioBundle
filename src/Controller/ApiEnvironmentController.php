@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiEnvironmentFormType;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
@@ -59,6 +60,7 @@ final class ApiEnvironmentController extends AbstractController
 
             $this->entityManager->persist($environment);
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $environment->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
                 $this->flash('success', 'flash.created');
 
                 return $this->redirectToRoute('nowo_api_studio_environment_show', [
@@ -99,6 +101,7 @@ final class ApiEnvironmentController extends AbstractController
             }
 
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                 $this->flash('success', 'flash.updated');
 
                 return $this->redirectToRoute('nowo_api_studio_environment_show', [
@@ -131,6 +134,7 @@ final class ApiEnvironmentController extends AbstractController
 
         $this->entityManager->remove($environment);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_environment_index', ['workspaceId' => $workspaceId]);

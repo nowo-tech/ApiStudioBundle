@@ -8,16 +8,19 @@ use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function is_array;
@@ -27,13 +30,18 @@ use function is_string;
 final class EnvironmentVariablesController extends AbstractController
 {
     use AuthorizesTrait;
+    use StudioEventsTrait;
 
     /**
      * @return array<string|SubscribedService>
      */
     public static function getSubscribedServices(): array
     {
-        return parent::getSubscribedServices() + [ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class];
+        return parent::getSubscribedServices() + [
+            ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            'event_dispatcher'            => '?' . EventDispatcherInterface::class,
+        ];
     }
 
     public function __construct(
@@ -82,6 +90,7 @@ final class EnvironmentVariablesController extends AbstractController
         }
 
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT_VARIABLE, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
 
         return new JsonResponse([
             'success' => true,

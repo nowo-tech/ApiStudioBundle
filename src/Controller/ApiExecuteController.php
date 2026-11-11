@@ -13,6 +13,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
@@ -30,6 +31,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function array_intersect;
@@ -41,11 +43,16 @@ use function is_int;
 use function is_scalar;
 use function is_string;
 use function mb_substr;
+use function parse_url;
+use function strtolower;
+
+use const PHP_URL_HOST;
 
 #[Route(path: '/execute', name: 'nowo_api_studio_')]
 final class ApiExecuteController extends AbstractController
 {
     use AuthorizesTrait;
+    use StudioEventsTrait;
 
     /**
      * @return array<string|SubscribedService>
@@ -56,6 +63,7 @@ final class ApiExecuteController extends AbstractController
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
             'logger'                      => '?' . LoggerInterface::class,
+            'event_dispatcher'            => '?' . EventDispatcherInterface::class,
         ];
     }
 
@@ -213,7 +221,24 @@ final class ApiExecuteController extends AbstractController
 
         $this->entityManager->persist($history);
         $this->entityManager->flush();
+        $historyId = $history->getId();
         $this->entityManager->detach($history);
+
+        // 1.12: ids and scalars only (no path, query, headers, bodies or variable values: they may carry secrets).
+        $host = parse_url($result->requestUrl, PHP_URL_HOST);
+        $this->dispatchEvent(new ApiRequestExecutedEvent(
+            endpointId: (int) $endpoint->getId(),
+            serviceId: $service?->getId(),
+            workspaceId: $service?->getWorkspace()?->getId(),
+            environmentId: $environment?->getId(),
+            historyId: $historyId,
+            method: $result->requestMethod,
+            host: is_string($host) && $host !== '' ? strtolower($host) : null,
+            statusCode: $result->responseStatus,
+            durationMs: $result->durationMs,
+            success: $result->success,
+            actorId: $this->currentActorId(),
+        ));
 
         // The browser never gets secret values back either (resolved Authorization header, echoed tokens).
         $data = $result->toArray();

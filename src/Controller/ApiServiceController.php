@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiServiceFormType;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
@@ -57,6 +58,7 @@ final class ApiServiceController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($service);
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_SERVICE, $service->getId(), $workspace->getId(), ApiStudioResourceChangedEvent::ACTION_CREATED);
                 $this->flash('success', 'flash.created');
 
                 return $this->redirectToRoute('nowo_api_studio_service_show', [
@@ -96,6 +98,7 @@ final class ApiServiceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_SERVICE, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                 $this->flash('success', 'flash.updated');
 
                 return $this->redirectToRoute('nowo_api_studio_service_show', [
@@ -140,6 +143,7 @@ final class ApiServiceController extends AbstractController
 
         $this->entityManager->remove($service);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_SERVICE, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
         return $this->redirect($this->resolveDeleteRedirect($request, $workspaceId));

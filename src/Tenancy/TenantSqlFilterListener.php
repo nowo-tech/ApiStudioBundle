@@ -6,8 +6,8 @@ namespace Nowo\ApiStudioBundle\Tenancy;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
-use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -30,6 +30,7 @@ final readonly class TenantSqlFilterListener implements EventSubscriberInterface
         private ManagerRegistry $registry,
         private ApiStudioAuthorization $authorization,
         private bool $enabled = false,
+        private ?string $entityManager = null,
     ) {
     }
 
@@ -75,8 +76,6 @@ final readonly class TenantSqlFilterListener implements EventSubscriberInterface
 
     private function manager(): ?EntityManagerInterface
     {
-        $manager = $this->registry->getManagerForClass(ApiWorkspace::class);
-
-        return $manager instanceof EntityManagerInterface ? $manager : null;
+        return (new ApiStudioEntityManagerResolver($this->registry, $this->entityManager))->find();
     }
 }

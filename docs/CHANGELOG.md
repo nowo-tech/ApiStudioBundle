@@ -55,6 +55,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.12.0 (architecture bar, wave W1: standard Symfony and DDD hosts).
+
+### Added
+
+- **`entity_manager`** option: map the Api Studio entities (and the tenant SQL filter) on a dedicated Doctrine entity
+  manager only — also when the default manager has `auto_mapping: true` — and make every read, write, flush and reset of
+  the bundle use it. The build fails when the manager does not exist. Default `null`: unchanged.
+- **`ApiWorkspaceCreatedCommittedEvent`** (ids only), dispatched after the workspace creation committed; the existing
+  in-transaction `ApiWorkspaceCreatedEvent` stays for atomic host writes.
+- **`ApiStudioResourceChangedEvent`** after every flushed create / update / delete / import (workspaces, services,
+  endpoints, environments, environment variables, request / response examples) and **`ApiRequestExecutedEvent`** after
+  each console execution (ids, method, host, status, duration; no path, query, headers, bodies or values).
+- `ApiWorkspaceCreatedEvent::$workspaceId`, `$slug`, `$actorId` and `ApiStudioSubject::$workspaceId` (entities kept).
+- **`tenancy.provider`**: request-free `ApiStudioTenantProviderInterface::current()` as an alternative to
+  `tenancy.resolver`.
+- USAGE: "Events" and "Using it from a DDD / hexagonal host" sections; kernel tests for a standard host, two managers with
+  `auto_mapping`, a host without `default_entity_manager`, a missing manager and a kept-alive (worker) kernel.
+
+### Changed
+
+- The controllers, importers and the demo seeder no longer autowire the host's default `EntityManagerInterface`: they get
+  the manager of the Api Studio entities (`entity_manager`, else the one that maps them — the default manager in a
+  standard host, so nothing changes there). The recovery reset after a failed flush and the tenant filter use the same
+  manager.
+
+### Fixed
+
+- `SecretVariableEncryptionListener::onFlush()` read the metadata of `ApiEnvironmentVariable` on every flush of every
+  manager; a flush of a manager that does not map the Api Studio entities threw a `MappingException`.
+
 ## [1.11.0] - 2026-11-04
 
 ### Added

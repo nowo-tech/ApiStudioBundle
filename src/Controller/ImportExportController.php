@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ImportFileFormType;
 use Nowo\ApiStudioBundle\Model\ImportResult;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
@@ -233,6 +234,7 @@ final class ImportExportController extends AbstractController
             try {
                 $result = $importer($form);
                 $this->entityManager->flush();
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspace->getId(), $workspace->getId(), ApiStudioResourceChangedEvent::ACTION_IMPORTED);
                 $this->addFlash('success', $this->translator->trans('flash.imported', [
                     '%services%'          => $result->servicesCreated,
                     '%endpoints%'         => $result->endpointsCreated,

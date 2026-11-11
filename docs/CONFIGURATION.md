@@ -5,6 +5,7 @@
 nowo_api_studio:
     enabled: true
     connection: default
+    entity_manager: null         # 1.12: e.g. api_studio = dedicated manager (DDD hosts)
     table_prefix: api_studio_
     environments: [dev, test, prod]
     ui:
@@ -26,7 +27,8 @@ nowo_api_studio:
         # permission_checker: App\ApiStudio\MyPermissionChecker   # 1.11: per-workspace, per-action decisions
     tenancy:                     # 1.11
         enabled: false           # literal boolean; maps tenant_type / tenant_id on the workspace table
-        # resolver: App\ApiStudio\MyTenantResolver               # required when enabled
+        # resolver: App\ApiStudio\MyTenantResolver               # required when enabled (or provider)
+        # provider: App\ApiStudio\MyTenantProvider               # 1.12: request-free alternative to resolver
         sql_filter: true         # defence-in-depth Doctrine filter during Api Studio requests
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
@@ -53,6 +55,7 @@ nowo_api_studio:
 |--------|-------------|
 | `enabled` | Enable or disable the bundle (default `true`). When `false`, every Api Studio route (`nowo_api_studio_*`) answers 404. |
 | `connection` | Doctrine connection name used by sync-schema (default `default`). |
+| `entity_manager` | **1.12.** Name of the Doctrine entity manager the Api Studio entities are mapped on (default `null` = the manager that maps them, the default one in a standard host: nothing changes). When set, the entities and the tenant SQL filter are mapped on that manager **only** (also when the default manager has `auto_mapping: true`), nothing is prepended into the host's ORM configuration, and every read, write, flush and recovery reset of the bundle (controllers, importers, commands, `sync-schema`) uses it — never the host's default manager. The manager must exist under `doctrine.orm.entity_managers` or the build fails. See [USAGE.md](USAGE.md#using-it-from-a-ddd--hexagonal-host). |
 | `table_prefix` | Prefix for all bundle tables and unique indexes (default `api_studio_`). Lowercase letters, numbers, and underscores only. |
 | `environments` | Environments created automatically when a workspace is created from the UI (default `dev`, `test`, `prod`); the first one is marked as default. Slugs are derived from the names (lowercase, non-alphanumerics → `_`). Set `[]` to create workspaces without environments. Imports and the demo seeder are not affected. |
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
@@ -77,6 +80,7 @@ nowo_api_studio:
 | `tenancy.enabled` | **1.11.** Workspaces belong to a tenant resolved per request; lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per tenant. Maps `tenant_type` / `tenant_id` (and swaps the slug index): a migration. Literal boolean. Default `false` (no schema change). |
 | `tenancy.sql_filter` | **1.11.** With tenancy (default `true`): the Doctrine filter `nowo_api_studio_tenant` narrows every bundle query of an Api Studio request to the tenant and the visible workspaces (defence in depth; the controllers' explicit checks stay the control). |
 | `tenancy.resolver` | **1.11.** Service id implementing `ApiStudioTenantResolverInterface` (required with tenancy). A null tenant answers 404. |
+| `tenancy.provider` | **1.12.** Service id implementing `ApiStudioTenantProviderInterface::current(): ?ApiStudioTenant` — a request-free alternative to `tenancy.resolver` for hosts whose application layer already knows the tenant. Set one of the two (both fails the build). |
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |

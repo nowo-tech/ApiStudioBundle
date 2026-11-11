@@ -15,6 +15,7 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
+use Nowo\ApiStudioBundle\Tenancy\TenantProviderResolver;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
@@ -41,6 +42,9 @@ use function trigger_deprecation;
  */
 final class ApiStudioExtension extends Extension implements PrependExtensionInterface
 {
+    /** Container parameter holding `entity_manager` (null: the manager that maps the entities). */
+    public const ENTITY_MANAGER_PARAMETER = Configuration::ALIAS . '.entity_manager';
+
     public function prepend(ContainerBuilder $container): void
     {
         $this->prependFormKitDefaults($container);
@@ -59,7 +63,10 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             ]);
         }
 
-        if ($container->hasExtension('doctrine')) {
+        // 1.12: with a dedicated entity_manager the mapping and the tenant filter go on that manager only
+        // (ApiStudioEntityManagerPass). Nothing is prepended into the ORM configuration then: a prepended top-level
+        // `orm` key would create (or become) an entity manager named "default" in a multi-manager host.
+        if ($container->hasExtension('doctrine') && $this->configuredEntityManager($container) === null) {
             $container->prependExtensionConfig('doctrine', [
                 'orm' => [
                     'mappings' => [
@@ -210,6 +217,17 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
+     * `entity_manager` of the host configuration (null: the manager that maps the entities).
+     */
+    private function configuredEntityManager(ContainerBuilder $container): ?string
+    {
+        $config = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(Configuration::ALIAS));
+        $name   = $config['entity_manager'] ?? null;
+
+        return is_string($name) && $name !== '' ? $name : null;
+    }
+
+    /**
      * The deprecated `ui.css_framework` of the host configuration, null when not set.
      */
     private function legacyCssFramework(ContainerBuilder $container): ?string
@@ -231,6 +249,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.enabled', $config['enabled']);
         $container->setParameter(Configuration::ALIAS . '.environments', $config['environments']);
         $container->setParameter(Configuration::ALIAS . '.connection', $config['connection']);
+        $container->setParameter(self::ENTITY_MANAGER_PARAMETER, is_string($config['entity_manager']) && $config['entity_manager'] !== '' ? $config['entity_manager'] : null);
         $container->setParameter(Configuration::ALIAS . '.table_prefix', $config['table_prefix']);
         $container->setParameter(Configuration::ALIAS . '.ui.path', $config['ui']['path']);
         $container->setParameter(Configuration::ALIAS . '.ui.layout_template', $config['ui']['layout_template']);
@@ -278,22 +297,36 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
-     * @param array{enabled: bool, resolver: ?string, sql_filter: bool} $tenancy
+     * @param array{enabled: bool, resolver: ?string, provider: ?string, sql_filter: bool} $tenancy
      */
     private function registerTenancy(ContainerBuilder $container, array $tenancy): void
     {
         $enabled = $tenancy['enabled'];
         $container->setParameter(Configuration::ALIAS . '.tenancy.enabled', $enabled);
-        $resolver = $tenancy['resolver'];
-        if ($enabled && (!is_string($resolver) || $resolver === '')) {
-            throw new InvalidConfigurationException('nowo_api_studio.tenancy.enabled requires nowo_api_studio.tenancy.resolver (a service implementing ApiStudioTenantResolverInterface).');
+        $resolver = is_string($tenancy['resolver']) && $tenancy['resolver'] !== '' ? $tenancy['resolver'] : null;
+        $provider = is_string($tenancy['provider']) && $tenancy['provider'] !== '' ? $tenancy['provider'] : null;
+        if ($resolver !== null && $provider !== null) {
+            throw new InvalidConfigurationException('nowo_api_studio.tenancy: set either resolver (ApiStudioTenantResolverInterface) or provider (ApiStudioTenantProviderInterface), not both.');
+        }
+        if ($enabled && $resolver === null && $provider === null) {
+            throw new InvalidConfigurationException('nowo_api_studio.tenancy.enabled requires nowo_api_studio.tenancy.resolver (a service implementing ApiStudioTenantResolverInterface) or nowo_api_studio.tenancy.provider (ApiStudioTenantProviderInterface).');
+        }
+
+        $resolverReference = null;
+        if ($enabled && $resolver !== null) {
+            $resolverReference = new Reference($resolver);
+        } elseif ($enabled && $provider !== null) {
+            // Request-free port (1.12): the adapter ignores the request and asks the host's provider.
+            $container->register('nowo_api_studio.tenancy.provider_resolver', TenantProviderResolver::class)
+                ->setArgument('$provider', new Reference($provider));
+            $resolverReference = new Reference('nowo_api_studio.tenancy.provider_resolver');
         }
 
         $container->getDefinition(ApiStudioTenantContext::class)->setArgument('$enabled', $enabled);
         $container->getDefinition(TenantSqlFilterListener::class)->setArgument('$enabled', $enabled && $tenancy['sql_filter']);
         $container->getDefinition(ApiStudioTenantListener::class)
             ->setArgument('$enabled', $enabled)
-            ->setArgument('$resolver', $enabled ? new Reference((string) $resolver) : null);
+            ->setArgument('$resolver', $resolverReference);
     }
 
     /**

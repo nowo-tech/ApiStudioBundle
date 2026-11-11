@@ -6,6 +6,8 @@ namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
+use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedCommittedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceDeletedEvent;
 use Nowo\ApiStudioBundle\Form\ApiWorkspaceFormType;
@@ -66,12 +68,15 @@ final class ApiWorkspaceController extends AbstractController
             $this->environmentInitializer->initialize($workspace);
             $this->entityManager->persist($workspace);
             // The created event runs inside the transaction: a host listener writes atomically with the workspace.
+            // The committed event (ids only) follows the commit, for outbox / integration listeners (1.12, rule 7).
             $connection = $this->entityManager->getConnection();
             $connection->beginTransaction();
             try {
                 if ($this->flushUnlessSlugTaken($form)) {
-                    $this->dispatchEvent(new ApiWorkspaceCreatedEvent($workspace, $tenant, $this->authorization()->user()));
+                    $actorId = $this->currentActorId();
+                    $this->dispatchEvent(new ApiWorkspaceCreatedEvent($workspace, $tenant, $this->authorization()->user(), $actorId));
                     $connection->commit();
+                    $this->dispatchEvent(new ApiWorkspaceCreatedCommittedEvent((int) $workspace->getId(), $workspace->getSlug(), $tenant, $actorId));
                     $this->flash('success', 'flash.created');
 
                     return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
@@ -111,6 +116,7 @@ final class ApiWorkspaceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $id, $id, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                 $this->flash('success', 'flash.updated');
 
                 return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $id]);
@@ -148,6 +154,7 @@ final class ApiWorkspaceController extends AbstractController
         $this->entityManager->remove($workspace);
         $this->entityManager->flush();
         $this->dispatchEvent(new ApiWorkspaceDeletedEvent($workspaceId, $tenant));
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspaceId, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_workspace_index');
