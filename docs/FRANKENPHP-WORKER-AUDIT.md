@@ -6,6 +6,7 @@
 | Audited revision | `v1.0.20` / `4970410` |
 | Audit date | 2026-09-23 |
 | Method | Manual review of every PHP file under `src/` (controllers, services, import/export, security, Doctrine listeners, Twig extension, subscribers, forms, commands, DI extension, compiler passes, `Resources/config/services.yaml`) |
+| Re-audit (2026-11-12, REQ-RUNTIME-002) | 1.12.1: the bundle-owned manager (`entity_manager`, 1.12.0) is cleared at the request, Messenger and console boundaries and recreated when closed (`EntityManagerBoundarySubscriber`); the tenant context and route scope listener are reviewed; one-kernel worker test with two tenants and four users without the resetter (see [Boundaries and worker test](#boundaries-and-worker-test-1121)) |
 | Remediation (2026-09-23) | W-01/W-04 nav tree moved to the `api_studio_nav_tree()` Twig function; W-02 secrets listener keeps plaintext in memory and uses `setNewValue()`, closed EntityManager reset on next Api Studio request, history detached after flush; W-03 `max_duration` added; W-05 XML error returned instead of stored. Regression tests simulate consecutive requests without `reset()` |
 | **Verdict** | ✅ **Viable under scenario B** — no bundle-owned per-request state; Doctrine identity-map clearing between requests remains the host application's responsibility (see W-02) |
 
@@ -14,6 +15,7 @@
 - [Execution model assumed](#execution-model-assumed)
 - [Summary](#summary)
 - [Services reviewed](#services-reviewed)
+- [Boundaries and worker test (1.12.1)](#boundaries-and-worker-test-1121)
 - [Findings](#findings)
   - [W-01 — Sidebar navigation tree is cached by Twig as a global (Medium)](#w-01--sidebar-navigation-tree-is-cached-by-twig-as-a-global-medium)
   - [W-02 — Doctrine usage relies on the EntityManager reset (Medium)](#w-02--doctrine-usage-relies-on-the-entitymanager-reset-medium)
@@ -38,10 +40,10 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 |------|--------|-------|
 | Mutable state in shared services | ✅ | All services use `readonly` constructor config/collaborators; `PayloadBodyHelper` no longer has properties (W-05) |
 | Static properties / `static` locals | ✅ | Only pure static helpers (`VariableSyntax`, `SlugHelper`, enum `values()`); no static properties or `static` locals |
-| `ResetInterface` / `kernel.reset` coverage | ✅ | The bundle needs none: the only request-dependent Twig value is now a function (W-01); a closed EntityManager is reset by the bundle itself (W-02) |
+| `ResetInterface` / `kernel.reset` coverage | ✅ | `ApiStudioTenantContext` and `ApiStudioRouteScopeListener` implement it (both `reset()` tested) but do not rely on it: the override is restored in `finally`, the router context on `kernel.finish_request`. The bundle-owned manager is cleared at every boundary by the bundle (1.12.1); the only request-dependent Twig value is a function (W-01) |
 | Request / user / locale captured in services | ✅ | `LocaleManager` reads the session through `RequestStack` per call; access checks call `AuthorizationCheckerInterface` per request |
 | Superglobals, `$_ENV`, `putenv`, `ini_set`, `setlocale`, timezone | ✅ | None used. `libxml_use_internal_errors()` is restored after each parse (`src/Service/PayloadBodyHelper.php:186-203`) |
-| Doctrine / EntityManager | ✅ | Managed secret variables always hold plaintext; closed EntityManager reset by `EntityManagerRecoverySubscriber`; history detached after flush. Identity-map staleness across worker threads is the host's responsibility (W-02) |
+| Doctrine / EntityManager | ✅ | Managed secret variables always hold plaintext; history detached after flush. With `entity_manager` set, the bundle-owned manager is cleared at every request / message / command boundary and recreated when closed (`EntityManagerBoundarySubscriber`, 1.12.1); without it, the identity map is the host's (W-02, REQ-RUNTIME-002 rule 7) |
 | Output, headers, `exit`, shutdown functions | ✅ | None; all output goes through `Response` objects |
 | Resources (files, sockets, cURL) held open | ✅ | `SoapClient` is created per call (`src/Service/RequestExecutor.php:195`); uploads are read through `UploadedFile`; no handles kept in properties |
 | Memory growth across requests | ✅ | No bundle-level caches; executed `ApiRequestHistory` rows are detached after flush. Other loaded entities stay in the host-owned identity map until the host clears it (W-02) |
@@ -60,6 +62,9 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | `Security\SecretValueCipher` | yes | none (`readonly` key derived from config at construction) | ✅ | ✅ |
 | `Doctrine\SecretVariableEncryptionListener`, `Doctrine\TablePrefixSubscriber` | yes | none; mutate entities/change sets, not themselves | ✅ | ✅ |
 | `EventListener\EntityManagerRecoverySubscriber` (`final readonly`) | yes | none (`ManagerRegistry` only) | ✅ | ✅ |
+| `EventListener\EntityManagerBoundarySubscriber` (1.12.1) | yes | console depth counter and in-flight message / request flags (no request data) | ✅ | ✅ |
+| `Tenancy\ApiStudioTenantContext` | yes | `$override`, set only inside `runAs()` and restored in `finally`; the request tenant lives on the main request's attributes | ✅ | ✅ |
+| `Routing\ApiStudioRouteScopeListener` (`final readonly`) | yes | none; sets router-context parameters per request and restores them on `kernel.finish_request` | ✅ | ✅ |
 | `Service\LocaleManager`, `EventListener\LocaleSubscriber`, `EventSubscriber\ApiStudioAccessSubscriber` (`final readonly`), `Security\ConfigurableApiStudioAccessChecker` (`final readonly`) | yes | none | ✅ | ✅ |
 | `Service\VariableResolver`, `Service\HistorySanitizer`, `Service\EnvironmentContextBuilder`, `Service\ImportExport\DocumentParser`, `SlugHelper` | yes | none | ✅ | ✅ |
 | `Service\PayloadBodyHelper` | yes | none | ✅ | ✅ |
@@ -70,6 +75,45 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | `Command\SyncSchemaCommand`, `Command\SeedDemoCommand` | yes | none (CLI only) | ✅ | ✅ |
 
 Entities, enums and models (`ApiExecutionResult`, `ImportResult`) are created per request and never stored in service properties.
+
+## Boundaries and worker test (1.12.1)
+
+Scenario B here means: no services resetter (a host that removes, replaces or bypasses `services_resetter` or drives
+`http_kernel` directly, `messenger:consume --no-reset`, long-running commands). With the stock Symfony kernel the
+resetter still runs before every request, even with `FRANKENPHP_RESET_KERNEL=false`; DoctrineBundle also clears every
+manager after each Messenger message.
+
+With `entity_manager` set to a manager other than the host's default one, the manager is **bundle-owned**
+(REQ-RUNTIME-002 rule 4). `EventListener\EntityManagerBoundarySubscriber` recreates it through the registry when a
+failed write closed it, and otherwise clears it, on:
+
+- main `kernel.request` (priority 4096) and `kernel.terminate` (priority -4096); sub-requests share the main request;
+- Messenger `WorkerMessageReceivedEvent` (4096) and `WorkerMessageHandledEvent` / `WorkerMessageFailedEvent` (-4096);
+- `console.command` (4096) and `console.terminate` (-4096) of the outermost command only, and only outside a message
+  and a main request: a command run in-process (`Application::doRun()`) from another command, a message handler or a
+  controller keeps the managed entities and pending changes of the unit that runs it (console depth counter, in-flight
+  message flag, in-flight request flag).
+
+An open manager is never replaced, so the pending changes of a running unit are never discarded. The manager arrives
+as a lazy iterator of an `IGNORE_ON_UNINITIALIZED` reference set by `ApiStudioEntityManagerPass`, so a boundary never
+builds it. Without `entity_manager` (or with it naming the host's default manager) the iterator is empty and the bundle
+never clears the host's manager: the host clears it at every boundary (REQ-RUNTIME-002 rule 7), or keeps
+`services_resetter`.
+
+**Worker test:** `tests/Functional/Worker/WorkerStateTest.php` boots one `WorkerTestKernel` (non-debug, a DDD host with
+the dedicated `api_studio` manager, tenancy on with one tenant per `{org}`), drives `http_kernel` directly and consumes
+with a Messenger `Worker` that has no `ResetServicesListener`. Two tenants (acme: alice, bob; globex: carol, dave)
+alternate over **500 iterations**: each user lists their tenant's workspaces (2,000 requests; another worker renames the
+workspace through DBAL before each request), one message reads and flushes a workspace and one renames the other
+tenant's in memory and fails before its flush (1,000 messages). It asserts that each page shows its tenant's current
+name and nothing of the other tenant, that each message reads the current row, that the failed message's change is
+never written by a later flush, that the Api Studio manager holds no entity after any unit of work, that the host's
+manager keeps its managed entity after the requests, and that memory after a cycle collection grows less than **4 MiB**
+after a 50-iteration warm-up. The same class covers the closed-manager recreation, a nested `doRun()` command and the
+services resetter; `ApiStudioEntityManagerPassTest` covers the wiring (bundle-owned manager only). Without the
+subscriber the worker test fails at its first iteration (stale workspace name).
+
+**Static checks:** `composer igor` and the PHPStan FrankenPHP worker ruleset pass.
 
 ## Findings
 
@@ -92,7 +136,7 @@ Entities, enums and models (`ApiExecutionResult`, `ImportResult`) are created pe
 - **Recommendation:** keep `services_resetter` enabled (scenario A). A host that disables it must call `ManagerRegistry::resetManager()` / `EntityManager::clear()` between requests.
 - **Status:** Resolved (bundle-owned parts) / Accepted (host-owned parts):
   - Ciphertext on the managed entity — resolved in `src/Doctrine/SecretVariableEncryptionListener.php`: `preUpdate` now writes the ciphertext with `PreUpdateEventArgs::setNewValue('value', …)` (the entity keeps plaintext), `onFlush` encrypts variables marked secret without a value change or after `persist()`, and `postPersist` / `postUpdate` restore the plaintext on the entity. Note: on doctrine/orm 3.7 (installed) the UnitOfWork recomputes the change set after `preUpdate`, so the previous `setValue()` in `preUpdate` did store ciphertext, but left it on the managed entity; the plaintext-at-rest case was toggling `secret` on without changing the value. Tests: `tests/Unit/Doctrine/SecretVariableEncryptionListenerTest.php` (real SQLite EntityManager; consecutive flushes without `clear()`).
-  - Closed-EntityManager cascade — resolved: `src/EventListener/EntityManagerRecoverySubscriber.php` resets the manager of the Api Studio entities on the next main Api Studio request (priority 31, after routing, before the firewall) when it is closed. The bundle never clears an open manager. Test: `tests/Unit/EventListener/EntityManagerRecoverySubscriberTest.php`.
+  - Closed-EntityManager cascade — resolved: `src/EventListener/EntityManagerRecoverySubscriber.php` resets the manager of the Api Studio entities on the next main Api Studio request (priority 31, after routing, before the firewall) when it is closed. Since 1.12.1 a bundle-owned manager (`entity_manager`) is also cleared and recovered at every boundary (see [Boundaries and worker test](#boundaries-and-worker-test-1121)); the host's manager is never cleared. Test: `tests/Unit/EventListener/EntityManagerRecoverySubscriberTest.php`.
   - Identity-map growth from executions — resolved: `src/Controller/ApiExecuteController.php` detaches each `ApiRequestHistory` after flush.
   - Stale entities edited by other worker threads and decrypted secrets kept in memory — accepted: they live in the host-owned EntityManager. Clearing the identity map between requests (`services_resetter` or `EntityManager::clear()` in the host loop) remains the application's responsibility under scenario B. No Api Studio read is a security decision that needs a forced refresh (access is decided by roles, not DB rows).
 
@@ -123,7 +167,7 @@ No other worker findings. One observation outside worker scope: `SecretVariableE
 
 ## Usage recommendations in worker mode
 
-- Keeping Symfony's `services_resetter` active is still recommended so the host EntityManager is cleared between requests; the bundle itself no longer depends on the Twig global reset.
+- Keeping Symfony's `services_resetter` active is still recommended so the host EntityManager is cleared between requests; the bundle itself no longer depends on the Twig global reset. A host that removes or bypasses it must clear its own entity managers at every boundary (main request start or end, Messenger message, console command); otherwise the identity map serves stale rows across requests. Set `entity_manager` to a dedicated manager to have the bundle clear the Api Studio rows itself.
 - Keep `request_timeout_seconds` low (the default is 30) and configure `execution_url_allowlist` so the studio cannot be used to reach slow or unexpected hosts.
 - Api Studio is an internal tool. Prefer running it on an admin host or with few worker threads so long outbound calls cannot starve public traffic.
 - A custom `security.access_checker` service or template overrides must not keep per-request state in service properties.

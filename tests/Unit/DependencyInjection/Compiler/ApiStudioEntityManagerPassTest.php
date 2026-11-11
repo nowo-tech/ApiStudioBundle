@@ -8,9 +8,12 @@ use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
 use Nowo\ApiStudioBundle\DependencyInjection\Compiler\ApiStudioEntityManagerPass;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
+use Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -71,6 +74,36 @@ final class ApiStudioEntityManagerPassTest extends TestCase
         (new ApiStudioEntityManagerPass())->process($container);
 
         self::assertCount(1, $container->getDefinition('doctrine.orm.api_studio_metadata_driver')->getMethodCalls());
+    }
+
+    public function testTheBoundarySubscriberGetsTheBundleOwnedManagerOnly(): void
+    {
+        $container = $this->container('api_studio');
+        $container->setParameter('doctrine.default_entity_manager', 'default');
+        $container->register(EntityManagerBoundarySubscriber::class)->setArgument('$managers', new IteratorArgument([]));
+
+        (new ApiStudioEntityManagerPass())->process($container);
+
+        $managers = $container->getDefinition(EntityManagerBoundarySubscriber::class)->getArgument('$managers');
+        self::assertInstanceOf(IteratorArgument::class, $managers);
+        $values = $managers->getValues();
+        self::assertCount(1, $values);
+        self::assertInstanceOf(Reference::class, $values[0]);
+        self::assertSame('doctrine.orm.api_studio_entity_manager', (string) $values[0]);
+        self::assertSame(ContainerInterface::IGNORE_ON_UNINITIALIZED_REFERENCE, $values[0]->getInvalidBehavior(), 'a boundary never builds the manager');
+    }
+
+    public function testTheBoundarySubscriberNeverGetsTheHostDefaultManager(): void
+    {
+        $container = $this->container('default');
+        $container->setParameter('doctrine.default_entity_manager', 'default');
+        $container->register(EntityManagerBoundarySubscriber::class)->setArgument('$managers', new IteratorArgument([]));
+
+        (new ApiStudioEntityManagerPass())->process($container);
+
+        $managers = $container->getDefinition(EntityManagerBoundarySubscriber::class)->getArgument('$managers');
+        self::assertInstanceOf(IteratorArgument::class, $managers);
+        self::assertSame([], $managers->getValues(), 'entity_manager naming the host default manager: the host clears it');
     }
 
     private function container(?string $managerName): ContainerBuilder

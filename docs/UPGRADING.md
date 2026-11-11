@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.12.1](#to-1121)
 - [To 1.12.0](#to-1120)
 - [To 1.11.0](#to-1110)
 - [To 1.10.1](#to-1101)
@@ -74,6 +75,21 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.12.1
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+Patch release. No schema change, no configuration change and no asset rebuild. Nothing to change.
+
+- **`entity_manager` set (DDD host).** The bundle now clears its dedicated manager at every request, Messenger and
+  console boundary, and recreates it when a failed write closed it (`EntityManagerBoundarySubscriber`). Do not keep Api
+  Studio entities loaded through that manager across requests or messages in your own services.
+- **Standard host (`entity_manager` unset or naming your default manager).** Nothing changes: the bundle still never
+  clears your manager. A host that removes or bypasses `services_resetter` must clear its own entity managers at every
+  boundary (see [FRANKENPHP-WORKER-AUDIT](FRANKENPHP-WORKER-AUDIT.md#usage-recommendations-in-worker-mode)).
 
 ## To 1.12.0
 

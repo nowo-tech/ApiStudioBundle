@@ -8,7 +8,7 @@ Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboar
 
 ![FrankenPHP Friendly Worker Mode](docs/images/frankenphp-friendly.png)
 
-This bundle is **FrankenPHP worker mode friendly**.
+This bundle is **FrankenPHP worker mode friendly**, including worker mode with the kernel not reset between requests (`FRANKENPHP_RESET_KERNEL=false`, and hosts without the services resetter) — see [FRANKENPHP-WORKER-AUDIT.md](docs/FRANKENPHP-WORKER-AUDIT.md).
 
 <table>
   <tr>

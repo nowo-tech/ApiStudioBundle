@@ -50,6 +50,16 @@ services:
         arguments:
             $entityManager: '%nowo_api_studio.entity_manager%'
 
+    # 1.12.1 (REQ-RUNTIME-002 rule 4): clears / recreates the bundle-owned manager at the request, Messenger and console
+    # boundaries. ApiStudioEntityManagerPass sets $managers (an IGNORE_ON_UNINITIALIZED reference) only when
+    # entity_manager names a manager other than the host's default one; otherwise it stays empty (host manager untouched).
+    Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber:
+        autowire: false
+        arguments:
+            $registry: '@doctrine'
+            $managers: !iterator []
+            $managerName: '%nowo_api_studio.entity_manager%'
+
     Nowo\ApiStudioBundle\Service\LocaleManager:
         arguments:
             $enabledLocales: '%nowo_api_studio.ui.locales%'

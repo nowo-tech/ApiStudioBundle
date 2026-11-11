@@ -7,10 +7,14 @@ namespace Nowo\ApiStudioBundle\DependencyInjection\Compiler;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
+use Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Reference;
 
 use function array_keys;
 use function dirname;
@@ -71,6 +75,14 @@ final class ApiStudioEntityManagerPass implements CompilerPassInterface
             }
 
             $chain->setMethodCalls($calls);
+        }
+
+        // 1.12.1 (REQ-RUNTIME-002 rule 4): the boundary subscriber clears the bundle-owned manager, never the host default.
+        $default = $container->hasParameter('doctrine.default_entity_manager') ? $container->getParameter('doctrine.default_entity_manager') : null;
+        if ($name !== $default && $container->hasDefinition(EntityManagerBoundarySubscriber::class)) {
+            $container->getDefinition(EntityManagerBoundarySubscriber::class)->setArgument('$managers', new IteratorArgument([
+                new Reference(sprintf('doctrine.orm.%s_entity_manager', $name), ContainerInterface::IGNORE_ON_UNINITIALIZED_REFERENCE),
+            ]));
         }
 
         // The tenant filter on the bundle's manager (registered disabled; TenantSqlFilterListener enables it per request).
