@@ -62,9 +62,10 @@ final class SecretVariableEncryptionListener
      */
     public function onFlush(OnFlushEventArgs $args): void
     {
-        $em       = $args->getObjectManager();
-        $uow      = $em->getUnitOfWork();
-        $metadata = $em->getClassMetadata(ApiEnvironmentVariable::class);
+        $em  = $args->getObjectManager();
+        $uow = $em->getUnitOfWork();
+        // Metadata only once a variable is in the flush: on another manager (the host's, 1.12 entity_manager) the
+        // bundle entities are not mapped and getClassMetadata() would throw.
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entity) {
             if (!$entity instanceof ApiEnvironmentVariable || !$this->needsEncryption($entity, $entity->getValue())) {
                 continue;
@@ -75,7 +76,7 @@ final class SecretVariableEncryptionListener
             }
 
             $entity->storeCiphertext($this->cipher->encryptValue($entity->getValue()));
-            $uow->recomputeSingleEntityChangeSet($metadata, $entity);
+            $uow->recomputeSingleEntityChangeSet($em->getClassMetadata(ApiEnvironmentVariable::class), $entity);
         }
     }
 

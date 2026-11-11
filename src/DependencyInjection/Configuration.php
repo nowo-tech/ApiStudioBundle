@@ -11,6 +11,7 @@ use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 use function is_string;
+use function preg_match;
 
 /**
  * Configuration tree for nowo_api_studio.
@@ -39,6 +40,14 @@ final class Configuration implements ConfigurationInterface
                 ->scalarNode('connection')
                     ->defaultValue('default')
                     ->cannotBeEmpty()
+                ->end()
+                ->scalarNode('entity_manager')
+                    ->defaultNull()
+                    ->info('Doctrine entity manager the Api Studio entities are mapped on (1.12), e.g. a dedicated "api_studio" manager of a DDD host. The entities are then mapped on that manager only (also with auto_mapping on the default one) and every read, write and reset of the bundle uses it. Null (default) = the manager that maps ApiWorkspace (the default one in a standard host).')
+                    ->validate()
+                        ->ifTrue(static fn (mixed $value): bool => $value !== null && (!is_string($value) || preg_match('/^[A-Za-z0-9_]+$/', $value) !== 1))
+                        ->thenInvalid('The entity_manager must be the name of a Doctrine entity manager (letters, digits and underscores).')
+                    ->end()
                 ->end()
                 ->scalarNode('table_prefix')
                     ->defaultValue('api_studio_')
@@ -146,7 +155,11 @@ final class Configuration implements ConfigurationInterface
                         ->end()
                         ->scalarNode('resolver')
                             ->defaultNull()
-                            ->info('Service id implementing ApiStudioTenantResolverInterface (required when enabled): the tenant of an Api Studio request; null result = 404.')
+                            ->info('Service id implementing ApiStudioTenantResolverInterface (required when enabled, unless tenancy.provider is set): the tenant of an Api Studio request; null result = 404.')
+                        ->end()
+                        ->scalarNode('provider')
+                            ->defaultNull()
+                            ->info('Service id implementing ApiStudioTenantProviderInterface (1.12): a request-free alternative to tenancy.resolver for hosts that already know the current tenant (DDD application context). Set one of resolver or provider.')
                         ->end()
                         ->booleanNode('sql_filter')
                             ->defaultTrue()

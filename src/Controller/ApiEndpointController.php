@@ -11,6 +11,7 @@ use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiEndpointFormType;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
@@ -78,6 +79,7 @@ final class ApiEndpointController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($endpoint);
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $endpoint->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
                 $this->flash('success', 'flash.created');
 
                 return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
@@ -216,6 +218,7 @@ final class ApiEndpointController extends AbstractController
         $translation->setDescription($description !== '' ? $description : null);
 
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
 
         return new JsonResponse([
             'locale'        => $locale,
@@ -260,6 +263,7 @@ final class ApiEndpointController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             if ($this->flushUnlessSlugTaken($form)) {
+                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                 $this->flash('success', 'flash.updated');
 
                 return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
@@ -301,6 +305,7 @@ final class ApiEndpointController extends AbstractController
 
         $this->entityManager->remove($endpoint);
         $this->entityManager->flush();
+        $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_endpoint_index', [

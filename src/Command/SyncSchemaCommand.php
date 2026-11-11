@@ -28,16 +28,20 @@ final class SyncSchemaCommand extends Command
         private readonly ManagerRegistry $registry,
         #[Autowire('%nowo_api_studio.connection%')]
         private readonly string $connectionName,
+        #[Autowire('%nowo_api_studio.entity_manager%')]
+        private readonly ?string $entityManagerName = null,
     ) {
         parent::__construct();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io      = new SymfonyStyle($input, $output);
-        $manager = $this->registry->getManager($this->connectionName);
+        $io = new SymfonyStyle($input, $output);
+        // 1.12: the dedicated entity_manager when set; else the manager named like `connection` (1.x behaviour).
+        $managerName = $this->entityManagerName ?? $this->connectionName;
+        $manager     = $this->registry->getManager($managerName);
         if (!$manager instanceof EntityManagerInterface) {
-            throw new RuntimeException(sprintf('Connection "%s" is not an ORM entity manager.', $this->connectionName));
+            throw new RuntimeException(sprintf('Connection "%s" is not an ORM entity manager.', $managerName));
         }
 
         $syncService = new SchemaSyncService($manager);

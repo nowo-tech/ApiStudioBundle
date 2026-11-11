@@ -9,6 +9,8 @@
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
 - [Tenants and permissions](#tenants-and-permissions)
+- [Events](#events)
+- [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
   - [Override vs upgrade](#override-vs-upgrade)
   - [Override in the application](#override-in-the-application)
@@ -155,6 +157,76 @@ nowo_api_studio:
   --tenant-id=… [--dry-run]` strips `-2`, `-3`… suffixes when the base slug is free in the tenant.
 - **Slugs**: leave the slug empty to derive it from the name; new or edited slugs must match
   `^[a-z0-9]+(?:[-_][a-z0-9]+)*$` (≤ 128).
+
+## Events
+
+Every event is dispatched through the Symfony event dispatcher (event name = class name).
+
+| Event | When | Carries |
+|-------|------|---------|
+| `ApiWorkspaceCreatedEvent` | Workspace created from the studio, after its flush and **inside** the transaction (a listener exception rolls the workspace back) | `workspace` (entity), `tenant`, `user`; since 1.12 also `workspaceId`, `slug`, `actorId` |
+| `ApiWorkspaceCreatedCommittedEvent` (1.12) | The same workspace, **after the commit** | `workspaceId`, `slug`, `tenant`, `actorId` |
+| `ApiWorkspaceDeletedEvent` | After a workspace was deleted | `workspaceId`, `tenant` |
+| `ApiWorkspaceMovedEvent` | `nowo:api-studio:tenant:move` moved a workspace | `workspaceId`, `from`, `to` |
+| `ApiStudioResourceChangedEvent` (1.12) | After a flushed create / update / delete / import of a workspace, service, endpoint (incl. its documentation), environment, the variables of an environment, or a request / response example | `resourceType`, `resourceId`, `workspaceId`, `action`, `actorId` |
+| `ApiRequestExecutedEvent` (1.12) | After the console executed a request and stored its history row | `endpointId`, `serviceId`, `workspaceId`, `environmentId`, `historyId`, `method`, `host`, `statusCode`, `durationMs`, `success`, `actorId` — never the path, query, headers, bodies or variable values |
+
+`actorId` is the same opaque id history rows record (`history.actor_resolver`, else `u:` + the user identifier, hashed
+beyond 62 characters); null for anonymous users. Use the in-transaction `ApiWorkspaceCreatedEvent` for host rows that
+must be atomic with the workspace, and the committed / changed / executed events for outboxes, audit logs, search
+indexes and anything that talks to another system.
+
+## Using it from a DDD / hexagonal host
+
+Api Studio is a self-contained bounded context: its nine entities are bundle-owned and reference the host only through
+the tenant value object (`tenant_type` / `tenant_id` strings) and the opaque actor id. Both kinds of host are supported.
+
+**Standard Symfony host (default, zero configuration).** The entities are mapped on the default entity manager, the
+controllers flush it for the studio's own writes (admin UI, explicitly triggered by the user), the security user is
+whatever your firewall returns, and listeners may use the entities on the events.
+
+**DDD / hexagonal host (opt-in).**
+
+```yaml
+doctrine:
+    dbal:
+        connections:
+            default: { url: '%env(DATABASE_URL)%' }
+            api_studio: { url: '%env(DATABASE_URL)%' }   # same database is fine; a separate connection keeps transactions apart
+    orm:
+        default_entity_manager: default
+        entity_managers:
+            default:
+                connection: default
+                mappings: { App: { type: xml, dir: '%kernel.project_dir%/config/doctrine', prefix: 'App\Domain' } }
+            api_studio:
+                connection: api_studio
+
+nowo_api_studio:
+    entity_manager: api_studio             # 1.12: entities, tenant filter, flushes and resets on this manager only
+    history:
+        actor_resolver: App\Infrastructure\ApiStudio\ActorResolver    # opaque public id, no e-mail in the tables
+    security:
+        permission_checker: App\Infrastructure\ApiStudio\PermissionChecker   # decide by $subject->workspaceId
+    tenancy:
+        enabled: true
+        provider: App\Infrastructure\ApiStudio\TenantProvider          # 1.12: request-free ApiStudioTenantProviderInterface
+```
+
+- The bundle never flushes, clears or resets your manager: Api Studio writes go to `api_studio` only, and the recovery
+  of a closed manager on the next request (FrankenPHP worker mode, no services resetter needed) resets `api_studio`
+  only. The entities are not mapped on your managers even with `auto_mapping: true`, and the bundle prepends nothing
+  into your ORM configuration (no phantom `default` manager; your `default_entity_manager` stays yours).
+- Permission checkers receive `ApiStudioSubject` with `workspaceId` (1.12) next to the entity: store grants by id.
+- The tenant comes from your application context through `ApiStudioTenantProviderInterface::current()` (no HTTP
+  request in your port). Read it per call; do not cache it in a property (worker mode).
+- React to the id events (`ApiWorkspaceCreatedCommittedEvent`, `ApiStudioResourceChangedEvent`,
+  `ApiRequestExecutedEvent`) from an infrastructure listener and translate them into your own domain events or outbox
+  rows. They fire after the bundle's commit; when your own code wraps the request in an outer transaction, they fire
+  after the bundle's (nested) commit, before yours.
+- A "host controls the transaction" mode does not apply here: every write comes from the studio's own UI controllers,
+  never from a host command handler. The dedicated manager is the DDD path.
+- `sync-schema` and the `tenant:*` commands use the configured manager.
 
 ## Overriding Twig templates (REQ-TWIG-001)
 

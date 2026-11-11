@@ -2,6 +2,9 @@ services:
     _defaults:
         autowire: true
         autoconfigure: true
+        bind:
+            # 1.12 (rule 6): the manager of the Api Studio entities, never the host default by accident.
+            Doctrine\ORM\EntityManagerInterface $entityManager: '@nowo_api_studio.entity_manager'
 
     Nowo\ApiStudioBundle\:
         resource: '../../'
@@ -13,6 +16,7 @@ services:
             - '../../Form/'
             - '../../Soap/'
             - '../../ApiStudioBundle.php'
+            - '../../Tenancy/TenantProviderResolver.php'
             - '../../Controller/'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
@@ -29,6 +33,22 @@ services:
     Nowo\ApiStudioBundle\Command\:
         resource: '../../Command/'
         tags: ['console.command']
+
+    Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver:
+        arguments:
+            $managerName: '%nowo_api_studio.entity_manager%'
+
+    nowo_api_studio.entity_manager:
+        class: Doctrine\ORM\EntityManagerInterface
+        factory: ['@Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver', 'entityManager']
+
+    Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener:
+        arguments:
+            $entityManager: '%nowo_api_studio.entity_manager%'
+
+    Nowo\ApiStudioBundle\EventListener\EntityManagerRecoverySubscriber:
+        arguments:
+            $entityManager: '%nowo_api_studio.entity_manager%'
 
     Nowo\ApiStudioBundle\Service\LocaleManager:
         arguments:
