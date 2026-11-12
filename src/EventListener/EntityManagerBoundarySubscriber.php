@@ -29,7 +29,9 @@ use function max;
  * so no managed workspace, service, endpoint or history row of one request, tenant or message survives into the next
  * (stale rows, unbounded identity map, or an unflushed change of a failed unit written by a later flush):
  *
- * - main `kernel.request` (priority 4096) and `kernel.terminate` (priority -4096); sub-requests share the main request;
+ * - main `kernel.request` (priority 4096) and `kernel.terminate` (priority -4096), only outside a Messenger message and
+ *   a console command (a page rendered in-process by a handler or a command, e.g. a PDF or an e-mail, belongs to the
+ *   outer unit); sub-requests share the main request;
  * - Messenger `WorkerMessageReceivedEvent` (4096) and `WorkerMessageHandledEvent` / `WorkerMessageFailedEvent` (-4096);
  * - `console.command` (4096) and `console.terminate` (-4096) of the OUTERMOST command only, and only outside a Messenger
  *   message and outside a main request: a command run in-process from another command, a message handler or a
@@ -37,10 +39,11 @@ use function max;
  *   changes stay). Console depth counter; message flag set on received and unset on handled / failed / worker stopped;
  *   request flag set on the main `kernel.request` and unset on its `kernel.finish_request`.
  *
- * An open manager is never replaced (so pending changes of a running unit are never discarded); only a closed one,
- * which can no longer write anything, is recreated. The manager arrives as a lazy iterator of an
- * `IGNORE_ON_UNINITIALIZED_REFERENCE` reference (set by
- * {@see ApiStudioEntityManagerPass}): a boundary never builds it.
+ * Changes not flushed by the end of a unit are discarded, as in a PHP-FPM request. An open manager is never replaced
+ * (so pending changes of a running unit are never discarded); only a closed one, which can no longer write anything,
+ * is recreated through the registry. The manager (set by {@see ApiStudioEntityManagerPass}) and the registry arrive as
+ * lazy iterators of `IGNORE_ON_UNINITIALIZED_REFERENCE` references: a boundary never builds them. A closed manager
+ * whose registry was never built is left to {@see EntityManagerRecoverySubscriber}.
  * This keeps the bundle correct where the services resetter (which resets Doctrine) does not run: a host that removes
  * or bypasses `services_resetter` (or drives `http_kernel` directly), Messenger consumers started with `--no-reset`, and
  * long-running console commands.
@@ -62,11 +65,12 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
     private bool $requestInFlight = false;
 
     /**
+     * @param iterable<ManagerRegistry> $registries the Doctrine registry when it exists (never built by a boundary)
      * @param iterable<EntityManagerInterface> $managers the bundle-owned manager when it exists (empty otherwise)
      * @param string|null $managerName its name in the registry
      */
     public function __construct(
-        private readonly ManagerRegistry $registry,
+        private readonly iterable $registries = [],
         private readonly iterable $managers = [],
         private readonly ?string $managerName = null,
     ) {
@@ -80,7 +84,7 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         $events = [
             KernelEvents::REQUEST        => ['onKernelRequest', 4096],
             KernelEvents::FINISH_REQUEST => ['onKernelFinishRequest', -4096],
-            KernelEvents::TERMINATE      => ['clear', -4096],
+            KernelEvents::TERMINATE      => ['onKernelTerminate', -4096],
         ];
 
         if (class_exists(WorkerMessageReceivedEvent::class)) {
@@ -106,7 +110,20 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         }
         // @igor-ignore - Unit-of-work flag, set and unset at the main request boundaries.
         $this->requestInFlight = true;
-        $this->clear();
+        if ($this->isOutsideMessageAndCommand()) {
+            $this->clear();
+        }
+    }
+
+    /**
+     * End of a main request: clears only outside a message and a command (an in-process `http_kernel->handle()` run
+     * by a message handler or a command, e.g. to render a PDF or an e-mail, ends inside the outer unit).
+     */
+    public function onKernelTerminate(): void
+    {
+        if ($this->isOutsideMessageAndCommand()) {
+            $this->clear();
+        }
     }
 
     public function onKernelFinishRequest(FinishRequestEvent $event): void
@@ -162,9 +179,7 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
     {
         foreach ($this->managers as $manager) {
             if (!$manager->isOpen()) {
-                if ($this->managerName !== null) {
-                    $this->registry->resetManager($this->managerName);
-                }
+                $this->recreate();
 
                 continue;
             }
@@ -172,8 +187,23 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         }
     }
 
+    private function recreate(): void
+    {
+        if ($this->managerName === null) {
+            return;
+        }
+        foreach ($this->registries as $registry) {
+            $registry->resetManager($this->managerName);
+        }
+    }
+
     private function isOutermostUnit(): bool
     {
-        return $this->consoleDepth === 0 && !$this->messageInFlight && !$this->requestInFlight;
+        return $this->isOutsideMessageAndCommand() && !$this->requestInFlight;
+    }
+
+    private function isOutsideMessageAndCommand(): bool
+    {
+        return $this->consoleDepth === 0 && !$this->messageInFlight;
     }
 }

@@ -87,16 +87,18 @@ With `entity_manager` set to a manager other than the host's default one, the ma
 (REQ-RUNTIME-002 rule 4). `EventListener\EntityManagerBoundarySubscriber` recreates it through the registry when a
 failed write closed it, and otherwise clears it, on:
 
-- main `kernel.request` (priority 4096) and `kernel.terminate` (priority -4096); sub-requests share the main request;
+- main `kernel.request` (priority 4096) and `kernel.terminate` (priority -4096), only outside a Messenger message and
+  a console command (a page rendered in-process by a handler or a command keeps the outer unit of work); sub-requests
+  share the main request;
 - Messenger `WorkerMessageReceivedEvent` (4096) and `WorkerMessageHandledEvent` / `WorkerMessageFailedEvent` (-4096);
 - `console.command` (4096) and `console.terminate` (-4096) of the outermost command only, and only outside a message
   and a main request: a command run in-process (`Application::doRun()`) from another command, a message handler or a
   controller keeps the managed entities and pending changes of the unit that runs it (console depth counter, in-flight
   message flag, in-flight request flag).
 
-An open manager is never replaced, so the pending changes of a running unit are never discarded. The manager arrives
-as a lazy iterator of an `IGNORE_ON_UNINITIALIZED` reference set by `ApiStudioEntityManagerPass`, so a boundary never
-builds it. Without `entity_manager` (or with it naming the host's default manager) the iterator is empty and the bundle
+Changes not flushed by the end of a unit are discarded, as in a PHP-FPM request. An open manager is never replaced,
+so the pending changes of a running unit are never discarded. The manager (set by `ApiStudioEntityManagerPass`) and the
+Doctrine registry arrive as lazy iterators of `IGNORE_ON_UNINITIALIZED` references, so a boundary never builds them. Without `entity_manager` (or with it naming the host's default manager) the iterator is empty and the bundle
 never clears the host's manager: the host clears it at every boundary (REQ-RUNTIME-002 rule 7), or keeps
 `services_resetter`.
 
@@ -109,7 +111,7 @@ tenant's in memory and fails before its flush (1,000 messages). It asserts that 
 name and nothing of the other tenant, that each message reads the current row, that the failed message's change is
 never written by a later flush, that the Api Studio manager holds no entity after any unit of work, that the host's
 manager keeps its managed entity after the requests, and that memory after a cycle collection grows less than **4 MiB**
-after a 50-iteration warm-up. The same class covers the closed-manager recreation, a nested `doRun()` command and the
+after a 50-iteration warm-up. The same class covers the closed-manager recreation, an in-process request inside a message, a nested `doRun()` command and the
 services resetter; `ApiStudioEntityManagerPassTest` covers the wiring (bundle-owned manager only). Without the
 subscriber the worker test fails at its first iteration (stale workspace name).
 

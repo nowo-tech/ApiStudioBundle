@@ -56,7 +56,7 @@ services:
     Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber:
         autowire: false
         arguments:
-            $registry: '@doctrine'
+            $registries: !iterator ['@!doctrine']
             $managers: !iterator []
             $managerName: '%nowo_api_studio.entity_manager%'
 

@@ -70,13 +70,16 @@ Target 1.12.1 (patch).
   managed: later requests of any user or tenant were served stale names, URLs and variable values (another tenant's
   rows were never shown: every load re-checks the tenant scope), and the identity map grew with usage. The new
   `EventListener\EntityManagerBoundarySubscriber` recreates the bundle-owned manager when a failed write closed it and
-  clears it on the main `kernel.request` and `kernel.terminate`, on Messenger message received / handled / failed, and
+  clears it on the main `kernel.request` and `kernel.terminate` (outside a Messenger message and a console command: a
+  page rendered in-process by a handler or a command keeps the outer unit of work), on Messenger message received / handled / failed, and
   on the start and end of the outermost console command (a command run in-process from another command, a message
   handler or a controller keeps the unit of work, and the pending changes, of the unit that runs it). An open manager
-  is never replaced. It never touches the host's manager: without `entity_manager`, or with `entity_manager` naming the
+  is never replaced; changes not flushed by the end of a unit are discarded, as in a PHP-FPM request. It never touches the host's manager: without `entity_manager`, or with `entity_manager` naming the
   host's default manager, clearing is still the host's job. Test: `Tests\Functional\Worker\WorkerStateTest` (one
   kernel without the resetter, two tenants with two users each over 500 iterations: 2,000 requests and 1,000 messages,
   memory within 4 MiB).
+  **Affected:** 1.12.0 with `entity_manager` set to a non-default manager, only under the precondition above (services
+  resetter removed, replaced or bypassed, or `http_kernel` driven directly, or a long-running console command).
 - **Dev dependency:** `symfony/messenger` (worker test only; the bundle does not require it).
 
 ## [1.12.0] - 2026-11-11

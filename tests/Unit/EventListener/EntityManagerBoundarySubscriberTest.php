@@ -64,7 +64,7 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         });
         $this->registry   = $this->createMock(ManagerRegistry::class);
         $this->dispatcher = new EventDispatcher();
-        $this->dispatcher->addSubscriber(new EntityManagerBoundarySubscriber($this->registry, [$this->manager], 'api_studio'));
+        $this->dispatcher->addSubscriber(new EntityManagerBoundarySubscriber([$this->registry], [$this->manager], 'api_studio'));
         $this->kernel = $this->createStub(HttpKernelInterface::class);
     }
 
@@ -74,7 +74,7 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
 
         self::assertSame(['onKernelRequest', 4096], $events[KernelEvents::REQUEST]);
         self::assertSame(['onKernelFinishRequest', -4096], $events[KernelEvents::FINISH_REQUEST]);
-        self::assertSame(['clear', -4096], $events[KernelEvents::TERMINATE]);
+        self::assertSame(['onKernelTerminate', -4096], $events[KernelEvents::TERMINATE]);
         self::assertSame(['onMessageReceived', 4096], $events[WorkerMessageReceivedEvent::class]);
         self::assertSame(['onMessageFinished', -4096], $events[WorkerMessageHandledEvent::class]);
         self::assertSame(['onMessageFinished', -4096], $events[WorkerMessageFailedEvent::class]);
@@ -88,7 +88,7 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         $this->request(HttpKernelInterface::MAIN_REQUEST);
         self::assertSame(1, $this->clears);
 
-        $this->dispatcher->dispatch(new TerminateEvent($this->kernel, new Request(), new Response()), KernelEvents::TERMINATE);
+        $this->terminate();
         self::assertSame(2, $this->clears);
     }
 
@@ -148,6 +148,36 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         self::assertSame(4, $this->clears, 'after the request a command end clears again');
     }
 
+    public function testMainRequestHandledInsideAMessageOrACommandDoesNotClear(): void
+    {
+        $this->dispatcher->dispatch(new WorkerMessageReceivedEvent(new Envelope(new stdClass()), 'async'));
+        // In-process http_kernel->handle() inside the handler (e.g. rendering a PDF).
+        $this->request(HttpKernelInterface::MAIN_REQUEST);
+        $this->finishRequest(HttpKernelInterface::MAIN_REQUEST);
+        $this->terminate();
+        self::assertSame(1, $this->clears, 'the message keeps its unit of work');
+        $this->dispatcher->dispatch(new WorkerMessageHandledEvent(new Envelope(new stdClass()), 'async'));
+        self::assertSame(2, $this->clears);
+
+        $this->consoleCommand();
+        // In-process http_kernel->handle() inside the command (e.g. rendering an e-mail).
+        $this->request(HttpKernelInterface::MAIN_REQUEST);
+        $this->finishRequest(HttpKernelInterface::MAIN_REQUEST);
+        $this->terminate();
+        self::assertSame(3, $this->clears, 'the command keeps its unit of work');
+        $this->consoleTerminate();
+        self::assertSame(4, $this->clears);
+    }
+
+    public function testAClosedManagerWithoutABuiltRegistryIsLeftToTheRecoverySubscriber(): void
+    {
+        $this->open = false;
+
+        (new EntityManagerBoundarySubscriber([], [$this->manager], 'api_studio'))->clear();
+
+        self::assertSame(0, $this->clears);
+    }
+
     public function testSkippedMessageDoesNotBlockTheClearAfterTheWorkerStops(): void
     {
         $this->dispatcher->dispatch(new WorkerMessageReceivedEvent(new Envelope(new stdClass()), 'async'));
@@ -173,7 +203,7 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         $registry   = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::never())->method('resetManager');
 
-        (new EntityManagerBoundarySubscriber($registry, [$this->manager]))->clear();
+        (new EntityManagerBoundarySubscriber([$registry], [$this->manager]))->clear();
 
         self::assertSame(0, $this->clears);
     }
@@ -181,28 +211,33 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
     public function testBoundaryNeverBuildsAnUninitializedManager(): void
     {
         $container = new ContainerBuilder();
-        $container->register('registry', ManagerRegistry::class)->setSynthetic(true);
+        $container->register('registry', stdClass::class)->setPublic(true);
         $container->register('studio_manager', stdClass::class)->setPublic(true);
         $container->register(EntityManagerBoundarySubscriber::class, EntityManagerBoundarySubscriber::class)
             ->setPublic(true)
             ->setArguments([
-                new Reference('registry'),
+                new IteratorArgument([new Reference('registry', ContainerInterface::IGNORE_ON_UNINITIALIZED_REFERENCE)]),
                 new IteratorArgument([new Reference('studio_manager', ContainerInterface::IGNORE_ON_UNINITIALIZED_REFERENCE)]),
                 'api_studio',
             ]);
         $container->compile();
-        $container->set('registry', $this->registry);
 
         $subscriber = $container->get(EntityManagerBoundarySubscriber::class);
         self::assertInstanceOf(EntityManagerBoundarySubscriber::class, $subscriber);
         $subscriber->onMessageReceived();
 
         self::assertFalse($container->initialized('studio_manager'), 'the boundary does not build the manager');
+        self::assertFalse($container->initialized('registry'), 'the boundary does not build the registry');
     }
 
     private function request(int $type): void
     {
         $this->dispatcher->dispatch(new RequestEvent($this->kernel, new Request(), $type), KernelEvents::REQUEST);
+    }
+
+    private function terminate(): void
+    {
+        $this->dispatcher->dispatch(new TerminateEvent($this->kernel, new Request(), new Response()), KernelEvents::TERMINATE);
     }
 
     private function finishRequest(int $type): void

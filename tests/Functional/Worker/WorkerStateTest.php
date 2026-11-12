@@ -27,6 +27,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
+use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
 use Symfony\Component\Messenger\Event\WorkerRunningEvent;
 use Symfony\Component\Messenger\EventListener\ResetServicesListener;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -220,6 +222,34 @@ final class WorkerStateTest extends TestCase
         self::assertTrue($seen['managed after the nested command'] ?? false, 'the nested command keeps the outer managed entity and its pending change');
         self::assertSame('renamed by the outer command', $studio->getConnection()->fetchOne('SELECT name FROM api_studio_workspace WHERE id = ?', [$id]));
         self::assertSame(0, $studio->getUnitOfWork()->size(), 'the end of the outermost command clears the manager');
+    }
+
+    public function testMainRequestHandledInsideAMessageKeepsTheMessageUnitOfWork(): void
+    {
+        [, $studio] = $this->boot();
+        $workspace  = (new ApiWorkspace('acme workspace', 'acme'))->assignTenant(new ApiStudioTenant('org', 'acme'));
+        $studio->persist($workspace);
+        $studio->flush();
+        $id = (int) $workspace->getId();
+        $studio->clear();
+        $http       = $this->container()->get('http_kernel');
+        $dispatcher = $this->container()->get('event_dispatcher');
+        self::assertInstanceOf(HttpKernel::class, $http);
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $envelope = new Envelope(new WorkerProbeMessage($id, false));
+
+        // A message handler edits a workspace, renders a page in-process (e.g. a PDF), then flushes.
+        $dispatcher->dispatch(new WorkerMessageReceivedEvent($envelope, 'probe'));
+        $loaded = $studio->find(ApiWorkspace::class, $id);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        $loaded->setName('renamed by the message');
+        $this->page($http, '/orgs/acme/api-studio/workspaces', 'alice', 0);
+        self::assertTrue($studio->contains($loaded), 'the in-process request keeps the message unit of work');
+        $studio->flush();
+        $dispatcher->dispatch(new WorkerMessageHandledEvent($envelope, 'probe'));
+
+        self::assertSame('renamed by the message', $studio->getConnection()->fetchOne('SELECT name FROM api_studio_workspace WHERE id = ?', [$id]));
+        self::assertSame(0, $studio->getUnitOfWork()->size(), 'the end of the message clears the manager');
     }
 
     public function testServicesResetterStillResetsTheBundleManager(): void
