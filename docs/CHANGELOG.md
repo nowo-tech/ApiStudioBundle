@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.1] - 2026-11-12](#1121---2026-11-12)
 - [[1.12.0] - 2026-11-11](#1120---2026-11-11)
 - [[1.11.0] - 2026-11-04](#1110---2026-11-04)
 - [[1.10.1] - 2026-11-04](#1101---2026-11-04)
@@ -56,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-11-12
+
 Target 1.12.1 (patch).
 
 ### Fixed
@@ -82,10 +85,11 @@ Target 1.12.1 (patch).
   resetter removed, replaced or bypassed, or `http_kernel` driven directly, or a long-running console command).
 - **Dev dependency:** `symfony/messenger` (worker test only; the bundle does not require it).
 
+[1.12.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.1
+
 ## [1.12.0] - 2026-11-11
 
 New doctrine entity_manager option (entities only on that manager), after-commit workspace and resource events with IDs only, request-executed event without secrets, a request-free tenancy provider port; secret encryption no longer crashes on other managers. See [UPGRADING](https://github.com/nowo-tech/ApiStudioBundle/blob/v1.12.0/docs/UPGRADING.md#to-1120).
-
 
 ### Added
 
