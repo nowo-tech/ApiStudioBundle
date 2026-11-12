@@ -65,16 +65,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   propagation, or a `console.error` listener that threw (Symfony then skips `console.terminate`), left the process
   "inside a command" for good, and the bundle-owned entity manager was then never cleared again between HTTP requests
   (stale workspaces across requests and tenants). A `console.command` listener above 4096 that stopped the propagation
-  in a nested command made the nested end clear the outer unit mid-run. Each console run is now a frame on a stack
-  keyed by its `Command` object and its input (a command that runs itself in-process is a new frame), pushed at
+  in a nested command made the nested end clear the outer unit mid-run. Each console run is now a frame on a stack keyed
+  by its `Command` object and its input (a command that runs itself in-process is a new frame), pushed at
   `console.command` priority `PHP_INT_MAX` with the outer state it started in (message in flight, main requests in
   flight) and removed, restoring that state, by its own `console.terminate` at priority `PHP_INT_MAX`; a terminate
   without a frame changes nothing. `console.error` (priority `PHP_INT_MAX`) marks the frame as failing: when an error
   listener throws, the frame is dropped at the next main request, message, command or worker stop. The outermost clear
   still runs at `console.terminate` -4096. Main requests are tracked per `Request`, so a nested main request no longer
   ends the outer one early, and the end of a main request or message (handled, failed, `WorkerMessageSkipEvent`,
-  `WorkerStoppedEvent`) restores the frames it started with. Tests run a real console `Application` and `HttpKernel`
-  on one dispatcher without the services resetter.
+  `WorkerStoppedEvent`) restores the frames it started with. The Messenger and `kernel.terminate` bookkeeping also runs
+  at `PHP_INT_MAX` (the clears keep their priorities), a main request also saves the message state, and a top-level
+  `kernel.terminate` forgets the requests whose end never ran (a `kernel.exception`, `kernel.finish_request` or
+  `kernel.terminate` listener threw), so no `Request` is kept and a later top-level command clears again (audit NR-a).
+  Tests run a real console `Application` and `HttpKernel` on one dispatcher without the services resetter.
 
 ## [1.12.1] - 2026-11-12
 

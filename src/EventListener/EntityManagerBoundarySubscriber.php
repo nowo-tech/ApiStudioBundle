@@ -64,7 +64,11 @@ use const PHP_INT_MAX;
  *   frames above it) and its saved state restored. Every handler drops such frames FIRST and only then writes its own
  *   state. `console.error` without a command (unknown command) changes nothing;
  * - the end of a main request (`kernel.finish_request` / `kernel.terminate`) and of a Messenger message (handled,
- *   failed, worker stopped) also restores the frames to what they were at its start;
+ *   failed, worker stopped) also restores the frames (and, for a request, the message state) to what they were at its
+ *   start. The Messenger bookkeeping and the `kernel.terminate` bookkeeping run at priority PHP_INT_MAX; the clears
+ *   keep their priorities. A top-level `kernel.terminate` (no command, no message left) also forgets every main request
+ *   whose end never ran (a `kernel.exception`, `kernel.finish_request` or `kernel.terminate` listener threw), so no
+ *   `Request` is kept and a later top-level command is the outermost unit again (audit NR-a);
  * - main requests in flight are counted per `Request` object, so a nested main request (an in-process
  *   `HttpKernel::handle()` from a controller) never ends the outer one early.
  * So a listener that throws or stops the propagation can no longer leave the process "inside a command" for good
@@ -91,15 +95,15 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
      * Running console commands, outermost first. Each frame keeps the outer state it started in (`message`, `requests`),
      * restored when the frame is removed, and whether it is the outermost unit.
      *
-     * @var list<array{command: Command, input: InputInterface, outermost: bool, failing: bool, message: list<mixed>|null, requests: SplObjectStorage<Request, list<mixed>>}>
+     * @var list<array{command: Command, input: InputInterface, outermost: bool, failing: bool, message: list<mixed>|null, requests: SplObjectStorage<Request, array{0: list<mixed>, 1: list<mixed>|null}>}>
      */
     private array $frames = [];
 
     /**
      * Main requests in flight (between their `kernel.request` and their `kernel.finish_request` / `kernel.terminate`),
-     * in start order, with the frames at their start.
+     * in start order, with the frames and the message state at their start.
      *
-     * @var SplObjectStorage<Request, list<mixed>>
+     * @var SplObjectStorage<Request, array{0: list<mixed>, 1: list<mixed>|null}>
      */
     private SplObjectStorage $requests;
 
@@ -139,16 +143,16 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         $events = [
             KernelEvents::REQUEST        => ['onKernelRequest', 4096],
             KernelEvents::FINISH_REQUEST => ['onKernelFinishRequest', -4096],
-            KernelEvents::TERMINATE      => ['onKernelTerminate', -4096],
+            KernelEvents::TERMINATE      => [['onKernelTerminateStart', PHP_INT_MAX], ['onKernelTerminate', -4096]],
         ];
 
         if (class_exists(WorkerMessageReceivedEvent::class)) {
-            $events[WorkerMessageReceivedEvent::class] = ['onMessageReceived', 4096];
-            $events[WorkerMessageHandledEvent::class]  = ['onMessageFinished', -4096];
-            $events[WorkerMessageFailedEvent::class]   = ['onMessageFinished', -4096];
+            $events[WorkerMessageReceivedEvent::class] = [['onMessageStart', PHP_INT_MAX], ['onMessageReceived', 4096]];
+            $events[WorkerMessageHandledEvent::class]  = [['onMessageEnd', PHP_INT_MAX], ['onMessageFinished', -4096]];
+            $events[WorkerMessageFailedEvent::class]   = [['onMessageEnd', PHP_INT_MAX], ['onMessageFinished', -4096]];
             // A skipped message (only dispatched by `messenger:failed:retry`).
-            $events[self::MESSENGER_WORKER_MESSAGE_SKIPPED] = ['onWorkerStopped', -4096];
-            $events[WorkerStoppedEvent::class]              = ['onWorkerStopped', -4096];
+            $events[self::MESSENGER_WORKER_MESSAGE_SKIPPED] = ['onWorkerStopped', PHP_INT_MAX];
+            $events[WorkerStoppedEvent::class]              = ['onWorkerStopped', PHP_INT_MAX];
         }
 
         if (class_exists(ConsoleEvents::class)) {
@@ -172,7 +176,7 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         $this->dropFailingFrames();
         $outermost = $this->isOutsideMessageAndCommand();
         // @igor-ignore - Unit-of-work stack, pushed and popped at the main request boundaries (no request data kept).
-        $this->requests[$event->getRequest()] = $this->frames;
+        $this->requests[$event->getRequest()] = [$this->frames, $this->messageFrames];
         if ($outermost) {
             $this->clear();
         }
@@ -187,7 +191,21 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
     }
 
     /**
-     * End of a request: clears only outside a command and a message (an in-process HttpKernel::handle()).
+     * End of a main request (priority PHP_INT_MAX): ends its bookkeeping before any other listener can throw.
+     */
+    public function onKernelTerminateStart(TerminateEvent $event): void
+    {
+        $this->dropFailingFrames();
+        $this->endRequest($event->getRequest());
+        if ($this->frames === [] && $this->messageFrames === null) {
+            // Top-level end: requests whose finish / terminate never ran (a listener threw) are gone too.
+            // @igor-ignore - Unit-of-work stack, reset at the top-level request end (no request data kept).
+            $this->requests = new SplObjectStorage();
+        }
+    }
+
+    /**
+     * End of a request (priority -4096): clears only outside a command and a message.
      */
     public function onKernelTerminate(TerminateEvent $event): void
     {
@@ -199,25 +217,40 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
     }
 
     /**
-     * Start of a Messenger message: nothing of the previous message or the worker's idle time is kept.
+     * Start of a Messenger message (priority PHP_INT_MAX): records it before any other listener can throw.
      */
-    public function onMessageReceived(): void
+    public function onMessageStart(): void
     {
         $this->dropFailingFrames();
         // A previous message that never finished ends here.
         $this->endMessage();
         // @igor-ignore - Unit-of-work state, set and unset at the Messenger boundaries (no message data kept).
         $this->messageFrames = $this->frames;
+    }
+
+    /**
+     * Start of a Messenger message (priority 4096): nothing of the previous message or the worker's idle time is kept.
+     */
+    public function onMessageReceived(): void
+    {
         $this->clear();
     }
 
     /**
-     * End of a Messenger message (handled or failed).
+     * End of a Messenger message (handled or failed, priority PHP_INT_MAX): ends its state before any other listener can
+     * throw.
      */
-    public function onMessageFinished(): void
+    public function onMessageEnd(): void
     {
         $this->dropFailingFrames();
         $this->endMessage();
+    }
+
+    /**
+     * Message handled or failed (priority -4096): clears.
+     */
+    public function onMessageFinished(): void
+    {
         $this->clear();
     }
 
@@ -373,9 +406,9 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
             return;
         }
 
-        $frames = $this->requests[$request];
-        $popped = [];
-        $found  = false;
+        [$frames, $messageFrames] = $this->requests[$request];
+        $popped                   = [];
+        $found                    = false;
         foreach ($this->requests as $started) {
             $found = $found || $started === $request;
             if ($found) {
@@ -387,6 +420,8 @@ final class EntityManagerBoundarySubscriber implements EventSubscriberInterface
         }
         // @igor-ignore - Frames restored at the end of the enclosing request (no request data).
         $this->frames = $frames;
+        // @igor-ignore - Message state restored at the end of the enclosing request (no message data).
+        $this->messageFrames = $messageFrames;
     }
 
     private function endMessage(): void
