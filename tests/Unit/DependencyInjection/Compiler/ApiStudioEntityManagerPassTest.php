@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\DependencyInjection\Compiler;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
 use Nowo\ApiStudioBundle\DependencyInjection\Compiler\ApiStudioEntityManagerPass;
+use Nowo\ApiStudioBundle\Doctrine\ExcludedEntityNamespaceDriver;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
+
+use function array_map;
 
 final class ApiStudioEntityManagerPassTest extends TestCase
 {
@@ -37,9 +40,15 @@ final class ApiStudioEntityManagerPassTest extends TestCase
 
         (new ApiStudioEntityManagerPass())->process($container);
 
+        // Other managers: the auto-mapped bundle driver is gone; a driver that maps nothing comes first, before the
+        // host's drivers and before any default driver (DoctrineBundle 3.4 auto_discover_entities).
         $default = $container->getDefinition('doctrine.orm.default_metadata_driver')->getMethodCalls();
-        self::assertCount(1, $default, 'the auto-mapped bundle driver is removed from the default manager');
-        self::assertSame('App\\Entity', $default[0][1][1]);
+        self::assertSame(
+            [['addDriver', ApiStudioEntityManagerPass::ENTITY_NAMESPACE], ['addDriver', 'App\\Entity'], ['setDefaultDriver', null]],
+            array_map(static fn (array $call): array => [$call[0], $call[1][1] ?? null], $default),
+        );
+        self::assertInstanceOf(Definition::class, $default[0][1][0]);
+        self::assertSame(ExcludedEntityNamespaceDriver::class, $default[0][1][0]->getClass());
 
         $studio = $container->getDefinition('doctrine.orm.api_studio_metadata_driver')->getMethodCalls();
         self::assertCount(1, $studio);
@@ -54,6 +63,7 @@ final class ApiStudioEntityManagerPassTest extends TestCase
         // Idempotent: a second run neither duplicates the driver nor the filter.
         (new ApiStudioEntityManagerPass())->process($container);
         self::assertCount(1, $container->getDefinition('doctrine.orm.api_studio_metadata_driver')->getMethodCalls());
+        self::assertCount(3, $container->getDefinition('doctrine.orm.default_metadata_driver')->getMethodCalls());
         self::assertCount(1, $container->getDefinition('doctrine.orm.api_studio_configuration')->getMethodCalls());
     }
 
@@ -116,7 +126,8 @@ final class ApiStudioEntityManagerPassTest extends TestCase
         ]);
         $container->register('doctrine.orm.default_metadata_driver')
             ->addMethodCall('addDriver', [new Reference('doctrine.orm.default_attribute_metadata_driver'), 'App\\Entity'])
-            ->addMethodCall('addDriver', [new Reference('doctrine.orm.default_attribute_metadata_driver'), ApiStudioEntityManagerPass::ENTITY_NAMESPACE]);
+            ->addMethodCall('addDriver', [new Reference('doctrine.orm.default_attribute_metadata_driver'), ApiStudioEntityManagerPass::ENTITY_NAMESPACE])
+            ->addMethodCall('setDefaultDriver', [new Reference('doctrine.orm.default_auto_discover_metadata_driver')]);
         $container->register('doctrine.orm.api_studio_metadata_driver');
         $container->register('doctrine.orm.default_configuration');
         $container->register('doctrine.orm.api_studio_configuration');

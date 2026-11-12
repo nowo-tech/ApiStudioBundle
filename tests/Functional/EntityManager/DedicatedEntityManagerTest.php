@@ -16,9 +16,11 @@ use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedCommittedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedEvent;
+use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Tests\Functional\App\Entity\HostNote;
 use Nowo\ApiStudioBundle\Tests\Functional\App\EntityManagerTestKernel;
 use Nowo\ApiStudioBundle\Tests\Functional\App\EventRecorder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -112,6 +114,52 @@ final class DedicatedEntityManagerTest extends TestCase
         self::assertSame(1, (int) $studio->getConnection()->fetchOne('SELECT COUNT(*) FROM api_studio_workspace'));
         self::assertSame(0, (int) $host->getConnection()->fetchOne('SELECT COUNT(*) FROM host_note'), 'the host manager is never flushed');
         self::assertFalse($host->getConnection()->createSchemaManager()->tablesExist(['api_studio_workspace']), 'no Api Studio table on the host database');
+    }
+
+    /**
+     * DoctrineBundle 3.4 regression: `auto_discover_entities` (on by default for a manager without `mappings` and
+     * `auto_mapping`) gives the host manager's chain a default attribute driver, which claims every `#[ORM\Entity]`
+     * class, so `getManagerForClass()` answered the host manager and the repositories queried its database. The
+     * explicit catch-all default driver reproduces it on every DoctrineBundle version.
+     */
+    #[DataProvider('hostManagersWithADefaultDriver')]
+    public function testDedicatedManagerWinsOverADefaultDriverOfTheHostManager(bool $explicitDefaultDriver): void
+    {
+        $doctrine = $this->dedicatedDoctrine(false);
+        unset($doctrine['orm']['entity_managers']['default']['auto_mapping'], $doctrine['orm']['entity_managers']['default']['mappings']);
+        $this->boot($doctrine, ['entity_manager' => 'api_studio'], $explicitDefaultDriver);
+        $studio = $this->registry()->getManager('api_studio');
+
+        // Neither manager is initialized yet: DoctrineBundle 3.4 asks the metadata drivers.
+        self::assertSame($studio, $this->registry()->getManagerForClass(ApiWorkspace::class));
+        self::assertSame($studio, $this->registry()->getManagerForClass(ApiService::class));
+
+        [$host, $studio] = $this->managersWithSchema();
+        self::assertTrue($host->getMetadataFactory()->isTransient(ApiWorkspace::class), 'not mapped on the host manager');
+        self::assertSame($studio, $this->registry()->getManagerForClass(ApiWorkspace::class));
+
+        $client = new KernelBrowser($this->kernel());
+        $client->disableReboot();
+        $crawler = $client->request('GET', '/api-studio/workspaces/new');
+        $client->submit($crawler->filter('form[name="api_workspace_form"]')->form([
+            'api_workspace_form[name]' => 'Payments',
+            'api_workspace_form[slug]' => 'payments',
+        ]));
+        self::assertSame(302, $client->getResponse()->getStatusCode());
+        self::assertSame(1, (int) $studio->getConnection()->fetchOne('SELECT COUNT(*) FROM api_studio_workspace'), 'written to the bundle database');
+
+        $repository = $this->container()->get(ApiWorkspaceRepository::class);
+        self::assertInstanceOf(ApiWorkspaceRepository::class, $repository);
+        self::assertInstanceOf(ApiWorkspace::class, $repository->findOneBy(['slug' => 'payments']), 'the repository reads the bundle database');
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function hostManagersWithADefaultDriver(): iterable
+    {
+        yield 'host manager without mappings (DoctrineBundle 3.4 auto-discovery)' => [false];
+        yield 'host manager with a catch-all default driver' => [true];
     }
 
     public function testEventsCarryIdsAndFireAfterTheCommit(): void
@@ -292,9 +340,9 @@ final class DedicatedEntityManagerTest extends TestCase
      * @param array<string, mixed> $doctrine
      * @param array<string, mixed> $bundle
      */
-    private function boot(array $doctrine, array $bundle = []): void
+    private function boot(array $doctrine, array $bundle = [], bool $hostDefaultDriver = false): void
     {
-        $this->kernel = new EntityManagerTestKernel($doctrine, $bundle);
+        $this->kernel = new EntityManagerTestKernel($doctrine, $bundle, $hostDefaultDriver);
         $this->kernel->boot();
     }
 
