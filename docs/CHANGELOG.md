@@ -56,6 +56,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.12.1 (patch).
+
+### Fixed
+
+- **The dedicated entity manager is cleared at every boundary, also without the services resetter (REQ-RUNTIME-002
+  rule 4).** With `entity_manager` set (1.12.0) the Api Studio manager was never `clear()`ed by the bundle: only
+  DoctrineBundle's `kernel.reset` did it. **Precondition:** with the stock Symfony kernel the services resetter still
+  runs before every request (also with `FRANKENPHP_RESET_KERNEL=false`), and DoctrineBundle clears every manager after
+  each Messenger message, so nothing leaked there. It leaked only with `entity_manager` set and where the resetter does
+  not run: a host that removes, replaces or bypasses `services_resetter` (or drives `http_kernel` directly), and
+  long-running console commands. There, workspaces, services, endpoints and environments loaded by one request stayed
+  managed: later requests of any user or tenant were served stale names, URLs and variable values (another tenant's
+  rows were never shown: every load re-checks the tenant scope), and the identity map grew with usage. The new
+  `EventListener\EntityManagerBoundarySubscriber` recreates the bundle-owned manager when a failed write closed it and
+  clears it on the main `kernel.request` and `kernel.terminate` (outside a Messenger message and a console command: a
+  page rendered in-process by a handler or a command keeps the outer unit of work), on Messenger message received / handled / failed, and
+  on the start and end of the outermost console command (a command run in-process from another command, a message
+  handler or a controller keeps the unit of work, and the pending changes, of the unit that runs it). An open manager
+  is never replaced; changes not flushed by the end of a unit are discarded, as in a PHP-FPM request. It never touches the host's manager: without `entity_manager`, or with `entity_manager` naming the
+  host's default manager, clearing is still the host's job. Test: `Tests\Functional\Worker\WorkerStateTest` (one
+  kernel without the resetter, two tenants with two users each over 500 iterations: 2,000 requests and 1,000 messages,
+  memory within 4 MiB).
+  **Affected:** 1.12.0 with `entity_manager` set to a non-default manager, only under the precondition above (services
+  resetter removed, replaced or bypassed, or `http_kernel` driven directly, or a long-running console command).
+- **Dev dependency:** `symfony/messenger` (worker test only; the bundle does not require it).
+
 ## [1.12.0] - 2026-11-11
 
 New doctrine entity_manager option (entities only on that manager), after-commit workspace and resource events with IDs only, request-executed event without secrets, a request-free tenancy provider port; secret encryption no longer crashes on other managers. See [UPGRADING](https://github.com/nowo-tech/ApiStudioBundle/blob/v1.12.0/docs/UPGRADING.md#to-1120).
