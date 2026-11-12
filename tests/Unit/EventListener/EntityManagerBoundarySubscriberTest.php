@@ -44,8 +44,14 @@ use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageSkipEvent;
+use Symfony\Component\Messenger\Event\WorkerRunningEvent;
+use Symfony\Component\Messenger\Event\WorkerStartedEvent;
 use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
+use Symfony\Component\Messenger\Handler\HandlersLocator;
+use Symfony\Component\Messenger\MessageBus;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Middleware\HandleMessageMiddleware;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Messenger\Worker;
 
 use function array_pop;
@@ -73,6 +79,9 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
     private HttpKernelInterface $kernel;
 
     private HttpKernel $http;
+
+    /** The HTTP kernel's request stack, shared with the subscriber. */
+    private RequestStack $requestStack;
 
     private EntityManagerBoundarySubscriber $subscriber;
 
@@ -109,9 +118,10 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         if ($before instanceof Closure) {
             $before($this->dispatcher);
         }
-        $this->subscriber = new EntityManagerBoundarySubscriber([$this->registry], [$this->manager], 'api_studio');
+        $this->requestStack = new RequestStack();
+        $this->subscriber   = new EntityManagerBoundarySubscriber([$this->registry], [$this->manager], 'api_studio', $this->requestStack);
         $this->dispatcher->addSubscriber($this->subscriber);
-        $this->http        = new HttpKernel($this->dispatcher, new ControllerResolver(), new RequestStack(), new ArgumentResolver());
+        $this->http        = new HttpKernel($this->dispatcher, new ControllerResolver(), $this->requestStack, new ArgumentResolver());
         $this->application = new Application();
         $this->application->setAutoExit(false);
         $this->application->setCatchExceptions(false);
@@ -125,11 +135,13 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
         self::assertSame(['onKernelRequest', 4096], $events[KernelEvents::REQUEST]);
         self::assertSame(['onKernelFinishRequest', -4096], $events[KernelEvents::FINISH_REQUEST]);
         self::assertSame([['onKernelTerminateStart', PHP_INT_MAX], ['onKernelTerminate', -4096]], $events[KernelEvents::TERMINATE]);
-        self::assertSame([['onMessageStart', PHP_INT_MAX], ['onMessageReceived', 4096]], $events[WorkerMessageReceivedEvent::class]);
+        self::assertSame([['onMessageStart', PHP_INT_MAX], ['onMessageReceived', 4096], ['onMessageReceivedDecided', PHP_INT_MIN]], $events[WorkerMessageReceivedEvent::class]);
         self::assertSame([['onMessageEnd', PHP_INT_MAX], ['onMessageFinished', -4096]], $events[WorkerMessageHandledEvent::class]);
         self::assertSame([['onMessageEnd', PHP_INT_MAX], ['onMessageFinished', -4096]], $events[WorkerMessageFailedEvent::class]);
         self::assertSame(['onWorkerStopped', PHP_INT_MAX], $events[WorkerStoppedEvent::class]);
-        self::assertSame(['onWorkerStopped', PHP_INT_MAX], $events[WorkerMessageSkipEvent::class]);
+        self::assertSame(['onMessageEnd', PHP_INT_MAX], $events[WorkerMessageSkipEvent::class]);
+        self::assertSame(['onWorkerStarted', PHP_INT_MAX], $events[WorkerStartedEvent::class]);
+        self::assertSame(['onWorkerRunning', PHP_INT_MAX], $events[WorkerRunningEvent::class]);
         self::assertSame(['onConsoleCommand', PHP_INT_MAX], $events[ConsoleEvents::COMMAND]);
         self::assertSame(['onConsoleError', PHP_INT_MAX], $events[ConsoleEvents::ERROR]);
         self::assertSame([['onConsoleEnd', PHP_INT_MAX], ['onConsoleTerminate', -4096]], $events[ConsoleEvents::TERMINATE]);
@@ -472,13 +484,13 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
             $inner = new Request();
             $inner->attributes->set('_controller', static fn (): Response => new Response());
             $this->http->handle($inner);
-            self::assertSame(2, $this->clears, 'Outer start, inner start (no command, no message).');
+            self::assertSame(1, $this->clears, 'Outer start only: the nested main request is not the outermost unit (audit NX CR2).');
             $this->runCommand('app:probe');
-            self::assertSame(2, $this->clears, 'The command still runs inside the outer request.');
+            self::assertSame(1, $this->clears, 'The command still runs inside the outer request.');
 
             return new Response();
         });
-        self::assertSame(3, $this->clears);
+        self::assertSame(2, $this->clears);
     }
 
     /**
@@ -691,10 +703,258 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
 
         $subscriber = $container->get(EntityManagerBoundarySubscriber::class);
         self::assertInstanceOf(EntityManagerBoundarySubscriber::class, $subscriber);
-        $subscriber->onMessageReceived();
+        $subscriber->onMessageReceived(new stdClass());
 
         self::assertFalse($container->initialized('studio_manager'), 'the boundary does not build the manager');
         self::assertFalse($container->initialized('registry'), 'the boundary does not build the registry');
+    }
+
+    /**
+     * Audit NX CR1: a worker run in-process inside a message handler, then a main request in the same handler: neither
+     * clears the outer message's unit; the outer message clears when received and when handled.
+     */
+    public function testAWorkerInsideAHandlerNeverEndsTheOuterMessage(): void
+    {
+        $inside = null;
+        $this->runWorker(1, function () use (&$inside): void {
+            $before = $this->clears;
+            $this->runWorker(1, static function (): void {
+            });
+            $this->http->handle($this->controllerRequest(static fn (): Response => new Response('in handler')));
+            $inside = $this->clears - $before;
+        });
+
+        self::assertSame(0, $inside, 'The inner worker and the in-process request keep the outer message.');
+        self::assertSame(2, $this->clears);
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame(4, $this->clears, 'The next main request clears at its start and terminate.');
+    }
+
+    /**
+     * Audit NX CR3: a received listener skips the message with `shouldHandle(false)` (no handled / failed event); with
+     * no worker event at all (CR3b) the message ends too.
+     */
+    public function testASkippedMessageEndsWithoutAHandledEvent(): void
+    {
+        $received = 0;
+        $skip     = static function (WorkerMessageReceivedEvent $event) use (&$received): void {
+            if (++$received === 1) {
+                $event->shouldHandle(false);
+            }
+        };
+        $this->dispatcher->addListener(WorkerMessageReceivedEvent::class, $skip);
+        // The in-memory transport delivers the skipped (never acknowledged) message again.
+        $this->runWorker(1, static function (): void {
+        });
+        $this->dispatcher->removeListener(WorkerMessageReceivedEvent::class, $skip);
+        $before = $this->clears;
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame($before + 2, $this->clears);
+
+        $event = new WorkerMessageReceivedEvent(new Envelope(new stdClass()), 'async');
+        $event->shouldHandle(false);
+        $this->dispatcher->dispatch($event);
+        $before = $this->clears;
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame($before + 2, $this->clears);
+    }
+
+    /**
+     * A message dispatched synchronously (no worker) inside a request belongs to the request.
+     */
+    public function testASynchronousMessageInsideARequestBelongsToTheRequest(): void
+    {
+        $handled = 0;
+        $bus     = new MessageBus([new HandleMessageMiddleware(new HandlersLocator([stdClass::class => [static function () use (&$handled): void {
+            ++$handled;
+        }]]))]);
+        $inside = null;
+        $this->handle(function () use ($bus, &$inside): Response {
+            $before = $this->clears;
+            $bus->dispatch(new stdClass());
+            $inside = $this->clears - $before;
+
+            return new Response();
+        });
+
+        self::assertSame(1, $handled);
+        self::assertSame(0, $inside);
+        self::assertSame(2, $this->clears);
+    }
+
+    /**
+     * A `messenger:consume`-like command runs a worker in-process: every message is an outermost unit inside it.
+     */
+    public function testAWorkerInsideACommandClearsAtEveryMessage(): void
+    {
+        $this->command('app:consume', function (): int {
+            $this->runWorker(2, static function (): void {
+            });
+
+            return Command::SUCCESS;
+        });
+        $this->runCommand('app:consume');
+
+        self::assertSame(2 + 2 * 2, $this->clears, 'The command start / end and every message received / handled.');
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame(8, $this->clears);
+    }
+
+    /**
+     * Two workers one after the other; the first one's stop never came (a WorkerRunningEvent listener threw out of
+     * `Worker::run()`): the second worker's messages are still outermost units.
+     */
+    public function testTwoSequentialWorkersKeepTheirOwnState(): void
+    {
+        $this->runWorker(1, static function (): void {
+        });
+        self::assertSame(2, $this->clears);
+
+        $throw = static function (): never {
+            throw new RuntimeException('running listener failed');
+        };
+        $this->dispatcher->addListener(WorkerRunningEvent::class, $throw);
+        try {
+            $this->runWorker(1, static function (): void {
+            });
+            self::fail('The running listener throws.');
+        } catch (RuntimeException) {
+        } finally {
+            $this->dispatcher->removeListener(WorkerRunningEvent::class, $throw);
+        }
+
+        $before = $this->clears;
+        $this->runWorker(1, static function (): void {
+        });
+        self::assertSame($before + 2, $this->clears, 'The second worker\'s message clears when received and when handled.');
+    }
+
+    /**
+     * Unbalanced events: another worker's running / stopped events inside a message do not end it; a nested main
+     * request whose end never came is popped with its outer request.
+     */
+    public function testUnbalancedEventsNeverEndAnotherUnit(): void
+    {
+        $inside = null;
+        $this->runWorker(1, function () use (&$inside): void {
+            $stranger = new Worker([], $this->createStub(MessageBusInterface::class));
+            $this->dispatcher->dispatch(new WorkerRunningEvent($stranger, false));
+            $this->dispatcher->dispatch(new WorkerStoppedEvent($stranger));
+            $before = $this->clears;
+            $this->http->handle($this->controllerRequest(static fn (): Response => new Response('in handler')));
+            $inside = $this->clears - $before;
+        });
+        self::assertSame(0, $inside, 'Another worker\'s events do not end this message.');
+
+        $this->handle(function (): Response {
+            // A nested main request whose finish_request / terminate never came.
+            $this->dispatcher->dispatch(new RequestEvent($this->http, new Request(), HttpKernelInterface::MAIN_REQUEST), KernelEvents::REQUEST);
+            self::assertSame(2, $this->requestsInFlight());
+
+            return new Response();
+        });
+        self::assertSame(0, $this->requestsInFlight());
+        $before = $this->clears;
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame($before + 2, $this->clears);
+    }
+
+    /**
+     * Exceptions in the middle of a unit: a failing handler, and a received listener that throws out of an in-process
+     * worker outside any command (the next top-level terminate resets the stacks).
+     */
+    public function testAnExceptionMidUnitNeverLeavesAMessageInFlight(): void
+    {
+        $this->runWorker(1, static function (): never {
+            throw new RuntimeException('handler failed');
+        });
+        self::assertSame(2, $this->clears, 'Received and failed.');
+
+        $throw = static function (): never {
+            throw new RuntimeException('received listener failed');
+        };
+        $this->dispatcher->addListener(WorkerMessageReceivedEvent::class, $throw);
+        try {
+            $this->runWorker(1, static function (): void {
+            });
+            self::fail('The received listener throws.');
+        } catch (RuntimeException) {
+        } finally {
+            $this->dispatcher->removeListener(WorkerMessageReceivedEvent::class, $throw);
+        }
+        $this->handle(static fn (): Response => new Response());
+        $before = $this->clears;
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame($before + 2, $this->clears);
+    }
+
+    /**
+     * Audit NX: a started event without a worker changes nothing, a worker started again (its stop never came) keeps
+     * one entry, an outer message that ends while a nested worker never stopped drops that worker, and a running
+     * event ends its worker's message even when no handled / failed event came.
+     */
+    public function testWorkerEntriesSurviveLostEvents(): void
+    {
+        $outer  = new Worker([], $this->createStub(MessageBusInterface::class));
+        $nested = new Worker([], $this->createStub(MessageBusInterface::class));
+
+        $this->subscriber->onWorkerStarted(new stdClass());
+        $this->dispatcher->dispatch(new WorkerStartedEvent($outer));
+        $this->dispatcher->dispatch(new WorkerStartedEvent($outer));
+        $this->dispatcher->dispatch(new WorkerMessageReceivedEvent(new Envelope(new stdClass()), 'async'));
+        $this->dispatcher->dispatch(new WorkerStartedEvent($nested));
+        $this->dispatcher->dispatch(new WorkerMessageHandledEvent(new Envelope(new stdClass()), 'async'));
+        self::assertSame(2, $this->clears, 'The outer message clears when received and when handled.');
+
+        $this->dispatcher->dispatch(new WorkerMessageReceivedEvent(new Envelope(new stdClass()), 'async'));
+        $this->subscriber->onWorkerRunning(new WorkerRunningEvent($outer, false));
+        $this->subscriber->onWorkerRunning(new stdClass());
+        self::assertSame(3, $this->clears);
+        $this->handle(static fn (): Response => new Response());
+        self::assertSame(5, $this->clears, 'No message is left in flight.');
+    }
+
+    /**
+     * Runs a real Messenger worker over $count messages until it is idle.
+     *
+     * @param Closure(): void $handler
+     */
+    private function runWorker(int $count, Closure $handler): void
+    {
+        $transport = new InMemoryTransport();
+        for ($i = 0; $i < $count; ++$i) {
+            $transport->send(new Envelope(new stdClass()));
+        }
+
+        $bus = $this->createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(static function (object $message) use ($handler): Envelope {
+            $handler();
+
+            return $message instanceof Envelope ? $message : new Envelope($message);
+        });
+        $worker = new Worker(['async' => $transport], $bus, $this->dispatcher);
+        $stop   = static function (WorkerRunningEvent $event) use ($worker): void {
+            if ($event->getWorker() === $worker && $event->isWorkerIdle()) {
+                $worker->stop();
+            }
+        };
+        $this->dispatcher->addListener(WorkerRunningEvent::class, $stop, -1);
+        try {
+            $worker->run(['sleep' => 0]);
+        } finally {
+            $this->dispatcher->removeListener(WorkerRunningEvent::class, $stop);
+        }
+    }
+
+    /**
+     * @param Closure(): Response $controller
+     */
+    private function controllerRequest(Closure $controller): Request
+    {
+        $request = new Request();
+        $request->attributes->set('_controller', $controller);
+
+        return $request;
     }
 
     private function request(int $type): void
