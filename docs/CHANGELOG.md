@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.2] - 2026-11-12](#1122---2026-11-12)
 - [[1.12.1] - 2026-11-12](#1121---2026-11-12)
 - [[1.12.0] - 2026-11-11](#1120---2026-11-11)
 - [[1.11.0] - 2026-11-04](#1110---2026-11-04)
@@ -57,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-11-12
+
 ### Fixed
 
 - **Console boundary counter could leak in a long-lived process (FrankenPHP worker, kernel reset false; audits NM and
@@ -78,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `kernel.terminate` forgets the requests whose end never ran (a `kernel.exception`, `kernel.finish_request` or
   `kernel.terminate` listener threw), so no `Request` is kept and a later top-level command clears again (audit NR-a).
   Tests run a real console `Application` and `HttpKernel` on one dispatcher without the services resetter.
+
+[1.12.2]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.2
 
 ## [1.12.1] - 2026-11-12
 
