@@ -54,8 +54,10 @@ use Symfony\Component\Messenger\Middleware\HandleMessageMiddleware;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Messenger\Worker;
 
+use function array_key_last;
 use function array_pop;
 use function count;
+use function gc_collect_cycles;
 
 use const PHP_INT_MAX;
 use const PHP_INT_MIN;
@@ -915,11 +917,125 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
     }
 
     /**
+     * Audit OB-M1 (S8): a long-running command runs workers in a loop and catches their exceptions; the first run aborts
+     * in a throwing received listener. Every later message still clears when received and when handled.
+     */
+    public function testAnAbortedWorkerInsideALongCommandNeverStopsTheNextMessagesFromClearing(): void
+    {
+        $perWorker = [];
+        $this->command('app:loop', function () use (&$perWorker): int {
+            $throw = static function (): never {
+                throw new RuntimeException('received listener failed');
+            };
+            $this->dispatcher->addListener(WorkerMessageReceivedEvent::class, $throw);
+            try {
+                $this->runWorker(1, static function (): void {
+                });
+            } catch (RuntimeException) {
+            } finally {
+                $this->dispatcher->removeListener(WorkerMessageReceivedEvent::class, $throw);
+            }
+
+            for ($i = 0; $i < 3; ++$i) {
+                $before = $this->clears;
+                $this->runWorker(2, static function (): void {
+                });
+                $perWorker[] = $this->clears - $before;
+            }
+
+            return Command::SUCCESS;
+        });
+        $this->runCommand('app:loop');
+
+        self::assertSame([4, 4, 4], $perWorker);
+    }
+
+    /**
+     * Audit OB-L1 (S13): 500 runs aborted by a throwing handled listener inside one command leave a bounded stack, and
+     * the next worker's messages are still the outermost units.
+     */
+    public function testAbortedRunsNeverGrowTheWorkerStack(): void
+    {
+        $entries = null;
+        $clears  = null;
+        $this->command('app:loop', function () use (&$entries, &$clears): int {
+            $throw = static function (): never {
+                throw new RuntimeException('handled listener failed');
+            };
+            $this->dispatcher->addListener(WorkerMessageHandledEvent::class, $throw, -1);
+            for ($i = 0; $i < 500; ++$i) {
+                try {
+                    $this->runWorker(1, static function (): void {
+                    });
+                } catch (RuntimeException) {
+                }
+            }
+            $this->dispatcher->removeListener(WorkerMessageHandledEvent::class, $throw);
+            gc_collect_cycles();
+            $before = $this->clears;
+            $this->runWorker(2, static function (): void {
+            });
+            $clears  = $this->clears - $before;
+            $workers = (new ReflectionProperty($this->subscriber, 'workers'))->getValue($this->subscriber);
+            self::assertIsArray($workers);
+            $entries = count($workers);
+
+            return Command::SUCCESS;
+        });
+        $this->runCommand('app:loop');
+
+        self::assertSame(4, $clears);
+        self::assertSame(0, $entries, 'no aborted run is kept');
+    }
+
+    /**
+     * Audit OB-L2 (S9): a received listener of an inner worker dispatches `WorkerMessageSkipEvent` and skips the
+     * message: only the inner message ends, a main request in the outer handler does not clear.
+     */
+    public function testASkipEventFromAReceivedListenerNeverEndsTheOuterMessage(): void
+    {
+        $inside = null;
+        $this->runWorker(1, function () use (&$inside): void {
+            $skip = function (WorkerMessageReceivedEvent $event): void {
+                $this->dispatcher->dispatch(new WorkerMessageSkipEvent($event->getEnvelope(), $event->getReceiverName()));
+                $event->shouldHandle(false);
+            };
+            $this->dispatcher->addListener(WorkerMessageReceivedEvent::class, $skip);
+            $this->runWorker(1, static function (): void {
+            }, true);
+            $this->dispatcher->removeListener(WorkerMessageReceivedEvent::class, $skip);
+            $before = $this->clears;
+            $this->handle(static fn (): Response => new Response('in handler'));
+            $inside = $this->clears - $before;
+        });
+
+        self::assertSame(0, $inside);
+    }
+
+    /**
+     * Audit OB-L3 (S10): the in-process `kernel.terminate` of a nested main request does not clear the outer request.
+     */
+    public function testTheTerminateOfANestedMainRequestKeepsTheOuterRequest(): void
+    {
+        $inside = null;
+        $this->handle(function () use (&$inside): Response {
+            $before = $this->clears;
+            $this->handle(static fn (): Response => new Response('nested'));
+            $inside = $this->clears - $before;
+
+            return new Response();
+        });
+
+        self::assertSame(0, $inside);
+        self::assertSame(2, $this->clears);
+    }
+
+    /**
      * Runs a real Messenger worker over $count messages until it is idle.
      *
      * @param Closure(): void $handler
      */
-    private function runWorker(int $count, Closure $handler): void
+    private function runWorker(int $count, Closure $handler, bool $stopAfterFirst = false): void
     {
         $transport = new InMemoryTransport();
         for ($i = 0; $i < $count; ++$i) {
@@ -933,8 +1049,8 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
             return $message instanceof Envelope ? $message : new Envelope($message);
         });
         $worker = new Worker(['async' => $transport], $bus, $this->dispatcher);
-        $stop   = static function (WorkerRunningEvent $event) use ($worker): void {
-            if ($event->getWorker() === $worker && $event->isWorkerIdle()) {
+        $stop   = static function (WorkerRunningEvent $event) use ($worker, $stopAfterFirst): void {
+            if ($event->getWorker() === $worker && ($stopAfterFirst || $event->isWorkerIdle())) {
                 $worker->stop();
             }
         };
@@ -968,7 +1084,9 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
 
     private function terminate(): void
     {
-        $this->dispatcher->dispatch(new TerminateEvent($this->kernel, $this->finishedMainRequest ?? new Request(), new Response()), KernelEvents::TERMINATE);
+        // Symfony passes the main request itself (finished or not, e.g. when its finish_request never came).
+        $request = $this->finishedMainRequest ?? $this->mainRequests[array_key_last($this->mainRequests) ?? 0] ?? new Request();
+        $this->dispatcher->dispatch(new TerminateEvent($this->kernel, $request, new Response()), KernelEvents::TERMINATE);
     }
 
     private function finishRequest(int $type): void
