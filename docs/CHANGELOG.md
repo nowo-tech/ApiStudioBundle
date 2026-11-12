@@ -57,6 +57,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Console boundary counter could leak in a long-lived process (FrankenPHP worker, kernel reset false; audits NM and
+  NL2-v).** `EntityManagerBoundarySubscriber` counted running commands with `++` on `console.command` (priority 4096)
+  and `--` on `console.terminate` (priority -4096). A terminate listener in between that threw or stopped the
+  propagation, or a `console.error` listener that threw (Symfony then skips `console.terminate`), left the process
+  "inside a command" for good, and the bundle-owned entity manager was then never cleared again between HTTP requests
+  (stale workspaces across requests and tenants). A `console.command` listener above 4096 that stopped the propagation
+  in a nested command made the nested end clear the outer unit mid-run. Each console run is now a frame on a stack
+  keyed by its `Command` object and its input (a command that runs itself in-process is a new frame), pushed at
+  `console.command` priority `PHP_INT_MAX` with the outer state it started in (message in flight, main requests in
+  flight) and removed, restoring that state, by its own `console.terminate` at priority `PHP_INT_MAX`; a terminate
+  without a frame changes nothing. `console.error` (priority `PHP_INT_MAX`) marks the frame as failing: when an error
+  listener throws, the frame is dropped at the next main request, message, command or worker stop. The outermost clear
+  still runs at `console.terminate` -4096. Main requests are tracked per `Request`, so a nested main request no longer
+  ends the outer one early, and the end of a main request or message (handled, failed, `WorkerMessageSkipEvent`,
+  `WorkerStoppedEvent`) restores the frames it started with. Tests run a real console `Application` and `HttpKernel`
+  on one dispatcher without the services resetter.
+
 ## [1.12.1] - 2026-11-12
 
 Target 1.12.1 (patch).
