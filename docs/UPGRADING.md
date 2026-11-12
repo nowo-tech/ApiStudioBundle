@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.12.2](#to-1122)
 - [To 1.12.1](#to-1121)
 - [To 1.12.1](#to-1121-1)
 - [To 1.12.0](#to-1120)
@@ -76,6 +77,20 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.12.2
+
+From **1.12.1**: patch release, no migration, no configuration change.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+`EntityManagerBoundarySubscriber` (internal) now tracks each console run as a frame (Command + input) at
+`console.command` / `console.error` / `console.terminate` priority `PHP_INT_MAX` and also listens to `console.error`
+and Messenger `WorkerMessageSkipEvent`, so a host listener that throws or stops the propagation can no longer stop the
+clears of the bundle-owned entity manager in a long-lived process (audits NM and NL2-v). `onKernelTerminate()`,
+`onConsoleCommand()` and the new console methods take the event object; they are not a public API.
 
 ## To 1.12.1
 

@@ -7,6 +7,7 @@
 | Audit date | 2026-09-23 |
 | Method | Manual review of every PHP file under `src/` (controllers, services, import/export, security, Doctrine listeners, Twig extension, subscribers, forms, commands, DI extension, compiler passes, `Resources/config/services.yaml`) |
 | Re-audit (2026-11-12, REQ-RUNTIME-002) | 1.12.1: the bundle-owned manager (`entity_manager`, 1.12.0) is cleared at the request, Messenger and console boundaries and recreated when closed (`EntityManagerBoundarySubscriber`); the tenant context and route scope listener are reviewed; one-kernel worker test with two tenants and four users without the resetter (see [Boundaries and worker test](#boundaries-and-worker-test-1121)) |
+| Remediation (2026-11-12, 1.12.2) | W-06 (audits NM, NL2-v): the console depth counter can no longer leak when a console listener throws or stops the propagation; console frames keyed by Command + input at priority `PHP_INT_MAX` that save and restore the outer state, failing frames dropped at the next unit, healed at the enclosing request / message end. Tests: `tests/Unit/EventListener/EntityManagerBoundarySubscriberTest.php` (real console `Application` + `HttpKernel`). |
 | Remediation (2026-09-23) | W-01/W-04 nav tree moved to the `api_studio_nav_tree()` Twig function; W-02 secrets listener keeps plaintext in memory and uses `setNewValue()`, closed EntityManager reset on next Api Studio request, history detached after flush; W-03 `max_duration` added; W-05 XML error returned instead of stored. Regression tests simulate consecutive requests without `reset()` |
 | **Verdict** | ✅ **Viable under scenario B** — no bundle-owned per-request state; Doctrine identity-map clearing between requests remains the host application's responsibility (see W-02) |
 
@@ -22,6 +23,7 @@
   - [W-03 — Outbound execution can pin a worker thread for a long time (Low)](#w-03--outbound-execution-can-pin-a-worker-thread-for-a-long-time-low)
   - [W-04 — The navigation global queries the database on every request that renders Twig (Low)](#w-04--the-navigation-global-queries-the-database-on-every-request-that-renders-twig-low)
   - [W-05 — `PayloadBodyHelper` keeps the last XML error in a property (Info)](#w-05--payloadbodyhelper-keeps-the-last-xml-error-in-a-property-info)
+  - [W-06 — Console boundary counter could leak (Medium, audit NM)](#w-06--console-boundary-counter-could-leak-medium-audit-nm)
 - [Usage recommendations in worker mode](#usage-recommendations-in-worker-mode)
 - [Re-audit triggers](#re-audit-triggers)
 
@@ -62,7 +64,7 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | `Security\SecretValueCipher` | yes | none (`readonly` key derived from config at construction) | ✅ | ✅ |
 | `Doctrine\SecretVariableEncryptionListener`, `Doctrine\TablePrefixSubscriber` | yes | none; mutate entities/change sets, not themselves | ✅ | ✅ |
 | `EventListener\EntityManagerRecoverySubscriber` (`final readonly`) | yes | none (`ManagerRegistry` only) | ✅ | ✅ |
-| `EventListener\EntityManagerBoundarySubscriber` (1.12.1) | yes | console depth counter and in-flight message / request flags (no request data) | ✅ | ✅ |
+| `EventListener\EntityManagerBoundarySubscriber` (1.12.1, 1.12.2) | yes | console frames (Command + input, outermost flag, failing mark, saved message / request state), main requests in flight per `Request` with the frames at their start, frames at the in-flight message start, per-event outermost verdict (`WeakMap`) (no request data) | ✅ | ✅ |
 | `Tenancy\ApiStudioTenantContext` | yes | `$override`, set only inside `runAs()` and restored in `finally`; the request tenant lives on the main request's attributes | ✅ | ✅ |
 | `Routing\ApiStudioRouteScopeListener` (`final readonly`) | yes | none; sets router-context parameters per request and restores them on `kernel.finish_request` | ✅ | ✅ |
 | `Service\LocaleManager`, `EventListener\LocaleSubscriber`, `EventSubscriber\ApiStudioAccessSubscriber` (`final readonly`), `Security\ConfigurableApiStudioAccessChecker` (`final readonly`) | yes | none | ✅ | ✅ |
@@ -91,10 +93,10 @@ failed write closed it, and otherwise clears it, on:
   a console command (a page rendered in-process by a handler or a command keeps the outer unit of work); sub-requests
   share the main request;
 - Messenger `WorkerMessageReceivedEvent` (4096) and `WorkerMessageHandledEvent` / `WorkerMessageFailedEvent` (-4096);
-- `console.command` (4096) and `console.terminate` (-4096) of the outermost command only, and only outside a message
-  and a main request: a command run in-process (`Application::doRun()`) from another command, a message handler or a
-  controller keeps the managed entities and pending changes of the unit that runs it (console depth counter, in-flight
-  message flag, in-flight request flag).
+- `console.command` and `console.terminate` (-4096) of the outermost command only, and only outside a message and a
+  main request: a command run in-process (`Application::doRun()`) from another command, a message handler or a
+  controller keeps the managed entities and pending changes of the unit that runs it. Since 1.12.2 (W-06) each console
+  run is a frame keyed by Command + input, pushed and removed at priority `PHP_INT_MAX`.
 
 Changes not flushed by the end of a unit are discarded, as in a PHP-FPM request. An open manager is never replaced,
 so the pending changes of a running unit are never discarded. The manager (set by `ApiStudioEntityManagerPass`) and the
@@ -162,6 +164,12 @@ subscriber the worker test fails at its first iteration (stale workspace name).
 - **Worker impact:** none in practice. The property is cleared at the start of every `loadXml()` and only read right after in the same call. The service is registered but not referenced by other PHP classes under `src/`.
 - **Recommendation:** return the error from `loadXml()` instead of storing it, to keep the service strictly stateless.
 - **Status:** Resolved — `src/Service/PayloadBodyHelper.php` returns the error through a by-reference argument; the class has no properties (test in `tests/Unit/Service/PayloadBodyHelperTest.php`).
+
+### W-06 — Console boundary counter could leak (Medium, audit NM)
+
+- **Where:** `src/EventListener/EntityManagerBoundarySubscriber.php` (1.12.1): `++$consoleDepth` on `console.command` (4096), `--` on `console.terminate` (-4096); HTTP clears only at depth 0 (`isOutsideMessageAndCommand()`).
+- **Worker impact (scenario B, bundle-owned manager):** a `console.terminate` listener between the two priorities that threw or stopped the propagation, or a `console.error` listener that threw (Symfony then skips `console.terminate`), left the depth at 1 or more for the life of the worker; every later main request skipped its clears and the bundle manager kept stale workspaces, services and history across requests and tenants. Reverse: a `console.command` listener above 4096 that stopped the propagation in a nested command skipped the `++` but not the `--`, so the nested end cleared the outer unit mid-run (pending changes discarded).
+- **Status:** Resolved in 1.12.2 (audits NM and NL2-v) — each console run is a frame keyed by its Command object AND its input (a self-recursive command is a new frame), pushed at `console.command` priority `PHP_INT_MAX` with the outer state it started in (message in flight, main requests in flight) and the outermost verdict, and removed with the frames above it, restoring that state, by its own `console.terminate` at priority `PHP_INT_MAX`; a terminate without a frame changes nothing. `console.error` (priority `PHP_INT_MAX`) marks the frame as failing, with no unmark listener: a frame still marked at the next main request, message received, command or worker stop is dropped and its saved state restored. The outermost clear stays at `console.terminate` -4096 for the verdict of that event. Main requests are tracked per `Request` object (a nested main request does not end the outer one), and the end of a main request or message restores the frames it started with. The Messenger bookkeeping (received / handled / failed / skipped / stopped) and the `kernel.terminate` bookkeeping run at `PHP_INT_MAX` while the clears keep their priorities; a main request saves the message state with its frames and restores it at its end; a top-level `kernel.terminate` (no frame, no message) resets the requests in flight, so requests whose finish / terminate never ran (a throwing `kernel.exception`, `kernel.finish_request` or `kernel.terminate` listener) are not kept and a later top-level command is the outermost unit again (audit NR-a). `WorkerMessageSkipEvent` (only dispatched by `messenger:failed:retry`) ends the in-flight message. The subscriber has no `kernel.exception` boundary; `kernel.terminate` is the HTTP end boundary.
 
 No other worker findings. One observation outside worker scope: `SecretVariableEncryptionListener::preUpdate()` changes the entity with `setValue()` instead of `PreUpdateEventArgs::setNewValue()`. Doctrine does not pick up field changes made in `preUpdate`, so updated secret values may be written in plaintext. This should be verified with a test.
 
