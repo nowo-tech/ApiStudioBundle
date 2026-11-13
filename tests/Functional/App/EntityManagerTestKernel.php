@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\Functional\App;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
@@ -18,6 +19,7 @@ use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -47,12 +49,15 @@ final class EntityManagerTestKernel extends Kernel implements CompilerPassInterf
     /**
      * @param array<string, mixed> $doctrine doctrine configuration
      * @param array<string, mixed> $bundle nowo_api_studio configuration merged over the test defaults
+     * @param bool $hostDefaultDriver the host gives its default manager's chain a catch-all default driver (what
+     *                                DoctrineBundle 3.4 `auto_discover_entities` does)
      */
     public function __construct(
         private readonly array $doctrine,
         private readonly array $bundle = [],
+        private readonly bool $hostDefaultDriver = false,
     ) {
-        $this->cacheKey = hash('xxh128', serialize([$doctrine, $bundle]));
+        $this->cacheKey = hash('xxh128', serialize([$doctrine, $bundle, $hostDefaultDriver]));
         parent::__construct('test', true);
     }
 
@@ -126,6 +131,12 @@ final class EntityManagerTestKernel extends Kernel implements CompilerPassInterf
 
     public function process(ContainerBuilder $container): void
     {
+        if ($this->hostDefaultDriver) {
+            // An attribute driver answers "not transient" for any class carrying #[ORM\Entity], whatever its paths.
+            $container->getDefinition('doctrine.orm.default_metadata_driver')
+                ->addMethodCall('setDefaultDriver', [new Definition(AttributeDriver::class, [[__DIR__ . '/Entity'], true])]);
+        }
+
         foreach (self::DEBUG_COLLECTORS as $id) {
             if ($container->hasDefinition($id)) {
                 $container->getDefinition($id)->setPublic(true);
