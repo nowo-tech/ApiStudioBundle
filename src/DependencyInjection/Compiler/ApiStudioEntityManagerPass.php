@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\DependencyInjection\Compiler;
 
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
+use Nowo\ApiStudioBundle\Doctrine\ExcludedEntityNamespaceDriver;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\EventListener\EntityManagerBoundarySubscriber;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -17,6 +18,7 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 use function array_keys;
+use function array_unshift;
 use function dirname;
 use function implode;
 use function is_array;
@@ -30,7 +32,11 @@ use function str_starts_with;
  * The extension prepends nothing into the ORM configuration in that case; this pass adds the attribute driver and the
  * tenant SQL filter to the configured manager, removes the bundle namespace from every other manager's driver chain
  * (DoctrineBundle's `auto_mapping`, the Flex default on the default manager, would map it there too and
- * `getManagerForClass()` would answer the default manager), and fails the build when the manager does not exist.
+ * `getManagerForClass()` would answer the default manager) and gives them an {@see ExcludedEntityNamespaceDriver} for
+ * it instead, so a default driver of their chain cannot claim the entities either (DoctrineBundle 3.4
+ * `auto_discover_entities`), and fails the build when the manager does not exist. Only the public `addDriver()` of the
+ * `doctrine.orm.<manager>_metadata_driver` chain is used, the extension point DoctrineBundle documents for other
+ * metadata drivers.
  * Without the option nothing changes (the 1.x prepended mapping on the default manager).
  */
 final class ApiStudioEntityManagerPass implements CompilerPassInterface
@@ -70,9 +76,11 @@ final class ApiStudioEntityManagerPass implements CompilerPassInterface
                 $calls[] = $call;
             }
 
-            if ($manager === $name) {
-                $calls[] = ['addDriver', [new Definition(AttributeDriver::class, [[dirname(__DIR__, 2) . '/Entity'], true]), self::ENTITY_NAMESPACE]];
-            }
+            // First in the chain: a chain asks its namespace drivers in order, then its default driver.
+            $driver = $manager === $name
+                ? new Definition(AttributeDriver::class, [[dirname(__DIR__, 2) . '/Entity'], true])
+                : new Definition(ExcludedEntityNamespaceDriver::class);
+            array_unshift($calls, ['addDriver', [$driver, self::ENTITY_NAMESPACE]]);
 
             $chain->setMethodCalls($calls);
         }
