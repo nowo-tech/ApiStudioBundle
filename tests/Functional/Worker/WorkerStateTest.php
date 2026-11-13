@@ -14,6 +14,7 @@ use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tests\Functional\App\Entity\HostNote;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -161,7 +162,7 @@ final class WorkerStateTest extends TestCase
 
         $subscriber = $this->container()->get(EntityManagerBoundarySubscriber::class);
         self::assertInstanceOf(EntityManagerBoundarySubscriber::class, $subscriber);
-        $subscriber->onMessageReceived();
+        $subscriber->onMessageReceived(new stdClass());
 
         self::assertTrue($this->studio()->isOpen(), 'the bundle manager is recreated');
     }

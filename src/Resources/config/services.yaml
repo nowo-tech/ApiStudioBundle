@@ -59,6 +59,7 @@ services:
             $registries: !iterator ['@!doctrine']
             $managers: !iterator []
             $managerName: '%nowo_api_studio.entity_manager%'
+            $requestStack: '@?request_stack'
 
     Nowo\ApiStudioBundle\Service\LocaleManager:
         arguments:

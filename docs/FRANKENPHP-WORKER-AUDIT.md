@@ -76,6 +76,8 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | 6 form types (`ApiEndpointFormType`, `ApiEnvironmentFormType`, `ApiServiceFormType`, `ApiWorkspaceFormType`, `ImportFileFormType`, `JsonMapType`) | yes | none (no constructor, stateless transformers) | ✅ | ✅ |
 | `Command\SyncSchemaCommand`, `Command\SeedDemoCommand` | yes | none (CLI only) | ✅ | ✅ |
 
+Note (audit OB2): with a custom asynchronous Messenger `MessageExecutionStrategyInterface` the tracker loses its nested-worker protection (a worker run inside a handler may clear the outer message's unit); the boundary clears still happen.
+
 Entities, enums and models (`ApiExecutionResult`, `ImportResult`) are created per request and never stored in service properties.
 
 ## Boundaries and worker test (1.12.1)
