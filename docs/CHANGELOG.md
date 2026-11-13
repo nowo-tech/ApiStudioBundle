@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.3] - 2026-11-13](#1123---2026-11-13)
 - [[1.12.2] - 2026-11-12](#1122---2026-11-12)
 - [[1.12.1] - 2026-11-12](#1121---2026-11-12)
 - [[1.12.0] - 2026-11-11](#1120---2026-11-11)
@@ -58,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-11-13
+
 ### Fixed
 
 - **Unit boundary tracker: per-worker message depth, request stack (audit NX CR1–CR3).** The tracker kept one
@@ -92,6 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chain), so the entities resolve to the configured manager on DoctrineBundle 2.x, 3.3 and 3.4+. Affected in practice:
   1.12.0 to 1.12.2 (every release with `nowo_api_studio.entity_manager`; all allow `doctrine/doctrine-bundle` `^3.0`)
   with DoctrineBundle 3.4.0 or later.
+
+[1.12.3]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.3
 
 ## [1.12.2] - 2026-11-12
 
