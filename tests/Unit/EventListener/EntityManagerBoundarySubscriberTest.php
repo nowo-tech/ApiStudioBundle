@@ -1031,6 +1031,50 @@ final class EntityManagerBoundarySubscriberTest extends TestCase
     }
 
     /**
+     * Audit OB2-L1 (S14): host code leaves the kernel's request stack unbalanced (a push without a pop), then a request
+     * throws out of `handle()` (no finish_request, no terminate). The kernel's main request is stuck from then on, yet
+     * the next top-level requests still clear at their start and at their terminate.
+     */
+    public function testAnUnbalancedRequestStackNeverStopsTheNextRequestsFromClearing(): void
+    {
+        $this->handle(function (): Response {
+            $this->requestStack->push(new Request());
+
+            return new Response('unbalanced');
+        });
+        $throw = static function (): never {
+            throw new RuntimeException('exception listener failed');
+        };
+        $this->dispatcher->addListener(KernelEvents::EXCEPTION, $throw);
+        $request = new Request();
+        $request->attributes->set('_controller', static function (): never {
+            throw new LogicException('controller failed');
+        });
+        try {
+            $this->http->handle($request);
+            self::fail('The kernel.exception listener must throw.');
+        } catch (RuntimeException) {
+            // No kernel.finish_request, no kernel.terminate.
+        } finally {
+            $this->dispatcher->removeListener(KernelEvents::EXCEPTION, $throw);
+        }
+        self::assertNotNull($this->requestStack->getMainRequest(), 'The host left a request on the kernel stack.');
+
+        for ($i = 0; $i < 2; ++$i) {
+            $before  = $this->clears;
+            $atStart = null;
+            $this->handle(function () use ($before, &$atStart): Response {
+                $atStart = $this->clears - $before;
+
+                return new Response();
+            });
+            self::assertSame(1, $atStart, 'The next main request must clear at its start.');
+            self::assertSame(2, $this->clears - $before, 'The next main request must clear at kernel.terminate.');
+            self::assertSame(0, $this->requestsInFlight());
+        }
+    }
+
+    /**
      * Runs a real Messenger worker over $count messages until it is idle.
      *
      * @param Closure(): void $handler
