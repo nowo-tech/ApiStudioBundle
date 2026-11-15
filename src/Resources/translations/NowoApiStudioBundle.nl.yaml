@@ -17,6 +17,7 @@ nav.toggle: Navigatie in-/uitschakelen
 sidebar.endpoints: Endpoints
 sidebar.filter: Endpoints filteren…
 sidebar.navigation: API-navigatie
+sidebar.toggle_workspace: 'Services van %name% tonen of verbergen'
 theme.toggle: Licht / donker thema wisselen
 theme.light: Licht
 theme.dark: Donker

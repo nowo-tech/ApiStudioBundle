@@ -17,6 +17,7 @@ nav.toggle: Attiva/disattiva navigazione
 sidebar.endpoints: Endpoint
 sidebar.filter: Filtra endpoint…
 sidebar.navigation: Navigazione API
+sidebar.toggle_workspace: 'Mostra o nascondi i servizi di %name%'
 theme.toggle: Attiva/disattiva tema chiaro / scuro
 theme.light: Chiaro
 theme.dark: Scuro

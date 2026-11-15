@@ -17,6 +17,7 @@ nav.toggle: Basculer la navigation
 sidebar.endpoints: Points de terminaison
 sidebar.filter: Filtrer les points de terminaison…
 sidebar.navigation: Navigation API
+sidebar.toggle_workspace: 'Afficher ou masquer les services de %name%'
 theme.toggle: Basculer le thème clair / sombre
 theme.light: Clair
 theme.dark: Sombre

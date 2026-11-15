@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Tests\Functional;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
+use DOMElement;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiService;
@@ -305,6 +306,41 @@ final class StudioPagesTest extends WebTestCase
         self::assertNotSame([], $expected);
         self::assertGreaterThan(1, count($expected[0][1]), 'seed has several services');
         self::assertSame($expected, $actual);
+    }
+
+    public function testSidebarWorkspaceToggleIsAButtonWithNoInteractiveDescendant(): void
+    {
+        // AS-A11Y-1: only the chevron <button> toggles a workspace row; the link sits next to it, not inside.
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist(new ApiWorkspace('Closed workspace', 'closed'));
+        $entityManager->flush();
+
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d', $this->ids['workspace']));
+        self::assertResponseIsSuccessful();
+
+        $toggles = $crawler->filter('#as-nav-tree [data-tree-toggle]');
+        self::assertGreaterThanOrEqual(2, $toggles->count());
+        self::assertCount(0, $crawler->filter('#as-nav-tree [data-tree-toggle] :is(a, button, input, select, textarea, [tabindex], [role="button"])'));
+        self::assertCount(0, $crawler->filter('#as-nav-tree [role="button"]'));
+
+        $expanded = [];
+        foreach ($toggles as $toggle) {
+            self::assertInstanceOf(DOMElement::class, $toggle);
+            self::assertSame('button', $toggle->nodeName);
+            self::assertSame('button', $toggle->getAttribute('type'));
+            self::assertNotSame('', $toggle->getAttribute('aria-label'));
+            $controls = $toggle->getAttribute('aria-controls');
+            self::assertCount(1, $crawler->filter('#' . $controls . '.as-tree-children'), $controls);
+            $link = $crawler->filter('#' . $controls)->closest('[data-tree-group]')?->filter('.as-tree-label > a');
+            self::assertNotNull($link);
+            self::assertCount(1, $link);
+            $expanded[$link->text()] = $toggle->getAttribute('aria-expanded');
+        }
+
+        self::assertSame('false', $expanded['Closed workspace']);
+        self::assertContains('true', $expanded, 'The open workspace row is expanded.');
+        self::assertStringContainsString('Closed workspace', $crawler->filter('[aria-controls][aria-expanded="false"]')->attr('aria-label') ?? '');
     }
 
     public function testWorkspaceDeletePostsThroughCsrfForm(): void

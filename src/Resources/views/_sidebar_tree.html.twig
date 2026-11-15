@@ -4,6 +4,8 @@
   Variables: nav_active ({workspace, service, endpoint}: the open branch), bundle.
   The filter is a Symfony Form view rendered without a form element (client-side only: api-studio-shell.js reads
   #as-tree-filter; REQ-TWIG-005). The locale switch (route nowo_api_studio_locale_switch) belongs to the host layout.
+  Workspace rows (AS-A11Y-1, 1.12.4): only the chevron <button data-tree-toggle> expands or collapses the group (it
+  carries aria-expanded / aria-controls); the workspace link sits next to it, never inside an interactive element.
 #}
 {% set bundle = bundle|default(null) %}
 {% set active_ws = nav_active.workspace|default(null) %}
@@ -19,11 +21,18 @@
     <nav class="as-sidebar-tree" id="as-nav-tree" aria-label="{{ 'sidebar.navigation'|trans({}, 'NowoApiStudioBundle') }}">
         {% for ws in api_studio_nav_tree() %}
             <div class="as-tree-group{% if active_ws == ws.id %} is-open{% endif %}" data-tree-group>
-                <div class="as-tree-label{% if active_ws == ws.id %} is-active{% endif %}" data-tree-toggle role="button" tabindex="0">
-                    <span class="as-tree-chevron" aria-hidden="true">▶</span>
+                <div class="as-tree-label{% if active_ws == ws.id %} is-active{% endif %}">
+                    <button type="button"
+                            class="as-tree-chevron"
+                            data-tree-toggle
+                            aria-expanded="{{ active_ws == ws.id ? 'true' : 'false' }}"
+                            aria-controls="as-tree-ws-{{ ws.id }}"
+                            aria-label="{{ 'sidebar.toggle_workspace'|trans({'%name%': ws.name}, 'NowoApiStudioBundle') }}">
+                        <span aria-hidden="true">▶</span>
+                    </button>
                     <a href="{{ ws.url }}">{{ ws.name }}</a>
                 </div>
-                <div class="as-tree-children">
+                <div class="as-tree-children" id="as-tree-ws-{{ ws.id }}">
                     {% for svc in ws.services %}
                         <div class="as-tree-svc{% if active_svc == svc.id %} is-active{% endif %}">
                             <span class="as-method as-method-default as-method--compact">{{ svc.protocol|upper }}</span>

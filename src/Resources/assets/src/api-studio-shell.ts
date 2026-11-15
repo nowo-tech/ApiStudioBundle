@@ -6,20 +6,43 @@
  * @packageDocumentation
  */
 
+/*
+ * Workspace rows (AS-A11Y-1): the toggle is the chevron <button data-tree-toggle> (native Enter / Space), with
+ * aria-expanded kept in sync with the group. Host overrides still on the pre-1.12.4 markup (a role="button" row
+ * wrapping the link) keep working: a click on the link navigates, and Enter / Space on the row toggles it.
+ */
 document.querySelectorAll<HTMLElement>('[data-tree-toggle]').forEach((el) => {
-  function toggle(): void {
-    el.closest('[data-tree-group]')?.classList.toggle('is-open');
+  const group = el.closest('[data-tree-group]');
+  if (!group) {
+    return;
   }
 
+  function sync(open: boolean): void {
+    el.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function toggle(): void {
+    sync(group!.classList.toggle('is-open'));
+  }
+
+  sync(group.classList.contains('is-open'));
+
   el.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).tagName === 'A') {
+    if (e.target instanceof Element && e.target.closest('a')) {
       return;
     }
     e.preventDefault();
     toggle();
   });
 
+  if (el instanceof HTMLButtonElement) {
+    return;
+  }
+
   el.addEventListener('keydown', (e) => {
+    if (e.target !== el) {
+      return;
+    }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggle();
