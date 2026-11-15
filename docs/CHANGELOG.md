@@ -91,8 +91,8 @@ Target 1.12.4
   quote the full request URL (`Connection timed out … for "https://host/path?api_key=…"`). `/execute` returned that
   message unmasked in `error_message`, stored it in the history row and logged it in the `execute_failure` record, so a
   runner with `workspace.run` but not `workspace.edit` could read a stored secret used in the URL path or query. The
-  error message is now masked with every secret value of the request (raw, URL-encoded, JSON-escaped) in the answer and
-  the history, and `execute_failure` logs the exception class and the host only. Intended change: for requests that
+  error message is now masked with every secret value of the request (raw, URL-encoded, JSON-escaped, and as the HTTP
+  client normalises a URL path or query — `ab c+d/12` → `ab%20c+d/12`) in the answer and the history, and `execute_failure` logs the exception class and the host only. Intended change: for requests that
   carry secrets, `error_message` now shows `[REDACTED]` where it showed the value.
 
 ### Fixed
