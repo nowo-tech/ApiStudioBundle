@@ -370,6 +370,19 @@ function runScripts(scripts: Array<{ code: string; label: string }>, ctx: Script
   });
 }
 
+/**
+ * Hide the pre/post script sub-tabs and panels (`scripts.mode: disabled`).
+ *
+ * @param root The console root.
+ * @returns void
+ */
+function hideScriptTabs(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('[data-subtab="pre"], [data-subtab="post"], [data-subpanel="pre"], [data-subpanel="post"]').forEach((el) => {
+    el.hidden = true;
+    el.classList.remove('is-active');
+  });
+}
+
 function formatBody(body: string | null, root: HTMLElement): string {
   if (body === null || body === '') {
     return '';
@@ -555,6 +568,10 @@ async function persistVariables(
 function applyVariableChanges(root: HTMLElement, envId: string, ctx: ScriptContext): void {
   const dirty = ctx.getDirtyKeys();
   if (!Object.keys(dirty).length) {
+    return;
+  }
+
+  if (!RT) {
     return;
   }
 
@@ -932,8 +949,14 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('api-studio-tester');
-  if (!root || !RT) {
+  if (!root) {
     return;
+  }
+
+  // scripts.mode: disabled (AS-SCRIPTS-1): no script runtime on the page. Requests still run; the pre/post scripts
+  // are skipped and their tabs stay hidden even when an overriding template still renders them.
+  if (!RT) {
+    hideScriptTabs(root);
   }
 
   const executeUrl = root.dataset.executeUrl ?? '';
