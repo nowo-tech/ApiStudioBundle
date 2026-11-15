@@ -17,11 +17,15 @@ use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Secret\RequestOrigin;
+use Nowo\ApiStudioBundle\Secret\SecretForms;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
+use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
+use Nowo\ApiStudioBundle\Service\VariableResolver;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -36,8 +40,12 @@ use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function array_intersect;
 use function array_key_exists;
+use function array_keys;
+use function array_merge;
+use function array_unique;
 use function array_values;
 use function count;
+use function in_array;
 use function is_array;
 use function is_int;
 use function is_scalar;
@@ -62,6 +70,7 @@ final class ApiExecuteController extends AbstractController
         return parent::getSubscribedServices() + [
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            HostSecretResolver::class     => '?' . HostSecretResolver::class,
             'logger'                      => '?' . LoggerInterface::class,
             'event_dispatcher'            => '?' . EventDispatcherInterface::class,
         ];
@@ -186,6 +195,50 @@ final class ApiExecuteController extends AbstractController
             $methodOverride = HttpMethod::tryFrom(strtoupper($payload['method']));
         }
 
+        // 1.13: host secret references of the stored secret variables, resolved here, per execution, for this actor.
+        $hostSecretValues  = [];
+        $unresolvedSecrets = [];
+        $hostSecretOrigin  = null;
+        $workspace         = $service?->getWorkspace();
+        $hostSecrets       = $this->hostSecretResolver();
+        if ($service instanceof ApiService && $hostSecrets instanceof HostSecretResolver && $environment instanceof ApiEnvironment && $workspace instanceof ApiWorkspace) {
+            $hostKeys = $hostSecrets->referenceKeys($environment, array_keys($variableOverrides));
+
+            // QE-B-M2: host secrets stay where an editor put them. A runner without workspace.edit may not use one in a
+            // body, header or query template of their own (an echo in an unmasked form would hand the value out).
+            if ($hostKeys !== [] && !$this->authorization()->can(ApiStudioAction::WorkspaceEdit, $workspace)) {
+                $placed = self::hostSecretsInConsoleTemplates($endpoint, $service, $hostKeys, $overrideBody, $overrideHeaders, $overrideQueryParams);
+                if ($placed !== []) {
+                    $this->logRefusedOverride($endpoint, $environment, $placed);
+
+                    return new JsonResponse([
+                        'error'     => 'override_not_allowed',
+                        'message'   => 'Using these host secrets in a body, header or query parameter you changed needs the right to edit the workspace.',
+                        'variables' => $placed,
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+            }
+
+            // QE-B-M1: where the request goes, before any host secret is substituted (null: the base URL uses one).
+            $variableResolver = new VariableResolver();
+            $baseUrl          = $service->getBaseUrl();
+            $targetOrigin     = array_intersect($hostKeys, self::placeholderKeys($baseUrl)) === []
+                ? RequestOrigin::of(rtrim($variableResolver->resolve($baseUrl, $variableMap), '/'))
+                : null;
+
+            $resolution        = $hostSecrets->resolve($environment, $workspace, $variableMap, array_keys($variableOverrides), $this->currentActorId(), $targetOrigin);
+            $variableMap       = $resolution->variables;
+            $unresolvedSecrets = $resolution->unresolvedKeys;
+            if ($resolution->values !== []) {
+                $hostSecretOrigin = $targetOrigin;
+                $basicUser        = $service->getAuthType() === AuthType::Basic
+                    ? $variableResolver->resolve((string) ($service->getAuthConfig()['username'] ?? ''), $variableMap)
+                    : null;
+                // QE-B-L1: the encodings a target may echo (base64, Basic `user:secret`, HTML entities, \u escapes).
+                $hostSecretValues = SecretForms::expand($resolution->values, $basicUser);
+            }
+        }
+
         $result = $this->requestExecutor->execute(
             $endpoint,
             $environment,
@@ -196,10 +249,15 @@ final class ApiExecuteController extends AbstractController
             $replaceQueryParams,
             $replaceHeaders,
             $methodOverride,
+            $unresolvedSecrets,
+            $hostSecretValues,
+            $hostSecretOrigin,
         );
 
         [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment, $variableOverrides);
-        // QE-A-M1 (1.12.4): transport errors quote the full request URL, secret query values and path segments included.
+        $secretValues               = [...$secretValues, ...$hostSecretValues];
+        // QE-A-M1 (1.12.4): transport errors quote the full request URL, secret query values and path segments included
+        // (stored and host secrets).
         $errorMessage = $this->historySanitizer->maskValues($result->errorMessage, $secretValues);
 
         $history = new ApiRequestHistory();
@@ -228,6 +286,9 @@ final class ApiExecuteController extends AbstractController
 
         // 1.12: ids and scalars only (no path, query, headers, bodies or variable values: they may carry secrets).
         $host = parse_url($result->requestUrl, PHP_URL_HOST);
+        if (is_string($host) && $this->historySanitizer->maskValues($host, $hostSecretValues) !== $host) {
+            $host = null;
+        }
         $this->dispatchEvent(new ApiRequestExecutedEvent(
             endpointId: (int) $endpoint->getId(),
             serviceId: $service?->getId(),
@@ -254,9 +315,88 @@ final class ApiExecuteController extends AbstractController
         }
 
         // Fail closed (secret that cannot be decrypted): nothing was sent; the console shows the error message.
-        $status = $result->errorCode === ApiExecutionResult::ERROR_SECRET_UNREADABLE ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+        $status = in_array($result->errorCode, [ApiExecutionResult::ERROR_SECRET_UNREADABLE, ApiExecutionResult::ERROR_SECRET_UNRESOLVED, ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED], true) ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
 
         return new JsonResponse($data, $status);
+    }
+
+    /**
+     * Host secret keys used by a body, header or query template the console sent that differs from the stored one
+     * (QE-B-M2). The console sends the stored templates back unchanged; those are the editor's.
+     *
+     * @param list<string> $hostKeys
+     * @param array<string, string> $overrideHeaders
+     * @param array<string, string> $overrideQueryParams
+     *
+     * @return list<string>
+     */
+    private static function hostSecretsInConsoleTemplates(ApiEndpoint $endpoint, ApiService $service, array $hostKeys, ?string $overrideBody, array $overrideHeaders, array $overrideQueryParams): array
+    {
+        $templates = [];
+        if ($overrideBody !== null && !self::sameTemplate($overrideBody, (string) $endpoint->getRequestBodyTemplate())) {
+            $templates[] = $overrideBody;
+        }
+
+        $storedHeaders = array_merge($service->getDefaultHeaders(), $endpoint->getHeaders());
+        foreach ($overrideHeaders as $name => $value) {
+            if (!isset($storedHeaders[$name]) || !self::sameTemplate($value, $storedHeaders[$name])) {
+                $templates[] = $value;
+            }
+        }
+
+        $storedQuery = $endpoint->getQueryParams();
+        foreach ($overrideQueryParams as $name => $value) {
+            if (!isset($storedQuery[$name]) || !self::sameTemplate($value, $storedQuery[$name])) {
+                $templates[] = $value;
+            }
+        }
+
+        $used = [];
+        foreach ($templates as $template) {
+            $used = [...$used, ...self::placeholderKeys($template)];
+        }
+
+        return array_values(array_unique(array_intersect($hostKeys, $used)));
+    }
+
+    /**
+     * Strict equality after the line-ending noise a browser textarea adds or drops (QE-D-L2): CRLF becomes LF, and one
+     * leading and one trailing line break are ignored. Any other difference is a change.
+     */
+    private static function sameTemplate(string $sent, string $stored): bool
+    {
+        $normalise = static function (string $value): string {
+            $value = str_replace("\r\n", "\n", $value);
+            if (str_starts_with($value, "\n")) {
+                $value = substr($value, 1);
+            }
+
+            return str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
+        };
+
+        return $normalise($sent) === $normalise($stored);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function placeholderKeys(string $template): array
+    {
+        return preg_match_all(VariableSyntax::PLACEHOLDER_PATTERN, $template, $matches) > 0 ? $matches[1] : [];
+    }
+
+    /**
+     * The host secret resolver (1.13), only when the host configured `nowo_api_studio.secrets.source`.
+     */
+    private function hostSecretResolver(): ?HostSecretResolver
+    {
+        if (!$this->container->has(HostSecretResolver::class)) {
+            return null;
+        }
+
+        $resolver = $this->container->get(HostSecretResolver::class);
+
+        return $resolver instanceof HostSecretResolver && $resolver->isEnabled() ? $resolver : null;
     }
 
     /**

@@ -9,6 +9,7 @@
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
 - [Tenants and permissions](#tenants-and-permissions)
+- [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
@@ -157,6 +158,103 @@ nowo_api_studio:
   --tenant-id=… [--dry-run]` strips `-2`, `-3`… suffixes when the base slug is free in the tenant.
 - **Slugs**: leave the slug empty to derive it from the name; new or edited slugs must match
   `^[a-z0-9]+(?:[-_][a-z0-9]+)*$` (≤ 128).
+
+## Host secrets (1.13)
+
+A secret environment variable can hold a **reference to a secret kept by the host** (a vault, a cloud secret manager,
+the host's own encrypted store) instead of the value itself. The server resolves it through a host port when a request
+is executed; the value is sent to the request target and nowhere else.
+
+1. Implement the port (framework-free: no Doctrine, Symfony or HTTP types) and register it as a service:
+
+```php
+namespace App\Infrastructure\ApiStudio;
+
+use App\Domain\Secret\SecretStore;              // your own port / client
+use App\Domain\Secret\SecretAccessPolicy;
+use Nowo\ApiStudioBundle\Secret\ApiStudioSecretRef;
+use Nowo\ApiStudioBundle\Secret\ApiStudioSecretSourceInterface;
+use Nowo\ApiStudioBundle\Secret\ApiStudioSecretValue;
+
+final class VaultSecretSource implements ApiStudioSecretSourceInterface
+{
+    public function __construct(
+        private readonly SecretStore $store,
+        private readonly SecretAccessPolicy $policy,
+    ) {
+    }
+
+    public function resolve(ApiStudioSecretRef $ref): ?ApiStudioSecretValue
+    {
+        // Authorise the exact id per actor, workspace, tenant AND destination origin: null = unknown or not allowed
+        // (the request is not sent). Without the origin check an editor could point the service at their own host.
+        if ($ref->source !== 'vault'
+            || $ref->targetOrigin === null
+            || !$this->policy->mayUse($ref->actorId, $ref->tenantType, $ref->tenantId, $ref->workspaceId, $ref->id, $ref->targetOrigin)) {
+            return null;
+        }
+
+        $value = $this->store->read($ref->id);   // read per call: no cache in a property (worker mode)
+
+        return $value === null ? null : new ApiStudioSecretValue($value);
+    }
+}
+```
+
+2. Point the bundle at it:
+
+```yaml
+nowo_api_studio:
+    secrets:
+        source: App\Infrastructure\ApiStudio\VaultSecretSource
+```
+
+3. In an environment, add a variable, tick **Secret** and enter `{{secret:vault/payments-stripe}}` as its value
+   (`{{secret:<source>/<id>}}`; `<source>` = `[a-z][a-z0-9_-]{0,31}`, `<id>` = 1–255 characters of
+   `[A-Za-z0-9._~:@/-]`, without a leading `/`, an empty segment or a `.` / `..` segment — such ids fail closed). Use
+   the variable as usual (`Authorization: Bearer {{stripeKey}}`).
+
+How it behaves:
+
+- **Server only.** The console still gets the `{{stripeKey}}` placeholder; the reference is resolved on `/execute`, per
+  execution, after `workspace.run` was granted. `ApiStudioSecretRef` carries `source`, `id`, `variableKey`,
+  `workspaceId`, `environmentId`, `tenantType` / `tenantId`, `actorId` (the opaque id of the history rows and events;
+  null for anonymous users) and `targetOrigin`, so the host decides per user, workspace, tenant and destination.
+- **Bind each secret to its origins.** `targetOrigin` (`scheme://host[:port]`, lower case, default port omitted, IDN
+  in punycode, no trailing dot: the host the client connects to) is where the request goes, computed from the service
+  base URL before any host secret is substituted; it is null when the base URL itself uses a host secret (deny those
+  unless you mean it). The bundle refuses (422 `secret_target_changed`) to send if the origin changed, if any `Host`
+  header (stored, service default or console) names another authority than the URL (a shared front end would route the
+  request to another application), or if a SOAP WSDL (JSON-parameters mode) names a `soap:address` on another origin. Someone with `workspace.edit` can retarget a service and wait for
+  another member to run it: per-actor grants alone do not prevent that, an origin allow-list per secret does.
+- **Runners keep host secrets where editors put them.** Without `workspace.edit`, a body, header or query parameter the
+  runner changed in the console may not use a host secret variable (422 `override_not_allowed`); the stored templates
+  sent back unchanged are fine (CRLF / LF and one leading or trailing line break are not a change). Loading a saved request example that uses one counts as a change.
+- **Masked everywhere else.** The value is masked — raw, URL-encoded, JSON-escaped (also `\u` / hex escapes), HTML
+  entities, base64 (standard and URL-safe, and `user:secret` for Basic auth) — in the response sent to the browser
+  (request URL, headers, body, the echoed response and the error message), in the stored history, and in the bundle's
+  log records of the execution; the executed event never carries it (its `host` is null if the value is the host). It
+  is never stored: the workspace, exports and history keep the reference. Hashes, truncated or compressed echoes are
+  not recognised.
+- **Framework HTTP client logs and the profiler.** The framework `http_client` service logs `Request: "GET <full URL>"`
+  on the `http_client` Monolog channel at INFO, and the Symfony profiler stores the URL, headers and body in debug. If a
+  host secret can travel in a URL, raise that channel to WARNING (e.g. `monolog.handlers.main.channels:
+  ["!http_client"]` or a WARNING-level handler for it) and keep the profiler off in production.
+- **No redirects.** A request that carries a host secret never follows a redirect, whatever
+  `execution_max_redirects` says: the 3xx is returned as is (Symfony would forward custom headers and 307 / 308 bodies
+  to another origin).
+- **Fail closed.** If the port returns null, throws (its message is never logged or shown) or returns fewer than
+  8 bytes, a request that uses the variable is **not sent**: `/execute` answers 422 with `error_code:
+  secret_unresolved` and `unresolved_variables`, and a warning is logged with the variable key, the source and the
+  workspace id only. A request that does not use it is sent as usual.
+- **Only stored values are resolved.** A reference typed into the console as an override is sent as typed, never
+  resolved; only variables marked *Secret* are resolved.
+- **Without `secrets.source`** (default) nothing changes: a `{{secret:…}}` value is an ordinary secret value, as in
+  1.12.
+- **Worker mode** (FrankenPHP, kernel kept alive, no resetter): the bundle memoises nothing between executions; your
+  port must not either (no value or decision in a service property across requests).
+- **Standard and DDD hosts** work the same way: the port only sees ids and strings. A standard host may load its own
+  user by `actorId`; a DDD host keeps the policy in its domain and wires an adapter like the one above.
 
 ## Events
 

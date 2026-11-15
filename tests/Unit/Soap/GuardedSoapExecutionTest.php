@@ -405,6 +405,40 @@ final class GuardedSoapExecutionTest extends TestCase
         self::assertContains($expectedLine, $calls[1][2]['headers'], 'The SOAP call must carry the auth header.');
     }
 
+    public function testHostSecretEnvelopeIsNeverSentToASoapAddressOnAnotherOrigin(): void
+    {
+        // QE-D-L1: the JSON parameters (host secrets included) would go to whatever soap:address the WSDL names.
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = [$method, $url];
+
+            return $method === 'GET' ? new MockResponse(self::wsdl('https://93.184.216.34/soap')) : new MockResponse(self::RESPONSE);
+        });
+        $endpoint = $this->endpoint();
+        $endpoint->setRequestBodyTemplate('{"token":"{{hostToken}}"}');
+
+        $result = $this->executor($client)->execute($endpoint, null, null, [], [], ['hostToken' => 'hv-REDACTED-TEST-soap'], false, false, null, [], ['hv-REDACTED-TEST-soap'], 'https://93.184.215.14');
+
+        self::assertSame('secret_target_changed', $result->errorCode);
+        self::assertCount(1, $calls, 'only the WSDL was fetched');
+        self::assertSame('GET', $calls[0][0]);
+    }
+
+    public function testHostSecretEnvelopeGoesToASoapAddressOnTheServiceOrigin(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url) use (&$calls): MockResponse {
+            $calls[] = [$method, $url];
+
+            return $method === 'GET' ? new MockResponse(self::wsdl('https://93.184.215.14/soap')) : new MockResponse(self::RESPONSE);
+        });
+
+        $result = $this->executor($client)->execute($this->endpoint(), null, null, [], [], [], false, false, null, [], ['hv-REDACTED-TEST-soap'], 'https://93.184.215.14');
+
+        self::assertTrue($result->success, (string) $result->errorMessage);
+        self::assertCount(2, $calls);
+    }
+
     public function testAuthHeaderIsNotSentToASoapAddressOnAnotherOrigin(): void
     {
         $calls  = [];

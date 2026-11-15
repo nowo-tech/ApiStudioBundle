@@ -17,6 +17,7 @@ nowo_api_studio:
     secrets:
         encrypt: true
         # encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'
+        # source: App\Infrastructure\ApiStudio\VaultSecretSource   # 1.13: resolve {{secret:<source>/<id>}} values (ApiStudioSecretSourceInterface)
 
 when@prod:
     nowo_api_studio:

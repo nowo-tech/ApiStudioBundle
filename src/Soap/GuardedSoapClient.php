@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Soap;
 
+use Nowo\ApiStudioBundle\Secret\SecretTargetChangedException;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\ResponseBodyReader;
 use SoapClient;
@@ -39,6 +40,8 @@ final class GuardedSoapClient extends SoapClient
      *                                            location has the origin $headersOrigin (framing headers are dropped)
      * @param string|null $headersOrigin origin of the service (WSDL) URL: a `soap:address` on another origin gets no
      *                                   credential (same rule as {@see GuardedWsdlLoader}); null = never send them
+     * @param bool $sameOriginOnly 1.13 (QE-D-L1): the call carries host secrets, so a `soap:address` on another origin
+     *                             is refused ({@see SecretTargetChangedException}) instead of called without headers
      */
     public function __construct(
         ?string $wsdl,
@@ -50,6 +53,7 @@ final class GuardedSoapClient extends SoapClient
         array $extraHeaders = [],
         private readonly int $maxResponseBytes = ResponseBodyReader::DEFAULT_MAX_BYTES,
         private readonly ?string $headersOrigin = null,
+        private readonly bool $sameOriginOnly = false,
     ) {
         $this->extraHeaders = self::withoutFramingHeaders($extraHeaders);
         parent::__construct($wsdl, $options);
@@ -80,6 +84,11 @@ final class GuardedSoapClient extends SoapClient
     ): ?string {
         if ($this->urlValidator->isBlocked($location)) {
             throw new SoapFault('Client', 'SOAP endpoint location is not allowed (SSRF or allowlist).');
+        }
+
+        $sameOrigin = $this->headersOrigin !== null && GuardedWsdlLoader::origin($location) === $this->headersOrigin;
+        if ($this->sameOriginOnly && !$sameOrigin) {
+            throw new SecretTargetChangedException('The WSDL names a SOAP address on another origin; the request carries host secrets and was not sent.');
         }
 
         // Credentials only to the service origin: a WSDL may name any public host as soap:address.

@@ -25,7 +25,9 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 use function array_key_last;
 use function base64_encode;
+use function count;
 use function json_encode;
+use function str_contains;
 
 /**
  * REST / GraphQL request building: URL, query, headers, auth, body and the outcome logged without secrets.
@@ -173,6 +175,37 @@ final class RequestExecutorTest extends TestCase
         self::assertStringNotContainsString($marker, (string) json_encode($this->logs));
     }
 
+    public function testHostSecretRequestToAnotherOriginIsNeverSent(): void
+    {
+        // QE-B-M1: the origin the host secrets were resolved for must still be the request's.
+        $result = $this->executor()->execute($this->endpoint('https://{{host}}', '/x'), null, null, [], [], ['host' => 'other.example.test'], false, false, null, [], ['hv-REDACTED-TEST'], 'https://api.example.test');
+
+        self::assertSame([], $this->calls);
+        self::assertSame(ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED, $result->errorCode);
+        self::assertSame(['error_code' => 'secret_target_changed', 'unreadable_variables' => []], array_intersect_key($result->toArray(), ['error_code' => 1, 'unreadable_variables' => 1]));
+    }
+
+    public function testHostSecretRequestFollowsNoRedirect(): void
+    {
+        // QE-B-L4: Symfony forwards custom headers and 307/308 bodies across origins.
+        $executor = new RequestExecutor(new MockHttpClient(function (string $method, string $url, array $options): MockResponse {
+            $this->calls[] = [$method, $url, $options];
+
+            return str_contains($url, '/start')
+                ? new MockResponse('', ['http_code' => 307, 'redirect_url' => 'https://93.184.215.15/landing', 'response_headers' => ['Location' => 'https://93.184.215.15/landing']])
+                : new MockResponse('{}');
+        }), new VariableResolver(), new ExecutionUrlValidator([]), 5, null, 3);
+
+        $followed = $executor->execute($this->endpoint('https://93.184.215.14', '/start'));
+        self::assertSame(200, $followed->responseStatus);
+        self::assertCount(2, $this->calls);
+
+        $this->calls = [];
+        $kept        = $executor->execute($this->endpoint('https://93.184.215.14', '/start'), null, null, [], [], [], false, false, null, [], ['hv-REDACTED-TEST'], 'https://93.184.215.14');
+        self::assertSame(307, $kept->responseStatus);
+        self::assertSame(1, $this->callCount());
+    }
+
     public function testRequestNeedingAnUnreadableSecretIsNeverSent(): void
     {
         $environment = new ApiEnvironment('Dev', 'dev');
@@ -264,6 +297,11 @@ final class RequestExecutorTest extends TestCase
             ['host', 'path', 'override_body', 'override_query', 'override_header', 'user', 'pass'],
             RequestExecutor::referencedVariables($endpoint, $service, '{{override_body}}', ['X-O' => '{{override_header}}'], ['q' => '{{override_query}}'], true, true),
         );
+    }
+
+    private function callCount(): int
+    {
+        return count($this->calls);
     }
 
     private function endpoint(string $baseUrl, string $path): ApiEndpoint
