@@ -355,7 +355,8 @@ function clearScriptLog(): void {
 }
 
 function runScripts(scripts: Array<{ code: string; label: string }>, ctx: ScriptContext): void {
-  if (!RT) {
+  const runtime = RT;
+  if (!runtime) {
     return;
   }
 
@@ -364,7 +365,7 @@ function runScripts(scripts: Array<{ code: string; label: string }>, ctx: Script
       return;
     }
 
-    const result = RT.runScriptSafe(item.code, ctx, item.label);
+    const result = runtime.runScriptSafe(item.code, ctx, item.label);
     if (result.logs.length) {
       appendScriptLog(result.logs.map((l) => `[${item.label}] ${l}`));
     }
