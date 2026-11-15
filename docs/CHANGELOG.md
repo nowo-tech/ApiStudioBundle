@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.13.0] - 2026-11-15](#1130---2026-11-15)
 - [[1.12.4] - 2026-11-15](#1124---2026-11-15)
 - [[1.12.3] - 2026-11-13](#1123---2026-11-13)
 - [[1.12.2] - 2026-11-12](#1122---2026-11-12)
@@ -60,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-15
+
 Target 1.13.0
 
 ### Added
@@ -86,6 +89,8 @@ Target 1.13.0
     8 bytes are refused (QE-B-L5); ids with `..`, a leading `/` or an empty segment fail closed (QE-B-L6);
     `ApiStudioSecretValue` keeps the value outside its properties (QE-B-L3); no redirect is followed for a request that
     carries a host secret (QE-B-L4). The framework `http_client` log channel is documented (QE-B-L2).
+
+[1.13.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.13.0
 
 ## [1.12.4] - 2026-11-15
 
