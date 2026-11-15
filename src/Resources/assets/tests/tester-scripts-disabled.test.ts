@@ -110,6 +110,30 @@ describe('api-tester without the script runtime (AS-SCRIPTS-1)', () => {
     expect(document.getElementById('tester-script-log')!.textContent).toBe('');
   });
 
+  it('refuses to run scripts when the console says disabled, even with the runtime loaded (QE-A-L1)', async () => {
+    const createPm = vi.fn();
+    const runScriptSafe = vi.fn();
+    const html = CONSOLE.replace('id="api-studio-tester"', 'id="api-studio-tester" data-scripts-mode="disabled"').replace(
+      'data-service-pre-script=""',
+      'data-service-pre-script="window.__ran = 1"',
+    );
+    const fetchMock = await boot(html, {
+      storageKey: () => 'k',
+      loadRuntimeOverrides: () => ({}),
+      saveRuntimeOverrides: () => undefined,
+      createPm,
+      runScriptSafe,
+    });
+
+    expect(document.querySelector<HTMLElement>('[data-subtab="pre"]')!.hidden).toBe(true);
+    document.getElementById('tester-send')!.click();
+    await flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(createPm).not.toHaveBeenCalled();
+    expect(runScriptSafe).not.toHaveBeenCalled();
+  });
+
   it('keeps the script tabs when the runtime is present', async () => {
     await boot(CONSOLE, {
       storageKey: () => 'k',

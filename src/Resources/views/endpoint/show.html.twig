@@ -29,6 +29,7 @@
     {% embed '@NowoApiStudioBundle/_workbench.html.twig' with {bundle: page.bundle, nav_active: {workspace: workspace.id, service: service.id, endpoint: endpoint.id}} %}
         {% block as_workbench_main %}
             <div class="as-console" id="api-studio-tester"
+                 data-scripts-mode="{{ nowo_api_studio_scripts_enabled() ? 'inline' : 'disabled' }}"
                  data-execute-url="{{ executeUrl }}"
                  data-csrf-token="{{ csrfToken }}"
                  data-env-sync-url="{{ envSyncUrlTemplate|e('html_attr') }}"

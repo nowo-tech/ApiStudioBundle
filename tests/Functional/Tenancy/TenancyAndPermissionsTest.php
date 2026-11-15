@@ -362,7 +362,7 @@ final class TenancyAndPermissionsTest extends WebTestCase
 
         self::assertSelectorExists('script[src*="api-tester.js"]');
         self::assertSelectorNotExists('script[src*="api-script-runtime"]');
-        self::assertSelectorExists('#api-studio-tester[data-execute-url*="/execute/"]');
+        self::assertSelectorExists('#api-studio-tester[data-execute-url*="/execute/"][data-scripts-mode="disabled"]');
         self::assertSelectorExists('#tester-send');
         foreach (['[data-subtab="pre"]', '[data-subtab="post"]', '[data-subpanel="pre"]', '[data-subpanel="post"]', '#tester-pre-script', '#tester-post-script'] as $selector) {
             self::assertSelectorNotExists($selector);

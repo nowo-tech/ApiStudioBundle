@@ -15,7 +15,11 @@ import {
   truncateSnippet,
 } from './lib/utils';
 
-const RT = window.ApiStudioScriptRuntime;
+/**
+ * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
+ * when an override or the host layout still loads api-script-runtime.js. Set once the console root is known.
+ */
+let RT = window.ApiStudioScriptRuntime;
 const BT = window.ApiStudioBodyTools;
 
 /**
@@ -951,6 +955,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('api-studio-tester');
   if (!root) {
     return;
+  }
+
+  if (root.dataset.scriptsMode === 'disabled') {
+    RT = undefined;
   }
 
   // scripts.mode: disabled (AS-SCRIPTS-1): no script runtime on the page. Requests still run; the pre/post scripts
