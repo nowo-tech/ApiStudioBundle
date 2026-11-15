@@ -143,6 +143,37 @@ jobs:
       - name: Igor
         run: composer igor
 
+  assets:
+    name: TypeScript (typecheck, Vitest, committed build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Vitest
+        run: pnpm run test
+
+      - name: Committed assets match a rebuild
+        run: |
+          pnpm run build
+          git diff --exit-code -- src/Resources/public
+
   cs-check:
     name: Code Style Check
     runs-on: ubuntu-latest

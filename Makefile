@@ -28,7 +28,7 @@ help:
 	@echo "  assets        Build the TypeScript assets (pnpm)"
 	@echo "  test          Run PHPUnit tests"
 	@echo "  test-coverage Run PHPUnit with code coverage"
-	@echo "  test-ts       TypeScript type check (tsc --noEmit; no Vitest suite)"
+	@echo "  test-ts       TypeScript type check (tsc --noEmit) + Vitest"
 	@echo "  cs-check      Check code style"
 	@echo "  cs-fix        Fix code style"
 	@echo "  rector        Apply Rector refactoring"
@@ -167,7 +167,8 @@ assets: ensure-up
 test-ts: ensure-up
 	@$(COMPOSE) exec -T -e CI=true $(SERVICE_PHP) pnpm install
 	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run typecheck
-	@echo "TypeScript check OK (no Vitest suite in this bundle)."
+	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run test
+	@echo "TypeScript check and Vitest OK."
 
 setup-hooks:
 	@chmod +x .githooks/pre-commit 2>/dev/null || true
