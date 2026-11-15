@@ -29,6 +29,8 @@
 
 /* Workbench: API tree beside the page content (stacks below 60rem). */
 .as-workbench { display: grid; grid-template-columns: var(--as-sidebar-w) minmax(0, 1fr); gap: 1rem; align-items: start; }
+/* Span the whole host slot: hosts style the cards / show-sections regions as grids (grid-cols-2) or flex rows. */
+.as-workbench { grid-column: 1 / -1; width: 100%; min-width: 0; flex: 1 1 100%; }
 .as-workbench__main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
 .as-workbench__aside { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); display: flex; }
 @media (max-width: 60rem) {

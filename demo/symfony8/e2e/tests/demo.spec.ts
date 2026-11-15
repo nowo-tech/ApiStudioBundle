@@ -12,6 +12,27 @@ test.describe('API Studio demo', () => {
     await expect(page.locator('[data-testid="api-studio-projects"]')).toContainText('APIs de referencia');
   });
 
+  test('workbench spans a host grid cards slot (grid lg:grid-cols-2)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/api-studio/');
+    // Simulate a host that styles the UiKit cards region as a two-column grid (Beacon: 'grid gap-4 lg:grid-cols-2').
+    await page.addStyleTag({
+      content: '[data-nowo-ui-region="cards"]{display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr))}',
+    });
+    const m = await page.evaluate(() => {
+      const region = document.querySelector('[data-nowo-ui-region="cards"]') as HTMLElement;
+      const wb = document.querySelector('[data-testid="api-studio-workbench"]') as HTMLElement;
+      const grid = document.querySelector('.as-project-grid') as HTMLElement;
+      return {
+        region: region.getBoundingClientRect().width,
+        workbench: wb.getBoundingClientRect().width,
+        projectColumns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      };
+    });
+    expect(m.workbench).toBeGreaterThanOrEqual(m.region - 1);
+    expect(m.projectColumns).toBeGreaterThan(1);
+  });
+
   test('workspace lists the seeded REST and SOAP services', async ({ page }) => {
     await openReferenceWorkspace(page);
     const content = page.locator('[data-testid="api-studio-service-collections"]');
