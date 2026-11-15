@@ -120,6 +120,27 @@
 
 .as-tree-group.is-open > .as-tree-label .as-tree-chevron { transform: rotate(90deg); }
 
+/* AS-A11Y-1: the workspace chevron is the toggle button (the link next to it navigates). */
+button.as-tree-chevron {
+  appearance: none;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--as-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+button.as-tree-chevron:hover { color: var(--as-text); background: var(--as-bg-code); }
+
+button.as-tree-chevron:focus-visible { outline: 2px solid var(--as-accent); outline-offset: 1px; }
+
 .as-tree-children { display: none; padding-left: 8px; }
 
 .as-tree-group.is-open > .as-tree-children { display: block; }

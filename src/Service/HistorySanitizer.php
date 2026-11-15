@@ -143,6 +143,21 @@ final class HistorySanitizer
     }
 
     /**
+     * Masks only the given secret values (raw, URL-encoded and JSON-escaped forms), nothing else (1.12.4: error
+     * messages, which may quote the request URL).
+     *
+     * @param list<string> $secretValues
+     */
+    public function maskValues(?string $value, array $secretValues): ?string
+    {
+        if ($value === null || $value === '' || $secretValues === []) {
+            return $value;
+        }
+
+        return $this->maskSecretValues($value, $secretValues);
+    }
+
+    /**
      * Replaces every occurrence of the given secret values (raw, URL-encoded and JSON-escaped forms).
      *
      * @param list<string> $secretValues
@@ -155,7 +170,7 @@ final class HistorySanitizer
                 continue;
             }
 
-            $forms = [$secret, rawurlencode($secret), urlencode($secret)];
+            $forms = [$secret, rawurlencode($secret), urlencode($secret), self::uriComponentForm($secret)];
             foreach ([JSON_UNESCAPED_UNICODE, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES] as $flags) {
                 $json = json_encode($secret, $flags);
                 if (is_string($json)) {
@@ -172,5 +187,20 @@ final class HistorySanitizer
     private function isSensitiveHeader(string $name): bool
     {
         return in_array(strtolower($name), self::SENSITIVE_HEADERS, true);
+    }
+
+    /**
+     * The value as Symfony HttpClient normalises a URL component (path, query, user info) before sending it, which is
+     * the form transport error messages and echoed URLs carry (QE-D-L3, 1.12.4): percent-encoded unreserved
+     * characters are decoded, then everything outside RFC 3986 pchar is percent-encoded (`ab c+d/12` →
+     * `ab%20c+d/12`). Same expressions as `HttpClientTrait::parseUrl()`.
+     */
+    private static function uriComponentForm(string $value): string
+    {
+        if (str_contains($value, '%')) {
+            $value = (string) preg_replace_callback('/%(?:2[DE]|3[0-9]|[46][1-9A-F]|5F|[57][0-9A]|7E)++/i', static fn (array $m): string => rawurldecode($m[0]), $value);
+        }
+
+        return (string) preg_replace_callback("#[^-A-Za-z0-9._~!$&/'()[\\]*+,;=:@{}%]++#", static fn (array $m): string => rawurlencode($m[0]), $value);
     }
 }

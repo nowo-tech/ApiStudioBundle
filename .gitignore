@@ -12,6 +12,7 @@
 /coverage/
 /coverage.xml
 /coverage-php.txt
+/coverage-ts/
 
 # PHP tools cache (REQ-GITIGNORE-002: file pattern, not directory-only)
 .php-cs-fixer.cache

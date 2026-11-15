@@ -99,7 +99,7 @@ declare global {
       formatDisplay: (body: string, format: BodyFormat) => string;
       messageLabel: (result: BodyValidationResult, labels?: BodyValidationLabels) => string;
     };
-    ApiStudioScriptRuntime: {
+    ApiStudioScriptRuntime?: {
       storageKey: (envId: string) => string;
       loadRuntimeOverrides: (envId: string) => StringMap;
       saveRuntimeOverrides: (envId: string, variables: StringMap) => void;

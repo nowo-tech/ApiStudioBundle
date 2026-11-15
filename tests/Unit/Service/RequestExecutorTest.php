@@ -23,6 +23,7 @@ use Stringable;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+use function array_key_last;
 use function base64_encode;
 use function json_encode;
 
@@ -153,6 +154,23 @@ final class RequestExecutorTest extends TestCase
         self::assertSame([], $this->calls);
         self::assertSame('error', $this->logs[0][0]);
         self::assertSame('(unknown)', $this->logs[0][2]['host']);
+    }
+
+    public function testTransportFailureLogsTheExceptionClassAndHostOnly(): void
+    {
+        // QE-A-M1: transport errors quote the full URL (query secrets included): never logged.
+        $marker = 'qe-REDACTED-TEST-log';
+        $result = $this->executor(new MockResponse('', ['error' => 'Timeout for "https://93.184.215.14/x?k=' . $marker . '"']))
+            ->execute($this->endpoint('https://93.184.215.14', '/x?k=' . $marker));
+
+        self::assertFalse($result->success);
+        $failure = $this->logs[array_key_last($this->logs) ?? 0] ?? null;
+        self::assertNotNull($failure);
+        self::assertSame('error', $failure[0]);
+        self::assertSame('execute_failure', $failure[2]['action']);
+        self::assertSame('https://93.184.215.14', $failure[2]['host']);
+        self::assertStringContainsString('TransportException', (string) $failure[2]['error']);
+        self::assertStringNotContainsString($marker, (string) json_encode($this->logs));
     }
 
     public function testRequestNeedingAnUnreadableSecretIsNeverSent(): void

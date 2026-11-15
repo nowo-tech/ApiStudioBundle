@@ -17,6 +17,7 @@ nav.toggle: Alternar navegación
 sidebar.endpoints: Endpoints
 sidebar.filter: Filtrar endpoints…
 sidebar.navigation: Navegación API
+sidebar.toggle_workspace: 'Mostrar u ocultar los servicios de %name%'
 theme.toggle: Alternar tema claro / oscuro
 theme.light: Claro
 theme.dark: Oscuro

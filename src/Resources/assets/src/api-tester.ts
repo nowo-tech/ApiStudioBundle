@@ -15,7 +15,11 @@ import {
   truncateSnippet,
 } from './lib/utils';
 
-const RT = window.ApiStudioScriptRuntime;
+/**
+ * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
+ * when an override or the host layout still loads api-script-runtime.js. Set once the console root is known.
+ */
+let RT = window.ApiStudioScriptRuntime;
 const BT = window.ApiStudioBodyTools;
 
 /**
@@ -351,7 +355,8 @@ function clearScriptLog(): void {
 }
 
 function runScripts(scripts: Array<{ code: string; label: string }>, ctx: ScriptContext): void {
-  if (!RT) {
+  const runtime = RT;
+  if (!runtime) {
     return;
   }
 
@@ -360,13 +365,26 @@ function runScripts(scripts: Array<{ code: string; label: string }>, ctx: Script
       return;
     }
 
-    const result = RT.runScriptSafe(item.code, ctx, item.label);
+    const result = runtime.runScriptSafe(item.code, ctx, item.label);
     if (result.logs.length) {
       appendScriptLog(result.logs.map((l) => `[${item.label}] ${l}`));
     }
     if (!result.ok) {
       throw new Error(`[${item.label}] ${result.error}`);
     }
+  });
+}
+
+/**
+ * Hide the pre/post script sub-tabs and panels (`scripts.mode: disabled`).
+ *
+ * @param root The console root.
+ * @returns void
+ */
+function hideScriptTabs(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('[data-subtab="pre"], [data-subtab="post"], [data-subpanel="pre"], [data-subpanel="post"]').forEach((el) => {
+    el.hidden = true;
+    el.classList.remove('is-active');
   });
 }
 
@@ -555,6 +573,10 @@ async function persistVariables(
 function applyVariableChanges(root: HTMLElement, envId: string, ctx: ScriptContext): void {
   const dirty = ctx.getDirtyKeys();
   if (!Object.keys(dirty).length) {
+    return;
+  }
+
+  if (!RT) {
     return;
   }
 
@@ -932,8 +954,18 @@ function initExamples(root: HTMLElement, bodyField: HTMLTextAreaElement | null):
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('api-studio-tester');
-  if (!root || !RT) {
+  if (!root) {
     return;
+  }
+
+  if (root.dataset.scriptsMode === 'disabled') {
+    RT = undefined;
+  }
+
+  // scripts.mode: disabled (AS-SCRIPTS-1): no script runtime on the page. Requests still run; the pre/post scripts
+  // are skipped and their tabs stay hidden even when an overriding template still renders them.
+  if (!RT) {
+    hideScriptTabs(root);
   }
 
   const executeUrl = root.dataset.executeUrl ?? '';

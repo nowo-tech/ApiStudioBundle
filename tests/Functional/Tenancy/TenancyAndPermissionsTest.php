@@ -354,6 +354,23 @@ final class TenancyAndPermissionsTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
+    public function testScriptsDisabledConsoleKeepsSendAndHidesTheScriptTabs(): void
+    {
+        // AS-SCRIPTS-1: no runtime on the page, but api-tester.js and Send stay; no script tab, panel or code.
+        $this->client->request('GET', sprintf('/orgs/acme/api-studio/workspaces/%d/services/%d/endpoints/%d', $this->ids['acme'], $this->ids['service'], $this->ids['endpoint']));
+        self::assertResponseIsSuccessful();
+
+        self::assertSelectorExists('script[src*="api-tester.js"]');
+        self::assertSelectorNotExists('script[src*="api-script-runtime"]');
+        self::assertSelectorExists('#api-studio-tester[data-execute-url*="/execute/"][data-scripts-mode="disabled"]');
+        self::assertSelectorExists('#tester-send');
+        foreach (['[data-subtab="pre"]', '[data-subtab="post"]', '[data-subpanel="pre"]', '[data-subpanel="post"]', '#tester-pre-script', '#tester-post-script'] as $selector) {
+            self::assertSelectorNotExists($selector);
+        }
+        self::assertSelectorExists('[data-subtab="body"]');
+        self::assertSelectorExists('#api-studio-tester[data-service-pre-script=""][data-service-post-script=""]');
+    }
+
     public function testEveryRouteHasAnAction(): void
     {
         $router = self::getContainer()->get('router');

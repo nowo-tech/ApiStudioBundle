@@ -199,6 +199,8 @@ final class ApiExecuteController extends AbstractController
         );
 
         [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment, $variableOverrides);
+        // QE-A-M1 (1.12.4): transport errors quote the full request URL, secret query values and path segments included.
+        $errorMessage = $this->historySanitizer->maskValues($result->errorMessage, $secretValues);
 
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
@@ -217,7 +219,7 @@ final class ApiExecuteController extends AbstractController
         $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody, $secretValues));
         $history->setDurationMs($result->durationMs);
         $history->setSuccess($result->success);
-        $history->setErrorMessage($result->errorMessage);
+        $history->setErrorMessage($errorMessage);
 
         $this->entityManager->persist($history);
         $this->entityManager->flush();
@@ -241,7 +243,8 @@ final class ApiExecuteController extends AbstractController
         ));
 
         // The browser never gets secret values back either (resolved Authorization header, echoed tokens).
-        $data = $result->toArray();
+        $data                  = $result->toArray();
+        $data['error_message'] = $errorMessage;
         if ($secretValues !== []) {
             $data['request_url']      = $this->historySanitizer->sanitizeUrl($result->requestUrl, [], $secretValues);
             $data['request_headers']  = $this->historySanitizer->sanitizeHeaders($result->requestHeaders, [], $secretValues);
