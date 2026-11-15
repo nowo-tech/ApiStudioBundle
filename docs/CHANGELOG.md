@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.4] - 2026-11-15](#1124---2026-11-15)
 - [[1.12.3] - 2026-11-13](#1123---2026-11-13)
 - [[1.12.2] - 2026-11-12](#1122---2026-11-12)
 - [[1.12.1] - 2026-11-12](#1121---2026-11-12)
@@ -59,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged first).
+Target 1.13.0
 
 ### Added
 
@@ -85,6 +86,8 @@ Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged fir
     8 bytes are refused (QE-B-L5); ids with `..`, a leading `/` or an empty segment fail closed (QE-B-L6);
     `ApiStudioSecretValue` keeps the value outside its properties (QE-B-L3); no redirect is followed for a request that
     carries a host secret (QE-B-L4). The framework `http_client` log channel is documented (QE-B-L2).
+
+## [1.12.4] - 2026-11-15
 
 Target 1.12.4
 
@@ -117,6 +120,8 @@ Target 1.12.4
 
 - Vitest suite for the console scripts (`pnpm run test`, jsdom + axe-core) and a CI job that runs it, type-checks and
   checks that the committed `src/Resources/public/*.js` match a rebuild.
+
+[1.12.4]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.4
 
 ## [1.12.3] - 2026-11-13
 

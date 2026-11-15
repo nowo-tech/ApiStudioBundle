@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.12.4](#to-1124)
 - [To 1.12.3](#to-1123)
 - [To 1.12.2](#to-1122)
 - [To 1.12.1](#to-1121)
@@ -81,9 +82,17 @@ composer update nowo-tech/api-studio-bundle
 
 Target 1.13.0. From **1.12.x**: no migration, no configuration change required. The host secret source is opt-in
 (`nowo_api_studio.secrets.source`, see USAGE "Host secrets (1.13)"); without it a `{{secret:…}}` value stays an
-ordinary secret value, as before. `RequestExecutor::execute()` (internal) gained two optional trailing arguments and
+ordinary secret value, as before. `RequestExecutor::execute()` (internal) gained three optional trailing arguments and
 `ApiExecutionResult` an optional `unresolvedVariables` argument; the execute answer gains `unresolved_variables` only
 with `error_code: secret_unresolved`.
+
+## To 1.12.4
+
+From **1.12.3**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 Target 1.12.4. From **1.12.3**: patch release, no migration, no configuration change.
 
