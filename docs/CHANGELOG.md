@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.13.1] - 2026-11-15](#1131---2026-11-15)
 - [[1.13.0] - 2026-11-15](#1130---2026-11-15)
 - [[1.12.4] - 2026-11-15](#1124---2026-11-15)
 - [[1.12.3] - 2026-11-13](#1123---2026-11-13)
@@ -61,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-11-15
+
 Target 1.13.1
 
 ### Fixed
@@ -70,6 +73,8 @@ Target 1.13.1
   style those regions as grids (for example `grid gap-4 lg:grid-cols-2`), so the two-column `.as-workbench` landed in a
   single cell: its main column shrank to about 200px and the project cards stacked. `.as-workbench` now spans the whole
   region (`grid-column: 1 / -1`, full width in flex hosts); the host needs no CSS override.
+
+[1.13.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.13.1
 
 ## [1.13.0] - 2026-11-15
 
