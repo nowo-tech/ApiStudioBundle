@@ -77,6 +77,16 @@ Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged fir
 
 Target 1.12.4
 
+### Security
+
+- **Secret values no longer leak through transport error messages (QE-A-M1, since 1.11.0).** Symfony transport errors
+  quote the full request URL (`Connection timed out … for "https://host/path?api_key=…"`). `/execute` returned that
+  message unmasked in `error_message`, stored it in the history row and logged it in the `execute_failure` record, so a
+  runner with `workspace.run` but not `workspace.edit` could read a stored secret used in the URL path or query. The
+  error message is now masked with every secret value of the request (raw, URL-encoded, JSON-escaped) in the answer and
+  the history, and `execute_failure` logs the exception class and the host only. Intended change: for requests that
+  carry secrets, `error_message` now shows `[REDACTED]` where it showed the value.
+
 ### Fixed
 
 - **Sidebar tree: no interactive element nested in the workspace toggle (AS-A11Y-1).** `_sidebar_tree.html.twig`
@@ -89,6 +99,8 @@ Target 1.12.4
 - **`scripts.mode: disabled` no longer breaks the request console (AS-SCRIPTS-1).** `api-tester.js` returned before
   wiring Send when `window.ApiStudioScriptRuntime` was missing, so with no runtime on the page (disabled mode) nothing
   could be sent. It now runs without the runtime: pre/post scripts are skipped and the script tabs stay hidden.
+  `#api-studio-tester` carries `data-scripts-mode` (`inline` / `disabled`); with `disabled` the console never runs
+  scripts, even when an override or the host layout still loads `api-script-runtime.js` (QE-A-L1).
 
 ### Added
 

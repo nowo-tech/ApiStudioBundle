@@ -143,8 +143,8 @@ final class HistorySanitizer
     }
 
     /**
-     * Masks only the given secret values (raw, URL-encoded and JSON-escaped forms), nothing else (1.13: error
-     * messages and log records that may carry a resolved host secret).
+     * Masks only the given secret values (raw, URL-encoded and JSON-escaped forms), nothing else (1.12.4: error
+     * messages, which may quote the request URL; 1.13: log records that may carry a resolved host secret).
      *
      * @param list<string> $secretValues
      */

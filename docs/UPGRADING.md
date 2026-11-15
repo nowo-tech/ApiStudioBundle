@@ -106,9 +106,15 @@ composer update nowo-tech/api-studio-bundle
 - The theme CSS styles `button.as-tree-chevron`; an override that keeps a `<span class="as-tree-chevron">` inside the
   button should drop that class from the span (or use the 1.12.4 markup) to avoid a double rotation.
 
-**`scripts.mode: disabled` (AS-SCRIPTS-1).** Nothing to do: the console now sends requests without the script runtime.
-An override of `endpoint/show.html.twig` that still renders the pre/post script tabs in disabled mode gets them hidden
-by `api-tester.js`.
+**`scripts.mode: disabled` (AS-SCRIPTS-1, QE-A-L1).** The console now sends requests without the script runtime. An
+override of `endpoint/show.html.twig` that still renders the pre/post script tabs in disabled mode gets them hidden by
+`api-tester.js`. Copy the new `data-scripts-mode="{{ nowo_api_studio_scripts_enabled() ? 'inline' : 'disabled' }}"`
+attribute onto `#api-studio-tester` in such an override: with it, scripts never run in disabled mode even if the
+runtime script is still loaded.
+
+**Error messages (QE-A-M1).** `error_message` in the `/execute` answer and in the history is masked with the secret
+values of the request, and the `execute_failure` log record carries the exception class instead of its message. Log
+alerts that matched on transport messages should match on `error` (class) and `host`.
 
 ## To 1.12.3
 

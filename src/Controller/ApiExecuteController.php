@@ -218,8 +218,9 @@ final class ApiExecuteController extends AbstractController
 
         [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment, $variableOverrides);
         $secretValues               = [...$secretValues, ...$hostSecretValues];
-        // Transport errors may quote the URL: a resolved host secret is masked there too.
-        $errorMessage = $this->historySanitizer->maskValues($result->errorMessage, $hostSecretValues);
+        // QE-A-M1 (1.12.4): transport errors quote the full request URL, secret query values and path segments included
+        // (stored and host secrets).
+        $errorMessage = $this->historySanitizer->maskValues($result->errorMessage, $secretValues);
 
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
@@ -265,16 +266,14 @@ final class ApiExecuteController extends AbstractController
         ));
 
         // The browser never gets secret values back either (resolved Authorization header, echoed tokens).
-        $data = $result->toArray();
+        $data                  = $result->toArray();
+        $data['error_message'] = $errorMessage;
         if ($secretValues !== []) {
             $data['request_url']      = $this->historySanitizer->sanitizeUrl($result->requestUrl, [], $secretValues);
             $data['request_headers']  = $this->historySanitizer->sanitizeHeaders($result->requestHeaders, [], $secretValues);
             $data['request_body']     = $this->historySanitizer->sanitizeBody($result->requestBody, $secretValues);
             $data['response_headers'] = $this->historySanitizer->sanitizeHeaders($result->responseHeaders, [], $secretValues);
             $data['response_body']    = $this->historySanitizer->sanitizeBody($result->responseBody, $secretValues);
-        }
-        if ($hostSecretValues !== []) {
-            $data['error_message'] = $errorMessage;
         }
 
         // Fail closed (secret that cannot be decrypted): nothing was sent; the console shows the error message.

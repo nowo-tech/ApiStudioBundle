@@ -207,7 +207,7 @@ final class RequestExecutor
             );
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
-            $this->logFailure($method, $url, $e->getMessage(), $duration);
+            $this->logFailure($method, $url, $e, $duration);
 
             return $this->failure($url, $method, $headers, $body, $e->getMessage(), $duration);
         }
@@ -289,7 +289,7 @@ final class RequestExecutor
             );
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
-            $this->logFailure('SOAP', $wsdl, $e->getMessage(), $duration);
+            $this->logFailure('SOAP', $wsdl, $e, $duration);
 
             return $this->failure($wsdl, 'SOAP', $headers, $body, $e->getMessage(), $duration);
         } finally {
@@ -350,7 +350,7 @@ final class RequestExecutor
             );
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
-            $this->logFailure('SOAP', $url, $e->getMessage(), $duration);
+            $this->logFailure('SOAP', $url, $e, $duration);
 
             return $this->failure($url, 'SOAP', $headers, $envelope, $e->getMessage(), $duration);
         }
@@ -702,7 +702,11 @@ final class RequestExecutor
         }
     }
 
-    private function logFailure(string $method, string $url, string $message, int $durationMs = 0): void
+    /**
+     * @param string|Throwable $reason a fixed bundle message, or the exception: only its class is logged (QE-A-M1,
+     *                                 1.12.4: transport messages quote the full URL, query secrets included)
+     */
+    private function logFailure(string $method, string $url, string|Throwable $reason, int $durationMs = 0): void
     {
         $this->logger->error('Api Studio outbound request failed', [
             'bundle'      => 'api-studio',
@@ -710,8 +714,7 @@ final class RequestExecutor
             'method'      => $method,
             'host'        => $this->safeHost($url),
             'duration_ms' => $durationMs,
-            // Do not log full exception messages that may contain tokens; keep a short class-safe hint.
-            'error' => $message,
+            'error'       => $reason instanceof Throwable ? $reason::class : $reason,
         ]);
     }
 

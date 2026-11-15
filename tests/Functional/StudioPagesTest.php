@@ -198,6 +198,8 @@ final class StudioPagesTest extends WebTestCase
         $crawler = $this->client->request('GET', $this->endpointUrl(''));
         self::assertResponseIsSuccessful();
 
+        self::assertSelectorExists('#api-studio-tester[data-scripts-mode="inline"]');
+
         // REQ-TWIG-005: same ids / names / classes the scripts read, now rendered from Symfony Form views.
         foreach ([
             'select#tester-environment.as-select',
