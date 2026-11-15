@@ -49,6 +49,7 @@ nowo_api_studio:
     secrets:
         encrypt: true
         # encryption_key: '%env(NOWO_API_STUDIO_SECRETS_KEY)%'
+        # source: App\Infrastructure\ApiStudio\VaultSecretSource   # 1.13: host secret references
 ```
 
 | Option | Description |
@@ -86,6 +87,7 @@ nowo_api_studio:
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. Changing it (or `kernel.secret`) makes the stored secrets unreadable: they fail closed (never sent or exported, shown as *Needs re-entry*). `nowo:api-studio:secrets:status` lists them. |
+| `secrets.source` | **1.13.** Service id implementing `Nowo\ApiStudioBundle\Secret\ApiStudioSecretSourceInterface` (default `null`). A secret variable whose value is `{{secret:<source>/<id>}}` is then resolved on the server at execute time, per user and workspace as the host decides; the value never reaches the browser, the history, logs or exports, and a request that needs an unresolved reference is not sent (422 `secret_unresolved`). `null` = such values are ordinary secret values (1.12 behaviour). See [USAGE.md](USAGE.md#host-secrets-113). |
 
 ### Host `access_control` example
 

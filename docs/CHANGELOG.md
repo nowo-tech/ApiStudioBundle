@@ -59,6 +59,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged first).
+
+### Added
+
+- **Host secret source for secret variables.** New framework-free port
+  `Nowo\ApiStudioBundle\Secret\ApiStudioSecretSourceInterface::resolve(ApiStudioSecretRef): ?ApiStudioSecretValue`
+  with its own value objects, enabled with `nowo_api_studio.secrets.source: <service id>`. A *Secret* variable whose
+  value is `{{secret:<source>/<id>}}` (e.g. `{{secret:vault/payments-stripe}}`) is resolved on the server at execute
+  time, per execution and per actor / workspace / tenant (the host port decides; `ApiStudioSecretRef` carries the ids).
+  The value is sent to the request target only: it is masked in the execute answer (including the error message), the
+  history (including the error message), every log record of the execution and the executed event, and it is never
+  stored or exported. A reference the host does not resolve stops a request that needs it (422,
+  `error_code: secret_unresolved`, `unresolved_variables`). Console overrides are never resolved. Nothing is memoised
+  (FrankenPHP worker mode, kernel kept alive). Without `secrets.source` the behaviour is unchanged. See USAGE
+  "Host secrets (1.13)".
+
 Target 1.12.4
 
 ### Fixed
