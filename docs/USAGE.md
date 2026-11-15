@@ -186,8 +186,11 @@ final class VaultSecretSource implements ApiStudioSecretSourceInterface
 
     public function resolve(ApiStudioSecretRef $ref): ?ApiStudioSecretValue
     {
-        // Authorise per actor, workspace and tenant: null = unknown or not allowed (the request is not sent).
-        if ($ref->source !== 'vault' || !$this->policy->mayUse($ref->actorId, $ref->tenantType, $ref->tenantId, $ref->workspaceId, $ref->id)) {
+        // Authorise the exact id per actor, workspace, tenant AND destination origin: null = unknown or not allowed
+        // (the request is not sent). Without the origin check an editor could point the service at their own host.
+        if ($ref->source !== 'vault'
+            || $ref->targetOrigin === null
+            || !$this->policy->mayUse($ref->actorId, $ref->tenantType, $ref->tenantId, $ref->workspaceId, $ref->id, $ref->targetOrigin)) {
             return null;
         }
 
@@ -208,20 +211,38 @@ nowo_api_studio:
 
 3. In an environment, add a variable, tick **Secret** and enter `{{secret:vault/payments-stripe}}` as its value
    (`{{secret:<source>/<id>}}`; `<source>` = `[a-z][a-z0-9_-]{0,31}`, `<id>` = 1–255 characters of
-   `[A-Za-z0-9._~:@/-]`). Use the variable as usual (`Authorization: Bearer {{stripeKey}}`).
+   `[A-Za-z0-9._~:@/-]`, without a leading `/`, an empty segment or a `.` / `..` segment — such ids fail closed). Use
+   the variable as usual (`Authorization: Bearer {{stripeKey}}`).
 
 How it behaves:
 
 - **Server only.** The console still gets the `{{stripeKey}}` placeholder; the reference is resolved on `/execute`, per
   execution, after `workspace.run` was granted. `ApiStudioSecretRef` carries `source`, `id`, `variableKey`,
-  `workspaceId`, `environmentId`, `tenantType` / `tenantId` and `actorId` (the opaque id of the history rows and events;
-  null for anonymous users), so the host decides per user, workspace and tenant.
-- **Masked everywhere else.** The value is masked (raw, URL-encoded and JSON-escaped forms) in the response sent to the
-  browser (request URL, headers, body, the echoed response and the error message), in the stored history, in every log
-  record of the execution, and the executed event never carries it (its `host` is null if the value is the host). It is
-  never stored: the workspace, exports and history keep the reference.
+  `workspaceId`, `environmentId`, `tenantType` / `tenantId`, `actorId` (the opaque id of the history rows and events;
+  null for anonymous users) and `targetOrigin`, so the host decides per user, workspace, tenant and destination.
+- **Bind each secret to its origins.** `targetOrigin` (`scheme://host[:port]`, lower case, default port omitted) is where
+  the request goes, computed from the service base URL before any host secret is substituted; it is null when the base
+  URL itself uses a host secret (deny those unless you mean it). The bundle re-checks the origin before sending and
+  refuses (422 `secret_target_changed`) if it changed. Someone with `workspace.edit` can retarget a service and wait for
+  another member to run it: per-actor grants alone do not prevent that, an origin allow-list per secret does.
+- **Runners keep host secrets where editors put them.** Without `workspace.edit`, a body, header or query parameter the
+  runner changed in the console may not use a host secret variable (422 `override_not_allowed`); the stored templates
+  sent back unchanged are fine. Loading a saved request example that uses one counts as a change.
+- **Masked everywhere else.** The value is masked — raw, URL-encoded, JSON-escaped (also `\u` / hex escapes), HTML
+  entities, base64 (standard and URL-safe, and `user:secret` for Basic auth) — in the response sent to the browser
+  (request URL, headers, body, the echoed response and the error message), in the stored history, and in the bundle's
+  log records of the execution; the executed event never carries it (its `host` is null if the value is the host). It
+  is never stored: the workspace, exports and history keep the reference. Hashes, truncated or compressed echoes are
+  not recognised.
+- **Framework HTTP client logs and the profiler.** The framework `http_client` service logs `Request: "GET <full URL>"`
+  on the `http_client` Monolog channel at INFO, and the Symfony profiler stores the URL, headers and body in debug. If a
+  host secret can travel in a URL, raise that channel to WARNING (e.g. `monolog.handlers.main.channels:
+  ["!http_client"]` or a WARNING-level handler for it) and keep the profiler off in production.
+- **No redirects.** A request that carries a host secret never follows a redirect, whatever
+  `execution_max_redirects` says: the 3xx is returned as is (Symfony would forward custom headers and 307 / 308 bodies
+  to another origin).
 - **Fail closed.** If the port returns null, throws (its message is never logged or shown) or returns fewer than
-  4 bytes, a request that uses the variable is **not sent**: `/execute` answers 422 with `error_code:
+  8 bytes, a request that uses the variable is **not sent**: `/execute` answers 422 with `error_code:
   secret_unresolved` and `unresolved_variables`, and a warning is logged with the variable key, the source and the
   workspace id only. A request that does not use it is sent as usual.
 - **Only stored values are resolved.** A reference typed into the console as an override is sent as typed, never

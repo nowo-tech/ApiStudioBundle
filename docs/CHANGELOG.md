@@ -73,7 +73,15 @@ Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged fir
   stored or exported. A reference the host does not resolve stops a request that needs it (422,
   `error_code: secret_unresolved`, `unresolved_variables`). Console overrides are never resolved. Nothing is memoised
   (FrankenPHP worker mode, kernel kept alive). Without `secrets.source` the behaviour is unchanged. See USAGE
-  "Host secrets (1.13)".
+  "Host secrets (1.13)". Hardened after audit QE:
+  - `ApiStudioSecretRef::$targetOrigin`: the request origin before substitution, so the host binds each secret to its
+    destinations; the bundle refuses to send if the origin changed (422 `secret_target_changed`) (QE-B-M1).
+  - A runner without `workspace.edit` cannot use a host secret in a body, header or query template they changed
+    (422 `override_not_allowed`) (QE-B-M2).
+  - Masking also covers base64 (incl. Basic `user:secret`), HTML entities and `\u` escapes (QE-B-L1); values under
+    8 bytes are refused (QE-B-L5); ids with `..`, a leading `/` or an empty segment fail closed (QE-B-L6);
+    `ApiStudioSecretValue` keeps the value outside its properties (QE-B-L3); no redirect is followed for a request that
+    carries a host secret (QE-B-L4). The framework `http_client` log channel is documented (QE-B-L2).
 
 Target 1.12.4
 
