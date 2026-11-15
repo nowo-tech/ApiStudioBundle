@@ -59,6 +59,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.12.4
+
+### Fixed
+
+- **Sidebar tree: no interactive element nested in the workspace toggle (AS-A11Y-1).** `_sidebar_tree.html.twig`
+  rendered each workspace row as a `role="button"` / `tabindex="0"` row that wrapped the workspace link, which axe
+  reports as `nested-interactive` (serious). The toggle is now only the chevron: `<button type="button"
+  class="as-tree-chevron" data-tree-toggle aria-expanded aria-controls aria-label>` (label `sidebar.toggle_workspace`,
+  7 locales), with the link next to it and `id="as-tree-ws-<id>"` on the children. `api-studio-shell.js` keeps
+  `aria-expanded` in sync with the group; Enter / Space are the button's own. Overrides still on the old markup keep
+  working (see UPGRADING).
+- **`scripts.mode: disabled` no longer breaks the request console (AS-SCRIPTS-1).** `api-tester.js` returned before
+  wiring Send when `window.ApiStudioScriptRuntime` was missing, so with no runtime on the page (disabled mode) nothing
+  could be sent. It now runs without the runtime: pre/post scripts are skipped and the script tabs stay hidden.
+
+### Added
+
+- Vitest suite for the console scripts (`pnpm run test`, jsdom + axe-core) and a CI job that runs it, type-checks and
+  checks that the committed `src/Resources/public/*.js` match a rebuild.
+
 ## [1.12.3] - 2026-11-13
 
 ### Fixed

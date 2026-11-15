@@ -79,6 +79,31 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+Target 1.12.4. From **1.12.3**: patch release, no migration, no configuration change.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+**Overridden `_sidebar_tree.html.twig` (AS-A11Y-1).** The template has no Twig blocks; its contract is the markup that
+`api-studio-shell.js` reads, and it keeps the same hooks (`data-tree-group`, `data-tree-toggle`, `.as-tree-label`,
+`.as-tree-chevron`, `.as-tree-children`, `#as-nav-tree`). What changed is where `data-tree-toggle` sits:
+
+- 1.12.4 markup: the `.as-tree-label` row is a plain `<div>`; `data-tree-toggle` is on a `<button type="button"
+  class="as-tree-chevron" aria-expanded="…" aria-controls="as-tree-ws-<id>" aria-label="…">` before the workspace
+  link, and the children `<div class="as-tree-children">` carry `id="as-tree-ws-<id>"`. Label key:
+  `sidebar.toggle_workspace` (`%name%` = workspace name).
+- An override still on the old markup (`<div class="as-tree-label" data-tree-toggle role="button" tabindex="0">`
+  wrapping the link) does not break: a click on the link navigates, a click elsewhere on the row and Enter / Space on
+  the row toggle it, and the script now also sets `aria-expanded` on it. It still fails axe `nested-interactive`, so
+  copy the new row markup into the override to get the fix.
+- The theme CSS styles `button.as-tree-chevron`; an override that keeps a `<span class="as-tree-chevron">` inside the
+  button should drop that class from the span (or use the 1.12.4 markup) to avoid a double rotation.
+
+**`scripts.mode: disabled` (AS-SCRIPTS-1).** Nothing to do: the console now sends requests without the script runtime.
+An override of `endpoint/show.html.twig` that still renders the pre/post script tabs in disabled mode gets them hidden
+by `api-tester.js`.
+
 ## To 1.12.3
 
 From **1.12.2**:
