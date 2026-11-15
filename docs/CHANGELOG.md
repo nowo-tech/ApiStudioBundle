@@ -74,10 +74,13 @@ Target 1.13.0 (the 1.12.4 fixes below are part of it if 1.12.4 is not tagged fir
   `error_code: secret_unresolved`, `unresolved_variables`). Console overrides are never resolved. Nothing is memoised
   (FrankenPHP worker mode, kernel kept alive). Without `secrets.source` the behaviour is unchanged. See USAGE
   "Host secrets (1.13)". Hardened after audit QE:
-  - `ApiStudioSecretRef::$targetOrigin`: the request origin before substitution, so the host binds each secret to its
-    destinations; the bundle refuses to send if the origin changed (422 `secret_target_changed`) (QE-B-M1).
+  - `ApiStudioSecretRef::$targetOrigin`: the request origin before substitution (IDN in punycode, no trailing dot), so
+    the host binds each secret to its destinations; the bundle refuses to send if the origin changed, if a `Host`
+    header names another authority, or if a WSDL's `soap:address` is on another origin (422 `secret_target_changed`)
+    (QE-B-M1, QE-D-M1, QE-D-L1, QE-D-I1).
   - A runner without `workspace.edit` cannot use a host secret in a body, header or query template they changed
-    (422 `override_not_allowed`) (QE-B-M2).
+    (422 `override_not_allowed`); line-ending noise (CRLF, one leading or trailing line break) is not a change
+    (QE-B-M2, QE-D-L2).
   - Masking also covers base64 (incl. Basic `user:secret`), HTML entities and `\u` escapes (QE-B-L1); values under
     8 bytes are refused (QE-B-L5); ids with `..`, a leading `/` or an empty segment fail closed (QE-B-L6);
     `ApiStudioSecretValue` keeps the value outside its properties (QE-B-L3); no redirect is followed for a request that

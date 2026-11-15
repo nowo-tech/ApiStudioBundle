@@ -220,14 +220,16 @@ How it behaves:
   execution, after `workspace.run` was granted. `ApiStudioSecretRef` carries `source`, `id`, `variableKey`,
   `workspaceId`, `environmentId`, `tenantType` / `tenantId`, `actorId` (the opaque id of the history rows and events;
   null for anonymous users) and `targetOrigin`, so the host decides per user, workspace, tenant and destination.
-- **Bind each secret to its origins.** `targetOrigin` (`scheme://host[:port]`, lower case, default port omitted) is where
-  the request goes, computed from the service base URL before any host secret is substituted; it is null when the base
-  URL itself uses a host secret (deny those unless you mean it). The bundle re-checks the origin before sending and
-  refuses (422 `secret_target_changed`) if it changed. Someone with `workspace.edit` can retarget a service and wait for
+- **Bind each secret to its origins.** `targetOrigin` (`scheme://host[:port]`, lower case, default port omitted, IDN
+  in punycode, no trailing dot: the host the client connects to) is where the request goes, computed from the service
+  base URL before any host secret is substituted; it is null when the base URL itself uses a host secret (deny those
+  unless you mean it). The bundle refuses (422 `secret_target_changed`) to send if the origin changed, if any `Host`
+  header (stored, service default or console) names another authority than the URL (a shared front end would route the
+  request to another application), or if a SOAP WSDL (JSON-parameters mode) names a `soap:address` on another origin. Someone with `workspace.edit` can retarget a service and wait for
   another member to run it: per-actor grants alone do not prevent that, an origin allow-list per secret does.
 - **Runners keep host secrets where editors put them.** Without `workspace.edit`, a body, header or query parameter the
   runner changed in the console may not use a host secret variable (422 `override_not_allowed`); the stored templates
-  sent back unchanged are fine. Loading a saved request example that uses one counts as a change.
+  sent back unchanged are fine (CRLF / LF and one leading or trailing line break are not a change). Loading a saved request example that uses one counts as a change.
 - **Masked everywhere else.** The value is masked — raw, URL-encoded, JSON-escaped (also `\u` / hex escapes), HTML
   entities, base64 (standard and URL-safe, and `user:secret` for Basic auth) — in the response sent to the browser
   (request URL, headers, body, the echoed response and the error message), in the stored history, and in the bundle's
