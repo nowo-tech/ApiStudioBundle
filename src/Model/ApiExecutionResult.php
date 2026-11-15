@@ -12,10 +12,15 @@ final class ApiExecutionResult
     /** The request referenced a secret variable that cannot be decrypted: nothing was sent (fail closed). */
     public const ERROR_SECRET_UNREADABLE = 'secret_unreadable';
 
+    /** 1.13: the request referenced a host secret the host secret source did not resolve: nothing was sent. */
+    public const ERROR_SECRET_UNRESOLVED = 'secret_unresolved';
+
     /**
      * @param array<string, string> $requestHeaders
      * @param array<string, string> $responseHeaders
      * @param list<string> $unreadableVariables keys of the unreadable secret variables the request needed
+     * @param list<string> $unresolvedVariables keys of the host secret references the request needed and the host
+     *                                          did not resolve (1.13)
      */
     public function __construct(
         public readonly string $requestUrl,
@@ -30,6 +35,7 @@ final class ApiExecutionResult
         public readonly ?string $errorMessage = null,
         public readonly ?string $errorCode = null,
         public readonly array $unreadableVariables = [],
+        public readonly array $unresolvedVariables = [],
     ) {
     }
 
@@ -51,6 +57,9 @@ final class ApiExecutionResult
         if ($this->errorCode !== null) {
             $data['error_code']           = $this->errorCode;
             $data['unreadable_variables'] = $this->unreadableVariables;
+        }
+        if ($this->errorCode === self::ERROR_SECRET_UNRESOLVED) {
+            $data['unresolved_variables'] = $this->unresolvedVariables;
         }
 
         return $data;

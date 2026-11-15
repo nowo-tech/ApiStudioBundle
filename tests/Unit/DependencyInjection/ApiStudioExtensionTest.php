@@ -6,9 +6,11 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\DependencyInjection;
 
 use Nowo\ApiStudioBundle\DependencyInjection\ApiStudioExtension;
 use Nowo\ApiStudioBundle\DependencyInjection\Configuration;
+use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
 
 final class ApiStudioExtensionTest extends TestCase
 {
@@ -49,6 +51,19 @@ final class ApiStudioExtensionTest extends TestCase
             '%nowo_api_studio.environments%',
             $container->getDefinition(WorkspaceEnvironmentInitializer::class)->getArgument('$defaultEnvironmentNames'),
         );
+    }
+
+    public function testHostSecretSourceIsOptIn(): void
+    {
+        $container = new ContainerBuilder();
+        (new ApiStudioExtension())->load([], $container);
+        self::assertNull($container->getDefinition(HostSecretResolver::class)->getArgument('$source'), 'no source: references stay plain values (1.12 behaviour)');
+
+        $container = new ContainerBuilder();
+        (new ApiStudioExtension())->load([['secrets' => ['source' => 'app.vault_secret_source']]], $container);
+        $source = $container->getDefinition(HostSecretResolver::class)->getArgument('$source');
+        self::assertInstanceOf(Reference::class, $source);
+        self::assertSame('app.vault_secret_source', (string) $source);
     }
 
     public function testConfigurationAlias(): void

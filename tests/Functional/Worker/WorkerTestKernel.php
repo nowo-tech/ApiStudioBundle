@@ -6,6 +6,8 @@ namespace Nowo\ApiStudioBundle\Tests\Functional\Worker;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Nowo\ApiStudioBundle\ApiStudioBundle;
+use Nowo\ApiStudioBundle\Tests\Functional\App\EntityManagerTestKernel;
+use Nowo\ApiStudioBundle\Tests\Functional\App\TestHostSecretSource;
 use Nowo\ApiStudioBundle\Tests\Functional\Tenancy\TestPermissionChecker;
 use Nowo\ApiStudioBundle\Tests\Functional\Tenancy\TestTenantResolver;
 use Nowo\FormKitBundle\NowoFormKitBundle;
@@ -16,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Twig\Extra\TwigExtraBundle\TwigExtraBundle;
@@ -26,7 +29,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function sys_get_temp_dir;
 
 /**
- * 1.12.1 (REQ-RUNTIME-002): host of the worker-state test, built as production builds it (no debug collectors). A DDD
+ * 1.12.1 (REQ-RUNTIME-002): host of the worker-state tests, built as production builds it (no debug collectors). A DDD
  * host: the Api Studio entities on a dedicated `api_studio` manager next to the host's default one, tenancy on (one
  * tenant per `{org}` of the URL), four users in memory logged in per request by the `X-Test-User` header, and a
  * Messenger bus with the probe handler on the Api Studio manager.
@@ -135,6 +138,7 @@ final class WorkerTestKernel extends Kernel
             ],
             'tenancy'  => ['enabled' => true, 'resolver' => TestTenantResolver::class],
             'scripts'  => ['mode' => 'disabled'],
+            'secrets'  => ['source' => TestHostSecretSource::class],
             'security' => ['access_roles' => ['ROLE_USER'], 'permission_checker' => TestPermissionChecker::class],
         ]);
 
@@ -142,6 +146,9 @@ final class WorkerTestKernel extends Kernel
         // The failing probe messages are logged as critical by Messenger: kept out of the test output.
         $services->set('logger', NullLogger::class);
         $services->set(TestTenantResolver::class);
+        // 1.13 host secret source (WorkerSecretSourceTest); outbound requests never leave the process.
+        $services->set(TestHostSecretSource::class)->public();
+        $services->set('http_client', MockHttpClient::class)->factory([EntityManagerTestKernel::class, 'mockResponses']);
         $services->set(TestPermissionChecker::class)->public();
         $services->set(HeaderUserAuthenticator::class);
         $services->set(WorkerProbeHandler::class)->public()

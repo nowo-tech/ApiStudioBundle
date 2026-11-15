@@ -29,7 +29,13 @@ use Twig\Extra\TwigExtraBundle\TwigExtraBundle;
 
 use function getmypid;
 use function hash;
+use function is_string;
+use function json_encode;
 use function serialize;
+use function str_contains;
+use function str_starts_with;
+use function strtolower;
+use function substr;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function sys_get_temp_dir;
 
@@ -61,9 +67,26 @@ final class EntityManagerTestKernel extends Kernel implements CompilerPassInterf
         parent::__construct('test', true);
     }
 
+    /**
+     * Outbound requests answer `{"ok":true}` (201). A path containing `/echo` answers the request headers and the
+     * SHA-256 of its `X-Host-Token` header (1.13 host secret tests: proves which value was sent once masked).
+     */
     public static function mockResponses(): MockHttpClient
     {
-        return new MockHttpClient(static fn (): MockResponse => new MockResponse('{"ok":true}', ['http_code' => 201]));
+        return new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+            if (!str_contains($url, '/echo')) {
+                return new MockResponse('{"ok":true}', ['http_code' => 201]);
+            }
+
+            $token = '';
+            foreach ($options['headers'] ?? [] as $header) {
+                if (is_string($header) && str_starts_with(strtolower($header), 'x-host-token: ')) {
+                    $token = substr($header, 14);
+                }
+            }
+
+            return new MockResponse((string) json_encode(['url' => $url, 'headers' => $options['headers'] ?? [], 'token_sha256' => hash('sha256', $token)]), ['http_code' => 201]);
+        });
     }
 
     public function registerBundles(): iterable
@@ -123,6 +146,8 @@ final class EntityManagerTestKernel extends Kernel implements CompilerPassInterf
         $services = $container->services();
         // Outbound requests of the tester never leave the process.
         $services->set('http_client', MockHttpClient::class)->factory([self::class, 'mockResponses'])->public();
+        $services->set(TestHostSecretSource::class)->public();
+        $services->set('logger', RecordingLogger::class)->public();
         $recorder = $services->set(EventRecorder::class)->public()->arg('$entityManager', service('nowo_api_studio.entity_manager'));
         foreach ([ApiWorkspaceCreatedEvent::class, ApiWorkspaceCreatedCommittedEvent::class, ApiStudioResourceChangedEvent::class, ApiRequestExecutedEvent::class] as $event) {
             $recorder->tag('kernel.event_listener', ['event' => $event, 'method' => '__invoke']);

@@ -21,6 +21,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
+use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 use Psr\Log\LoggerInterface;
@@ -36,8 +37,10 @@ use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function array_intersect;
 use function array_key_exists;
+use function array_keys;
 use function array_values;
 use function count;
+use function in_array;
 use function is_array;
 use function is_int;
 use function is_scalar;
@@ -62,6 +65,7 @@ final class ApiExecuteController extends AbstractController
         return parent::getSubscribedServices() + [
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
+            HostSecretResolver::class     => '?' . HostSecretResolver::class,
             'logger'                      => '?' . LoggerInterface::class,
             'event_dispatcher'            => '?' . EventDispatcherInterface::class,
         ];
@@ -186,6 +190,18 @@ final class ApiExecuteController extends AbstractController
             $methodOverride = HttpMethod::tryFrom(strtoupper($payload['method']));
         }
 
+        // 1.13: host secret references of the stored secret variables, resolved here, per execution, for this actor.
+        $hostSecretValues  = [];
+        $unresolvedSecrets = [];
+        $workspace         = $service?->getWorkspace();
+        $hostSecrets       = $this->hostSecretResolver();
+        if ($hostSecrets instanceof HostSecretResolver && $environment instanceof ApiEnvironment && $workspace instanceof ApiWorkspace) {
+            $resolution        = $hostSecrets->resolve($environment, $workspace, $variableMap, array_keys($variableOverrides), $this->currentActorId());
+            $variableMap       = $resolution->variables;
+            $hostSecretValues  = $resolution->values;
+            $unresolvedSecrets = $resolution->unresolvedKeys;
+        }
+
         $result = $this->requestExecutor->execute(
             $endpoint,
             $environment,
@@ -196,9 +212,14 @@ final class ApiExecuteController extends AbstractController
             $replaceQueryParams,
             $replaceHeaders,
             $methodOverride,
+            $unresolvedSecrets,
+            $hostSecretValues,
         );
 
         [$authNames, $secretValues] = self::historyRedactionHints($endpoint, $environment, $variableOverrides);
+        $secretValues               = [...$secretValues, ...$hostSecretValues];
+        // Transport errors may quote the URL: a resolved host secret is masked there too.
+        $errorMessage = $this->historySanitizer->maskValues($result->errorMessage, $hostSecretValues);
 
         $history = new ApiRequestHistory();
         $history->setEndpoint($endpoint);
@@ -217,7 +238,7 @@ final class ApiExecuteController extends AbstractController
         $history->setResponseBody($this->historySanitizer->sanitizeBody($result->responseBody, $secretValues));
         $history->setDurationMs($result->durationMs);
         $history->setSuccess($result->success);
-        $history->setErrorMessage($result->errorMessage);
+        $history->setErrorMessage($errorMessage);
 
         $this->entityManager->persist($history);
         $this->entityManager->flush();
@@ -226,6 +247,9 @@ final class ApiExecuteController extends AbstractController
 
         // 1.12: ids and scalars only (no path, query, headers, bodies or variable values: they may carry secrets).
         $host = parse_url($result->requestUrl, PHP_URL_HOST);
+        if (is_string($host) && $this->historySanitizer->maskValues($host, $hostSecretValues) !== $host) {
+            $host = null;
+        }
         $this->dispatchEvent(new ApiRequestExecutedEvent(
             endpointId: (int) $endpoint->getId(),
             serviceId: $service?->getId(),
@@ -249,11 +273,28 @@ final class ApiExecuteController extends AbstractController
             $data['response_headers'] = $this->historySanitizer->sanitizeHeaders($result->responseHeaders, [], $secretValues);
             $data['response_body']    = $this->historySanitizer->sanitizeBody($result->responseBody, $secretValues);
         }
+        if ($hostSecretValues !== []) {
+            $data['error_message'] = $errorMessage;
+        }
 
         // Fail closed (secret that cannot be decrypted): nothing was sent; the console shows the error message.
-        $status = $result->errorCode === ApiExecutionResult::ERROR_SECRET_UNREADABLE ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+        $status = in_array($result->errorCode, [ApiExecutionResult::ERROR_SECRET_UNREADABLE, ApiExecutionResult::ERROR_SECRET_UNRESOLVED], true) ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
 
         return new JsonResponse($data, $status);
+    }
+
+    /**
+     * The host secret resolver (1.13), only when the host configured `nowo_api_studio.secrets.source`.
+     */
+    private function hostSecretResolver(): ?HostSecretResolver
+    {
+        if (!$this->container->has(HostSecretResolver::class)) {
+            return null;
+        }
+
+        $resolver = $this->container->get(HostSecretResolver::class);
+
+        return $resolver instanceof HostSecretResolver && $resolver->isEnabled() ? $resolver : null;
     }
 
     /**

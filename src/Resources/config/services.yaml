@@ -15,6 +15,7 @@ services:
             - '../../EventSubscriber/'
             - '../../Form/'
             - '../../Soap/'
+            - '../../Secret/'
             - '../../ApiStudioBundle.php'
             - '../../Tenancy/TenantProviderResolver.php'
             - '../../Controller/'

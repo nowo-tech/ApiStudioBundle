@@ -143,6 +143,21 @@ final class HistorySanitizer
     }
 
     /**
+     * Masks only the given secret values (raw, URL-encoded and JSON-escaped forms), nothing else (1.13: error
+     * messages and log records that may carry a resolved host secret).
+     *
+     * @param list<string> $secretValues
+     */
+    public function maskValues(?string $value, array $secretValues): ?string
+    {
+        if ($value === null || $value === '' || $secretValues === []) {
+            return $value;
+        }
+
+        return $this->maskSecretValues($value, $secretValues);
+    }
+
+    /**
      * Replaces every occurrence of the given secret values (raw, URL-encoded and JSON-escaped forms).
      *
      * @param list<string> $secretValues

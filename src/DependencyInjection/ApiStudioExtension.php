@@ -13,6 +13,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
+use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
 use Nowo\ApiStudioBundle\Tenancy\TenantProviderResolver;
@@ -291,6 +292,9 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 
         $this->registerTenancy($container, $config['tenancy']);
         $this->registerPermissions($container, $config['security'], $config['history']);
+        $source = $config['secrets']['source'] ?? null;
+        $container->getDefinition(HostSecretResolver::class)
+            ->setArgument('$source', is_string($source) && $source !== '' ? new Reference($source) : null);
         $this->registerPathPlaceholders($container, $config['ui']['path'], $config['ui']['path_requirements']);
 
         $this->registerAccessChecker($container, $config['security'], $config['ui']['required_roles']);
