@@ -317,6 +317,36 @@ final class ApiExecuteControllerTest extends TestCase
         self::assertStringNotContainsString('tok-SECRET-42', (string) json_encode($persisted->getResponseHeaders()));
     }
 
+    public function testTransportErrorQuotingAStoredSecretIsMaskedInTheAnswerAndTheHistory(): void
+    {
+        // QE-A-M1 (since 1.11.0): a runner without workspace.edit got stored secrets back through error_message.
+        $marker    = 'qeStoredTok1234';
+        $workspace = new ApiWorkspace('Mine', 'mine');
+        $endpoint  = $this->endpoint($workspace);
+        $endpoint->setQueryParams(['k' => '{{apiToken}}']);
+        $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
+        $env->addVariable((new ApiEnvironmentVariable('apiToken', $marker))->setSecret(true));
+        $client = new MockHttpClient(static fn (string $method, string $url): MockResponse => new MockResponse('', ['error' => 'Connection timed out after 1001 milliseconds for "' . $url . '"']));
+
+        $persisted = null;
+        $em        = $this->createMock(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
+            $persisted = $entity;
+        });
+
+        $response = $this->controller($endpoint, $env, $client, $em)->execute($this->request(), 1);
+
+        $content = (string) $response->getContent();
+        self::assertStringNotContainsString($marker, $content);
+        $data = json_decode($content, true);
+        self::assertIsArray($data);
+        self::assertStringContainsString('Connection timed out', (string) $data['error_message']);
+        self::assertStringContainsString('[REDACTED]', (string) $data['error_message']);
+        self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+        self::assertStringNotContainsString($marker, (string) $persisted->getErrorMessage());
+        self::assertStringContainsString('[REDACTED]', (string) $persisted->getErrorMessage());
+    }
+
     public function testOverlongUrlIsTruncatedInHistory(): void
     {
         $workspace = new ApiWorkspace('Mine', 'mine');
