@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\Unit\Service;
 
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 final class HistorySanitizerTest extends TestCase
 {
@@ -106,5 +110,38 @@ final class HistorySanitizerTest extends TestCase
     public function testSanitizeUrlWithoutQueryIsUnchanged(): void
     {
         self::assertSame('https://api.test/v1', (new HistorySanitizer())->sanitizeUrl('https://api.test/v1'));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function pathSecrets(): iterable
+    {
+        yield 'space, plus and slash' => ['ab c+d/12'];
+        yield 'non-ASCII, plus and slash' => ['abé+cd/12'];
+        yield 'percent-encoded unreserved' => ['ab%41cd12'];
+        yield 'quote and angle brackets' => ['ab"c<d>12'];
+        yield 'plain' => ['abcd1234'];
+    }
+
+    #[DataProvider('pathSecrets')]
+    public function testSecretInAPathIsMaskedAsTheHttpClientEncodesIt(string $secret): void
+    {
+        // QE-D-L3: in a path the client percent-encodes some characters (space, non-ASCII) and keeps others (+, /).
+        $client = new MockHttpClient(static fn (): MockResponse => new MockResponse('', ['error' => 'boom']));
+        $url    = '';
+        try {
+            $response = $client->request('GET', 'https://93.184.215.14/p/' . $secret . '/x');
+            $url      = (string) $response->getInfo('url');
+            $response->getContent();
+        } catch (TransportExceptionInterface) {
+        }
+        $message = 'Failed for "' . $url . '"';
+
+        $masked = (string) (new HistorySanitizer())->maskValues($message, [$secret]);
+
+        self::assertStringContainsString('[REDACTED]', $masked, $url);
+        self::assertStringEndsWith('/x"', $masked);
+        self::assertSame('Failed for "https://93.184.215.14/p/[REDACTED]/x"', $masked);
     }
 }
