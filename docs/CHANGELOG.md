@@ -61,6 +61,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.13.1
+
+### Fixed
+
+- **Workbench squeezed into one narrow column in grid hosts.** The workbench (API tree + page content) is rendered
+  inside UiKit's `cards` region (dashboard) and `show_sections` region (workspace / service / endpoint pages). Hosts
+  style those regions as grids (for example `grid gap-4 lg:grid-cols-2`), so the two-column `.as-workbench` landed in a
+  single cell: its main column shrank to about 200px and the project cards stacked. `.as-workbench` now spans the whole
+  region (`grid-column: 1 / -1`, full width in flex hosts); the host needs no CSS override.
+
 ## [1.13.0] - 2026-11-15
 
 Target 1.13.0

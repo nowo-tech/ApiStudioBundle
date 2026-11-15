@@ -71,6 +71,19 @@ final class PageContractTest extends PageContractTestCase
         self::assertStringContainsString('id="as-tree-filter"', $html);
     }
 
+    public function testWorkbenchSpansTheWholeHostSlot(): void
+    {
+        $css = (string) file_get_contents(__DIR__ . '/../../../src/Resources/public/api-studio-theme.css');
+
+        // Hosts style the cards / show-sections regions as grids: the workbench must take every column, never one cell.
+        self::assertMatchesRegularExpression('#\.as-workbench\s*\{[^}]*grid-column:\s*1\s*/\s*-1#', $css);
+
+        foreach (['dashboard/index.html.twig' => ApiStudioPageFixtures::dashboard(), 'endpoint/show.html.twig' => ApiStudioPageFixtures::endpointShow()] as $tpl => $fixture) {
+            $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/' . $tpl, $fixture))->html;
+            self::assertStringContainsString('class="as-app as-workbench" data-testid="api-studio-workbench"', $html, $tpl);
+        }
+    }
+
     public function testServiceDialogsAreNativeDialogsOpenedFromTheKebab(): void
     {
         $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/workspace/show.html.twig', ApiStudioPageFixtures::workspaceShow()))->html;
