@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.12.4] - 2026-11-15](#1124---2026-11-15)
 - [[1.12.3] - 2026-11-13](#1123---2026-11-13)
 - [[1.12.2] - 2026-11-12](#1122---2026-11-12)
 - [[1.12.1] - 2026-11-12](#1121---2026-11-12)
@@ -59,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-11-15
+
 Target 1.12.4
 
 ### Security
@@ -90,6 +93,8 @@ Target 1.12.4
 
 - Vitest suite for the console scripts (`pnpm run test`, jsdom + axe-core) and a CI job that runs it, type-checks and
   checks that the committed `src/Resources/public/*.js` match a rebuild.
+
+[1.12.4]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.12.4
 
 ## [1.12.3] - 2026-11-13
 

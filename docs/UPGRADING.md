@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.12.4](#to-1124)
 - [To 1.12.3](#to-1123)
 - [To 1.12.2](#to-1122)
 - [To 1.12.1](#to-1121)
@@ -78,6 +79,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.12.4
+
+From **1.12.3**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 Target 1.12.4. From **1.12.3**: patch release, no migration, no configuration change.
 
