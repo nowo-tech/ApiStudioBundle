@@ -11,6 +11,7 @@ use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
+use Nowo\ApiStudioBundle\Secret\RequestOrigin;
 use Nowo\ApiStudioBundle\Secret\SecretRedactingLogger;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Soap\GuardedSoapClient;
@@ -70,7 +71,11 @@ final class RequestExecutor
      * @param array<string, string>|null $variables
      * @param list<string> $unresolvedSecrets 1.13: keys of host secret references the host did not resolve; a request
      *                                        that needs one is not sent (fail closed)
-     * @param list<string> $redactValues 1.13: resolved host secrets, masked in every log record of this execution
+     * @param list<string> $redactValues 1.13: resolved host secrets, masked in every log record of this execution;
+     *                                   redirects are not followed for such a request (QE-B-L4: Symfony forwards
+     *                                   custom headers and 307/308 bodies to another origin)
+     * @param string|null $hostSecretOrigin 1.13 (QE-B-M1): origin the host secrets were resolved for; a request whose
+     *                                      base URL resolves to another origin is not sent
      */
     public function execute(
         ApiEndpoint $endpoint,
@@ -84,12 +89,14 @@ final class RequestExecutor
         ?HttpMethod $methodOverride = null,
         array $unresolvedSecrets = [],
         array $redactValues = [],
+        ?string $hostSecretOrigin = null,
     ): ApiExecutionResult {
         if ($redactValues !== []) {
-            // A per-execution copy whose logger masks the resolved host secrets (no state on the shared service).
-            $redacting = new self($this->httpClient, $this->variableResolver, $this->urlValidator, $this->timeoutSeconds, new SecretRedactingLogger($this->logger, $redactValues), $this->maxRedirects, $this->maxResponseBytes);
+            // A per-execution copy whose logger masks the resolved host secrets and that follows no redirect (no state
+            // on the shared service).
+            $redacting = new self($this->httpClient, $this->variableResolver, $this->urlValidator, $this->timeoutSeconds, new SecretRedactingLogger($this->logger, $redactValues), 0, $this->maxResponseBytes);
 
-            return $redacting->execute($endpoint, $environment, $overrideBody, $overrideHeaders, $overrideQueryParams, $variables, $replaceQueryParams, $replaceHeaders, $methodOverride, $unresolvedSecrets);
+            return $redacting->execute($endpoint, $environment, $overrideBody, $overrideHeaders, $overrideQueryParams, $variables, $replaceQueryParams, $replaceHeaders, $methodOverride, $unresolvedSecrets, [], $hostSecretOrigin);
         }
 
         $service = $endpoint->getService();
@@ -118,6 +125,16 @@ final class RequestExecutor
             if ($needed !== []) {
                 return $this->unresolvedSecretFailure($endpoint, $methodOverride, $needed);
             }
+        }
+
+        if ($hostSecretOrigin !== null && RequestOrigin::of(rtrim($this->variableResolver->resolve($service->getBaseUrl(), $variableMap), '/')) !== $hostSecretOrigin) {
+            return $this->hostSecretFailure(
+                $endpoint,
+                $methodOverride,
+                'The request origin changed after the host secrets were resolved. The request was not sent.',
+                ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED,
+                [],
+            );
         }
 
         return match ($service->getProtocol()) {
@@ -629,6 +646,23 @@ final class RequestExecutor
      */
     private function unresolvedSecretFailure(ApiEndpoint $endpoint, ?HttpMethod $methodOverride, array $keys): ApiExecutionResult
     {
+        return $this->hostSecretFailure(
+            $endpoint,
+            $methodOverride,
+            sprintf(
+                'Secret variable %s could not be resolved from the host secret store (unknown, or not allowed for you in this workspace). The request was not sent.',
+                implode(', ', array_map(VariableSyntax::formatKey(...), $keys)),
+            ),
+            ApiExecutionResult::ERROR_SECRET_UNRESOLVED,
+            $keys,
+        );
+    }
+
+    /**
+     * @param list<string> $keys
+     */
+    private function hostSecretFailure(ApiEndpoint $endpoint, ?HttpMethod $methodOverride, string $message, string $code, array $keys): ApiExecutionResult
+    {
         return new ApiExecutionResult(
             requestUrl: '',
             requestMethod: ($methodOverride ?? $endpoint->getMethod())->value,
@@ -639,11 +673,8 @@ final class RequestExecutor
             responseBody: null,
             durationMs: 0,
             success: false,
-            errorMessage: sprintf(
-                'Secret variable %s could not be resolved from the host secret store (unknown, or not allowed for you in this workspace). The request was not sent.',
-                implode(', ', array_map(VariableSyntax::formatKey(...), $keys)),
-            ),
-            errorCode: ApiExecutionResult::ERROR_SECRET_UNRESOLVED,
+            errorMessage: $message,
+            errorCode: $code,
             unresolvedVariables: $keys,
         );
     }

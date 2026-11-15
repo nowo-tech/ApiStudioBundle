@@ -16,7 +16,9 @@ namespace Nowo\ApiStudioBundle\Secret;
  *
  * Return null when the secret is unknown or not allowed: the request is then not sent if it needs that variable (fail
  * closed), and the console shows which variable could not be resolved. A thrown exception is treated as null (its
- * message is never logged or shown). Values shorter than 4 bytes are refused (too short to mask safely).
+ * message is never logged or shown). Values shorter than 8 bytes are refused (too short to mask safely). Bind each
+ * secret to the origins it may be sent to ({@see ApiStudioSecretRef::$targetOrigin}): someone who can edit the
+ * workspace can retarget a service and wait for another member to run it.
  *
  * Framework-free: no Doctrine, Symfony or HTTP types (ARCH-001 rule 3).
  */

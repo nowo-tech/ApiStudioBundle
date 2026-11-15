@@ -16,13 +16,15 @@ use function trim;
  * authorises it in. Ids only: no bundle entity, no Symfony user.
  *
  * Stored as the value of a secret environment variable: `{{secret:<source>/<id>}}` (spaces inside the braces allowed),
- * `<source>` = `[a-z][a-z0-9_-]{0,31}` (e.g. `vault`), `<id>` = 1–255 characters of `[A-Za-z0-9._~:@/-]`.
+ * `<source>` = `[a-z][a-z0-9_-]{0,31}` (e.g. `vault`), `<id>` = 1–255 characters of `[A-Za-z0-9._~:@/-]` without a
+ * leading `/`, an empty segment (`//`, trailing `/`) or a `.` / `..` segment (QE-B-L6: no traversal into the store's
+ * layout). Authorise on the exact id.
  */
 final readonly class ApiStudioSecretRef
 {
-    public const SOURCE_PATTERN = '/^[a-z][a-z0-9_-]{0,31}$/';
+    public const SOURCE_PATTERN = '/^[a-z][a-z0-9_-]{0,31}$/D';
 
-    public const ID_PATTERN = '/^[A-Za-z0-9._~:@\/-]{1,255}$/';
+    public const ID_PATTERN = '/^(?!\/)(?!.*\/\/)(?!.*\/$)(?!(?:.*\/)?\.\.?(?:\/|$))[A-Za-z0-9._~:@\/-]{1,255}$/D';
 
     private const REFERENCE_PATTERN = '/^\{\{\s*secret:([a-z][a-z0-9_-]{0,31})\/([A-Za-z0-9._~:@\/-]{1,255})\s*\}\}$/';
 
@@ -36,6 +38,12 @@ final readonly class ApiStudioSecretRef
      * @param string $tenantId tenant of the workspace (`''` = instance tenant, tenancy off)
      * @param string|null $actorId opaque id of the user running the request (the id history rows and events carry:
      *                             `history.actor_resolver`, else the user identifier); null = anonymous
+     * @param string|null $targetOrigin origin (`scheme://host[:port]`, lower case, default port omitted) the request
+     *                                  goes to, computed from the service base URL before any host secret is
+     *                                  substituted (QE-B-M1); null when the base URL itself uses a host secret. Bind
+     *                                  each secret to the origins it may be sent to: an editor can retarget a service
+     *                                  and wait for someone allowed to run it. The bundle refuses to send if the final
+     *                                  origin differs from this one.
      */
     public function __construct(
         public string $source,
@@ -46,6 +54,7 @@ final readonly class ApiStudioSecretRef
         public string $tenantType,
         public string $tenantId,
         public ?string $actorId,
+        public ?string $targetOrigin,
     ) {
         if (preg_match(self::SOURCE_PATTERN, $source) !== 1 || preg_match(self::ID_PATTERN, $id) !== 1) {
             throw new InvalidArgumentException(sprintf('Invalid Api Studio secret reference: the source must match %s and the id %s.', self::SOURCE_PATTERN, self::ID_PATTERN));

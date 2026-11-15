@@ -120,6 +120,7 @@ final class WorkerSecretSourceTest extends TestCase
                 self::assertSame('u:' . $user, $source->calls[0]->actorId);
                 self::assertSame('org', $source->calls[0]->tenantType);
                 self::assertSame('acme', $source->calls[0]->tenantId);
+                self::assertSame('https://93.184.215.14', $source->calls[0]->targetOrigin);
                 $source->calls = [];
 
                 if ($user === 'bob' && $i % 5 === 4) {

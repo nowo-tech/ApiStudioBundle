@@ -18,13 +18,18 @@ use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Secret\ApiStudioSecretRef;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
 use Nowo\ApiStudioBundle\Service\VariableResolver;
 use Nowo\ApiStudioBundle\Tests\Functional\App\TestHostSecretSource;
+use Nowo\ApiStudioBundle\Tests\Functional\Tenancy\TestPermissionChecker;
 use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -34,6 +39,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
+use function base64_encode;
+use function htmlspecialchars;
 use function json_decode;
 use function json_encode;
 use function rawurlencode;
@@ -156,6 +163,100 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         self::assertContains('X-Host-Token: {{secret:vault/other}}', $sent);
     }
 
+    /**
+     * @return iterable<string, array{array<string, mixed>, bool}>
+     */
+    public static function consoleTemplates(): iterable
+    {
+        yield 'query override' => [['query_params' => ['q' => '{{hostToken}}']], true];
+        yield 'header override' => [['headers' => ['X-Host-Token' => '{{hostToken}}', 'X-Echo' => 'Bearer {{ hostToken }}']], true];
+        yield 'body override' => [['body' => '{"echo":"{{hostToken}}"}'], true];
+        yield 'stored header sent back unchanged' => [['headers' => ['X-Host-Token' => '{{hostToken}}']], false];
+        yield 'stored body and query sent back unchanged' => [['body' => '', 'query_params' => []], false];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    #[DataProvider('consoleTemplates')]
+    public function testARunnerCannotPlaceAHostSecretInATemplateOfTheirOwn(array $payload, bool $refused): void
+    {
+        // QE-B-M2: without workspace.edit, host secrets stay where an editor put them.
+        [$endpoint, $env] = $this->fixture();
+        $source           = new TestHostSecretSource();
+        $source->secrets  = ['vault/payments' => 'hv-REDACTED-TEST-placed'];
+        $sent             = false;
+        $client           = new MockHttpClient(static function () use (&$sent): MockResponse {
+            $sent = true;
+
+            return new MockResponse('{}');
+        });
+        $checker         = new TestPermissionChecker();
+        $checker->denied = [ApiStudioAction::WorkspaceEdit];
+        $request         = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], (string) json_encode(['environment_id' => 7, 'variables' => ['hostToken' => '{{hostToken}}']] + $payload));
+        $request->headers->set('X-CSRF-Token', 'valid');
+        $persisted = null;
+
+        $response = $this->controller($endpoint, $env, $client, $source, null, $persisted, null, true, new ApiStudioAuthorization($checker))->execute($request, 1);
+
+        if (!$refused) {
+            self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+            self::assertTrue($sent);
+
+            return;
+        }
+        self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('override_not_allowed', $data['error']);
+        self::assertSame(['hostToken'], $data['variables']);
+        self::assertFalse($sent);
+        self::assertSame([], $source->calls, 'the host is not even asked');
+        self::assertNull($persisted);
+
+        // An editor may.
+        $response = $this->controller($endpoint, $env, $client, $source, null, $persisted)->execute($request, 1);
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertCount(1, self::callsOf($source));
+    }
+
+    public function testThePortSeesTheTargetOriginAndBasicAuthEchoesAreMasked(): void
+    {
+        // QE-B-M1 / QE-B-L1.
+        $value            = 'hv-REDACTED-TEST-basic';
+        [$endpoint, $env] = $this->fixture();
+        $endpoint->getService()?->setAuthType(AuthType::Basic)->setAuthConfig(['username' => 'svc-user', 'password' => '{{hostToken}}']);
+        $source          = new TestHostSecretSource();
+        $source->secrets = ['vault/payments' => $value];
+        $client          = new MockHttpClient(static fn (string $method, string $url, array $options): MockResponse => new MockResponse((string) json_encode(['headers' => $options['headers'] ?? [], 'html' => htmlspecialchars($value), 'b64' => base64_encode($value)])));
+        $persisted       = null;
+
+        $response = $this->controller($endpoint, $env, $client, $source, null, $persisted)->execute($this->request(), 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame('https://93.184.215.14', $source->calls[0]->targetOrigin);
+        $content = (string) $response->getContent();
+        foreach ([$value, base64_encode($value), base64_encode('svc-user:' . $value)] as $form) {
+            self::assertStringNotContainsString($form, $content);
+            self::assertInstanceOf(ApiRequestHistory::class, $persisted);
+            self::assertStringNotContainsString($form, (string) $persisted->getResponseBody());
+        }
+    }
+
+    public function testABaseUrlUsingAHostSecretGivesNoTargetOrigin(): void
+    {
+        [$endpoint, $env] = $this->fixture();
+        $endpoint->getService()?->setBaseUrl('https://{{hostToken}}');
+        $endpoint->setHeaders([]);
+        $source          = new TestHostSecretSource();
+        $source->secrets = ['vault/payments' => '93.184.215.14'];
+        $persisted       = null;
+
+        $this->controller($endpoint, $env, new MockHttpClient(new MockResponse('{}')), $source, null, $persisted)->execute($this->request(), 1);
+
+        self::assertNull($source->calls[0]->targetOrigin);
+    }
+
     public function testWithoutASourceTheResponseIsByteIdenticalAndTheReferenceIsAPlainValue(): void
     {
         $responses = [];
@@ -175,6 +276,14 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         self::assertSame($responses['no resolver service'], $responses['resolver without a source']);
         self::assertContains('X-Host-Token: ' . self::REFERENCE, $outbound['resolver without a source'], 'the stored value is sent as is');
         self::assertStringNotContainsString('error_code', $responses['no resolver service']);
+    }
+
+    /**
+     * @return list<ApiStudioSecretRef>
+     */
+    private static function callsOf(TestHostSecretSource $source): array
+    {
+        return $source->calls;
     }
 
     private function request(): Request
@@ -216,6 +325,7 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         ?ApiRequestHistory &$persisted,
         ?EventDispatcher $dispatcher = null,
         bool $withResolver = true,
+        ?ApiStudioAuthorization $authorization = null,
     ): ApiExecuteController {
         $endpoints = $this->createMock(ApiEndpointRepository::class);
         $endpoints->method('find')->willReturn($endpoint);
@@ -236,6 +346,9 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         $container->set('security.csrf.token_manager', $csrf);
         if ($withResolver) {
             $container->set(HostSecretResolver::class, new HostSecretResolver($source, $logger));
+        }
+        if ($authorization instanceof ApiStudioAuthorization) {
+            $container->set(ApiStudioAuthorization::class, $authorization);
         }
         if ($dispatcher instanceof EventDispatcher) {
             $container->set('event_dispatcher', $dispatcher);

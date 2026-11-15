@@ -99,6 +99,7 @@ final class HostSecretSourceTest extends TestCase
         self::assertSame($ids['environment'], $ref->environmentId);
         self::assertSame('', $ref->tenantType);
         self::assertNull($ref->actorId, 'anonymous runner');
+        self::assertSame('https://93.184.215.14', $ref->targetOrigin, 'the host can bind the secret to where it goes');
 
         // Stored workspace: the variable keeps the reference; history, event and logs never see the value.
         $studio->clear();

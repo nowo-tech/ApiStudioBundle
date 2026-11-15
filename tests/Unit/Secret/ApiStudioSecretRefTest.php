@@ -43,20 +43,43 @@ final class ApiStudioSecretRefTest extends TestCase
 
     public function testCarriesTheContext(): void
     {
-        $ref = new ApiStudioSecretRef('vault', 'payments', 'apiToken', 7, 3, 'org', 'acme', 'u:alice');
+        $ref = new ApiStudioSecretRef('vault', 'payments', 'apiToken', 7, 3, 'org', 'acme', 'u:alice', 'https://api.example.test');
 
-        self::assertSame(['vault', 'payments', 'apiToken', 7, 3, 'org', 'acme', 'u:alice'], [$ref->source, $ref->id, $ref->variableKey, $ref->workspaceId, $ref->environmentId, $ref->tenantType, $ref->tenantId, $ref->actorId]);
+        self::assertSame(['vault', 'payments', 'apiToken', 7, 3, 'org', 'acme', 'u:alice', 'https://api.example.test'], [$ref->source, $ref->id, $ref->variableKey, $ref->workspaceId, $ref->environmentId, $ref->tenantType, $ref->tenantId, $ref->actorId, $ref->targetOrigin]);
     }
 
     public function testRejectsAnInvalidSource(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        new ApiStudioSecretRef('Vault!', 'payments', 'apiToken', 1, null, '', '', null);
+        new ApiStudioSecretRef('Vault!', 'payments', 'apiToken', 1, null, '', '', null, null);
     }
 
-    public function testRejectsAnInvalidId(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidIds(): iterable
+    {
+        yield 'space' => ['pay ments'];
+        yield 'parent segment' => ['../other-team/key'];
+        yield 'inner parent segment' => ['team/../other/key'];
+        yield 'trailing parent segment' => ['team/..'];
+        yield 'dot segment' => ['team/./key'];
+        yield 'leading slash' => ['/team/key'];
+        yield 'empty segment' => ['team//key'];
+        yield 'trailing slash' => ['team/key/'];
+        yield 'control character' => ["team/key\n"];
+        yield 'too long' => [str_repeat('a', 256)];
+    }
+
+    #[DataProvider('invalidIds')]
+    public function testRejectsAnInvalidId(string $id): void
     {
         $this->expectException(InvalidArgumentException::class);
-        new ApiStudioSecretRef('vault', 'pay ments', 'apiToken', 1, null, '', '', null);
+        new ApiStudioSecretRef('vault', $id, 'apiToken', 1, null, '', '', null, null);
+    }
+
+    public function testAcceptsDotsInsideASegment(): void
+    {
+        self::assertSame('team/key.v2/..hidden', (new ApiStudioSecretRef('vault', 'team/key.v2/..hidden', 'k', 1, null, '', '', null, null))->id);
     }
 }

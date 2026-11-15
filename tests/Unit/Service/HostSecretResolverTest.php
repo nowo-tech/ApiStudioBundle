@@ -24,6 +24,7 @@ final class HostSecretResolverTest extends TestCase
         $map               = $env->getVariableMap();
 
         self::assertFalse($resolver->isEnabled());
+        self::assertSame([], $resolver->referenceKeys($env, []));
         $resolution = $resolver->resolve($env, $workspace, $map, [], 'u:alice');
         self::assertSame($map, $resolution->variables);
         self::assertSame([], $resolution->values);
@@ -36,7 +37,10 @@ final class HostSecretResolverTest extends TestCase
         [$env, $workspace] = $this->environment();
         $map               = $env->getVariableMap();
 
-        $resolution = (new HostSecretResolver($source))->resolve($env, $workspace, $map, ['overridden'], 'u:alice');
+        $resolver = new HostSecretResolver($source);
+        self::assertSame(['token', 'overridden'], $resolver->referenceKeys($env, []));
+        self::assertSame(['token'], $resolver->referenceKeys($env, ['overridden']));
+        $resolution = $resolver->resolve($env, $workspace, $map, ['overridden'], 'u:alice', 'https://api.example.test');
 
         self::assertSame(self::value('one'), $resolution->variables['token']);
         self::assertSame('{{secret:vault/other}}', $resolution->variables['notSecret'], 'a non-secret variable is a plain value');
@@ -47,7 +51,7 @@ final class HostSecretResolverTest extends TestCase
 
         self::assertCount(1, $source->calls);
         $ref = $source->calls[0];
-        self::assertSame(['vault', 'payments', 'token', 42, 9, 'org', 'acme', 'u:alice'], [$ref->source, $ref->id, $ref->variableKey, $ref->workspaceId, $ref->environmentId, $ref->tenantType, $ref->tenantId, $ref->actorId]);
+        self::assertSame(['vault', 'payments', 'token', 42, 9, 'org', 'acme', 'u:alice', 'https://api.example.test'], [$ref->source, $ref->id, $ref->variableKey, $ref->workspaceId, $ref->environmentId, $ref->tenantType, $ref->tenantId, $ref->actorId, $ref->targetOrigin]);
     }
 
     public function testUnknownDeniedFailingOrShortSecretsAreUnresolvedAndNeverLogged(): void
@@ -75,6 +79,33 @@ final class HostSecretResolverTest extends TestCase
             self::assertStringNotContainsString(self::value('leak'), $logger->text());
             self::assertStringNotContainsString('payments', $logger->text(), 'the secret id is not logged');
         }
+    }
+
+    public function testATraversingIdFailsClosedWithoutAskingTheHost(): void
+    {
+        // QE-B-L6: `..` would escape an adapter's per-workspace prefix.
+        $source            = $this->source(['vault/../other-team/key' => self::value('other')]);
+        $logger            = new InMemoryLogger();
+        [$env, $workspace] = $this->environment();
+        $env->addVariable((new ApiEnvironmentVariable('escape', '{{secret:vault/../other-team/key}}'))->setSecret(true));
+
+        $resolution = (new HostSecretResolver($source, $logger))->resolve($env, $workspace, $env->getVariableMap(), ['overridden', 'token'], null);
+
+        self::assertSame(['escape'], $resolution->unresolvedKeys);
+        self::assertArrayNotHasKey('escape', $resolution->variables);
+        self::assertSame([], $source->calls);
+        self::assertSame('InvalidArgumentException', $logger->records[0]['context']['reason']);
+    }
+
+    public function testValuesUnderEightBytesAreRefused(): void
+    {
+        // QE-B-L5.
+        [$env, $workspace] = $this->environment();
+        $resolution        = (new HostSecretResolver($this->source(['vault/payments' => '1234567'])))->resolve($env, $workspace, $env->getVariableMap(), ['overridden'], null);
+        self::assertSame(['token'], $resolution->unresolvedKeys);
+
+        $resolution = (new HostSecretResolver($this->source(['vault/payments' => '12345678'])))->resolve($env, $workspace, $env->getVariableMap(), ['overridden'], null);
+        self::assertSame('12345678', $resolution->variables['token']);
     }
 
     public function testNothingIsMemoisedBetweenCalls(): void

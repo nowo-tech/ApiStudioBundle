@@ -27,8 +27,11 @@ use function strlen;
  */
 final class HostSecretResolver
 {
-    /** Shorter values cannot be masked without mangling unrelated text: they are refused. */
-    public const MIN_LENGTH = 4;
+    /**
+     * Shorter values are refused (QE-B-L5): masking short values mangles unrelated text and turns an echoing target
+     * into a guessing oracle.
+     */
+    public const MIN_LENGTH = 8;
 
     private readonly LoggerInterface $logger;
 
@@ -45,13 +48,39 @@ final class HostSecretResolver
     }
 
     /**
+     * Keys of the secret variables whose stored value is a host secret reference (the ones {@see self::resolve()}
+     * resolves), whether or not it is well formed. Empty without a source.
+     *
+     * @param list<string> $overriddenKeys keys the console sent a value for
+     *
+     * @return list<string>
+     */
+    public function referenceKeys(ApiEnvironment $environment, array $overriddenKeys): array
+    {
+        if (!$this->source instanceof ApiStudioSecretSourceInterface) {
+            return [];
+        }
+
+        $keys = [];
+        foreach ($environment->getVariables() as $variable) {
+            $key = $variable->getVariableKey();
+            if ($variable->isSecret() && !$variable->isUnreadable() && !in_array($key, $overriddenKeys, true) && ApiStudioSecretRef::parse($variable->getValue()) !== null) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
      * Only the stored values of secret variables are resolved: a key the console overrides keeps the override (a
      * reference typed in the console is never resolved).
      *
      * @param array<string, string> $variables the variable map of the execution
      * @param list<string> $overriddenKeys keys the console sent a value for
+     * @param string|null $targetOrigin origin of the request before host secrets are substituted (QE-B-M1)
      */
-    public function resolve(ApiEnvironment $environment, ApiWorkspace $workspace, array $variables, array $overriddenKeys, ?string $actorId): HostSecretResolution
+    public function resolve(ApiEnvironment $environment, ApiWorkspace $workspace, array $variables, array $overriddenKeys, ?string $actorId, ?string $targetOrigin = null): HostSecretResolution
     {
         if (!$this->source instanceof ApiStudioSecretSourceInterface) {
             return new HostSecretResolution($variables);
@@ -74,7 +103,7 @@ final class HostSecretResolver
             $value = null;
             $error = null;
             try {
-                $ref   = new ApiStudioSecretRef($reference[0], $reference[1], $key, (int) $workspace->getId(), $environment->getId(), $tenant->type, $tenant->id, $actorId);
+                $ref   = new ApiStudioSecretRef($reference[0], $reference[1], $key, (int) $workspace->getId(), $environment->getId(), $tenant->type, $tenant->id, $actorId, $targetOrigin);
                 $value = $this->source->resolve($ref)?->reveal();
             } catch (Throwable $e) {
                 // The message may carry the secret or the store's internals: only the class is kept.

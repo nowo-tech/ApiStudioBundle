@@ -15,6 +15,9 @@ final class ApiExecutionResult
     /** 1.13: the request referenced a host secret the host secret source did not resolve: nothing was sent. */
     public const ERROR_SECRET_UNRESOLVED = 'secret_unresolved';
 
+    /** 1.13 (QE-B-M1): the request origin changed after the host secrets were resolved: nothing was sent. */
+    public const ERROR_SECRET_TARGET_CHANGED = 'secret_target_changed';
+
     /**
      * @param array<string, string> $requestHeaders
      * @param array<string, string> $responseHeaders
