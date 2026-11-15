@@ -257,6 +257,104 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         self::assertNull($source->calls[0]->targetOrigin);
     }
 
+    /**
+     * @return iterable<string, array{array<string, string>, array<string, string>, bool, int}>
+     */
+    public static function hostHeaders(): iterable
+    {
+        // [stored endpoint headers, console headers, runner can edit, expected status]
+        yield 'runner Host override (audit PoC, inverted)' => [['X-Host-Token' => '{{hostToken}}'], ['X-Host-Token' => '{{hostToken}}', 'Host' => 'attacker-app.shared-front.example'], false, 422];
+        yield 'editor Host override' => [['X-Host-Token' => '{{hostToken}}'], ['X-Host-Token' => '{{hostToken}}', 'host' => 'attacker-app.shared-front.example'], true, 422];
+        yield 'stored Host header' => [['X-Host-Token' => '{{hostToken}}', 'Host' => 'attacker-app.shared-front.example'], [], true, 422];
+        yield 'Host with userinfo' => [['X-Host-Token' => '{{hostToken}}', 'Host' => 'x@93.184.215.14'], [], true, 422];
+        yield 'Host with a backslash' => [['X-Host-Token' => '{{hostToken}}', 'Host' => '93.184.215.14\\evil.example'], [], true, 422];
+        yield 'Host from a variable resolving elsewhere' => [['X-Host-Token' => '{{hostToken}}', 'Host' => '{{hostName}}'], [], true, 422];
+        yield 'Host equal to the authority' => [['X-Host-Token' => '{{hostToken}}', 'Host' => '93.184.215.14'], [], true, 200];
+        yield 'Host with the default port' => [['X-Host-Token' => '{{hostToken}}', 'HOST' => '93.184.215.14:443'], [], true, 200];
+    }
+
+    /**
+     * @param array<string, string> $stored
+     * @param array<string, string> $console
+     */
+    #[DataProvider('hostHeaders')]
+    public function testAHostHeaderMustMatchTheUrlAuthorityWhenHostSecretsAreSent(array $stored, array $console, bool $canEdit, int $status): void
+    {
+        // QE-D-M1: a shared front end routing by Host would hand the secret to another app behind the approved origin.
+        [$endpoint, $env] = $this->fixture();
+        $endpoint->setHeaders($stored);
+        $source          = new TestHostSecretSource();
+        $source->secrets = ['vault/payments' => 'hv-REDACTED-TEST-host'];
+        $sent            = false;
+        $client          = new MockHttpClient(static function () use (&$sent): MockResponse {
+            $sent = true;
+
+            return new MockResponse('{}');
+        });
+        $checker         = new TestPermissionChecker();
+        $checker->denied = $canEdit ? [] : [ApiStudioAction::WorkspaceEdit];
+        $payload         = ['environment_id' => 7, 'variables' => ['hostToken' => '{{hostToken}}']];
+        if ($console !== []) {
+            $payload['headers'] = $console;
+        }
+        $request = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], (string) json_encode($payload));
+        $request->headers->set('X-CSRF-Token', 'valid');
+        $persisted = null;
+
+        $response = $this->controller($endpoint, $env, $client, $source, null, $persisted, null, true, new ApiStudioAuthorization($checker))->execute($request, 1);
+
+        self::assertSame($status, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame($status === 200, $sent);
+        if ($status === 422) {
+            $data = json_decode((string) $response->getContent(), true);
+            self::assertIsArray($data);
+            self::assertSame('secret_target_changed', $data['error_code']);
+        }
+    }
+
+    public function testAHostHeaderStaysFreeWithoutHostSecrets(): void
+    {
+        [$endpoint, $env] = $this->fixture();
+        $endpoint->setHeaders(['Host' => 'other-app.shared-front.example']);
+        $persisted = null;
+
+        $response = $this->controller($endpoint, $env, new MockHttpClient(new MockResponse('{}')), null, null, $persisted)->execute($this->request(), 1);
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+    }
+
+    /**
+     * @return iterable<string, array{string, string, int}>
+     */
+    public static function bodies(): iterable
+    {
+        // [stored body, body sent by the console, expected status for a runner]
+        yield 'CRLF stored, LF back (imported Postman body)' => ["{\r\n  \"k\": \"{{hostToken}}\"\r\n}", "{\n  \"k\": \"{{hostToken}}\"\n}", 200];
+        yield 'leading newline dropped by the textarea' => ["\n{\"k\":\"{{hostToken}}\"}", '{"k":"{{hostToken}}"}', 200];
+        yield 'trailing newline' => ['{"k":"{{hostToken}}"}' . "\r\n", '{"k":"{{hostToken}}"}', 200];
+        yield 'reformatted' => ['{"k":"{{hostToken}}"}', '{ "k": "{{hostToken}}" }', 422];
+        yield 'two trailing newlines' => ['{"k":"{{hostToken}}"}' . "\n\n", '{"k":"{{hostToken}}"}', 422];
+    }
+
+    #[DataProvider('bodies')]
+    public function testAnUnchangedBodyIsComparedWithoutLineEndingNoise(string $stored, string $sent, int $status): void
+    {
+        // QE-D-L2: strict otherwise.
+        [$endpoint, $env] = $this->fixture();
+        $endpoint->setHeaders([])->setRequestBodyTemplate($stored);
+        $source          = new TestHostSecretSource();
+        $source->secrets = ['vault/payments' => 'hv-REDACTED-TEST-crlf'];
+        $checker         = new TestPermissionChecker();
+        $checker->denied = [ApiStudioAction::WorkspaceEdit];
+        $request         = Request::create('/api-studio/execute/1', 'POST', [], [], [], [], (string) json_encode(['environment_id' => 7, 'variables' => ['hostToken' => '{{hostToken}}'], 'body' => $sent]));
+        $request->headers->set('X-CSRF-Token', 'valid');
+        $persisted = null;
+
+        $response = $this->controller($endpoint, $env, new MockHttpClient(new MockResponse('{}')), $source, null, $persisted, null, true, new ApiStudioAuthorization($checker))->execute($request, 1);
+
+        self::assertSame($status, $response->getStatusCode(), (string) $response->getContent());
+    }
+
     public function testWithoutASourceTheResponseIsByteIdenticalAndTheReferenceIsAPlainValue(): void
     {
         $responses = [];
@@ -312,6 +410,7 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
             ->setService($service);
         $env = (new ApiEnvironment('Prod', 'prod'))->setWorkspace($workspace);
         $env->addVariable((new ApiEnvironmentVariable('hostToken', self::REFERENCE))->setSecret(true));
+        $env->addVariable(new ApiEnvironmentVariable('hostName', 'attacker-app.shared-front.example'));
 
         return [$endpoint, $env];
     }

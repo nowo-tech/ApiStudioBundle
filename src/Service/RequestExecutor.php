@@ -13,6 +13,7 @@ use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ApiExecutionResult;
 use Nowo\ApiStudioBundle\Secret\RequestOrigin;
 use Nowo\ApiStudioBundle\Secret\SecretRedactingLogger;
+use Nowo\ApiStudioBundle\Secret\SecretTargetChangedException;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Soap\GuardedSoapClient;
 use Nowo\ApiStudioBundle\Soap\GuardedWsdlLoader;
@@ -48,6 +49,8 @@ final class RequestExecutor
     /**
      * @param int $maxRedirects Redirects to follow (execution_max_redirects). Default 0: 3xx responses are returned
      *                          as-is; followed hops are still checked against private networks (not the allowlist).
+     * @param bool $hostSecretMode internal: the per-execution copy built for a request that carries host secrets
+     *                             (1.13): Host header and SOAP address bound to the request origin
      */
     public function __construct(
         HttpClientInterface $httpClient,
@@ -57,6 +60,7 @@ final class RequestExecutor
         ?LoggerInterface $logger = null,
         private readonly int $maxRedirects = 0,
         private readonly int $maxResponseBytes = ResponseBodyReader::DEFAULT_MAX_BYTES,
+        private readonly bool $hostSecretMode = false,
     ) {
         $this->logger = $logger ?? new NullLogger();
         // Re-checks the connected IP (DNS rebinding) and every redirect hop, which the pre-flight validator cannot.
@@ -94,7 +98,7 @@ final class RequestExecutor
         if ($redactValues !== []) {
             // A per-execution copy whose logger masks the resolved host secrets and that follows no redirect (no state
             // on the shared service).
-            $redacting = new self($this->httpClient, $this->variableResolver, $this->urlValidator, $this->timeoutSeconds, new SecretRedactingLogger($this->logger, $redactValues), 0, $this->maxResponseBytes);
+            $redacting = new self($this->httpClient, $this->variableResolver, $this->urlValidator, $this->timeoutSeconds, new SecretRedactingLogger($this->logger, $redactValues), 0, $this->maxResponseBytes, true);
 
             return $redacting->execute($endpoint, $environment, $overrideBody, $overrideHeaders, $overrideQueryParams, $variables, $replaceQueryParams, $replaceHeaders, $methodOverride, $unresolvedSecrets, [], $hostSecretOrigin);
         }
@@ -132,6 +136,18 @@ final class RequestExecutor
                 $endpoint,
                 $methodOverride,
                 'The request origin changed after the host secrets were resolved. The request was not sent.',
+                ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED,
+                [],
+            );
+        }
+
+        // QE-D-M1: a Host header other than the URL authority would route the request (and its host secrets) to
+        // another application behind the approved origin (shared front ends, PaaS routers, virtual hosts).
+        if ($this->hostSecretMode && !self::hostHeadersMatch($service, $endpoint, $variableMap, $overrideHeaders, $replaceHeaders, rtrim($this->variableResolver->resolve($service->getBaseUrl(), $variableMap), '/'), $this->variableResolver)) {
+            return $this->hostSecretFailure(
+                $endpoint,
+                $methodOverride,
+                'A Host header that differs from the request URL is not allowed when the request carries host secrets. The request was not sent.',
                 ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED,
                 [],
             );
@@ -280,7 +296,7 @@ final class RequestExecutor
                 'trace'      => true,
                 'exceptions' => true,
                 'cache_wsdl' => WSDL_CACHE_NONE,
-            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers, $this->maxResponseBytes, GuardedWsdlLoader::origin($wsdl));
+            ], $this->httpClient, $this->urlValidator, $this->timeoutSeconds, $this->maxRedirects, $headers, $this->maxResponseBytes, GuardedWsdlLoader::origin($wsdl), $this->hostSecretMode);
 
             $params = json_decode($body, true);
             if (!is_array($params)) {
@@ -304,6 +320,10 @@ final class RequestExecutor
                 durationMs: $duration,
                 success: true,
             );
+        } catch (SecretTargetChangedException $e) {
+            $this->logFailure('SOAP', $wsdl, $e);
+
+            return $this->hostSecretFailure($endpoint, null, $e->getMessage(), ApiExecutionResult::ERROR_SECRET_TARGET_CHANGED, []);
         } catch (Throwable $e) {
             $duration = (int) ((hrtime(true) - $start) / 1_000_000);
             $this->logFailure('SOAP', $wsdl, $e, $duration);
@@ -639,6 +659,32 @@ final class RequestExecutor
             errorCode: ApiExecutionResult::ERROR_SECRET_UNREADABLE,
             unreadableVariables: $keys,
         );
+    }
+
+    /**
+     * Every `Host` header the request would carry (stored, service default or console, case-insensitive) names the
+     * authority of the request URL (QE-D-M1). No Host header: the client derives it from the URL.
+     *
+     * @param array<string, string> $variables
+     * @param array<string, string> $overrideHeaders
+     */
+    private static function hostHeadersMatch(ApiService $service, ApiEndpoint $endpoint, array $variables, array $overrideHeaders, bool $replaceHeaders, string $url, VariableResolver $resolver): bool
+    {
+        $headers = $replaceHeaders ? $overrideHeaders : array_merge($service->getDefaultHeaders(), $endpoint->getHeaders(), $overrideHeaders);
+        $origin  = RequestOrigin::of($url);
+        $scheme  = (string) parse_url($url, PHP_URL_SCHEME);
+        foreach ($headers as $name => $value) {
+            if (strtolower(trim((string) $name)) !== 'host') {
+                continue;
+            }
+
+            $host = trim($resolver->resolve($value, $variables));
+            if ($origin === null || $host === '' || preg_match('/[@\/\\\\?#\s%]/', $host) === 1 || RequestOrigin::of($scheme . '://' . $host) !== $origin) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

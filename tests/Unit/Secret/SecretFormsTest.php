@@ -63,6 +63,9 @@ final class SecretFormsTest extends TestCase
         yield 'https default port' => ['HTTPS://API.Example.test:443/v1?x=1', 'https://api.example.test'];
         yield 'http default port' => ['http://api.example.test:80', 'http://api.example.test'];
         yield 'explicit port' => ['https://api.example.test:8443/x', 'https://api.example.test:8443'];
+        yield 'IDN to punycode, trailing dot' => ['https://Exämple.test./x', 'https://xn--exmple-cua.test'];
+        yield 'only a dot as host' => ['https://./x', null];
+        yield 'IDN the client would refuse' => ['https://ä_b.test/x', null];
         yield 'no scheme' => ['api.example.test/x', null];
         yield 'empty' => ['', null];
     }

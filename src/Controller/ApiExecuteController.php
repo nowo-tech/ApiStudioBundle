@@ -333,20 +333,20 @@ final class ApiExecuteController extends AbstractController
     private static function hostSecretsInConsoleTemplates(ApiEndpoint $endpoint, ApiService $service, array $hostKeys, ?string $overrideBody, array $overrideHeaders, array $overrideQueryParams): array
     {
         $templates = [];
-        if ($overrideBody !== null && $overrideBody !== (string) $endpoint->getRequestBodyTemplate()) {
+        if ($overrideBody !== null && !self::sameTemplate($overrideBody, (string) $endpoint->getRequestBodyTemplate())) {
             $templates[] = $overrideBody;
         }
 
         $storedHeaders = array_merge($service->getDefaultHeaders(), $endpoint->getHeaders());
         foreach ($overrideHeaders as $name => $value) {
-            if (($storedHeaders[$name] ?? null) !== $value) {
+            if (!isset($storedHeaders[$name]) || !self::sameTemplate($value, $storedHeaders[$name])) {
                 $templates[] = $value;
             }
         }
 
         $storedQuery = $endpoint->getQueryParams();
         foreach ($overrideQueryParams as $name => $value) {
-            if (($storedQuery[$name] ?? null) !== $value) {
+            if (!isset($storedQuery[$name]) || !self::sameTemplate($value, $storedQuery[$name])) {
                 $templates[] = $value;
             }
         }
@@ -357,6 +357,24 @@ final class ApiExecuteController extends AbstractController
         }
 
         return array_values(array_unique(array_intersect($hostKeys, $used)));
+    }
+
+    /**
+     * Strict equality after the line-ending noise a browser textarea adds or drops (QE-D-L2): CRLF becomes LF, and one
+     * leading and one trailing line break are ignored. Any other difference is a change.
+     */
+    private static function sameTemplate(string $sent, string $stored): bool
+    {
+        $normalise = static function (string $value): string {
+            $value = str_replace("\r\n", "\n", $value);
+            if (str_starts_with($value, "\n")) {
+                $value = substr($value, 1);
+            }
+
+            return str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
+        };
+
+        return $normalise($sent) === $normalise($stored);
     }
 
     /**
