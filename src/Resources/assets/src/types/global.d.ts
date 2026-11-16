@@ -29,6 +29,18 @@ export type PmCreateOptions = {
   requestHeaders?: StringMap;
   requestQueryParams?: StringMap;
   onVariableChange?: (key: string, value: string) => void;
+  /** 1.15: `pm.globals` (workspace) and `pm.collectionVariables` (service) values. */
+  globals?: StringMap;
+  collectionVariables?: StringMap;
+};
+
+/** Script changes of a variable scope: a string sets the key, null removes it. */
+export type ScopeChanges = Record<string, string | null>;
+
+export type ScriptScopes = {
+  globals: StringMap;
+  collection: StringMap;
+  changes: { globals: ScopeChanges; collection: ScopeChanges };
 };
 
 export type ScriptContext = {
@@ -38,11 +50,15 @@ export type ScriptContext = {
   getDirtyKeys: () => StringMap;
   runTests: () => Array<{ name: string; ok: boolean; error?: string }>;
   setResponse: (status: number | string | null, body: string) => void;
+  /** 1.15: `pm.globals` / `pm.collectionVariables` values and the changes the scripts made. */
+  getScopes?: () => ScriptScopes;
 };
 
 export type PmApi = {
   environment: PmVariablesApi;
   variables: PmVariablesApi;
+  globals: PmScopeApi;
+  collectionVariables: PmScopeApi;
   request: PmRequestApi;
   response: PmResponseApi;
   test: (name: string, fn: () => void) => void;
@@ -56,6 +72,11 @@ export type PmVariablesApi = {
   set: (key: string, value: unknown) => void;
   unset: (key: string) => void;
   toObject: () => StringMap;
+};
+
+export type PmScopeApi = PmVariablesApi & {
+  has: (key: string) => boolean;
+  clear: () => void;
 };
 
 export type PmRequestApi = {

@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 
-import type { ScriptContext, StringMap } from '../types/global';
+import type { ScopeChanges, ScriptContext, ScriptScopes, StringMap } from '../types/global';
 import { createPm, runScript } from './pm';
 
 export type SandboxTest = { name: string; ok: boolean; error?: string };
@@ -25,7 +25,14 @@ export type SandboxState = {
   response: { code: number | string | null; body: string } | null;
   logs: string[];
   tests: SandboxTest[];
+  /** 1.15: `pm.globals` / `pm.collectionVariables` and the changes of the previous phases. */
+  scopes: ScriptScopes;
 };
+
+/** Empty `pm.globals` / `pm.collectionVariables`. */
+export function emptyScopes(): ScriptScopes {
+  return { globals: {}, collection: {}, changes: { globals: {}, collection: {} } };
+}
 
 export type SandboxScript = { label: string; code: string };
 
@@ -41,6 +48,26 @@ export const DEFAULT_TIMEOUT_MS = 2000;
 
 function isStringMap(value: unknown): value is StringMap {
   return typeof value === 'object' && value !== null && Object.values(value).every((v) => typeof v === 'string');
+}
+
+function isScopeChanges(value: unknown): value is ScopeChanges {
+  return typeof value === 'object' && value !== null && Object.values(value).every((v) => v === null || typeof v === 'string');
+}
+
+function isScopes(value: unknown): value is ScriptScopes {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const v = value as Partial<ScriptScopes>;
+
+  return (
+    isStringMap(v.globals) &&
+    isStringMap(v.collection) &&
+    typeof v.changes === 'object' &&
+    v.changes !== null &&
+    isScopeChanges(v.changes.globals) &&
+    isScopeChanges(v.changes.collection)
+  );
 }
 
 /** Whether $data is a well-formed run message (the frame refuses anything else). */
@@ -71,7 +98,8 @@ export function isRunMessage(data: unknown): data is RunMessage {
     st.request !== null &&
     typeof st.request.body === 'string' &&
     isStringMap(st.request.headers) &&
-    isStringMap(st.request.queryParams)
+    isStringMap(st.request.queryParams) &&
+    isScopes(st.scopes)
   );
 }
 
@@ -154,6 +182,8 @@ export async function executeRun(message: RunMessage, transport?: SendTransport)
     requestBody: st.request.body,
     requestHeaders: st.request.headers,
     requestQueryParams: st.request.queryParams,
+    globals: st.scopes.globals,
+    collectionVariables: st.scopes.collection,
   });
   if (st.response) {
     ctx.setResponse(st.response.code, st.response.body);
@@ -243,6 +273,19 @@ export async function executeRun(message: RunMessage, transport?: SendTransport)
       response: st.response,
       logs,
       tests: message.runTests && failure === null ? ctx.runTests() : [],
+      scopes: mergeScopes(st.scopes, ctx.getScopes!()),
+    },
+  };
+}
+
+/** The scopes after a phase: its values, and the changes of the earlier phases followed by its own. */
+function mergeScopes(before: ScriptScopes, after: ScriptScopes): ScriptScopes {
+  return {
+    globals: after.globals,
+    collection: after.collection,
+    changes: {
+      globals: { ...before.changes.globals, ...after.changes.globals },
+      collection: { ...before.changes.collection, ...after.changes.collection },
     },
   };
 }
@@ -354,6 +397,7 @@ export function sandboxContext(state: SandboxState): ScriptContext & { state: Sa
     getVariables: () => ({ ...ctx.state.variables }),
     getLogs: () => ctx.state.logs.slice(),
     getDirtyKeys: () => ({ ...ctx.state.dirty }),
+    getScopes: () => ctx.state.scopes,
     runTests: () => ctx.state.tests.slice(),
     setResponse: (status: number | string | null, body: string) => {
       ctx.state.response = { code: status, body: body || '' };
@@ -391,4 +435,26 @@ export function parseLevelScripts(raw: string | undefined): LevelScripts {
           .map((f) => ({ name: str(f.name), pre: str(f.pre), post: str(f.post) }))
       : [],
   };
+}
+
+/**
+ * `pm.globals` / `pm.collectionVariables` of the console (1.15, sandbox mode; `data-script-variables`). Anything
+ * malformed counts as empty (PHP encodes an empty map as `[]`).
+ */
+export function parseScopes(raw: string | undefined): ScriptScopes {
+  const scopes = emptyScopes();
+  let data: unknown;
+  try {
+    data = JSON.parse(raw || '{}');
+  } catch {
+    return scopes;
+  }
+  if (typeof data !== 'object' || data === null) {
+    return scopes;
+  }
+  const d = data as { globals?: unknown; collection?: unknown };
+  const map = (v: unknown): StringMap =>
+    typeof v === 'object' && v !== null && !Array.isArray(v) && isStringMap(v) ? { ...v } : {};
+
+  return { ...scopes, globals: map(d.globals), collection: map(d.collection) };
 }

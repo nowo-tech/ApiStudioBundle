@@ -110,6 +110,13 @@ ALTER TABLE api_studio_folder ADD pre_request_script LONGTEXT DEFAULT NULL, ADD 
 ```
 
   Switching back to `inline` unmaps them (the data stays in the table, unused).
+- Sandbox mode also maps the `script_variable` table (`pm.globals` / `pm.collectionVariables`): `id`, `workspace_id`
+  (FK, cascade), `service_id` (nullable FK, cascade), `scope_id` (0 or the service id), `variable_key` VARCHAR(128)
+  (binary NO PAD collation on MySQL / MariaDB), `value` TEXT, `updated_at`, unique (`workspace_id`, `scope_id`,
+  `variable_key`). Generate it with `doctrine:migrations:diff` together with the columns above.
+- Globals and collection variables take part in template resolution after the environment: a runner without
+  `workspace.edit` whose global or collection variable feeds the URL or the auth of a request gets the usual
+  `override_not_allowed` refusal (ER-M1), as for an environment override.
 
 ## To 1.14.0
 

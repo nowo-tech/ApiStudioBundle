@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import type { BodyValidationResult, EnvironmentMaps, ScriptContext, StringMap } from './types/global';
+import type { BodyValidationResult, EnvironmentMaps, ScriptContext, ScriptScopes, StringMap } from './types/global';
 import {
   escapeHtmlAttr,
   hasUnresolved,
@@ -24,7 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
-import { DEFAULT_TIMEOUT_MS, parseLevelScripts, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
+import { DEFAULT_TIMEOUT_MS, parseLevelScripts, parseScopes, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -701,6 +701,21 @@ async function persistVariables(
   });
 }
 
+/** Saves the pm.globals / pm.collectionVariables changes of a send (1.15) and returns the stored values. */
+async function persistScopes(url: string, token: string, changes: ScriptScopes['changes']): Promise<ScriptScopes> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': token },
+    body: JSON.stringify({ globals: changes.globals, collection: changes.collection }),
+  });
+  const data = (await response.json()) as { globals?: unknown; collection?: unknown; error?: string };
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+
+  return parseScopes(JSON.stringify(data));
+}
+
 function applyVariableChanges(root: HTMLElement, envId: string, ctx: ScriptContext): void {
   const dirty = ctx.getDirtyKeys();
   if (!Object.keys(dirty).length) {
@@ -1137,6 +1152,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const servicePre = root.dataset.servicePreScript ?? '';
   const servicePost = root.dataset.servicePostScript ?? '';
   const levels = parseLevelScripts(root.dataset.levelScripts);
+  // 1.15 (sandbox mode): pm.globals / pm.collectionVariables, kept across sends (and saved when persisting).
+  let scopes = parseScopes(root.dataset.scriptVariables);
+  const scopesUrl = root.dataset.scriptVariablesUrl ?? '';
   // Only an explicit data-scripts-confirm="0" turns it off: an override that predates the attribute still asks.
   // 1.15: scripts.mode sandbox runs every script in an opaque-origin frame (no confirmation needed: scripts cannot
   // reach the page, the session or the network).
@@ -1252,6 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
           response: null,
           logs: [],
           tests: [],
+          scopes: { globals: { ...scopes.globals }, collection: { ...scopes.collection }, changes: { globals: {}, collection: {} } },
         })
       : RT && scriptsEnabled
       ? RT.createPm({
@@ -1277,7 +1296,9 @@ document.addEventListener('DOMContentLoaded', () => {
       );
 
       bodyField.value = scriptCtx.pm.request.body;
-      variables = scriptCtx.getVariables();
+      // Templates resolve the environment first, then collection variables, then globals (1.15, sandbox mode).
+      const scoped = scriptCtx.getScopes?.();
+      variables = { ...(scoped?.globals ?? {}), ...(scoped?.collection ?? {}), ...scriptCtx.getVariables() };
       const requestHeaders = resolveMap(scriptCtx.pm.request.headers, variables);
       const requestParams = resolveMap(scriptCtx.pm.request.queryParams, variables);
 
@@ -1342,6 +1363,20 @@ document.addEventListener('DOMContentLoaded', () => {
           appendScriptLog(['Variables persisted to environment.']);
         } catch (e) {
           appendScriptLog([`Failed to persist variables: ${e instanceof Error ? e.message : String(e)}`]);
+        }
+      }
+
+      const after = scriptCtx.getScopes?.();
+      if (sandbox !== null && after) {
+        scopes = { ...after, changes: { globals: {}, collection: {} } };
+        const changed = Object.keys(after.changes.globals).length + Object.keys(after.changes.collection).length;
+        if (persistCheckbox?.checked && scopesUrl && changed > 0) {
+          try {
+            scopes = await persistScopes(scopesUrl, root.dataset.envSyncCsrf ?? '', after.changes);
+            appendScriptLog(['Globals and collection variables persisted.']);
+          } catch (e) {
+            appendScriptLog([`Failed to persist variables: ${e instanceof Error ? e.message : String(e)}`]);
+          }
         }
       }
 

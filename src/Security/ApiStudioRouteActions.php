@@ -50,6 +50,7 @@ final class ApiStudioRouteActions
         'nowo_api_studio_folder_tree_move'                  => ApiStudioAction::WorkspaceEdit,
         'nowo_api_studio_script_sandbox'                    => ApiStudioAction::StudioOpen,
         'nowo_api_studio_script_send_request'               => ApiStudioAction::WorkspaceRun,
+        'nowo_api_studio_script_variables'                  => ApiStudioAction::WorkspaceEdit,
         'nowo_api_studio_execute'                           => ApiStudioAction::WorkspaceRun,
         'nowo_api_studio_io_hub'                            => ApiStudioAction::WorkspaceView,
         'nowo_api_studio_io_import_openapi'                 => ApiStudioAction::WorkspaceImport,

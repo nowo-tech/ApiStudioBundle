@@ -6,7 +6,38 @@
  */
 
 import { expect } from './expect';
-import type { PmApi, PmCreateOptions, ScriptContext, StringMap } from '../types/global';
+import type { PmApi, PmCreateOptions, PmScopeApi, ScopeChanges, ScriptContext, StringMap } from '../types/global';
+
+/** A `pm.globals` / `pm.collectionVariables` store: its values and the changes made by the scripts. */
+function scopeStore(initial: StringMap | undefined): { api: PmScopeApi; values: StringMap; changes: ScopeChanges } {
+  const values: StringMap = { ...(initial ?? {}) };
+  const changes: ScopeChanges = {};
+  const api: PmScopeApi = {
+    get(key: string) {
+      return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : undefined;
+    },
+    set(key: string, value: unknown) {
+      if (!key) return;
+      values[key] = value == null ? '' : String(value);
+      changes[key] = values[key]!;
+    },
+    unset(key: string) {
+      delete values[key];
+      changes[key] = null;
+    },
+    has(key: string) {
+      return Object.prototype.hasOwnProperty.call(values, key);
+    },
+    clear() {
+      Object.keys(values).forEach((key) => api.unset(key));
+    },
+    toObject() {
+      return { ...values };
+    },
+  };
+
+  return { api, values, changes };
+}
 
 export function createPm(options: PmCreateOptions): ScriptContext {
   const logs: string[] = [];
@@ -73,10 +104,26 @@ export function createPm(options: PmCreateOptions): ScriptContext {
     },
   };
 
+  const globals = scopeStore(options.globals);
+  const collection = scopeStore(options.collectionVariables);
+  // pm.variables reads the narrowest scope that has the key (environment, then collection, then globals) and writes
+  // the environment, as before 1.15.
+  const variablesApi = {
+    ...envApi,
+    get(key: string) {
+      return envApi.get(key) ?? collection.api.get(key) ?? globals.api.get(key);
+    },
+    toObject() {
+      return { ...globals.values, ...collection.values, ...variables };
+    },
+  };
+
   const tests: Array<{ name: string; fn: () => void }> = [];
   const pm: PmApi = {
     environment: envApi,
-    variables: envApi,
+    variables: variablesApi,
+    globals: globals.api,
+    collectionVariables: collection.api,
     request,
     response: responseWrapper,
     test(name, fn) {
@@ -95,6 +142,11 @@ export function createPm(options: PmCreateOptions): ScriptContext {
     getVariables: () => ({ ...variables }),
     getLogs: () => logs.slice(),
     getDirtyKeys: () => ({ ...dirtyKeys }),
+    getScopes: () => ({
+      globals: { ...globals.values },
+      collection: { ...collection.values },
+      changes: { globals: { ...globals.changes }, collection: { ...collection.changes } },
+    }),
     runTests: () =>
       tests.map((t) => {
         try {

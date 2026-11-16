@@ -20,12 +20,14 @@ use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Script\ScriptVariableStore;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\EndpointTesterFormFactory;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Nowo\ApiStudioBundle\Service\FolderInheritanceResolver;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
+use stdClass;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -62,6 +64,7 @@ final class ApiEndpointController extends AbstractController
         private readonly ?FolderAccess $folderAccess = null,
         private readonly bool $foldersEnabled = false,
         private readonly bool $scriptLevels = false,
+        private readonly ?ScriptVariableStore $scriptVariables = null,
     ) {
     }
 
@@ -141,6 +144,8 @@ final class ApiEndpointController extends AbstractController
             'mergedHeaders'         => $mergedHeaders,
             // 1.15 (sandbox mode): the workspace and folder scripts around the service / endpoint ones.
             'levelScripts' => $this->levelScripts($context['workspace'], $endpoint),
+            // 1.15 (sandbox mode): pm.globals (workspace) and pm.collectionVariables (service).
+            'scriptVariables' => $this->scriptVariables($context['workspace'], $context['service']),
             // 1.14: the auth the endpoint is sent with (nearest folder with an explicit auth, else the service's).
             'effectiveAuthType'   => $auth['type'],
             'effectiveAuthFolder' => $auth['folder'],
@@ -380,6 +385,23 @@ final class ApiEndpointController extends AbstractController
 
         // 1.14: a host folder checker may hide (404) or lock (403) the endpoint's folder.
         return $this->folderAccess instanceof FolderAccess ? $this->folderAccess->requireEndpoint($endpoint, $action) : $endpoint;
+    }
+
+    /**
+     * `pm.globals` and `pm.collectionVariables` of the console (1.15, `scripts.mode: sandbox`; empty otherwise).
+     *
+     * @return array{globals: object, collection: object}
+     */
+    private function scriptVariables(ApiWorkspace $workspace, ApiService $service): array
+    {
+        if (!$this->scriptLevels || !$this->scriptVariables instanceof ScriptVariableStore) {
+            return ['globals' => new stdClass(), 'collection' => new stdClass()];
+        }
+
+        return [
+            'globals'    => (object) $this->scriptVariables->values((int) $workspace->getId(), null),
+            'collection' => (object) $this->scriptVariables->values((int) $workspace->getId(), (int) $service->getId()),
+        ];
     }
 
     /**

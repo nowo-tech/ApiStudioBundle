@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  emptyScopes,
   executeRun,
   isRunMessage,
   MAX_CODE_LENGTH,
   MAX_SEND_REQUESTS,
   normalizeRequest,
   parseLevelScripts,
+  parseScopes,
   runInSandbox,
   sandboxContext,
   type RunMessage,
@@ -21,6 +23,7 @@ const state = (): SandboxState => ({
   response: null,
   logs: [],
   tests: [],
+  scopes: emptyScopes(),
 });
 
 const run = (scripts: RunMessage['scripts'], runTests = false, st: SandboxState = state()): RunMessage => ({
@@ -245,5 +248,65 @@ describe('workspace / folder scripts', () => {
     expect(parseLevelScripts(undefined)).toEqual({ workspace: { pre: '', post: '' }, folders: [] });
     expect(parseLevelScripts('not json')).toEqual({ workspace: { pre: '', post: '' }, folders: [] });
     expect(parseLevelScripts('[1]').folders).toEqual([]);
+  });
+});
+
+describe('pm.globals / pm.collectionVariables', () => {
+  it('reads, writes and records the changes of each scope across phases', async () => {
+    const st = state();
+    st.scopes = { globals: { g: '1', both: 'global' }, collection: { c: '2', both: 'collection' }, changes: { globals: { old: null }, collection: {} } };
+    const result = await executeRun(
+      run(
+        [
+          {
+            label: 'pre',
+            code: [
+              "pm.console.log(pm.globals.get('g'), pm.collectionVariables.get('c'), pm.variables.get('both'), pm.variables.get('token'))",
+              "pm.console.log(pm.globals.has('g'), pm.globals.has('nope'), pm.globals.get('toString'))",
+              "pm.globals.set('g', 3); pm.collectionVariables.unset('c'); pm.collectionVariables.set('n', null)",
+              "pm.console.log(JSON.stringify(pm.variables.toObject()))",
+            ].join(';'),
+          },
+        ],
+        false,
+        st,
+      ),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.state.logs).toEqual([
+      '[pre] 1 2 collection abc',
+      '[pre] true false undefined',
+      '[pre] {"g":"3","both":"collection","n":"","token":"abc"}',
+    ]);
+    expect(result.state.scopes).toEqual({
+      globals: { g: '3', both: 'global' },
+      collection: { both: 'collection', n: '' },
+      changes: { globals: { old: null, g: '3' }, collection: { c: null, n: '' } },
+    });
+  });
+
+  it('clears a scope', async () => {
+    const st = state();
+    st.scopes = { ...emptyScopes(), globals: { a: '1', b: '2' } };
+    const result = await executeRun(run([{ label: 'pre', code: 'pm.globals.clear()' }], false, st));
+    expect(result.state.scopes.globals).toEqual({});
+    expect(result.state.scopes.changes.globals).toEqual({ a: null, b: null });
+  });
+
+  it('refuses a run message with malformed scopes', () => {
+    expect(isRunMessage({ ...run([]), state: { ...state(), scopes: undefined } })).toBe(false);
+    expect(isRunMessage({ ...run([]), state: { ...state(), scopes: { ...emptyScopes(), globals: { a: 1 } } } })).toBe(false);
+    expect(isRunMessage({ ...run([]), state: { ...state(), scopes: { ...emptyScopes(), changes: null } } })).toBe(false);
+    expect(isRunMessage({ ...run([]), state: { ...state(), scopes: { ...emptyScopes(), changes: { globals: { a: 1 }, collection: {} } } } })).toBe(false);
+    expect(isRunMessage({ ...run([]), state: { ...state(), scopes: 'x' } })).toBe(false);
+  });
+
+  it('parses the console attribute, PHP empty arrays included', () => {
+    expect(parseScopes('{"globals":{"a":"1"},"collection":[]}')).toEqual({ ...emptyScopes(), globals: { a: '1' } });
+    expect(parseScopes('{"globals":{"a":1}}')).toEqual(emptyScopes());
+    expect(parseScopes('nope')).toEqual(emptyScopes());
+    expect(parseScopes('7')).toEqual(emptyScopes());
+    expect(parseScopes(undefined)).toEqual(emptyScopes());
   });
 });

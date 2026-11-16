@@ -192,4 +192,50 @@ describe('api-tester with scripts.mode: sandbox', () => {
       '[workspace post] ws post',
     ]);
   });
+
+  it('resolves templates with globals and collection variables and persists their changes', async () => {
+    const vars = JSON.stringify({ globals: { gid: 'g-1', keep: 'x' }, collection: [] }).replace(/"/g, '&quot;');
+    const { fetchMock } = await boot(
+      CONSOLE("pm.collectionVariables.set('cid', 'c-1'); pm.globals.unset('keep')", "pm.globals.set('last', pm.response.code)").replace(
+        'data-scripts-confirm="0"',
+        `data-scripts-confirm="0" data-script-variables="${vars}" data-script-variables-url="/api-studio/scripts/variables/7" data-env-sync-csrf="sync-tok"`,
+      ) + '<input type="checkbox" id="tester-persist-vars" checked>',
+    );
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/api-studio/scripts/variables/7'
+        ? { ok: true, json: async () => ({ success: true, globals: { gid: 'g-1', last: '201' }, collection: { cid: 'c-1' } }) }
+        : { ok: true, json: async () => ({ request_method: 'POST', response_status: 201, response_body: '{}', response_headers: {}, request_headers: {}, duration_ms: 1, success: true, error_message: null }) },
+    );
+    document.getElementById('tester-send')!.click();
+    await vi.waitFor(() => expect(log()).toContain('Globals and collection variables persisted.'));
+
+    const execute = JSON.parse(fetchMock.mock.calls[0]![1].body as string) as { variables: Record<string, string> };
+    expect(execute.variables).toMatchObject({ gid: 'g-1', cid: 'c-1' });
+    expect(execute.variables).not.toHaveProperty('keep');
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(url).toBe('/api-studio/scripts/variables/7');
+    expect(init.headers['X-CSRF-Token']).toBe('sync-tok');
+    expect(JSON.parse(init.body as string)).toEqual({ globals: { keep: null, last: '201' }, collection: { cid: 'c-1' } });
+
+    // The next send starts from the stored values, with no pending change.
+    fetchMock.mockClear();
+    document.getElementById('tester-send')!.click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string).variables).toMatchObject({ gid: 'g-1', last: '201', cid: 'c-1' });
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body as string)).toEqual({ globals: { keep: null, last: '201' }, collection: { cid: 'c-1' } });
+  });
+
+  it('reports a refused save and keeps the values of the send', async () => {
+    const { fetchMock } = await boot(
+      CONSOLE("pm.globals.set('a', '1')").replace('data-scripts-confirm="0"', 'data-scripts-confirm="0" data-script-variables-url="/v"') +
+        '<input type="checkbox" id="tester-persist-vars" checked>',
+    );
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/v'
+        ? { ok: false, status: 422, json: async () => ({ error: 'At most 500 variables per scope.' }) }
+        : { ok: true, json: async () => ({ request_method: 'POST', response_status: 200, response_body: '', success: true, error_message: null }) },
+    );
+    document.getElementById('tester-send')!.click();
+    await vi.waitFor(() => expect(log()).toContain('Failed to persist variables: At most 500 variables per scope.'));
+  });
 });

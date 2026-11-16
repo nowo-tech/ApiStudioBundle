@@ -129,6 +129,12 @@ services:
         arguments:
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
 
+    Nowo\ApiStudioBundle\Controller\ScriptVariablesController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
+        arguments:
+            $scriptsMode: '%nowo_api_studio.scripts.mode%'
+
     # 1.15 pm.sendRequest: same guards and limits as the console executor.
     Nowo\ApiStudioBundle\Script\ScriptRequestSender:
         arguments:

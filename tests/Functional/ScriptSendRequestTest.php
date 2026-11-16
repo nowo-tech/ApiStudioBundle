@@ -14,6 +14,8 @@ final class ScriptSendRequestTest extends StudioWebTestCase
     {
         $this->client->request('POST', '/api-studio/scripts/send-request/' . $this->ids['endpoint'], server: ['CONTENT_TYPE' => 'application/json'], content: '{"url":"https://93.184.215.14/"}');
         self::assertResponseStatusCodeSame(404);
+        $this->client->request('POST', '/api-studio/scripts/variables/' . $this->ids['endpoint'], server: ['CONTENT_TYPE' => 'application/json'], content: '{"globals":{"a":"1"}}');
+        self::assertResponseStatusCodeSame(404);
 
         $this->client->catchExceptions(true);
         $this->client->request('GET', '/api-studio/scripts/sandbox');

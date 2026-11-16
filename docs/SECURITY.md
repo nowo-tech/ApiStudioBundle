@@ -95,6 +95,11 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   stored secret or host secret), so a stored script run by another user cannot ship that user's secrets anywhere. A
   script can still reach any public URL the allow-list permits with what it can read itself (non-secret variables,
   the response): set `execution_url_allowlist` to limit that. At most 10 calls per phase (client-side budget).
+- `pm.globals` / `pm.collectionVariables` hold plain values readable by every workspace viewer (they are on the
+  endpoint page): they have no secret flag and nothing secret is resolved into them; saving needs the
+  environment-sync token and `workspace.edit` (and the folder's edit right), and is capped (100 changes per save, 500
+  keys per scope, 64 KiB per value). Writes go through DBAL one statement per key (a concurrent insert of the same
+  key becomes an update; no closed entity manager in worker mode).
 - Workspace and folder scripts (sandbox mode only) follow the same rules as service / endpoint scripts: their fields
   are shown and accepted only with `workspace.edit_scripts`, and they run in the same frame as the other levels.
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request

@@ -16,6 +16,7 @@ use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
+use Nowo\ApiStudioBundle\Entity\ApiScriptVariable;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 
 use function is_array;
@@ -63,6 +64,16 @@ final class TablePrefixSubscriber
             if ($this->scriptLevels) {
                 $this->mapScripts($metadata);
             }
+        }
+        if ($metadata->getName() === ApiScriptVariable::class) {
+            if (!$this->scriptLevels) {
+                // pm.globals / pm.collectionVariables (1.15) are stored only in sandbox mode: no table otherwise.
+                $metadata->isMappedSuperclass  = true;
+                $metadata->associationMappings = [];
+
+                return;
+            }
+            $this->mapBinaryCollation($metadata, 'variableKey', $event->getObjectManager()->getConnection());
         }
         if ($this->scriptLevels && $metadata->getName() === ApiWorkspace::class) {
             $this->mapScripts($metadata);
@@ -164,12 +175,20 @@ final class TablePrefixSubscriber
      */
     private function mapFolderCreator(ClassMetadata $metadata, Connection $connection): void
     {
+        $this->mapBinaryCollation($metadata, 'createdBy', $connection);
+    }
+
+    /**
+     * @param ClassMetadata<object> $metadata
+     */
+    private function mapBinaryCollation(ClassMetadata $metadata, string $field, Connection $connection): void
+    {
         $collation = self::binaryCollation($connection);
-        if ($collation === null || !$metadata->hasField('createdBy')) {
+        if ($collation === null || !$metadata->hasField($field)) {
             return;
         }
 
-        $mapping              = $metadata->getFieldMapping('createdBy');
+        $mapping              = $metadata->getFieldMapping($field);
         $options              = is_array($mapping->options) ? $mapping->options : [];
         $options['collation'] = $collation;
         $mapping->options     = $options;

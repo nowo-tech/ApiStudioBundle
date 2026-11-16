@@ -91,6 +91,13 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
   only in sandbox mode). The console runs them in chain order: workspace pre, service pre, folder pre (root to leaf),
   endpoint pre; then endpoint post, folder post (leaf to root), service post, workspace post. Each script's log lines
   are labelled with its level.
+- **`pm.globals` / `pm.collectionVariables`** (sandbox mode): `get`, `set`, `unset`, `has`, `clear`, `toObject`.
+  Globals belong to the workspace, collection variables to the service; both are stored server-side in a new
+  `script_variable` table (mapped only in sandbox mode; plain values, no secret flag) and handed to the console with
+  the endpoint page. Changes are kept for the next sends of the page and saved only when "persist variables" is
+  checked (`nowo_api_studio_script_variables`: environment-sync CSRF token, `workspace.edit` on the workspace and the
+  endpoint's folder; at most 100 changes per save, 500 variables per scope, 64 KiB per value). Request templates
+  resolve the environment first, then collection variables, then globals; `pm.variables.get` reads in the same order.
 
 ### Fixed
 
