@@ -122,6 +122,18 @@ services:
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
             $packages: '@?assets.packages'
 
+    Nowo\ApiStudioBundle\Controller\ScriptSendRequestController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
+        arguments:
+            $scriptsMode: '%nowo_api_studio.scripts.mode%'
+
+    # 1.15 pm.sendRequest: same guards and limits as the console executor.
+    Nowo\ApiStudioBundle\Script\ScriptRequestSender:
+        arguments:
+            $timeoutSeconds: '%nowo_api_studio.ui.request_timeout_seconds%'
+            $maxResponseBytes: '%nowo_api_studio.execution_max_response_bytes%'
+
     Nowo\ApiStudioBundle\Controller\ApiFolderController:
         autoconfigure: false
         tags: ['controller.service_arguments', 'container.service_subscriber']

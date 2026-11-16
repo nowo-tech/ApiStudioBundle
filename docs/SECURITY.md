@@ -90,9 +90,13 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 - The console accepts only messages from the frame it created, with origin `null` and the run's nonce; the frame
   accepts only messages from its parent. One fresh frame per phase, removed at the end or at `scripts.limits.time_ms`.
 - The studio page evaluates no script code in this mode (no `'unsafe-eval'` needed on it).
+- `pm.sendRequest` goes frame → console → `nowo_api_studio_script_send_request` → the guarded HTTP client: same SSRF
+  guard and allow-list as the console, no redirects, no cookies, and **nothing resolved server-side** (no variable,
+  stored secret or host secret), so a stored script run by another user cannot ship that user's secrets anywhere. A
+  script can still reach any public URL the allow-list permits with what it can read itself (non-secret variables,
+  the response): set `execution_url_allowlist` to limit that. At most 10 calls per phase (client-side budget).
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
-  the user sends (headers, body, variables) — that is its purpose; `pm.sendRequest` and server-side runs come in later
-  slices of spec 003.
+  the user sends (headers, body, variables) — that is its purpose.
 
 ## Folders (1.14)
 

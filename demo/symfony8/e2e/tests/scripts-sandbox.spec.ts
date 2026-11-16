@@ -14,6 +14,7 @@ try { r.push('storage:' + localStorage.length); } catch (e) { r.push('storage:bl
 try { const x = new XMLHttpRequest(); x.open('GET', '/api-studio/', false); x.send(); r.push('xhr:' + x.status); } catch (e) { r.push('xhr:blocked'); }
 pm.console.log(r.join(','));
 pm.request.setHeader('X-Sandboxed', 'yes');
+pm.sendRequest('http://127.0.0.1/', (err) => pm.console.log('send-private:' + (err ? 'blocked' : 'open')));
 `;
 
 async function setStoredPreScript(page: Page, consoleUrl: string, code: string): Promise<void> {
@@ -39,6 +40,8 @@ test.describe('Sandboxed scripts', () => {
 
       expect(payload.headers?.['X-Sandboxed']).toBe('yes');
       await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked');
+      // pm.sendRequest goes through the server guards: a private address is refused.
+      await expect(page.locator('#tester-script-log')).toContainText('send-private:blocked');
       await expect(page.locator('dialog#tester-scripts-confirm-modal')).toHaveCount(0);
     } finally {
       await setStoredPreScript(page, consoleUrl, '');

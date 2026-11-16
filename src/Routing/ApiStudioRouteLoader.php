@@ -29,6 +29,7 @@ final class ApiStudioRouteLoader extends Loader
         'ApiEndpointController',
         'ApiFolderController',
         'ScriptSandboxController',
+        'ScriptSendRequestController',
         'EndpointExamplesController',
         'ApiExecuteController',
         'ImportExportController',

@@ -39,8 +39,31 @@ function fakeFrames(): void {
           return;
         }
         const source = node.contentWindow as Window;
+        // The frame's side: runs with the real frame runtime; pm.sendRequest goes to the page as a sendRequest message
+        // and comes back as a sendResult posted to the frame.
+        const answers = new Map<number, (reply: { response?: unknown; error?: string }) => void>();
+        let id = 0;
         vi.spyOn(source, 'postMessage').mockImplementation((message: unknown) => {
-          window.dispatchEvent(new MessageEvent('message', { data: executeRun(message as RunMessage), source, origin: 'null' }));
+          const m = message as { kind?: string; id?: number; response?: unknown; error?: string };
+          if (m.kind === 'sendResult' && typeof m.id === 'number') {
+            answers.get(m.id)?.(m);
+
+            return;
+          }
+          if (m.kind !== 'run') {
+            return;
+          }
+          const run = message as RunMessage;
+          void executeRun(run, (request) => {
+            const ask = ++id;
+
+            return new Promise((resolve, reject) => {
+              answers.set(ask, (reply) => (reply.response ? resolve(reply.response as never) : reject(new Error(reply.error))));
+              window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'sendRequest', nonce: run.nonce, id: ask, request }, source, origin: 'null' }));
+            });
+          }).then((result) => {
+            window.dispatchEvent(new MessageEvent('message', { data: result, source, origin: 'null' }));
+          });
         });
         window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'ready' }, source, origin: 'null' }));
       }),
@@ -115,5 +138,30 @@ describe('api-tester with scripts.mode: sandbox', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect((document.getElementById('tester-send') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('relays pm.sendRequest to the server endpoint with the console token', async () => {
+    const { fetchMock } = await boot(
+      CONSOLE("pm.sendRequest({ url: 'https://auth.test/token', method: 'POST' }, (err, res) => pm.request.setHeader('Authorization', 'Bearer ' + res.json().token))").replace(
+        'data-scripts-timeout-ms="1000"',
+        'data-scripts-timeout-ms="1000" data-scripts-send-url="/api-studio/scripts/send-request/7"',
+      ),
+    );
+    fetchMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.includes('/send-request/')
+          ? { response: { code: 200, headers: {}, body: '{"token":"t9"}', responseTime: 1 } }
+          : { request_method: 'POST', response_status: 200, response_body: '{}', response_headers: {}, request_headers: {}, duration_ms: 1, success: true, error_message: null },
+    }));
+    document.getElementById('tester-send')!.click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const [sendUrl, sendInit] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(sendUrl).toBe('/api-studio/scripts/send-request/7');
+    expect((sendInit.headers as Record<string, string>)['X-CSRF-Token']).toBe('tok');
+    expect(JSON.parse(String(sendInit.body))).toEqual({ url: 'https://auth.test/token', method: 'POST', header: {}, body: null });
+    const payload = JSON.parse(String((fetchMock.mock.calls[1]! as [string, RequestInit])[1].body)) as { headers: Record<string, string> };
+    expect(payload.headers.Authorization).toBe('Bearer t9');
   });
 });

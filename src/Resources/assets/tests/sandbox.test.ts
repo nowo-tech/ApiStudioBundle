@@ -1,5 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { executeRun, isRunMessage, MAX_CODE_LENGTH, runInSandbox, sandboxContext, type RunMessage, type SandboxState } from '../src/lib/sandbox';
+import {
+  executeRun,
+  isRunMessage,
+  MAX_CODE_LENGTH,
+  MAX_SEND_REQUESTS,
+  normalizeRequest,
+  runInSandbox,
+  sandboxContext,
+  type RunMessage,
+  type SandboxHttpRequest,
+  type SandboxState,
+} from '../src/lib/sandbox';
 
 /** Spec 003 (1.15): sandboxed script runner protocol, frame execution and page-side runner. */
 const state = (): SandboxState => ({
@@ -31,8 +42,8 @@ describe('sandbox protocol', () => {
     expect(isRunMessage(run([{ label: 'pre', code: 'x'.repeat(MAX_CODE_LENGTH + 1) }]))).toBe(false);
   });
 
-  it('runs the scripts with a pm built from the state and returns the new state', () => {
-    const result = executeRun(
+  it('runs the scripts with a pm built from the state and returns the new state', async () => {
+    const result = await executeRun(
       run([
         { label: 'service pre', code: "pm.environment.set('id', '7'); pm.request.setHeader('X-Id', pm.environment.get('id')); pm.console.log('one')" },
         { label: 'pre-request', code: "pm.console.log('two', pm.environment.get('token'))" },
@@ -47,8 +58,8 @@ describe('sandbox protocol', () => {
     expect(result.state.logs).toEqual(['[service pre] one', '[pre-request] two abc']);
   });
 
-  it('stops at the first failing script and reports it', () => {
-    const result = executeRun(
+  it('stops at the first failing script and reports it', async () => {
+    const result = await executeRun(
       run([
         { label: 'a', code: "pm.console.log('before'); throw new Error('boom')" },
         { label: 'b', code: "pm.environment.set('never', '1')" },
@@ -62,9 +73,9 @@ describe('sandbox protocol', () => {
     expect(result.state.variables.never).toBeUndefined();
   });
 
-  it('runs tests against the response in the post phase', () => {
+  it('runs tests against the response in the post phase', async () => {
     const st = { ...state(), response: { code: 201, body: '{"ok":true}' } };
-    const result = executeRun(
+    const result = await executeRun(
       run([{ label: 'post', code: "pm.test('created', () => pm.expect(pm.response.code).to.equal(201)); pm.test('ok', () => pm.expect(pm.response.json().ok).to.equal(false))" }, { label: 'empty', code: '  ' }], true, st),
     );
 
@@ -109,7 +120,7 @@ describe('page-side sandbox runner', () => {
     fromFrame({ v: 1, kind: 'result', nonce: 'other', ok: true, state: state() });
     expect(frame()).not.toBeNull();
 
-    fromFrame(executeRun({ ...posted[0]!, scripts: [{ label: 'pre', code: "pm.environment.set('x', '1')" }] }));
+    fromFrame(await executeRun({ ...posted[0]!, scripts: [{ label: 'pre', code: "pm.environment.set('x', '1')" }] }));
     const result = await promise;
     expect(result.state.variables.x).toBe('1');
     expect(frame()).toBeNull();
@@ -135,5 +146,91 @@ describe('page-side sandbox runner', () => {
     expect(ctx.getLogs()).toEqual(['l']);
     expect(ctx.runTests()).toEqual([{ name: 't', ok: true }]);
     expect(ctx.state.response).toEqual({ code: 200, body: 'ok' });
+  });
+});
+
+describe('pm.sendRequest (sandbox)', () => {
+  const ok = { code: 200, headers: { 'Content-Type': 'application/json' }, body: '{"token":"t1"}', responseTime: 3 };
+
+  it('normalizes Postman request shapes', () => {
+    expect(normalizeRequest('https://api.test/a')).toEqual({ url: 'https://api.test/a', method: 'GET', header: {}, body: null });
+    expect(normalizeRequest({ url: 'https://api.test/b', method: 'post', header: [{ key: 'X-A', value: 1 }], body: { mode: 'raw', raw: '{}' } })).toEqual({
+      url: 'https://api.test/b',
+      method: 'POST',
+      header: { 'X-A': '1' },
+      body: '{}',
+    });
+    expect(normalizeRequest({ url: 'https://api.test/c', header: { 'X-B': 'b' }, body: 'x' }).header).toEqual({ 'X-B': 'b' });
+    expect(() => normalizeRequest(42)).toThrow('URL or a request object');
+  });
+
+  it('waits for callbacks and promises before the next script and the result', async () => {
+    const sent: SandboxHttpRequest[] = [];
+    const transport = vi.fn(async (r: SandboxHttpRequest) => {
+      sent.push(r);
+
+      return ok;
+    });
+    const result = await executeRun(
+      run([
+        {
+          label: 'pre',
+          code: "pm.sendRequest('https://auth.test/token', (err, res) => { pm.environment.set('token', res.json().token); pm.console.log(res.code, res.headers.get('content-type')); })",
+        },
+        { label: 'next', code: "pm.request.setHeader('Authorization', 'Bearer ' + pm.environment.get('token'))" },
+      ]),
+      transport,
+    );
+
+    expect(sent).toEqual([{ url: 'https://auth.test/token', method: 'GET', header: {}, body: null }]);
+    expect(result.ok).toBe(true);
+    expect(result.state.variables.token).toBe('t1');
+    expect(result.state.request.headers.Authorization).toBe('Bearer t1');
+    expect(result.state.logs).toEqual(['[pre] 200 application/json']);
+  });
+
+  it('reports transport errors to the callback, callback errors as failures and enforces the budget', async () => {
+    const failing = await executeRun(run([{ label: 'pre', code: "pm.sendRequest('https://x.test', (err) => pm.console.log('err:', err.message))" }]), async () => {
+      throw new Error('not allowed (SSRF or allowlist)');
+    });
+    expect(failing.ok).toBe(true);
+    expect(failing.state.logs).toEqual(['[pre] err: not allowed (SSRF or allowlist)']);
+
+    const throwing = await executeRun(run([{ label: 'pre', code: "pm.sendRequest('https://x.test', () => { throw new Error('in callback') })" }]), async () => ok);
+    expect(throwing.ok).toBe(false);
+    expect(throwing.error).toBe('in callback');
+
+    const many = await executeRun(run([{ label: 'pre', code: `for (let i = 0; i <= ${MAX_SEND_REQUESTS}; i++) pm.sendRequest('https://x.test/' + i)` }]), async () => ok);
+    expect(many.ok).toBe(false);
+    expect(many.error).toContain(`at most ${MAX_SEND_REQUESTS}`);
+
+    const none = await executeRun(run([{ label: 'pre', code: "pm.sendRequest('https://x.test')" }]));
+    expect(none.error).toContain('scripts.mode: sandbox');
+  });
+
+  it('relays the frame request through the page and answers the frame', async () => {
+    const send = vi.fn(async () => ok);
+    const promise = runInSandbox('/sandbox', [{ label: 'pre', code: '1' }], state(), false, 1000, send);
+    const iframe = document.querySelector('iframe.as-script-sandbox') as HTMLIFrameElement;
+    const posted: unknown[] = [];
+    vi.spyOn(iframe.contentWindow as Window, 'postMessage').mockImplementation((m: unknown) => {
+      posted.push(m);
+    });
+    const source = iframe.contentWindow;
+    window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'ready' }, source, origin: 'null' }));
+    const nonce = (posted[0] as RunMessage).nonce;
+
+    window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'sendRequest', nonce, id: 4, request: { url: 'https://a.test', method: 'GET', header: {}, body: null } }, source, origin: 'null' }));
+    await vi.waitFor(() => expect(posted).toHaveLength(2));
+    expect(send).toHaveBeenCalledWith({ url: 'https://a.test', method: 'GET', header: {}, body: null });
+    expect(posted[1]).toEqual({ v: 1, kind: 'sendResult', nonce, id: 4, response: ok });
+
+    // Another nonce is ignored; without a transport the frame is told it is not available.
+    window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'sendRequest', nonce: 'other', id: 5, request: {} }, source, origin: 'null' }));
+    expect(send).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'result', nonce, ok: true, state: state() }, source, origin: 'null' }));
+    await promise;
+    document.body.innerHTML = '';
   });
 });

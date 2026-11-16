@@ -24,7 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
-import { DEFAULT_TIMEOUT_MS, runInSandbox, sandboxContext, type SandboxState } from './lib/sandbox';
+import { DEFAULT_TIMEOUT_MS, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -483,7 +483,7 @@ async function executeScripts(
   ctx: ScriptContext,
   enabled: boolean,
   post: boolean,
-  sandbox: { url: string; timeoutMs: number } | null,
+  sandbox: { url: string; timeoutMs: number; send?: SendTransport } | null,
 ): Promise<void> {
   if (!sandbox || !('state' in ctx)) {
     runScripts(scripts, ctx, enabled);
@@ -496,7 +496,7 @@ async function executeScripts(
   }
 
   const holder = ctx as ScriptContext & { state: SandboxState };
-  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs);
+  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs, sandbox.send);
   holder.state = { ...result.state, response: holder.state.response };
   if (result.state.logs.length) {
     appendScriptLog(result.state.logs);
@@ -1140,7 +1140,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1.15: scripts.mode sandbox runs every script in an opaque-origin frame (no confirmation needed: scripts cannot
   // reach the page, the session or the network).
   const sandboxUrl = root.dataset.scriptsMode === 'sandbox' ? (root.dataset.scriptsSandboxUrl ?? '') : '';
-  const sandbox = sandboxUrl !== '' ? { url: sandboxUrl, timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS } : null;
+  const sendUrl = root.dataset.scriptsSendUrl ?? '';
+  // pm.sendRequest (1.15): relayed from the frame to the server, which sends it through the console's guards.
+  const send: SendTransport | undefined = sendUrl
+    ? async (request) => {
+        const response = await fetch(sendUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': root.dataset.csrfToken ?? '' },
+          body: JSON.stringify(request),
+        });
+        const data = (await response.json()) as { response?: SandboxHttpResponse; error?: string };
+        if (!response.ok || !data.response) {
+          throw new Error(data.error || 'pm.sendRequest failed.');
+        }
+
+        return data.response;
+      }
+    : undefined;
+  const sandbox = sandboxUrl !== '' ? { url: sandboxUrl, timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS, send } : null;
   const confirmStored = Boolean(RT) && sandbox === null && root.dataset.scriptsConfirm !== '0';
 
   /**

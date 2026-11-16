@@ -80,6 +80,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ApiEndpointController.php` | Endpoint CRUD | FR-CTRL-001 |
 | `Controller/ApiFolderController.php` | Folder CRUD and tree moves (1.14) | FR-FOLD-005, FR-FOLD-007 (spec 002) |
 | `Controller/ScriptSandboxController.php` | Sandboxed script frame document with its own CSP (1.15) | FR-SCR-002 (spec 003) |
+| `Controller/ScriptSendRequestController.php` | `pm.sendRequest` relay endpoint (sandbox mode, 1.15) | FR-SCR-006 (spec 003) |
+| `Script/ScriptRequestSender.php` | Guarded literal sender of `pm.sendRequest` (1.15) | FR-SCR-006 (spec 003) |
 | `Controller/ApiEnvironmentController.php` | Environment CRUD | FR-CTRL-001 |
 | `Controller/EnvironmentVariablesController.php` | Environment variable editor | FR-CTRL-001 |
 | `Controller/EndpointExamplesController.php` | Request/response example CRUD | FR-CTRL-001 |

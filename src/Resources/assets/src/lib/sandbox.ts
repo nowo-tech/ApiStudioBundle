@@ -75,11 +75,79 @@ export function isRunMessage(data: unknown): data is RunMessage {
   );
 }
 
+/** Largest number of `pm.sendRequest` calls of one run (pre or post phase). */
+export const MAX_SEND_REQUESTS = 10;
+
+export type SandboxHttpRequest = { url: string; method: string; header: StringMap; body: string | null };
+
+export type SandboxHttpResponse = { code: number; headers: StringMap; body: string; responseTime: number };
+
+export type SendRequestMessage = { v: 1; kind: 'sendRequest'; nonce: string; id: number; request: SandboxHttpRequest };
+
+export type SendResultMessage = { v: 1; kind: 'sendResult'; nonce: string; id: number; response?: SandboxHttpResponse; error?: string };
+
+/** How the frame gets a `pm.sendRequest` answered (the page relays it to the server). */
+export type SendTransport = (request: SandboxHttpRequest) => Promise<SandboxHttpResponse>;
+
 /**
- * Frame side: runs the scripts of a run message with a fresh `pm` built from the state, stops at the first error
- * (like the inline runner) and returns the new state.
+ * A `pm.sendRequest` argument (a URL, or Postman's `{url, method, header, body}` with `header` as a map or a list of
+ * `{key, value}` and `body` as a string or `{mode: 'raw', raw}`) as a plain request.
  */
-export function executeRun(message: RunMessage): ResultMessage {
+export function normalizeRequest(input: unknown): SandboxHttpRequest {
+  if (typeof input === 'string') {
+    return { url: input, method: 'GET', header: {}, body: null };
+  }
+  if (typeof input !== 'object' || input === null) {
+    throw new Error('pm.sendRequest: a URL or a request object is required.');
+  }
+  const r = input as { url?: unknown; method?: unknown; header?: unknown; body?: unknown };
+  const header: StringMap = {};
+  if (Array.isArray(r.header)) {
+    r.header.forEach((h) => {
+      if (h && typeof h === 'object' && typeof (h as { key?: unknown }).key === 'string') {
+        header[(h as { key: string }).key] = String((h as { value?: unknown }).value ?? '');
+      }
+    });
+  } else if (r.header && typeof r.header === 'object') {
+    Object.entries(r.header as Record<string, unknown>).forEach(([k, v]) => {
+      header[k] = String(v ?? '');
+    });
+  }
+  let body: string | null = null;
+  if (typeof r.body === 'string') {
+    body = r.body;
+  } else if (r.body && typeof r.body === 'object' && typeof (r.body as { raw?: unknown }).raw === 'string') {
+    body = (r.body as { raw: string }).raw;
+  }
+
+  return { url: String(r.url ?? ''), method: typeof r.method === 'string' ? r.method.toUpperCase() : 'GET', header, body };
+}
+
+/** The response object a script receives from `pm.sendRequest` (same helpers as `pm.response`). */
+export function scriptResponse(r: SandboxHttpResponse) {
+  return {
+    code: r.code,
+    status: String(r.code),
+    responseTime: r.responseTime,
+    headers: {
+      get(name: string): string | undefined {
+        const key = Object.keys(r.headers).find((k) => k.toLowerCase() === String(name).toLowerCase());
+
+        return key === undefined ? undefined : r.headers[key];
+      },
+      toObject: (): StringMap => ({ ...r.headers }),
+    },
+    text: (): string => r.body,
+    json: (): unknown => JSON.parse(r.body || 'null'),
+  };
+}
+
+/**
+ * Frame side: runs the scripts of a run message with a fresh `pm` built from the state, one after the other, each
+ * one's `pm.sendRequest` work (callbacks included) finished before the next starts; stops at the first error (like the
+ * inline runner) and returns the new state. Without a transport, `pm.sendRequest` throws.
+ */
+export async function executeRun(message: RunMessage, transport?: SendTransport): Promise<ResultMessage> {
   const st = message.state;
   const ctx = createPm({
     baseVariables: st.variables,
@@ -91,6 +159,49 @@ export function executeRun(message: RunMessage): ResultMessage {
     ctx.setResponse(st.response.code, st.response.body);
   }
 
+  const pending = new Set<Promise<unknown>>();
+  let budget = MAX_SEND_REQUESTS;
+  let asyncError: unknown = null;
+  (ctx.pm as unknown as { sendRequest: unknown }).sendRequest = (
+    input: unknown,
+    callback?: (error: unknown, response: ReturnType<typeof scriptResponse> | null) => void,
+  ): Promise<ReturnType<typeof scriptResponse>> => {
+    if (!transport) {
+      throw new Error('pm.sendRequest needs scripts.mode: sandbox.');
+    }
+    if (budget <= 0) {
+      throw new Error(`pm.sendRequest: at most ${MAX_SEND_REQUESTS} requests per run.`);
+    }
+    budget--;
+    const call = transport(normalizeRequest(input)).then(
+      (raw) => {
+        const response = scriptResponse(raw);
+        if (callback) {
+          try {
+            callback(null, response);
+          } catch (e) {
+            asyncError ??= e;
+          }
+        }
+
+        return response;
+      },
+      (error: unknown) => {
+        if (callback) {
+          try {
+            callback(error instanceof Error ? error : new Error(String(error)), null);
+          } catch (e) {
+            asyncError ??= e;
+          }
+        }
+        throw error;
+      },
+    );
+    pending.add(call.catch(() => undefined));
+
+    return call;
+  };
+
   const logs: string[] = [];
   let seen = 0;
   let failure: { error: string; label: string } | null = null;
@@ -100,6 +211,14 @@ export function executeRun(message: RunMessage): ResultMessage {
     }
     try {
       runScript(script.code, ctx.pm);
+      while (pending.size) {
+        const waiting = [...pending];
+        pending.clear();
+        await Promise.all(waiting);
+      }
+      if (asyncError !== null) {
+        throw asyncError;
+      }
     } catch (e) {
       failure = { error: e instanceof Error ? e.message : String(e), label: script.label };
     }
@@ -147,6 +266,7 @@ export function runInSandbox(
   state: SandboxState,
   runTests: boolean,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  sendRequest?: SendTransport,
 ): Promise<ResultMessage> {
   return new Promise<ResultMessage>((resolve, reject) => {
     const frame = document.createElement('iframe');
@@ -158,6 +278,7 @@ export function runInSandbox(
     frame.className = 'as-script-sandbox';
     const nonce = newNonce();
     let settled = false;
+    let sent = 0;
 
     const finish = (): void => {
       settled = true;
@@ -177,6 +298,26 @@ export function runInSandbox(
       if (data.kind === 'ready') {
         const run: RunMessage = { v: 1, kind: 'run', nonce, scripts, state, runTests };
         frame.contentWindow?.postMessage(run, '*');
+
+        return;
+      }
+      if (data.kind === 'sendRequest' && data.nonce === nonce) {
+        const ask = data as unknown as Partial<SendRequestMessage>;
+        const id = typeof ask.id === 'number' ? ask.id : -1;
+        const reply = (answer: Omit<SendResultMessage, 'v' | 'kind' | 'nonce' | 'id'>): void => {
+          if (!settled) {
+            frame.contentWindow?.postMessage({ v: 1, kind: 'sendResult', nonce, id, ...answer }, '*');
+          }
+        };
+        if (!sendRequest || ++sent > MAX_SEND_REQUESTS || typeof ask.request !== 'object' || ask.request === null) {
+          reply({ error: 'pm.sendRequest is not available.' });
+
+          return;
+        }
+        sendRequest(normalizeRequest(ask.request)).then(
+          (response) => reply({ response }),
+          (error: unknown) => reply({ error: error instanceof Error ? error.message : String(error) }),
+        );
 
         return;
       }
