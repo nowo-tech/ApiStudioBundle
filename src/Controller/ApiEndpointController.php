@@ -7,19 +7,24 @@ namespace Nowo\ApiStudioBundle\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiEndpointFormType;
+use Nowo\ApiStudioBundle\Form\ApiFolderFormType;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
+use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\EndpointTesterFormFactory;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
+use Nowo\ApiStudioBundle\Service\FolderInheritanceResolver;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -32,6 +37,8 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use function is_array;
 use function is_string;
 use function mb_strlen;
+use function strcmp;
+use function usort;
 
 #[Route(path: '/workspaces/{workspaceId}/services/{serviceId}/endpoints', name: 'nowo_api_studio_endpoint_')]
 final class ApiEndpointController extends AbstractController
@@ -51,6 +58,9 @@ final class ApiEndpointController extends AbstractController
         private readonly EnvironmentContextBuilder $environmentContextBuilder,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly ?EndpointTesterFormFactory $testerFormFactory = null,
+        private readonly ?ApiFolderRepository $folderRepository = null,
+        private readonly ?FolderAccess $folderAccess = null,
+        private readonly bool $foldersEnabled = false,
     ) {
     }
 
@@ -60,7 +70,10 @@ final class ApiEndpointController extends AbstractController
         $context = $this->requireContext($workspaceId, $serviceId);
 
         return $this->renderPage('@NowoApiStudioBundle/endpoint/index.html.twig', [
-            'page' => $this->pages()->endpointIndex($context['workspace'], $context['service'], $context['service']->getEndpoints()),
+            'page' => $this->pages()->endpointIndex($context['workspace'], $context['service'], array_values(array_filter(
+                $context['service']->getEndpoints()->toArray(),
+                fn (ApiEndpoint $endpoint): bool => !$this->folderAccess instanceof FolderAccess || $this->folderAccess->canEndpoint(ApiStudioAction::WorkspaceView, $endpoint),
+            ))),
         ]);
     }
 
@@ -72,11 +85,15 @@ final class ApiEndpointController extends AbstractController
         // @igor-ignore - HTTP handler delegates to services; no controller worker state.
         $context['service']->addEndpoint($endpoint);
         $this->ensureTranslationLocales($endpoint);
+        $folderId = $request->query->getInt('folder');
+        if ($this->foldersEnabled && $folderId > 0) {
+            $endpoint->setFolder($this->requireFolderOf($folderId, $context['service']));
+        }
 
-        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
+        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']));
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($form->isSubmitted() && $form->isValid() && $this->folderEditable($endpoint)) {
             $this->entityManager->persist($endpoint);
             if ($this->flushUnlessSlugTaken($form)) {
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $endpoint->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
@@ -105,11 +122,9 @@ final class ApiEndpointController extends AbstractController
         $context              = $this->requireContext($workspaceId, $serviceId);
         $endpoint             = $this->requireEndpoint($id, $context['service']);
         $locale               = $this->localeManager->resolveLocale();
+        $auth                 = FolderInheritanceResolver::auth($context['service'], $endpoint);
         $loadRequestExampleId = $request->query->getInt('request_example') ?: null;
-        $mergedHeaders        = array_merge(
-            $context['service']->getDefaultHeaders(),
-            $endpoint->getHeaders(),
-        );
+        $mergedHeaders        = FolderInheritanceResolver::headers($context['service'], $endpoint);
 
         return $this->renderPage('@NowoApiStudioBundle/endpoint/show.html.twig', $context + [
             'page'                  => $this->pages()->endpointShow($context['workspace'], $context['service'], $endpoint),
@@ -123,6 +138,9 @@ final class ApiEndpointController extends AbstractController
             'environmentMaps'       => $this->environmentContextBuilder->buildMaps($context['workspace']),
             'variableCatalog'       => $this->environmentContextBuilder->buildVariableCatalog($context['workspace']),
             'mergedHeaders'         => $mergedHeaders,
+            // 1.14: the auth the endpoint is sent with (nearest folder with an explicit auth, else the service's).
+            'effectiveAuthType'   => $auth['type'],
+            'effectiveAuthFolder' => $auth['folder'],
             // REQ-TWIG-005: client-side tester controls as Symfony Form views (ids kept for api-tester.js).
             'testerForm'         => $this->testerFormFactory()->create($endpoint, $context['service'], $context['workspace']->getEnvironments(), $mergedHeaders),
             'history'            => $this->history($endpoint, $context['workspace']),
@@ -186,7 +204,7 @@ final class ApiEndpointController extends AbstractController
             return new JsonResponse(['error' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $endpoint = $this->requireEndpoint($id, $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit)['service']);
+        $endpoint = $this->requireEndpoint($id, $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit)['service'], ApiStudioAction::WorkspaceEdit);
         $payload  = json_decode($request->getContent(), true);
         if (!is_array($payload)) {
             $payload = [];
@@ -256,12 +274,12 @@ final class ApiEndpointController extends AbstractController
     public function edit(Request $request, int $workspaceId, int $serviceId, int $id): Response
     {
         $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
-        $endpoint = $this->requireEndpoint($id, $context['service']);
+        $endpoint = $this->requireEndpoint($id, $context['service'], ApiStudioAction::WorkspaceEdit);
         $this->ensureTranslationLocales($endpoint);
-        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
+        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']));
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($form->isSubmitted() && $form->isValid() && $this->folderEditable($endpoint)) {
             if ($this->flushUnlessSlugTaken($form)) {
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                 $this->flash('success', 'flash.updated');
@@ -296,7 +314,7 @@ final class ApiEndpointController extends AbstractController
     public function delete(Request $request, int $workspaceId, int $serviceId, int $id): Response
     {
         $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
-        $endpoint = $this->requireEndpoint($id, $context['service']);
+        $endpoint = $this->requireEndpoint($id, $context['service'], ApiStudioAction::WorkspaceEdit);
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
         if (!$this->isCsrfOnlyFormValid($request, 'delete' . $endpoint->getId())) {
@@ -350,14 +368,58 @@ final class ApiEndpointController extends AbstractController
         return ['workspace' => $workspace, 'service' => $service];
     }
 
-    private function requireEndpoint(int $id, ApiService $service): ApiEndpoint
+    private function requireEndpoint(int $id, ApiService $service, ApiStudioAction $action = ApiStudioAction::WorkspaceView): ApiEndpoint
     {
         $endpoint = $this->repository->find($id);
         if (!$endpoint instanceof ApiEndpoint || $endpoint->getService()?->getId() !== $service->getId()) {
             throw $this->createNotFoundException('Endpoint not found.');
         }
 
-        return $endpoint;
+        // 1.14: a host folder checker may hide (404) or lock (403) the endpoint's folder.
+        return $this->folderAccess instanceof FolderAccess ? $this->folderAccess->requireEndpoint($endpoint, $action) : $endpoint;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formOptions(ApiWorkspace $workspace, ApiService $service): array
+    {
+        $options = ['scripts' => $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)];
+        if ($this->foldersEnabled && $this->folderRepository instanceof ApiFolderRepository) {
+            $folders = [];
+            foreach ($this->folderRepository->findByService($service) as $folder) {
+                if (!$this->folderAccess instanceof FolderAccess || $this->folderAccess->can(ApiStudioAction::WorkspaceEdit, $folder)) {
+                    $folders[] = $folder;
+                }
+            }
+            usort($folders, static fn (ApiFolder $a, ApiFolder $b): int => strcmp(ApiFolderFormType::pathLabel($a), ApiFolderFormType::pathLabel($b)));
+            $options['folders'] = $folders;
+        }
+
+        return $options;
+    }
+
+    /**
+     * The folder chosen in the form must be editable for the user (host folder checker).
+     */
+    private function folderEditable(ApiEndpoint $endpoint): bool
+    {
+        $folder = $endpoint->getFolder();
+        if ($folder instanceof ApiFolder && $this->folderAccess instanceof FolderAccess) {
+            $this->folderAccess->requireFolder($folder, ApiStudioAction::WorkspaceEdit);
+        }
+
+        return true;
+    }
+
+    private function requireFolderOf(int $id, ApiService $service): ApiFolder
+    {
+        $folder = $this->folderRepository?->find($id);
+        if (!$folder instanceof ApiFolder || $folder->getService()?->getId() !== $service->getId()) {
+            throw $this->createNotFoundException('Folder not found.');
+        }
+
+        return $this->folderAccess instanceof FolderAccess ? $this->folderAccess->requireFolder($folder, ApiStudioAction::WorkspaceEdit) : $folder;
     }
 
     private function testerFormFactory(): EndpointTesterFormFactory

@@ -1,0 +1,29 @@
+{#
+  Folders of one level of a service tree (1.14, recursive). Variables: folders (nodes: id, name, url (edit page),
+  folders, endpoints), active_ep, movable (drag & drop markup: data-tree-node / data-tree-drop, consumed by
+  api-studio-shell.js). The folder name links to its edit page; the chevron button expands / collapses it.
+#}
+{% set movable = movable|default(false) %}
+{% for folder in folders %}
+    <div class="as-tree-folder is-open"
+         data-tree-folder
+         data-tree-search="{{ folder.name|lower }}"
+         {%- if movable %} data-tree-node="folder" data-tree-id="{{ folder.id }}" data-tree-drop="folder" draggable="true"{% endif %}>
+        <div class="as-tree-folder-label">
+            <button type="button"
+                    class="as-tree-chevron"
+                    data-tree-folder-toggle
+                    aria-expanded="true"
+                    aria-controls="as-tree-folder-{{ folder.id }}"
+                    aria-label="{{ 'sidebar.toggle_folder'|trans({'%name%': folder.name}, 'NowoApiStudioBundle') }}">
+                <span aria-hidden="true">▶</span>
+            </button>
+            <span class="as-tree-folder-icon" aria-hidden="true">▤</span>
+            <a href="{{ folder.url }}" data-testid="api-studio-tree-folder">{{ folder.name }}</a>
+        </div>
+        <div class="as-tree-folder-children" id="as-tree-folder-{{ folder.id }}" data-tree-children>
+            {{ include('@NowoApiStudioBundle/_sidebar_folders.html.twig', {folders: folder.folders, active_ep: active_ep, movable: movable}, false) }}
+            {{ include('@NowoApiStudioBundle/_sidebar_endpoints.html.twig', {svc: folder, active_ep: active_ep, movable: movable}, false) }}
+        </div>
+    </div>
+{% endfor %}

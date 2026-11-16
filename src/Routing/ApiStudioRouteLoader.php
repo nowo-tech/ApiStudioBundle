@@ -27,6 +27,7 @@ final class ApiStudioRouteLoader extends Loader
         'ApiEnvironmentController',
         'EnvironmentVariablesController',
         'ApiEndpointController',
+        'ApiFolderController',
         'EndpointExamplesController',
         'ApiExecuteController',
         'ImportExportController',

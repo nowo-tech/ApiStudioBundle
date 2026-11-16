@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiServiceFormType;
+use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +34,9 @@ final class ApiServiceController extends AbstractController
         private readonly ApiServiceRepository $repository,
         private readonly EntityManagerInterface $entityManager,
         private readonly EnvironmentContextBuilder $environmentContextBuilder,
+        private readonly ?ApiFolderRepository $folderRepository = null,
+        private readonly ?FolderAccess $folderAccess = null,
+        private readonly bool $foldersEnabled = false,
     ) {
     }
 
@@ -85,7 +91,40 @@ final class ApiServiceController extends AbstractController
             'service'         => $service,
             'variableCatalog' => $this->environmentContextBuilder->buildVariableCatalog($workspace),
             'environments'    => $workspace->getEnvironments(),
+            'folders'         => $this->folderList($service),
         ]);
+    }
+
+    /**
+     * 1.14: the service's folders in tree order with their depth (hidden folders left out); null when folders are off.
+     *
+     * @return list<array{folder: ApiFolder, depth: int}>|null
+     */
+    private function folderList(ApiService $service): ?array
+    {
+        if (!$this->foldersEnabled || !$this->folderRepository instanceof ApiFolderRepository) {
+            return null;
+        }
+
+        $children = [];
+        foreach ($this->folderRepository->findByService($service) as $folder) {
+            $children[$folder->getParent()?->getId() ?? 0][] = $folder;
+        }
+
+        $list = [];
+        $walk = function (int $parent, int $depth, array $seen) use (&$walk, &$list, $children): void {
+            foreach ($children[$parent] ?? [] as $folder) {
+                $id = (int) $folder->getId();
+                if (isset($seen[$id]) || ($this->folderAccess instanceof FolderAccess && !$this->folderAccess->can(ApiStudioAction::WorkspaceView, $folder))) {
+                    continue;
+                }
+                $list[] = ['folder' => $folder, 'depth' => $depth];
+                $walk($id, $depth + 1, $seen + [$id => true]);
+            }
+        };
+        $walk(0, 1, []);
+
+        return $list;
     }
 
     #[Route('/{id}/edit', name: 'edit', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]

@@ -1,5 +1,5 @@
 {#
-  API tree (workspaces > services > endpoints > saved requests) from api_studio_nav_tree() (one query). Bundle partial
+  API tree (workspaces > services > [folders >] endpoints > saved requests) from api_studio_nav_tree() (one query). Bundle partial
   meant for overriding (templates/bundles/NowoApiStudioBundle/_sidebar_tree.html.twig).
   Variables: nav_active ({workspace, service, endpoint}: the open branch), bundle.
   The filter is a Symfony Form view rendered without a form element (client-side only: api-studio-shell.js reads
@@ -34,11 +34,24 @@
                 </div>
                 <div class="as-tree-children" id="as-tree-ws-{{ ws.id }}">
                     {% for svc in ws.services %}
-                        <div class="as-tree-svc{% if active_svc == svc.id %} is-active{% endif %}">
+                        {% set _movable = svc.move_url|default(null) is not null %}
+                        <div class="as-tree-svc{% if active_svc == svc.id %} is-active{% endif %}"
+                             {%- if _movable %} data-tree-drop="root"{% endif %}>
                             <span class="as-method as-method-default as-method--compact">{{ svc.protocol|upper }}</span>
                             <a href="{{ svc.url }}">{{ svc.name }}</a>
                         </div>
-                        {{ include('@NowoApiStudioBundle/_sidebar_endpoints.html.twig', {svc: svc, active_ep: active_ep}, false) }}
+                        {% if svc.folders|default([])|length > 0 or _movable %}
+                            {# 1.14 folders: nested folders, then the endpoints of the service root (drag & drop when editable). #}
+                            <div class="as-tree-folders"
+                                 data-tree-service="{{ svc.id }}"
+                                 data-tree-root
+                                 {%- if _movable %} data-tree-move-url="{{ svc.move_url }}" data-tree-csrf="{{ csrf_token('api_studio_tree_move') }}" data-tree-move-error="{{ 'folder.error.move_failed'|trans({}, 'NowoApiStudioBundle') }}"{% endif %}>
+                                {{ include('@NowoApiStudioBundle/_sidebar_folders.html.twig', {folders: svc.folders|default([]), active_ep: active_ep, movable: _movable}, false) }}
+                                {{ include('@NowoApiStudioBundle/_sidebar_endpoints.html.twig', {svc: svc, active_ep: active_ep, movable: _movable}, false) }}
+                            </div>
+                        {% else %}
+                            {{ include('@NowoApiStudioBundle/_sidebar_endpoints.html.twig', {svc: svc, active_ep: active_ep}, false) }}
+                        {% endif %}
                     {% else %}
                         <div class="as-tree-endpoint as-tree-empty">{{ 'empty.services'|trans({}, 'NowoApiStudioBundle') }}</div>
                     {% endfor %}

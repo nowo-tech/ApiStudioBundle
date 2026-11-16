@@ -18,6 +18,7 @@ use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -59,6 +60,7 @@ final class EndpointExamplesController extends AbstractController
         private readonly ApiRequestExampleRepository $requestExampleRepository,
         private readonly ApiResponseExampleRepository $responseExampleRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -234,6 +236,7 @@ final class EndpointExamplesController extends AbstractController
             throw $this->createNotFoundException('Endpoint not found.');
         }
 
-        return $endpoint;
+        // 1.14: a host folder checker may hide (404) or lock (403) the endpoint's folder.
+        return $this->folderAccess instanceof FolderAccess ? $this->folderAccess->requireEndpoint($endpoint, $action) : $endpoint;
     }
 }
