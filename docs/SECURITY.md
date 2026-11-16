@@ -105,6 +105,12 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   the runtime globals from scripts only as a convenience. The sidecar gets a scrubbed environment (no host secret),
   one process per run, killed at the time or output limit and always stopped before `run()` returns. A custom command
   (e.g. Node, whose `--permission` model blocks the network only from Node 25) is the host's responsibility.
+- `require()` (sandbox frame and server runner) returns only the bundled allow-listed libraries (see the CHANGELOG
+  for the list and versions); there is no module loading, file or network access behind it.
+- Secrets never reach scripts: the console hands secret variables as `{{placeholder}}`, `pm.sendRequest` sends
+  placeholders literally, and responses are masked (raw, URL-encoded, JSON-escaped, HTML-escaped, base64 forms)
+  before a post-response script sees them. A secret that the upstream transforms otherwise (hashed, split, encoded in
+  a larger blob) is not recognised.
 - Workspace and folder scripts (sandbox mode only) follow the same rules as service / endpoint scripts: their fields
   are shown and accepted only with `workspace.edit_scripts`, and they run in the same frame as the other levels.
   A Postman import stores `event[]` scripts under the same rule (sandbox mode and `workspace.edit_scripts`), never on

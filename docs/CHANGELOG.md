@@ -107,11 +107,23 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
   sidecar) and `pm.sendRequest` calls (sent through the same guarded sender as the console). The sidecar's environment
   is scrubbed; no process outlives a run. Needs `symfony/process` (suggested).
 - `scripts.limits.send_requests` (default 10): `pm.sendRequest` calls per phase, now also for the sandbox frame.
+- **`require()` allow-list** (sandbox frame and server runner; not in `inline` mode): a closed list bundled into
+  `api-script-sandbox.js` and the runner, never into the console page. Anything else throws. 1.15 list (all MIT):
+  `ajv` 8.20.0, `chai` (the bundle's `pm.expect` subset, `{ expect }`), `crypto-js` 4.2.0 (deprecated upstream, kept
+  for Postman compatibility), `dayjs` 1.11.23 (also as `moment`), `fast-xml-parser` 5.12.1 (`XMLParser`,
+  `XMLBuilder`, `XMLValidator`), `lodash` 4.18.1, `uuid` 14.0.3 (`v4`, `v7`, `validate`, `version`, `NIL`).
 - **Postman `event[]` import** (sandbox mode, for a user with `workspace.edit_scripts`): `prerequest` / `test`
   scripts of the collection, its folders and requests are stored as the pre / post scripts of the service (only a
   service the import creates), the folders (only folders the import creates) and the endpoints. Disabled and empty
   events are skipped; the import reports how many scripts were imported and how many were not (other modes, missing
   right, existing service or folder, other event kinds).
+
+### Security
+
+- Secret values are also masked in their HTML-escaped and base64 / base64url forms (history, execute responses and so
+  what post-response scripts see), on top of the raw, URL-encoded and JSON-escaped forms (spec 003 US5).
+- Tests now prove that no secret value reaches the script context: the sandbox console page carries secret variables
+  only as their `{{placeholder}}` (functional and Playwright), and `pm.sendRequest` sends placeholders literally.
 
 ### Fixed
 

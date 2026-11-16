@@ -6,6 +6,7 @@
  *
  * @packageDocumentation
  */
+import { scriptRequire } from './lib/require';
 import { executeRun, isRunMessage, type ResultMessage, type SandboxHttpResponse, type SendResultMessage } from './lib/sandbox';
 
 type DenoLike = {
@@ -87,7 +88,7 @@ function onLine(line: string): void {
       waiting.set(id, { resolve, reject });
       void write({ v: 1, kind: 'sendRequest', nonce: run.nonce, id, request });
     });
-  })
+  }, scriptRequire)
     .catch((e: unknown): ResultMessage => ({
       v: 1,
       kind: 'result',

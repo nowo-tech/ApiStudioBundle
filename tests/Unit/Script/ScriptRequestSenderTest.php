@@ -33,8 +33,8 @@ final class ScriptRequestSenderTest extends TestCase
         $response = (new ScriptRequestSender($client, new ExecutionUrlValidator([])))->send([
             'url'    => 'https://93.184.215.14/token?x={{secret}}',
             'method' => 'post',
-            'header' => ['X-A' => 'a', 'X-N' => 1],
-            'body'   => '{"a":1}',
+            'header' => ['X-A' => 'a', 'X-N' => 1, 'Authorization' => 'Bearer {{api_key}}'],
+            'body'   => '{"a":1,"k":"{{api_key}}"}',
         ]);
 
         self::assertSame(201, $response['code']);
@@ -43,7 +43,8 @@ final class ScriptRequestSenderTest extends TestCase
         self::assertSame('POST', $calls[0][0]);
         self::assertSame('https://93.184.215.14/token?x={{secret}}', urldecode($calls[0][1]), 'placeholders are never resolved server-side');
         self::assertSame(0, $calls[0][2]['max_redirects']);
-        self::assertSame('{"a":1}', $calls[0][2]['body']);
+        self::assertSame('{"a":1,"k":"{{api_key}}"}', $calls[0][2]['body']);
+        self::assertContains('Authorization: Bearer {{api_key}}', $calls[0][2]['headers'], 'nor in headers (US5)');
     }
 
     /**

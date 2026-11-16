@@ -6,6 +6,7 @@
  *
  * @packageDocumentation
  */
+import { scriptRequire } from './lib/require';
 import { executeRun, isRunMessage, type SandboxHttpResponse, type SendResultMessage } from './lib/sandbox';
 
 const waiting = new Map<number, { resolve: (r: SandboxHttpResponse) => void; reject: (e: Error) => void }>();
@@ -38,7 +39,7 @@ window.addEventListener('message', (event: MessageEvent) => {
       waiting.set(id, { resolve, reject });
       window.parent.postMessage({ v: 1, kind: 'sendRequest', nonce: run.nonce, id, request }, '*');
     });
-  }).then((result) => {
+  }, scriptRequire).then((result) => {
     window.parent.postMessage(result, '*');
   });
 });

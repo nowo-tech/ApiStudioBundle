@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Service\ImportExport\PostmanCollectionImporter;
 use Nowo\ApiStudioBundle\Tests\Functional\App\TestFolderChecker;
 
+use function array_column;
 use function array_fill_keys;
 use function array_map;
 use function is_array;
@@ -243,5 +244,26 @@ final class ScriptLevelsTest extends StudioWebTestCase
         self::assertContains('2 scripts were imported (they run in the sandboxed runner).', $into->messages);
         self::assertContains('3 scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $into->messages);
         self::assertSame($before, $existing->getPreRequestScript());
+    }
+
+    /**
+     * US5 / SC-003: the console page of sandbox mode hands scripts secret variables as their own placeholder only; no
+     * attribute script code can read (environment maps, levels, globals, collection variables) carries the value.
+     */
+    public function testNoSecretValueReachesTheScriptContext(): void
+    {
+        $html   = (string) $this->client->request('GET', $this->endpointUrl())->html();
+        $tester = $this->client->getCrawler()->filter('#api-studio-tester');
+
+        self::assertStringNotContainsString('YOUR_GOOGLE_CLOUD_API_KEY', $html);
+        self::assertStringNotContainsString('YOUR_LINKEDIN_OAUTH2_ACCESS_TOKEN', $html);
+        $maps = json_decode((string) $tester->attr('data-environment-maps'), true);
+        self::assertIsArray($maps);
+        $variables = array_column($maps, 'variables');
+        self::assertNotEmpty($variables);
+        foreach ($variables as $map) {
+            self::assertSame('{{google_api_key}}', $map['google_api_key'] ?? null);
+            self::assertSame('{{linkedin_access_token}}', $map['linkedin_access_token'] ?? null);
+        }
     }
 }

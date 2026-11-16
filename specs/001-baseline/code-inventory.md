@@ -231,6 +231,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/expect.ts` | chai BDD subset of `pm.expect` (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
+| `Resources/assets/src/lib/require.ts` | Closed `require()` library allow-list, frame and runner only (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/api-script-runner.ts` | Server runner sidecar entry, Deno / Node, line protocol (1.15) | FR-SCR-005 (spec 003) |
 | `Resources/runner/api-script-runner.js` | Built server runner sidecar (1.15) | FR-SCR-005 (spec 003) |
 | `Resources/assets/src/api-script-sandbox.ts` | Frame runtime of `scripts.mode: sandbox` (1.15) | FR-SCR-002 (spec 003) |

@@ -7,7 +7,9 @@ namespace Nowo\ApiStudioBundle\Service;
 use function array_map;
 use function array_unique;
 use function array_values;
+use function base64_encode;
 use function explode;
+use function htmlspecialchars;
 use function implode;
 use function in_array;
 use function is_string;
@@ -15,15 +17,20 @@ use function json_encode;
 use function preg_match;
 use function preg_replace;
 use function rawurlencode;
+use function rtrim;
 use function str_replace;
 use function strlen;
 use function strpos;
 use function strtolower;
+use function strtr;
 use function substr;
 use function trim;
 use function urldecode;
 use function urlencode;
 
+use const ENT_HTML401;
+use const ENT_HTML5;
+use const ENT_QUOTES;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
@@ -143,7 +150,7 @@ final class HistorySanitizer
     }
 
     /**
-     * Masks only the given secret values (raw, URL-encoded and JSON-escaped forms), nothing else (1.12.4: error
+     * Masks only the given secret values (raw, URL-encoded, JSON-escaped, HTML-escaped and base64 forms), nothing else (1.12.4: error
      * messages, which may quote the request URL; 1.13: log records that may carry a resolved host secret).
      *
      * @param list<string> $secretValues
@@ -170,7 +177,14 @@ final class HistorySanitizer
                 continue;
             }
 
-            $forms = [$secret, rawurlencode($secret), urlencode($secret), self::uriComponentForm($secret)];
+            // 1.15 (spec 003 US5): HTML-escaped and base64 forms too (a response echoing the secret in a page or an
+            // encoded token), so neither the history nor a post-response script sees them.
+            $base64 = base64_encode($secret);
+            $forms  = [
+                $secret, rawurlencode($secret), urlencode($secret), self::uriComponentForm($secret),
+                htmlspecialchars($secret, ENT_QUOTES | ENT_HTML5), htmlspecialchars($secret, ENT_QUOTES | ENT_HTML401),
+                $base64, rtrim($base64, '='), rtrim(strtr($base64, '+/', '-_'), '='),
+            ];
             foreach ([JSON_UNESCAPED_UNICODE, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES] as $flags) {
                 $json = json_encode($secret, $flags);
                 if (is_string($json)) {

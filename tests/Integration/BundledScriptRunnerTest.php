@@ -49,6 +49,7 @@ final class BundledScriptRunnerTest extends TestCase
             pm.globals.set('seen', json.items.length);
             pm.console.log(typeof process, typeof Deno, typeof require, pm.variables.get('host'));
             pm.sendRequest('https://93.184.215.14/more', (err, res) => pm.environment.set('more', res.json().items.length));
+            pm.environment.set('sum', require('lodash').sum(json.items));
             JS;
         $result = $this->runner->run(new ScriptRunRequest(
             scripts: [new ScriptSource('post-request', $post)],
@@ -57,13 +58,15 @@ final class BundledScriptRunnerTest extends TestCase
             responseBody: '{"items":[1,2,3]}',
             globals: ['host' => 'example.org'],
             runTests: true,
+            limits: new ScriptRunLimits(timeMs: 15_000),
         ));
 
         self::assertSame(ScriptRunStatus::Completed, $result->status, (string) $result->error);
-        self::assertSame(['[post-request] undefined undefined undefined example.org'], $result->logs);
+        self::assertSame(['[post-request] undefined undefined function example.org'], $result->logs);
         self::assertEquals([new ScriptTestResult('three items', true), new ScriptTestResult('fails', false, 'Expected 500 but got 200')], $result->tests);
         self::assertSame(['seen' => '3'], $result->globalChanges);
         self::assertSame('3', $result->variables['more']);
+        self::assertSame('6', $result->variables['sum']);
         self::assertSame('{{token}}', $result->variables['token']);
     }
 
@@ -76,7 +79,7 @@ final class BundledScriptRunnerTest extends TestCase
 
     public function testAThrowingScriptFailsWithItsLabel(): void
     {
-        $result = $this->runner->run(new ScriptRunRequest(scripts: [new ScriptSource('folder A pre', 'pm.console.log(1); null.x')]));
+        $result = $this->runner->run(new ScriptRunRequest(scripts: [new ScriptSource('folder A pre', 'pm.console.log(1); null.x')], limits: new ScriptRunLimits(timeMs: 15_000)));
 
         self::assertSame(ScriptRunStatus::Failed, $result->status);
         self::assertSame('folder A pre', $result->failedScript);

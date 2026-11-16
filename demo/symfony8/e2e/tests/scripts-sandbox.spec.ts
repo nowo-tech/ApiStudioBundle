@@ -12,7 +12,10 @@ try { r.push('parent:' + parent.document.title); } catch (e) { r.push('parent:bl
 try { r.push('top:' + top.location.href); } catch (e) { r.push('top:blocked'); }
 try { r.push('storage:' + localStorage.length); } catch (e) { r.push('storage:blocked'); }
 try { const x = new XMLHttpRequest(); x.open('GET', '/api-studio/', false); x.send(); r.push('xhr:' + x.status); } catch (e) { r.push('xhr:blocked'); }
+try { require('fs'); r.push('fs:open'); } catch (e) { r.push('fs:blocked'); }
 pm.console.log(r.join(','));
+pm.console.log('lib:' + require('lodash').chunk([1, 2, 3], 2).length);
+pm.console.log('env:' + JSON.stringify(pm.environment.toObject()));
 pm.request.setHeader('X-Sandboxed', 'yes');
 pm.sendRequest('http://127.0.0.1/', (err) => pm.console.log('send-private:' + (err ? 'blocked' : 'open')));
 `;
@@ -39,7 +42,12 @@ test.describe('Sandboxed scripts', () => {
       const payload = JSON.parse((await sent).postData() ?? '{}') as { headers?: Record<string, string> };
 
       expect(payload.headers?.['X-Sandboxed']).toBe('yes');
-      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked');
+      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked,fs:blocked');
+      await expect(page.locator('#tester-script-log')).toContainText('lib:2');
+      // Secret variables reach scripts as their own placeholder, never the value (US5).
+      const log = (await page.locator('#tester-script-log').textContent()) ?? '';
+      expect(log).toContain('"google_api_key":"{{google_api_key}}"');
+      expect(log).not.toContain('YOUR_GOOGLE_CLOUD_API_KEY');
       // pm.sendRequest goes through the server guards: a private address is refused.
       await expect(page.locator('#tester-script-log')).toContainText('send-private:blocked');
       await expect(page.locator('dialog#tester-scripts-confirm-modal')).toHaveCount(0);

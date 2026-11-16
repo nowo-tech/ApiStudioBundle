@@ -190,7 +190,7 @@ export function scriptResponse(r: SandboxHttpResponse) {
  * one's `pm.sendRequest` work (callbacks included) finished before the next starts; stops at the first error (like the
  * inline runner) and returns the new state. Without a transport, `pm.sendRequest` throws.
  */
-export async function executeRun(message: RunMessage, transport?: SendTransport): Promise<ResultMessage> {
+export async function executeRun(message: RunMessage, transport?: SendTransport, requireFn?: (name: unknown) => unknown): Promise<ResultMessage> {
   const st = message.state;
   const ctx = createPm({
     baseVariables: st.variables,
@@ -256,7 +256,7 @@ export async function executeRun(message: RunMessage, transport?: SendTransport)
       continue;
     }
     try {
-      runScript(script.code, ctx.pm);
+      runScript(script.code, ctx.pm, requireFn);
       while (pending.size) {
         const waiting = [...pending];
         pending.clear();

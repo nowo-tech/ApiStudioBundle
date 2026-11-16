@@ -169,15 +169,21 @@ export function createPm(options: PmCreateOptions): ScriptContext {
   };
 }
 
-export function runScript(code: string, pm: PmApi): void {
+/** `require()` outside the sandbox frame and the server runner: no library is bundled there. */
+function noRequire(name: unknown): never {
+  throw new Error(`require('${String(name)}') needs scripts.mode: sandbox (or the server runner).`);
+}
+
+export function runScript(code: string, pm: PmApi, requireFn: (name: unknown) => unknown = noRequire): void {
   if (!code || !String(code).trim()) {
     return;
   }
 
-  const runner = new Function('pm', 'console', String(code)) as (
+  const runner = new Function('pm', 'console', 'require', String(code)) as (
     pm: PmApi,
     console: PmApi['console'],
+    require: (name: unknown) => unknown,
   ) => void;
-  runner(pm, pm.console);
+  runner(pm, pm.console, requireFn);
 }
 
