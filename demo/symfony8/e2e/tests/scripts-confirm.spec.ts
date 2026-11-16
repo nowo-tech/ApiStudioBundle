@@ -51,7 +51,8 @@ test.describe('Stored script confirmation', () => {
     await send(page);
     const dialog = page.locator('dialog#tester-scripts-confirm-modal');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('pre')).toContainText(MARKER);
+    await expect(dialog.locator('pre.as-script-confirm-code')).toContainText(MARKER);
+    await expect(dialog.locator('[data-script-stats="pre-request"]')).toContainText('1');
     expect(executed).toBe(0);
 
     await sent(page, () => dialog.locator('#tester-scripts-confirm-skip').click());
@@ -80,6 +81,18 @@ test.describe('Stored script confirmation', () => {
     await send(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('pre')).toContainText(`${MARKER}-CHANGED`);
+    await dialog.locator('[data-nowo-ui-dialog-close]').first().click();
+    await expect(dialog).toBeHidden();
+  });
+
+  test('shows hidden characters of a stored script as code points', async ({ page }) => {
+    await setStoredPreScript(page, consoleUrl, `pm.console.log('${MARKER}')/*\u202E*/`);
+    const dialog = page.locator('dialog#tester-scripts-confirm-modal');
+
+    await send(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('pre.as-script-confirm-code')).toContainText('⟨U+202E⟩');
+    await expect(dialog.locator('[data-script-warning="hidden"]')).toBeVisible();
     await dialog.locator('[data-nowo-ui-dialog-close]').first().click();
     await expect(dialog).toBeHidden();
   });

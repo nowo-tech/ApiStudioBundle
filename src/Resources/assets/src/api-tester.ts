@@ -14,7 +14,16 @@ import {
   resolveTemplate,
   truncateSnippet,
 } from './lib/utils';
-import { isStoredField, pendingScripts, rememberApprovals, type PendingScript, type StoredScript } from './lib/script-approval';
+import {
+  hasDynamicCode,
+  isStoredField,
+  pendingScripts,
+  rememberApprovals,
+  revealHiddenCharacters,
+  scriptStats,
+  type PendingScript,
+  type StoredScript,
+} from './lib/script-approval';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -392,17 +401,46 @@ function confirmStoredScripts(pending: PendingScript[]): Promise<ScriptDecision>
     return Promise.resolve('skip');
   }
 
+  // RC-M1: the whole code, wrapped (no scroll box), with its size, and every invisible or direction-changing
+  // character shown as ⟨U+XXXX⟩, so nothing can hide after blank lines, far right or behind bidi characters.
+  const i18n = dialog.dataset;
   list.replaceChildren();
   pending.forEach((script) => {
+    const stats = scriptStats(script.code);
+    const revealed = revealHiddenCharacters(script.code);
     const heading = document.createElement('p');
     const strong = document.createElement('strong');
     strong.textContent = script.label;
-    heading.appendChild(strong);
+    const size = document.createElement('span');
+    size.className = 'as-script-confirm-stats';
+    size.dataset.scriptStats = script.label;
+    size.textContent = ` · ${(i18n.i18nStats || '%lines% lines · %chars% characters')
+      .replace('%lines%', String(stats.lines))
+      .replace('%chars%', String(stats.chars))}`;
+    heading.append(strong, size);
+    list.appendChild(heading);
+    if (revealed.hidden > 0) {
+      const warning = document.createElement('p');
+      warning.className = 'as-script-confirm-warning';
+      warning.dataset.scriptWarning = 'hidden';
+      warning.textContent = (i18n.i18nHidden || '%count% hidden or direction-changing characters are shown as ⟨U+…⟩.').replace(
+        '%count%',
+        String(revealed.hidden),
+      );
+      list.appendChild(warning);
+    }
+    if (hasDynamicCode(script.code)) {
+      const warning = document.createElement('p');
+      warning.className = 'as-script-confirm-warning';
+      warning.dataset.scriptWarning = 'dynamic';
+      warning.textContent = i18n.i18nDynamic || 'This script builds and runs code at run time (eval, Function or import()).';
+      list.appendChild(warning);
+    }
     const code = document.createElement('pre');
-    code.className = 'as-script-readonly';
+    code.className = 'as-script-confirm-code';
     code.dataset.scriptLabel = script.label;
-    code.textContent = script.code;
-    list.append(heading, code);
+    code.textContent = revealed.text;
+    list.appendChild(code);
   });
 
   return new Promise<ScriptDecision>((resolve) => {
@@ -1068,33 +1106,54 @@ document.addEventListener('DOMContentLoaded', () => {
   // Only an explicit data-scripts-confirm="0" turns it off: an override that predates the attribute still asks.
   const confirmStored = Boolean(RT) && root.dataset.scriptsConfirm !== '0';
 
-  /** Stored scripts of this send: service scripts, and endpoint fields that held server code when the page loaded. */
-  const storedScripts = (): StoredScript[] => {
+  /**
+   * Stored scripts of this send (service scripts, and endpoint fields that held server code when the page loaded),
+   * from the snapshot taken when Send was clicked: what is hashed and approved is exactly what runs (RC-L2).
+   */
+  const storedScripts = (snapshot: { pre: string; post: string }): StoredScript[] => {
     const scripts: StoredScript[] = [
       { label: 'service pre', code: servicePre },
       { label: 'service post', code: servicePost },
     ];
     if (isStoredField(preScriptField)) {
-      scripts.push({ label: 'pre-request', code: preScriptField?.value ?? '' });
+      scripts.push({ label: 'pre-request', code: snapshot.pre });
     }
     if (isStoredField(postScriptField)) {
-      scripts.push({ label: 'post-request', code: postScriptField?.value ?? '' });
+      scripts.push({ label: 'post-request', code: snapshot.post });
     }
 
     return scripts;
   };
 
+  // RC-L1: one send at a time; the button is disabled before the first await.
+  let sending = false;
+
   sendButton.addEventListener('click', async () => {
+    if (sending) {
+      return;
+    }
+    sending = true;
+    sendButton.disabled = true;
+    const snapshot = { pre: preScriptField?.value ?? '', post: postScriptField?.value ?? '' };
+
     let scriptsEnabled = Boolean(RT);
     if (confirmStored) {
-      const pending = await pendingScripts(storedScripts());
-      if (pending.length) {
-        const decision = await confirmStoredScripts(pending);
-        if (decision === 'cancel') {
-          return;
+      let decision: 'run' | 'skip' | 'cancel' = 'run';
+      try {
+        const pending = await pendingScripts(storedScripts(snapshot));
+        if (pending.length) {
+          decision = await confirmStoredScripts(pending);
         }
-        scriptsEnabled = decision === 'run';
+      } catch {
+        decision = 'cancel';
       }
+      if (decision === 'cancel') {
+        sending = false;
+        sendButton.disabled = false;
+
+        return;
+      }
+      scriptsEnabled = decision === 'run';
     }
 
     sendButton.disabled = true;
@@ -1116,6 +1175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (bodyTools && !bodyTools.validateBeforeSend()) {
+      sending = false;
       sendButton.disabled = false;
       sendButton.textContent = sendLabel;
       statusEl.textContent = 'Invalid body';
@@ -1142,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
       runScripts(
         [
           { code: servicePre, label: 'service pre' },
-          { code: preScriptField?.value ?? '', label: 'pre-request' },
+          { code: snapshot.pre, label: 'pre-request' },
         ],
         scriptCtx,
         scriptsEnabled,
@@ -1187,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       runScripts(
         [
-          { code: postScriptField?.value ?? '', label: 'post-request' },
+          { code: snapshot.post, label: 'post-request' },
           { code: servicePost, label: 'service post' },
         ],
         scriptCtx,
@@ -1240,6 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
       responseEl.textContent = error instanceof Error ? error.message : String(error);
       appendScriptLog([`ERROR: ${error instanceof Error ? error.message : String(error)}`]);
     } finally {
+      sending = false;
       sendButton.disabled = false;
       sendButton.textContent = sendLabel;
     }

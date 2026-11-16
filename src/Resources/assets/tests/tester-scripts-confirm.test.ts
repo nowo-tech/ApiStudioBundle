@@ -179,4 +179,75 @@ describe('api-tester stored script confirmation (scripts.confirm_stored)', () =>
     expect(dialog().open).toBe(false);
     expect(log()).toContain('[service pre] STORED-RAN');
   });
+
+  it('shows padded and long scripts whole, with their size (RC-M1)', async () => {
+    const padded = "pm.console.log('ok')" + '&#10;'.repeat(120) + "pm.console.log('PAYLOAD')";
+    const long = 'pm.console.log(1);' + ' '.repeat(3000) + "pm.console.log('FAR-RIGHT')";
+    await boot(markup({ servicePre: padded, endpointPre: long }));
+    await send();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+
+    const shown = [...document.querySelectorAll<HTMLElement>('#tester-scripts-confirm-list pre')];
+    expect(shown).toHaveLength(2);
+    shown.forEach((pre) => {
+      expect(pre.className).toBe('as-script-confirm-code');
+      expect(pre.classList.contains('as-script-readonly')).toBe(false);
+    });
+    expect(shown[0]!.textContent).toContain('PAYLOAD');
+    expect(shown[1]!.textContent).toContain('FAR-RIGHT');
+    expect(document.querySelector('[data-script-stats="service pre"]')!.textContent).toContain('121 lines');
+    expect(document.querySelector('[data-script-stats="pre-request"]')!.textContent).toMatch(/1 lines · 3045 characters/);
+  });
+
+  it('shows bidi and invisible characters as code points with a warning (RC-M1)', async () => {
+    await boot(markup({ servicePre: "pm.console.log('a')/*&#x202E;*/;evil()&#x200B;" }));
+    await send();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+
+    const pre = document.querySelector('#tester-scripts-confirm-list pre')!;
+    expect(pre.textContent).toContain('⟨U+202E⟩');
+    expect(pre.textContent).toContain('⟨U+200B⟩');
+    expect(pre.textContent).not.toMatch(/[\u202E\u200B]/);
+    expect(document.querySelector('[data-script-warning="hidden"]')!.textContent).toContain('2');
+  });
+
+  it('warns about code built at run time (RC-I2)', async () => {
+    await boot(markup({ servicePre: 'eval(pm.response.text())' }));
+    await send();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+
+    expect(document.querySelector('[data-script-warning="dynamic"]')).not.toBeNull();
+  });
+
+  it('sends once on a double click and re-enables Send after a cancel (RC-L1)', async () => {
+    const fetchMock = await boot(markup({ servicePre: "pm.console.log('STORED-RAN')" }));
+    const button = document.getElementById('tester-send') as HTMLButtonElement;
+    button.click();
+    button.click();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+    expect(button.disabled).toBe(true);
+    expect(document.querySelectorAll('#tester-scripts-confirm-list pre')).toHaveLength(1);
+
+    dialog().close();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    button.click();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+    document.getElementById('tester-scripts-confirm-skip')!.click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+  });
+
+  it('runs the approved snapshot, not code changed while the dialog was open (RC-L2)', async () => {
+    const fetchMock = await boot(markup({ endpointPre: "pm.console.log('APPROVED')" }));
+    await send();
+    await vi.waitFor(() => expect(dialog().open).toBe(true));
+    (document.getElementById('tester-pre-script') as HTMLTextAreaElement).value = "pm.console.log('SWAPPED')";
+    document.getElementById('tester-scripts-confirm-run')!.click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(log()).toContain('[pre-request] APPROVED');
+    expect(log()).not.toContain('SWAPPED');
+  });
 });

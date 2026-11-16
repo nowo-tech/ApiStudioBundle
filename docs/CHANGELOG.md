@@ -69,7 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with that user's session. The console now shows the code of the stored scripts this browser session has not
   approved and asks to run them, send the request without scripts, or cancel. An approval is kept in
   `sessionStorage` per SHA-256 of the code, so any change asks again; code the user typed in an empty script field is
-  not asked. `scripts.confirm_stored: false` restores the previous behaviour. `scripts.mode: disabled` is unchanged.
+  not asked. The dialog shows each script whole, with its line and character count, makes invisible and
+  direction-changing characters visible, and flags code built at run time. Send is disabled while a request or the
+  dialog is pending, and the approved code is the code that runs. `scripts.confirm_stored: false` restores the
+  previous behaviour. `scripts.mode: disabled` is unchanged.
 
 ### Changed
 

@@ -87,8 +87,12 @@ From **1.13.1**: no migration. `nowo_api_studio.scripts.confirm_stored` is new a
 session has not approved (dialog `#tester-scripts-confirm-modal` in `endpoint/show.html.twig`, filled by
 `api-tester.js`). A host that overrides `endpoint/show.html.twig` should keep that dialog (`nowo_ui_modals` block) and
 the `data-scripts-confirm` attribute of `#api-studio-tester` (only `"0"` turns the confirmation off; a missing
-attribute asks). Without the dialog, stored scripts are not run and the request is sent without scripts. Set `scripts.confirm_stored: false` to keep the 1.13.1 behaviour. Browser end-to-end
-tests that send requests from endpoints with stored scripts must answer the dialog.
+attribute asks). Without the dialog, stored scripts are not run and the request is sent without scripts. Set `scripts.confirm_stored: false` to keep the 1.13.1 behaviour; with an overriding `endpoint/show.html.twig` that does
+not render `data-scripts-confirm`, that option has no effect and the console keeps asking (fail-safe) until the
+override renders the attribute. Browser end-to-end
+tests that send requests from endpoints with stored scripts must answer the dialog. The dialog shows each script whole
+(wrapped, with its line and character count) and shows invisible or direction-changing characters as `⟨U+XXXX⟩`; an
+override of its markup should keep `#tester-scripts-confirm-list`.
 
 ## To 1.13.1
 

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   APPROVAL_STORAGE_KEY,
   MAX_APPROVALS,
+  hasDynamicCode,
   isStoredField,
   loadApprovals,
   pendingScripts,
   rememberApprovals,
+  revealHiddenCharacters,
+  scriptStats,
   sha256Hex,
 } from '../src/lib/script-approval';
 
@@ -118,5 +121,37 @@ describe('script approval (scripts.confirm_stored)', () => {
     rememberApprovals(['c'.repeat(64)]);
     expect(loadApprovals()).toEqual(['c'.repeat(64)]);
     window.sessionStorage.removeItem(APPROVAL_STORAGE_KEY);
+  });
+
+  it('reveals bidi, zero-width and control characters (RC-M1)', () => {
+    const code = "const ok = 1; /*\u202E*/ steal()\u200B;\u2066x\u2069\uFEFF\u0007\u0085";
+    const revealed = revealHiddenCharacters(code);
+    expect(revealed.hidden).toBe(7);
+    expect(revealed.text).toContain('⟨U+202E⟩');
+    expect(revealed.text).toContain('⟨U+200B⟩');
+    expect(revealed.text).toContain('⟨U+2066⟩');
+    expect(revealed.text).toContain('⟨U+2069⟩');
+    expect(revealed.text).toContain('⟨U+FEFF⟩');
+    expect(revealed.text).toContain('⟨U+0007⟩');
+    expect(revealed.text).toContain('⟨U+0085⟩');
+  });
+
+  it('keeps line feeds, tabs and CRLF line ends but flags a lone carriage return', () => {
+    expect(revealHiddenCharacters('a\n\tb\r\nc')).toEqual({ text: 'a\n\tb\r\nc', hidden: 0 });
+    expect(revealHiddenCharacters('visible\rhidden').hidden).toBe(1);
+  });
+
+  it('counts lines and characters so padding is visible', () => {
+    expect(scriptStats('')).toEqual({ lines: 0, chars: 0 });
+    expect(scriptStats('a\r\nb\nc')).toEqual({ lines: 3, chars: 6 });
+    expect(scriptStats('x' + '\n'.repeat(200) + 'steal()').lines).toBe(201);
+    expect(scriptStats('😀').chars).toBe(1);
+  });
+
+  it('flags code built at run time', () => {
+    expect(hasDynamicCode('eval(x)')).toBe(true);
+    expect(hasDynamicCode('new Function ("a")')).toBe(true);
+    expect(hasDynamicCode('await import("x")')).toBe(true);
+    expect(hasDynamicCode('pm.environment.set("evaluation", 1)')).toBe(false);
   });
 });

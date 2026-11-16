@@ -120,3 +120,42 @@ export async function pendingScripts(scripts: StoredScript[], storage?: Storage 
 export function isStoredField(field: HTMLTextAreaElement | null): boolean {
   return Boolean(field && field.defaultValue.trim() !== '');
 }
+
+/**
+ * Characters that hide or reorder code on screen (RC-M1): zero-width and direction marks (U+200B–U+200F), bidi
+ * embeddings / overrides (U+202A–U+202E) and isolates (U+2066–U+2069), the BOM (U+FEFF), and C0 / C1 controls other
+ * than line feed and tab (a carriage return is only allowed right before a line feed: textareas submit CRLF).
+ */
+const HIDDEN_CHARACTERS = /[​-‏‪-‮⁦-⁩﻿\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]|\r(?!\n)/g;
+
+/**
+ * The code with every hidden character replaced by a visible `⟨U+XXXX⟩` marker, and how many there were.
+ */
+export function revealHiddenCharacters(code: string): { text: string; hidden: number } {
+  let hidden = 0;
+  const text = code.replace(HIDDEN_CHARACTERS, (char) => {
+    hidden++;
+
+    return `⟨U+${char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}⟩`;
+  });
+
+  return { text, hidden };
+}
+
+/**
+ * Lines and characters (code points) of a script, shown next to it so long padding cannot go unnoticed.
+ */
+export function scriptStats(code: string): { lines: number; chars: number } {
+  return {
+    lines: code === '' ? 0 : code.split(/\r\n|\n|\r/).length,
+    chars: Array.from(code).length,
+  };
+}
+
+/**
+ * Whether the code builds and runs more code at run time (`eval(`, `Function(`, `import(`): what it runs then is not
+ * all visible in the dialog (RC-I2).
+ */
+export function hasDynamicCode(code: string): boolean {
+  return /\beval\s*\(|\bFunction\s*\(|\bimport\s*\(/.test(code);
+}
