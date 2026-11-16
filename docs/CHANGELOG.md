@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.13.2] - 2026-11-16](#1132---2026-11-16)
 - [[1.13.1] - 2026-11-15](#1131---2026-11-15)
 - [[1.13.0] - 2026-11-15](#1130---2026-11-15)
 - [[1.12.4] - 2026-11-15](#1124---2026-11-15)
@@ -62,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.2] - 2026-11-16
+
 ### Security
 
 - **Stored scripts are confirmed before they run (`scripts.confirm_stored`, default `true`).** Pre / post request
@@ -78,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `scripts.mode` configuration help no longer announces a sandboxed runner for 1.13; it is planned on the roadmap
   (spec 003). `docs/SECURITY.md` describes the confirmation and the remaining residual risk.
+
+[1.13.2]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.13.2
 
 ## [1.13.1] - 2026-11-15
 
