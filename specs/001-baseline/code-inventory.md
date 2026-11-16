@@ -220,6 +220,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/lib/utils.ts` | Shared DOM/HTTP utilities | FR-UI-001 |
 | `Resources/assets/src/lib/script-approval.ts` | Stored-script approval (`scripts.confirm_stored`, SHA-256 per session) | FR-UI-001 |
 | `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
+| `Resources/assets/src/lib/expect.ts` | chai BDD subset of `pm.expect` (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
 | `Resources/assets/src/api-script-sandbox.ts` | Frame runtime of `scripts.mode: sandbox` (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/assets/src/types/global.d.ts` | Window/global type declarations | FR-UI-001 |

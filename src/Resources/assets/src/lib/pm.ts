@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import { expect } from './expect';
 import type { PmApi, PmCreateOptions, ScriptContext, StringMap } from '../types/global';
 
 export function createPm(options: PmCreateOptions): ScriptContext {
@@ -81,17 +82,7 @@ export function createPm(options: PmCreateOptions): ScriptContext {
     test(name, fn) {
       tests.push({ name, fn });
     },
-    expect(value) {
-      return {
-        to: {
-          equal(expected: unknown) {
-            if (value !== expected) {
-              throw new Error(`Expected ${String(expected)} but got ${String(value)}`);
-            }
-          },
-        },
-      };
-    },
+    expect,
     console: {
       log(...args: unknown[]) {
         logs.push(args.map(String).join(' '));

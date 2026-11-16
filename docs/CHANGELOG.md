@@ -76,6 +76,9 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
 - `scripts.limits.time_ms` (default 2000): wall time of one sandboxed phase; the frame is removed when it is reached
   and the request fails (pre) or the post scripts are reported as failed.
 - `api-script-sandbox.js` (frame runtime) and the shared `pm` facade module.
+- `pm.expect` is a chai BDD subset (chains, `not`, `equal`, `eql`, `true` / `false` / `null` / `undefined` / `ok` /
+  `empty`, `a`, `include`, `property`, `lengthOf`, `above` / `below` / `least` / `most`, `oneOf`, `match`), in both
+  modes; `expect(x).to.equal(y)` and its message are unchanged.
 
 ### Fixed
 

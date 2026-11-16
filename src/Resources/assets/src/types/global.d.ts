@@ -46,7 +46,8 @@ export type PmApi = {
   request: PmRequestApi;
   response: PmResponseApi;
   test: (name: string, fn: () => void) => void;
-  expect: (value: unknown) => { to: { equal: (expected: unknown) => void } };
+  /** chai BDD subset (1.15, lib/expect.ts). */
+  expect: (value: unknown) => Record<string, unknown>;
   console: { log: (...args: unknown[]) => void };
 };
 
