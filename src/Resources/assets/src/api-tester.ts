@@ -24,7 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
-import { DEFAULT_TIMEOUT_MS, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
+import { DEFAULT_TIMEOUT_MS, parseLevelScripts, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -1136,6 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendLabel = sendButton.textContent?.trim() ?? 'Send';
   const servicePre = root.dataset.servicePreScript ?? '';
   const servicePost = root.dataset.servicePostScript ?? '';
+  const levels = parseLevelScripts(root.dataset.levelScripts);
   // Only an explicit data-scripts-confirm="0" turns it off: an override that predates the attribute still asks.
   // 1.15: scripts.mode sandbox runs every script in an opaque-origin frame (no confirmation needed: scripts cannot
   // reach the page, the session or the network).
@@ -1264,7 +1265,9 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await executeScripts(
         [
+          { code: levels.workspace.pre, label: 'workspace pre' },
           { code: servicePre, label: 'service pre' },
+          ...levels.folders.map((f) => ({ code: f.pre, label: `folder ${f.name} pre` })),
           { code: snapshot.pre, label: 'pre-request' },
         ],
         scriptCtx,
@@ -1313,7 +1316,12 @@ document.addEventListener('DOMContentLoaded', () => {
       await executeScripts(
         [
           { code: snapshot.post, label: 'post-request' },
+          ...levels.folders
+            .slice()
+            .reverse()
+            .map((f) => ({ code: f.post, label: `folder ${f.name} post` })),
           { code: servicePost, label: 'service post' },
+          { code: levels.workspace.post, label: 'workspace post' },
         ],
         scriptCtx,
         scriptsEnabled,

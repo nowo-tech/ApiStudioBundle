@@ -27,7 +27,7 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata | FR-ORM-002 |
+| `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata; conditional folder (1.14) and workspace / folder script (1.15) mappings | FR-ORM-002, FR-SCR-008 (spec 003) |
 | `Doctrine/SecretVariableEncryptionListener.php` | Encrypts secret variable values before flush, decrypts after load/flush | FR-SEC-002 |
 | `Doctrine/FolderParentDetachListener.php` | Deletes the folders of deleted services / workspaces in the same flush (1.14, RJ-M2) | FR-FOLD-003 (spec 002) |
 | `Service/FolderTreeConflictException.php` | Retryable tree write conflict (deadlock / lost savepoint → 409) (1.14) | FR-FOLD-007 (spec 002) |
@@ -36,10 +36,10 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Entity/ApiWorkspace.php` | Workspace root aggregate | FR-ORM-001 |
+| `Entity/ApiWorkspace.php` | Workspace root aggregate; pre / post scripts in sandbox mode (1.15) | FR-ORM-001, FR-SCR-008 (spec 003) |
 | `Entity/ApiService.php` | Service collection under workspace | FR-ORM-001 |
 | `Entity/ApiEndpoint.php` | Endpoint definition (REST/SOAP/GraphQL) | FR-ORM-001 |
-| `Entity/ApiFolder.php` | Service folder tree node (1.14): parent, order, inheritable auth / headers, creator id | FR-FOLD-003 (spec 002) |
+| `Entity/ApiFolder.php` | Service folder tree node (1.14): parent, order, inheritable auth / headers, creator id; pre / post scripts in sandbox mode (1.15) | FR-FOLD-003 (spec 002), FR-SCR-008 (spec 003) |
 | `Entity/ApiEndpointTranslation.php` | Localized endpoint metadata | FR-ORM-001, FR-I18N-001 |
 | `Entity/ApiEnvironment.php` | Named environment (dev/test/prod) | FR-ORM-001 |
 | `Entity/ApiEnvironmentVariable.php` | Key/value variables per environment | FR-ORM-001 |

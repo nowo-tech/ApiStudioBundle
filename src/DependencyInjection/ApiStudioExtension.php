@@ -277,6 +277,8 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.scripts.mode', $config['scripts']['mode']);
         $container->setParameter(Configuration::ALIAS . '.scripts.confirm_stored', $config['scripts']['confirm_stored']);
         $container->setParameter(Configuration::ALIAS . '.scripts.limits.time_ms', $config['scripts']['limits']['time_ms']);
+        // 1.15: workspace / folder scripts only exist in sandbox mode (mapped columns, forms, console chain).
+        $container->setParameter(Configuration::ALIAS . '.scripts.levels', $config['scripts']['mode'] === 'sandbox');
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(
             Configuration::ALIAS . '.secrets.encryption_key_material',
@@ -365,6 +367,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.folders.enabled', $folders['enabled']);
         $container->setParameter(Configuration::ALIAS . '.folders.max_depth', $folders['max_depth']);
         $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$folders', $folders['enabled']);
+        $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$scriptLevels', '%' . Configuration::ALIAS . '.scripts.levels%');
 
         $checker = $security['folder_permission_checker'] ?? null;
         $container->getDefinition(FolderAccess::class)->setArgument(

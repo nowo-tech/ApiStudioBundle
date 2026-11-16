@@ -51,6 +51,11 @@ final class ApiFolderFormType extends AbstractType
             'help'                      => 'field.folder_auth_type_help',
         ]);
         $this->addWithDefaults($builder, 'authConfig', JsonMapType::class, ['required' => false, 'label' => 'field.folder_auth_config', 'help' => 'field.folder_auth_config_help']);
+        // 1.15 (sandbox mode): scripts of this level, only with workspace.edit_scripts (option `scripts`).
+        if ($options['scripts']) {
+            $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 6, 'class' => 'as-code-input']]);
+            $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 6, 'class' => 'as-code-input']]);
+        }
         $this->addWithDefaults($builder, 'headers', JsonMapType::class, ['required' => false, 'label' => 'field.headers', 'help' => 'field.folder_headers_help']);
     }
 
@@ -58,10 +63,12 @@ final class ApiFolderFormType extends AbstractType
     {
         $resolver->setDefaults([
             'parents'            => [],
+            'scripts'            => false,
             'data_class'         => ApiFolder::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
         $resolver->setAllowedTypes('parents', 'array');
+        $resolver->setAllowedTypes('scripts', 'bool');
     }
 
     /**

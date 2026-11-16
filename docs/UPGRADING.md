@@ -100,6 +100,16 @@ nowo_api_studio:
   with the user's session before). `pm` works as before; tests registered in a pre-request script are not kept for
   the post phase.
 - `api-script-runtime.js` stays loaded (variable storage helpers); it never runs script code in this mode.
+- Sandbox mode maps two nullable columns on the workspace and folder tables (workspace / folder scripts). Generate a
+  migration (`doctrine:migrations:diff`) after switching, or apply (default `table_prefix`, MySQL):
+
+```sql
+ALTER TABLE api_studio_workspace ADD pre_request_script LONGTEXT DEFAULT NULL, ADD post_request_script LONGTEXT DEFAULT NULL;
+-- only with folders.enabled: true
+ALTER TABLE api_studio_folder ADD pre_request_script LONGTEXT DEFAULT NULL, ADD post_request_script LONGTEXT DEFAULT NULL;
+```
+
+  Switching back to `inline` unmaps them (the data stays in the table, unused).
 
 ## To 1.14.0
 

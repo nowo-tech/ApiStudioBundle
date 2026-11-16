@@ -362,3 +362,33 @@ export function sandboxContext(state: SandboxState): ScriptContext & { state: Sa
 
   return ctx;
 }
+
+export type LevelScripts = { workspace: { pre: string; post: string }; folders: Array<{ name: string; pre: string; post: string }> };
+
+/**
+ * Workspace and folder scripts (1.15, sandbox mode; `data-level-scripts`), folders top-level first. Anything malformed
+ * counts as no script.
+ */
+export function parseLevelScripts(raw: string | undefined): LevelScripts {
+  const empty: LevelScripts = { workspace: { pre: '', post: '' }, folders: [] };
+  let data: unknown;
+  try {
+    data = JSON.parse(raw || '{}');
+  } catch {
+    return empty;
+  }
+  if (typeof data !== 'object' || data === null) {
+    return empty;
+  }
+  const d = data as { workspace?: { pre?: unknown; post?: unknown }; folders?: unknown };
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+
+  return {
+    workspace: { pre: str(d.workspace?.pre), post: str(d.workspace?.post) },
+    folders: Array.isArray(d.folders)
+      ? d.folders
+          .filter((f): f is { name?: unknown; pre?: unknown; post?: unknown } => typeof f === 'object' && f !== null)
+          .map((f) => ({ name: str(f.name), pre: str(f.pre), post: str(f.post) }))
+      : [],
+  };
+}

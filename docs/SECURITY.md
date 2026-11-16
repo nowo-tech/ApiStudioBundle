@@ -95,6 +95,8 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   stored secret or host secret), so a stored script run by another user cannot ship that user's secrets anywhere. A
   script can still reach any public URL the allow-list permits with what it can read itself (non-secret variables,
   the response): set `execution_url_allowlist` to limit that. At most 10 calls per phase (client-side budget).
+- Workspace and folder scripts (sandbox mode only) follow the same rules as service / endpoint scripts: their fields
+  are shown and accepted only with `workspace.edit_scripts`, and they run in the same frame as the other levels.
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
   the user sends (headers, body, variables) — that is its purpose.
 

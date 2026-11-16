@@ -279,3 +279,7 @@ import.scripts_not_imported: '%count% Skripte wurden nicht importiert (gespeiche
 import.folders_merged: '%count% Ordner, die tiefer als erlaubt lagen, wurden in ihren tiefsten erlaubten übergeordneten Ordner zusammengeführt.'
 folder.error.gone: 'Der Ordner wurde inzwischen verschoben oder gelöscht: Laden Sie die Seite neu.'
 folder.error.busy: 'Der Baum wird gerade von jemand anderem geändert: Versuchen Sie es gleich noch einmal.'
+api_workspace_form.pre_request_script.label: 'Pre-Request-Skript (Sandbox)'
+api_workspace_form.post_request_script.label: 'Post-Response-Skript (Sandbox)'
+api_folder_form.pre_request_script.label: 'Pre-Request-Skript (Sandbox)'
+api_folder_form.post_request_script.label: 'Post-Response-Skript (Sandbox)'

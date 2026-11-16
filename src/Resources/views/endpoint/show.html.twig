@@ -42,6 +42,7 @@
                  data-endpoint-path="{{ endpoint.path|e('html_attr') }}"
                  data-query-params="{{ endpoint.queryParams|json_encode|e('html_attr') }}"
                  data-merged-headers="{{ mergedHeaders|json_encode|e('html_attr') }}"
+                 data-level-scripts="{{ nowo_api_studio_scripts_mode() == 'sandbox' ? levelScripts|default({})|json_encode|e('html_attr') : '{}' }}"
                  data-service-pre-script="{{ nowo_api_studio_scripts_enabled() ? service.preRequestScript|default('')|e('html_attr') : '' }}"
                  data-service-post-script="{{ nowo_api_studio_scripts_enabled() ? service.postRequestScript|default('')|e('html_attr') : '' }}"
                  data-default-body="{{ endpoint.requestBodyTemplate|default('')|e('html_attr') }}"

@@ -34,6 +34,7 @@ final class ApiWorkspaceController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly WorkspaceEnvironmentInitializer $environmentInitializer,
         private readonly int $listPageSize = 50,
+        private readonly bool $scriptLevels = false,
     ) {
     }
 
@@ -61,7 +62,7 @@ final class ApiWorkspaceController extends AbstractController
     {
         $tenant    = $this->authorization()->tenant();
         $workspace = (new ApiWorkspace('New workspace', ''))->assignTenant($tenant);
-        $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace);
+        $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace, ['scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -111,7 +112,7 @@ final class ApiWorkspaceController extends AbstractController
     public function edit(Request $request, int $id): Response
     {
         $workspace = $this->requireWorkspace($id, ApiStudioAction::WorkspaceManage);
-        $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace);
+        $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace, ['scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

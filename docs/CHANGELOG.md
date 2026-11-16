@@ -86,6 +86,11 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
 - `pm.expect` is a chai BDD subset (chains, `not`, `equal`, `eql`, `true` / `false` / `null` / `undefined` / `ok` /
   `empty`, `a`, `include`, `property`, `lengthOf`, `above` / `below` / `least` / `most`, `oneOf`, `match`), in both
   modes; `expect(x).to.equal(y)` and its message are unchanged.
+- **Workspace and folder scripts** (sandbox mode only): the workspace and folder forms get pre / post request script
+  fields (new nullable `pre_request_script` / `post_request_script` columns on the workspace and folder tables, mapped
+  only in sandbox mode). The console runs them in chain order: workspace pre, service pre, folder pre (root to leaf),
+  endpoint pre; then endpoint post, folder post (leaf to root), service post, workspace post. Each script's log lines
+  are labelled with its level.
 
 ### Fixed
 

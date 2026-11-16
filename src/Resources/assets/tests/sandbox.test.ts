@@ -5,6 +5,7 @@ import {
   MAX_CODE_LENGTH,
   MAX_SEND_REQUESTS,
   normalizeRequest,
+  parseLevelScripts,
   runInSandbox,
   sandboxContext,
   type RunMessage,
@@ -232,5 +233,17 @@ describe('pm.sendRequest (sandbox)', () => {
     window.dispatchEvent(new MessageEvent('message', { data: { v: 1, kind: 'result', nonce, ok: true, state: state() }, source, origin: 'null' }));
     await promise;
     document.body.innerHTML = '';
+  });
+});
+
+describe('workspace / folder scripts', () => {
+  it('parses the console attribute and ignores anything malformed', () => {
+    expect(parseLevelScripts('{"workspace":{"pre":"a","post":"b"},"folders":[{"name":"F","pre":"c","post":1},null]}')).toEqual({
+      workspace: { pre: 'a', post: 'b' },
+      folders: [{ name: 'F', pre: 'c', post: '' }],
+    });
+    expect(parseLevelScripts(undefined)).toEqual({ workspace: { pre: '', post: '' }, folders: [] });
+    expect(parseLevelScripts('not json')).toEqual({ workspace: { pre: '', post: '' }, folders: [] });
+    expect(parseLevelScripts('[1]').folders).toEqual([]);
   });
 });

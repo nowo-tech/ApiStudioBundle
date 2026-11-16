@@ -114,6 +114,7 @@ services:
         tags: ['controller.service_arguments', 'container.service_subscriber']
         arguments:
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $scriptLevels: '%nowo_api_studio.scripts.levels%'
 
     Nowo\ApiStudioBundle\Controller\ScriptSandboxController:
         autoconfigure: false
@@ -139,12 +140,14 @@ services:
         tags: ['controller.service_arguments', 'container.service_subscriber']
         arguments:
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $scriptLevels: '%nowo_api_studio.scripts.levels%'
 
     Nowo\ApiStudioBundle\Controller\ApiWorkspaceController:
         autoconfigure: false
         tags: ['controller.service_arguments', 'container.service_subscriber']
         arguments:
             $listPageSize: '%nowo_api_studio.ui.list_page_size%'
+            $scriptLevels: '%nowo_api_studio.scripts.levels%'
 
     Nowo\ApiStudioBundle\Twig\ApiStudioExtension:
         arguments:

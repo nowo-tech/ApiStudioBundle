@@ -164,4 +164,32 @@ describe('api-tester with scripts.mode: sandbox', () => {
     const payload = JSON.parse(String((fetchMock.mock.calls[1]! as [string, RequestInit])[1].body)) as { headers: Record<string, string> };
     expect(payload.headers.Authorization).toBe('Bearer t9');
   });
+
+  it('runs workspace and folder scripts around the service and endpoint ones', async () => {
+    const levels = JSON.stringify({
+      workspace: { pre: "pm.console.log('ws pre')", post: "pm.console.log('ws post')" },
+      folders: [
+        { name: 'A', pre: "pm.console.log('a pre')", post: "pm.console.log('a post')" },
+        { name: 'B', pre: "pm.console.log('b pre')", post: "pm.console.log('b post')" },
+      ],
+    }).replace(/"/g, '&quot;');
+    const { fetchMock } = await boot(
+      CONSOLE("pm.console.log('svc pre')", "pm.console.log('svc post')").replace('data-scripts-confirm="0"', `data-scripts-confirm="0" data-level-scripts="${levels}"`),
+    );
+    document.getElementById('tester-send')!.click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(log()).toContain('ws post'));
+
+    const order = log().split('\n').filter((l) => l.startsWith('['));
+    expect(order).toEqual([
+      '[workspace pre] ws pre',
+      '[service pre] svc pre',
+      '[folder A pre] a pre',
+      '[folder B pre] b pre',
+      '[folder B post] b post',
+      '[folder A post] a post',
+      '[service post] svc post',
+      '[workspace post] ws post',
+    ]);
+  });
 });

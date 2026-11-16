@@ -61,6 +61,7 @@ final class ApiEndpointController extends AbstractController
         private readonly ?ApiFolderRepository $folderRepository = null,
         private readonly ?FolderAccess $folderAccess = null,
         private readonly bool $foldersEnabled = false,
+        private readonly bool $scriptLevels = false,
     ) {
     }
 
@@ -138,6 +139,8 @@ final class ApiEndpointController extends AbstractController
             'environmentMaps'       => $this->environmentContextBuilder->buildMaps($context['workspace']),
             'variableCatalog'       => $this->environmentContextBuilder->buildVariableCatalog($context['workspace']),
             'mergedHeaders'         => $mergedHeaders,
+            // 1.15 (sandbox mode): the workspace and folder scripts around the service / endpoint ones.
+            'levelScripts' => $this->levelScripts($context['workspace'], $endpoint),
             // 1.14: the auth the endpoint is sent with (nearest folder with an explicit auth, else the service's).
             'effectiveAuthType'   => $auth['type'],
             'effectiveAuthFolder' => $auth['folder'],
@@ -377,6 +380,29 @@ final class ApiEndpointController extends AbstractController
 
         // 1.14: a host folder checker may hide (404) or lock (403) the endpoint's folder.
         return $this->folderAccess instanceof FolderAccess ? $this->folderAccess->requireEndpoint($endpoint, $action) : $endpoint;
+    }
+
+    /**
+     * Workspace and folder scripts of the endpoint (1.15, `scripts.mode: sandbox`; empty otherwise), folders from the
+     * top level down.
+     *
+     * @return array{workspace: array{pre: string, post: string}, folders: list<array{name: string, pre: string, post: string}>}
+     */
+    private function levelScripts(ApiWorkspace $workspace, ApiEndpoint $endpoint): array
+    {
+        if (!$this->scriptLevels) {
+            return ['workspace' => ['pre' => '', 'post' => ''], 'folders' => []];
+        }
+
+        $folders = [];
+        foreach ($endpoint->getFolder()?->getPath() ?? [] as $folder) {
+            $folders[] = ['name' => $folder->getName(), 'pre' => (string) $folder->getPreRequestScript(), 'post' => (string) $folder->getPostRequestScript()];
+        }
+
+        return [
+            'workspace' => ['pre' => (string) $workspace->getPreRequestScript(), 'post' => (string) $workspace->getPostRequestScript()],
+            'folders'   => $folders,
+        ];
     }
 
     /**

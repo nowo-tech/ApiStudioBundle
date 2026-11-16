@@ -34,6 +34,7 @@ final class TablePrefixSubscriber
         private readonly bool $tenancy = false,
         private readonly bool $historyActor = false,
         private readonly bool $folders = false,
+        private readonly bool $scriptLevels = false,
     ) {
     }
 
@@ -59,6 +60,12 @@ final class TablePrefixSubscriber
                 return;
             }
             $this->mapFolderCreator($metadata, $event->getObjectManager()->getConnection());
+            if ($this->scriptLevels) {
+                $this->mapScripts($metadata);
+            }
+        }
+        if ($this->scriptLevels && $metadata->getName() === ApiWorkspace::class) {
+            $this->mapScripts($metadata);
         }
         if ($this->folders && $metadata->getName() === ApiEndpoint::class) {
             $this->mapEndpointFolder($metadata);
@@ -110,6 +117,20 @@ final class TablePrefixSubscriber
         $indexes['idx_history_endpoint_actor'] = ['columns' => ['endpoint_id', 'executed_by', 'executed_at']];
         $table['indexes']                      = $indexes;
         $metadata->setPrimaryTable($table);
+    }
+
+    /**
+     * `scripts.mode: sandbox` (1.15): workspace and folder scripts (`pre_request_script`, `post_request_script`).
+     *
+     * @param ClassMetadata<object> $metadata
+     */
+    private function mapScripts(ClassMetadata $metadata): void
+    {
+        foreach (['preRequestScript' => 'pre_request_script', 'postRequestScript' => 'post_request_script'] as $field => $column) {
+            if (!$metadata->hasField($field)) {
+                $metadata->mapField(['fieldName' => $field, 'columnName' => $column, 'type' => Types::TEXT, 'nullable' => true]);
+            }
+        }
     }
 
     /**

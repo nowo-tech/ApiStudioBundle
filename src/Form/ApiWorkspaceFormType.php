@@ -25,11 +25,17 @@ final class ApiWorkspaceFormType extends AbstractType
         $this->addText($builder, 'slug', ['required' => false, 'empty_data' => '', 'help' => 'field.slug_help']);
         SlugFromName::attach($builder);
         $this->addTextarea($builder, 'description', ['required' => false]);
+        // 1.15 (sandbox mode): scripts of this level, only with workspace.edit_scripts (option `scripts`).
+        if ($options['scripts']) {
+            $this->addTextarea($builder, 'preRequestScript', ['required' => false, 'attr' => ['rows' => 6, 'class' => 'as-code-input']]);
+            $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 6, 'class' => 'as-code-input']]);
+        }
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults(['data_class' => ApiWorkspace::class]);
+        $resolver->setDefaults(['data_class' => ApiWorkspace::class, 'scripts' => false]);
+        $resolver->setAllowedTypes('scripts', 'bool');
     }
 }
