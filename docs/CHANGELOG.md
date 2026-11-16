@@ -128,6 +128,11 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
   folders root to leaf, endpoint; the reverse after the response), for runs outside the browser through the server
   runner. Workspace and folder levels are included only in sandbox mode, where they exist.
 
+### Changed
+
+- Spec Kit: the 53 `src/` files added since the 2026-10-30 baseline review are mapped in `code-inventory.md`, with five new area requirements in `spec.md` (REQ-SPECKIT-001 / REQ-SPECKIT-003)
+- README: measured TypeScript coverage reported instead of "N/A" (REQ-TEST-007)
+
 ### Deprecated
 
 - `scripts.mode: inline` (still the 1.x default): scripts run unsandboxed in the page with the sender's session.
