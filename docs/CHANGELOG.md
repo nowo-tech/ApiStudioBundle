@@ -64,10 +64,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
+
+### Added
+
+- **`scripts.mode: sandbox`.** Pre / post request scripts run in an opaque-origin iframe (`sandbox="allow-scripts"`)
+  served by `nowo_api_studio_script_sandbox` with its own CSP (`default-src 'none'`, the frame runtime by nonce,
+  `'unsafe-eval'` only there, `frame-ancestors 'self'`). Scripts cannot reach the page DOM, the session cookies,
+  storage or the network; they talk to the console only through a versioned `postMessage` protocol (source, opaque
+  origin and per-run nonce checked). The studio page never evaluates script code in this mode, so it needs no
+  `'unsafe-eval'` (it needs `frame-src 'self'`). No stored-script confirmation is shown in this mode.
+- `scripts.limits.time_ms` (default 2000): wall time of one sandboxed phase; the frame is removed when it is reached
+  and the request fails (pre) or the post scripts are reported as failed.
+- `api-script-sandbox.js` (frame runtime) and the shared `pm` facade module.
+- **`pm.sendRequest`** (sandbox mode): the frame asks the console, which posts it to
+  `nowo_api_studio_script_send_request` (console CSRF token, `workspace.run` on the endpoint's workspace and folder);
+  the server sends it literally through the console guards (SSRF guard, `execution_url_allowlist`, connected IP and
+  redirects re-checked, no redirects, timeout, response size limit). No variable, stored secret or host secret is
+  resolved into it and no studio cookie is sent. At most 10 calls per phase; callbacks and promises finish before the
+  next script runs. Not available in `inline` mode.
+- `pm.expect` is a chai BDD subset (chains, `not`, `equal`, `eql`, `true` / `false` / `null` / `undefined` / `ok` /
+  `empty`, `a`, `include`, `property`, `lengthOf`, `above` / `below` / `least` / `most`, `oneOf`, `match`), in both
+  modes; `expect(x).to.equal(y)` and its message are unchanged.
+- **Workspace and folder scripts** (sandbox mode only): the workspace and folder forms get pre / post request script
+  fields (new nullable `pre_request_script` / `post_request_script` columns on the workspace and folder tables, mapped
+  only in sandbox mode). The console runs them in chain order: workspace pre, service pre, folder pre (root to leaf),
+  endpoint pre; then endpoint post, folder post (leaf to root), service post, workspace post. Each script's log lines
+  are labelled with its level.
+- **`pm.globals` / `pm.collectionVariables`** (sandbox mode): `get`, `set`, `unset`, `has`, `clear`, `toObject`.
+  Globals belong to the workspace, collection variables to the service; both are stored server-side in a new
+  `script_variable` table (mapped only in sandbox mode; plain values, no secret flag) and handed to the console with
+  the endpoint page. Changes are kept for the next sends of the page and saved only when "persist variables" is
+  checked (`nowo_api_studio_script_variables`: environment-sync CSRF token, `workspace.edit` on the workspace and the
+  endpoint's folder; at most 100 changes per save, 500 variables per scope, keys of 128 characters, values of 65,535 bytes). Request templates
+  resolve the environment first, then collection variables, then globals; `pm.variables.get` reads in the same order.
+- **Server-side script runner** (`scripts.server_runner`, off by default): the port
+  `ApiStudioScriptRunnerInterface::run(ScriptRunRequest): ScriptRunResult` (value objects only) for unattended runs,
+  `NullScriptRunner` (default: scripts reported as not run) and the reference `ProcessScriptRunner`: one sidecar
+  process per run (Deno without permissions by default, or Node) running the bundled
+  `Resources/runner/api-script-runner.js` over a line-delimited JSON protocol (the sandbox messages). Limits: wall
+  time (killed), output (`scripts.limits.output_kb`, killed), memory (`scripts.limits.memory_mb`, handed to the
+  sidecar) and `pm.sendRequest` calls (sent through the same guarded sender as the console). The sidecar's environment
+  is scrubbed; no process outlives a run. Uses `proc_open` with bounded, non-blocking reads and writes (no extra
+  package; a sidecar that floods its output is killed at the limit without filling PHP memory).
+- `scripts.limits.send_requests` (default 10): `pm.sendRequest` calls per phase, now also for the sandbox frame.
+- **`require()` allow-list** (sandbox frame and server runner; not in `inline` mode): a closed list bundled into
+  `api-script-sandbox.js` and the runner, never into the console page. Anything else throws. 1.15 list (all MIT):
+  `ajv` 8.20.0, `chai` (the bundle's `pm.expect` subset, `{ expect }`), `crypto-js` 4.2.0 (deprecated upstream, kept
+  for Postman compatibility), `dayjs` 1.11.23 (also as `moment`), `fast-xml-parser` 5.12.1 (`XMLParser`,
+  `XMLBuilder`, `XMLValidator`), `lodash` 4.18.1, `uuid` 14.0.3 (`v4`, `v7`, `validate`, `version`, `NIL`).
+- **Postman `event[]` import** (sandbox mode, for a user with `workspace.edit_scripts`): `prerequest` / `test`
+  scripts of the collection, its folders and requests are stored as the pre / post scripts of the service (only a
+  service the import creates), the folders (only folders the import creates) and the endpoints. Disabled and empty
+  events are skipped; the import reports how many scripts were imported and how many were not (other modes, missing
+  right, existing service or folder, other event kinds).
+
+- **`pm.response` helpers** (every mode): `pm.response.headers` (`get` / `has` ignoring case, `toObject`; the masked
+  response headers), `pm.response.responseTime` (ms) and Postman's `pm.response.to.have.status()` / `.header()` /
+  `.body()` / `.jsonBody()`, `pm.response.to.be.ok` / `.success` / `.error` / `.clientError` / `.serverError` /
+  `.json` and `pm.response.to.not.*`; the same on `pm.sendRequest` responses and in the server runner
+  (`ScriptRunRequest` gains optional `responseHeaders` and `responseTimeMs`).
+- `ScriptChainBuilder`: the scripts of an endpoint in run order with the console's log labels (workspace, service,
+  folders root to leaf, endpoint; the reverse after the response), for runs outside the browser through the server
+  runner. Workspace and folder levels are included only in sandbox mode, where they exist.
+
 ### Changed
 
 - Spec Kit: the 53 `src/` files added since the 2026-10-30 baseline review are mapped in `code-inventory.md`, with five new area requirements in `spec.md` (REQ-SPECKIT-001 / REQ-SPECKIT-003)
 - README: measured TypeScript coverage reported instead of "N/A" (REQ-TEST-007)
+
+### Deprecated
+
+- `scripts.mode: inline` (still the 1.x default): scripts run unsandboxed in the page with the sender's session.
+  `sandbox` becomes the default in 2.0 (spec 003 FR-SCR-001); set `scripts.mode` explicitly to keep a mode.
+
+### Security
+
+- Secret values are also masked in their HTML-escaped and base64 / base64url forms (history, execute responses and so
+  what post-response scripts see), on top of the raw, URL-encoded and JSON-escaped forms (spec 003 US5).
+- **Scripts run in a dedicated Worker of the sandbox frame** (audit RW-M1): CSP cannot stop a document from navigating
+  itself, so a script in the frame document could send data out in a URL (`location.href`, an anchor click), in
+  every engine and whatever the headers. The frame now starts a Worker from a `blob:` URL (frame policy
+  `worker-src blob:`), runs the scripts there (no `document`, nothing to navigate, network globals removed) and only
+  relays; the console fails the run if the frame loads a second time or reports a crashed worker. Playwright checks
+  location, anchor, form and `window.open` navigation in Chromium, Firefox and WebKit.
+- **Server runner** (audits RW-L1, RW-L2): the bundled runner refuses every run under Node below 25, or Node without
+  `--permission` (before Node 25 a script reaches the network through `fetch` / `node:http`: SSRF to internal
+  services and cloud metadata endpoints), and removes the network globals from the scripts' scope; each
+  `pm.sendRequest` call gets only what is left of `scripts.limits.time_ms` and the run stops when it is used up.
+  CI runs the runner's integration tests under Deno.
+- Defence in depth (audit RW-D-L1): the network APIs are removed along the whole prototype chain of the worker global
+  and the frame window (in workers `fetch` / `importScripts` live on `WorkerGlobalScope.prototype`, where an own
+  shadow left them recoverable). The CSP remains the primary gate.
+- A script-variable save that deadlocks or times out waiting for a lock answers 409 with `Retry-After` instead of
+  500 (audit RW-D-I1).
+- **Script variables** (audit RW-L3): keys of at most 128 characters, values of at most 65,535 bytes (not
+  characters); one save writes globals and collection variables in one transaction after locking the workspace row,
+  so the 500-keys cap holds under concurrent saves.
+- The sandbox frame no longer depends on its CSP response header alone: the same policy is the first element of the
+  frame document's `<head>` (a meta policy that host middleware cannot strip; the dev web profiler removes CSP
+  headers, a host CSP listener may replace them), DNS prefetching is off, and the frame runtime removes `fetch`,
+  `XMLHttpRequest`, `WebSocket`, `EventSource`, WebRTC (`RTCPeerConnection`, which no CSP governs), workers,
+  `navigator.sendBeacon` and `window.open` before any script runs. Found by the extended Playwright corpus: in the dev
+  demo the header was stripped and a script's `fetch`, image, `EventSource`, WebSocket and beacon requests reached
+  the server (unreleased code, never tagged).
+- The console treats the sandbox frame as untrusted: it posts the run once (a repeated `ready` is ignored), accepts
+  only a well-formed result whose JSON grows the state it was given by at most 256 KB, refuses `pm.sendRequest`
+  messages over 256 KB, and removes the frame (failing the phase) when the frame sends more messages than its
+  `pm.sendRequest` budget plus `ready` and `result` (FR-SCR-003, `postMessage` flood edge case).
+- Worker test: 1,000 server-runner runs in one process leave no child process and keep memory flat (SC-004).
+- Tests now prove that no secret value reaches the script context: the sandbox console page carries secret variables
+  only as their `{{placeholder}}` (functional and Playwright), and `pm.sendRequest` sends placeholders literally.
+
+### Fixed
+
+- A MySQL error 1305 is only treated as a lost savepoint (409) when its message names a SAVEPOINT (audit RJ-D3-I2).
 
 ## [1.14.0] - 2026-11-16
 

@@ -279,3 +279,7 @@ import.scripts_not_imported: '%count% scripts were not imported (stored scripts 
 import.folders_merged: '%count% folders deeper than the allowed depth were merged into their deepest allowed parent.'
 folder.error.gone: 'The folder was moved or deleted meanwhile: reload the page.'
 folder.error.busy: 'The tree is being changed by someone else: try again in a moment.'
+api_workspace_form.pre_request_script.label: 'Pre-request script (sandbox)'
+api_workspace_form.post_request_script.label: 'Post-response script (sandbox)'
+api_folder_form.pre_request_script.label: 'Pre-request script (sandbox)'
+api_folder_form.post_request_script.label: 'Post-response script (sandbox)'

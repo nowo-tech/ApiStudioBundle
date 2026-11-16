@@ -37,7 +37,15 @@ nowo_api_studio:
         enabled: false           # 1.14: nested folders (migration)
         max_depth: 8
     scripts:
-        mode: inline             # inline | disabled
+        mode: inline             # inline (deprecated in 1.15) | sandbox (1.15) | disabled
+        limits:
+            time_ms: 2000        # 1.15: wall time per phase (sandbox frame and server runner)
+            memory_mb: 64        # 1.15: server runner sidecar memory ({memory_mb} of the command)
+            output_kb: 256       # 1.15: server runner stdout + stderr per run
+            send_requests: 10    # 1.15: pm.sendRequest calls per phase (sandbox and server runner)
+        server_runner:           # 1.15: unattended runs (needs proc_open)
+            enabled: false
+            command: [deno, run, --quiet, --no-prompt, --no-config, --no-lock, --no-npm, --no-remote, '--v8-flags=--max-old-space-size={memory_mb}', '{runner}']
         confirm_stored: true     # 1.13.2: ask before running stored scripts not yet approved
     execution_url_allowlist_required: false
     execution_url_allowlist: []
@@ -89,6 +97,11 @@ nowo_api_studio:
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
+| `scripts.mode: sandbox` | **1.15.** Scripts run in an opaque-origin iframe with its own CSP (no network, no page, cookies or storage); the console page needs `frame-src 'self'` and no `'unsafe-eval'`. The confirmation of `scripts.confirm_stored` is not used in this mode. Enables workspace and folder scripts (two nullable columns on each table, see UPGRADING). |
+| `scripts.limits.time_ms` | **1.15.** Wall time of one phase (pre or post, 100–30000 ms, default 2000): the sandbox frame is removed, the server runner's sidecar is killed. |
+| `scripts.limits.memory_mb` / `output_kb` | **1.15.** Server runner: memory handed to the sidecar command (`{memory_mb}`, the V8 heap limit by default; 16–1024, default 64) and the most stdout + stderr of one run (16–10240 KB, default 256; killed past it). |
+| `scripts.limits.send_requests` | **1.15.** `pm.sendRequest` calls per phase, sandbox frame and server runner (0–100, default 10). |
+| `scripts.server_runner` | **1.15.** Server-side runner for unattended runs (collection runner, CLI, monitors): `ApiStudioScriptRunnerInterface`, implemented by `ProcessScriptRunner` (one sidecar process per run running the bundled `Resources/runner/api-script-runner.js`, spoken to over stdin / stdout; environment scrubbed to `PATH`, `HOME`, `TMPDIR`, `LANG`, `DENO_DIR`). The default command is Deno without any permission (no file system, network, environment or subprocess); with Node 25+, use `node --permission --max-old-space-size={memory_mb} {runner}`: the runner refuses every run under Node below 25 or without `--permission` (those do not block the network: SSRF, see SECURITY). Needs `proc_open` (no extra package). Disabled (default): `NullScriptRunner`, scripts reported as not run. A host can alias the interface to its own runner. `ScriptChainBuilder` gives the scripts of an endpoint in run order (workspace and folder levels only in sandbox mode). |
 | `scripts.confirm_stored` | **1.13.2.** `true` (default): with `inline`, before Send runs a stored service or endpoint script that this browser session has not approved, the console shows the code in a dialog: *Run with scripts* (the approval is kept in `sessionStorage` per SHA-256 of the code, so a changed script is asked again), *Send without scripts* (no script runs) or *Cancel*. Code typed by the user in an empty script field is not asked. Without Web Crypto (plain HTTP other than localhost) every send asks. `false`: stored scripts run without asking (1.13.1 behaviour). |
 | `folders.enabled` | **1.14.** Nested folders in each service: tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the `folder` table and `endpoint.folder_id` (a migration, see [UPGRADING](UPGRADING.md#to-1140)). Default `false`: the 1.13 schema, pages and importers. |
 | `folders.max_depth` | **1.14.** Deepest folder level (1–32, default `8`; a top-level folder has depth 1). Checked on create, move and import (deeper imported folders are merged into their deepest allowed parent). |

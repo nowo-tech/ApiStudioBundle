@@ -7,6 +7,9 @@ namespace Nowo\ApiStudioBundle\DependencyInjection;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
+use Nowo\ApiStudioBundle\Script\Runner\ApiStudioScriptRunnerInterface;
+use Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner;
+use Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
@@ -30,6 +33,7 @@ use Symfony\Component\DependencyInjection\Reference;
 
 use function array_key_exists;
 use function array_keys;
+use function dirname;
 use function implode;
 use function in_array;
 use function is_array;
@@ -276,6 +280,13 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
         $container->setParameter(Configuration::ALIAS . '.scripts.mode', $config['scripts']['mode']);
         $container->setParameter(Configuration::ALIAS . '.scripts.confirm_stored', $config['scripts']['confirm_stored']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.limits.time_ms', $config['scripts']['limits']['time_ms']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.limits.memory_mb', $config['scripts']['limits']['memory_mb']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.limits.output_kb', $config['scripts']['limits']['output_kb']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.limits.send_requests', $config['scripts']['limits']['send_requests']);
+        $this->registerServerRunner($container, $config['scripts']['server_runner']);
+        // 1.15: workspace / folder scripts only exist in sandbox mode (mapped columns, forms, console chain).
+        $container->setParameter(Configuration::ALIAS . '.scripts.levels', $config['scripts']['mode'] === 'sandbox');
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(
             Configuration::ALIAS . '.secrets.encryption_key_material',
@@ -356,6 +367,26 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     }
 
     /**
+     * 1.15: the server-side script runner port. Enabled: the bundled {@see ProcessScriptRunner} (a host may alias the
+     * interface to its own implementation instead); disabled: {@see NullScriptRunner} (scripts reported as not run).
+     *
+     * @param array{enabled: bool, command: list<string>} $runner
+     */
+    private function registerServerRunner(ContainerBuilder $container, array $runner): void
+    {
+        $container->setParameter(Configuration::ALIAS . '.scripts.server_runner.enabled', $runner['enabled']);
+        if (!$runner['enabled']) {
+            $container->setAlias(ApiStudioScriptRunnerInterface::class, NullScriptRunner::class)->setPublic(true);
+
+            return;
+        }
+        $container->getDefinition(ProcessScriptRunner::class)
+            ->setArgument('$command', $runner['command'])
+            ->setArgument('$runnerPath', dirname(__DIR__) . '/Resources/runner/api-script-runner.js');
+        $container->setAlias(ApiStudioScriptRunnerInterface::class, ProcessScriptRunner::class)->setPublic(true);
+    }
+
+    /**
      * @param array{enabled: bool, max_depth: int} $folders
      * @param array<string, mixed> $security
      */
@@ -364,6 +395,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.folders.enabled', $folders['enabled']);
         $container->setParameter(Configuration::ALIAS . '.folders.max_depth', $folders['max_depth']);
         $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$folders', $folders['enabled']);
+        $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$scriptLevels', '%' . Configuration::ALIAS . '.scripts.levels%');
 
         $checker = $security['folder_permission_checker'] ?? null;
         $container->getDefinition(FolderAccess::class)->setArgument(

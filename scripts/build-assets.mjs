@@ -10,16 +10,21 @@ const outDir = resolve(root, 'src/Resources/public');
 const entries = [
   'api-body-tools',
   'api-endpoint-doc',
+  'api-script-sandbox',
   'api-script-runtime',
   'api-studio-shell',
   'api-tester',
 ];
 
-for (const name of entries) {
+// 1.15: the server-side script runner sidecar (Deno / Node), next to the bundle code rather than in public/.
+const runnerDir = resolve(root, 'src/Resources/runner');
+const targets = [...entries.map((name) => [name, outDir]), ['api-script-runner', runnerDir]];
+
+for (const [name, dir] of targets) {
   await build({
     configFile: false,
     build: {
-      outDir,
+      outDir: dir,
       emptyOutDir: false,
       minify: true,
       sourcemap: false,

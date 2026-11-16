@@ -90,6 +90,8 @@ final class ImportExportController extends AbstractController
                 $this->readUploadedFile($form),
                 $this->uploadedFilename($form),
                 $importVariables,
+                null,
+                $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace),
             );
         }, $workspace, 'import.postman.title');
     }
@@ -169,6 +171,7 @@ final class ImportExportController extends AbstractController
                 $this->uploadedFilename($form),
                 $importVariables,
                 $service,
+                $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace),
             );
         }, $workspace, 'import.postman.service_title', $service);
     }

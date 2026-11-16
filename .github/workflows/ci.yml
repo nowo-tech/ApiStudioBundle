@@ -52,6 +52,12 @@ jobs:
           coverage: pcov
           tools: composer:v2
 
+      # Spec 003 (audit RW-L1): the bundled script runner's integration tests run under Deno, its default command.
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Validate composer.json
         run: composer validate --strict
 
@@ -91,7 +97,8 @@ jobs:
             symfony/yaml:^${{ matrix.symfony }}
           # keep browser-kit in require-dev (do not move it to require)
           composer require --dev --no-interaction --no-update \
-            symfony/browser-kit:^${{ matrix.symfony }}
+            symfony/browser-kit:^${{ matrix.symfony }} \
+            symfony/process:^${{ matrix.symfony }}
           # full -W update so doctrine/* can move to ^3 on Symfony 8
           composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
       - name: Composer audit (Critical/High)

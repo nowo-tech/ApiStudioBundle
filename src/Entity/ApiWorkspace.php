@@ -79,6 +79,14 @@ class ApiWorkspace
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private DateTimeImmutable $updatedAt;
 
+    /**
+     * Scripts of this level (1.15): not mapped by attributes; {@see TablePrefixSubscriber}
+     * maps `pre_request_script` / `post_request_script` only with `scripts.mode: sandbox`.
+     */
+    private ?string $preRequestScript = null;
+
+    private ?string $postRequestScript = null;
+
     public function __construct(string $name, string $slug)
     {
         $this->name         = $name;
@@ -140,6 +148,34 @@ class ApiWorkspace
     {
         // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->slug = $slug;
+
+        return $this->touch();
+    }
+
+    /** Pre-request script of this level (1.15, `scripts.mode: sandbox`; unmapped otherwise). */
+    public function getPreRequestScript(): ?string
+    {
+        return $this->preRequestScript;
+    }
+
+    public function setPreRequestScript(?string $preRequestScript): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->preRequestScript = $preRequestScript !== null && trim($preRequestScript) !== '' ? $preRequestScript : null;
+
+        return $this->touch();
+    }
+
+    /** Post-response script of this level (1.15, `scripts.mode: sandbox`; unmapped otherwise). */
+    public function getPostRequestScript(): ?string
+    {
+        return $this->postRequestScript;
+    }
+
+    public function setPostRequestScript(?string $postRequestScript): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->postRequestScript = $postRequestScript !== null && trim($postRequestScript) !== '' ? $postRequestScript : null;
 
         return $this->touch();
     }

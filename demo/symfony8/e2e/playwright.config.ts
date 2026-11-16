@@ -39,6 +39,17 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       testIgnore: /screenshots\.spec\.ts/,
     },
+    // Spec 003 audit RW-M1: the sandbox containment is checked in every engine.
+    {
+      name: 'sandbox-firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testMatch: /scripts-sandbox\.spec\.ts/,
+    },
+    {
+      name: 'sandbox-webkit',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: /scripts-sandbox\.spec\.ts/,
+    },
     {
       name: 'screenshots',
       use: { ...devices['Desktop Chrome'] },

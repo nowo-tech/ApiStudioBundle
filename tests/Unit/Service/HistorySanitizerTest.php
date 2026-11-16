@@ -11,6 +11,10 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
+use const ENT_HTML401;
+use const ENT_HTML5;
+use const ENT_QUOTES;
+
 final class HistorySanitizerTest extends TestCase
 {
     public function testSanitizeHeadersRedactsSensitiveNames(): void
@@ -105,6 +109,17 @@ final class HistorySanitizerTest extends TestCase
         );
         self::assertSame('a=[REDACTED]&b=[REDACTED]', $sanitizer->sanitizeBody('a=p%2Fw%22d&b=p/w"d', ['p/w"d']));
         self::assertSame('<ns:key>[REDACTED]</ns:key>', $sanitizer->sanitizeBody('<ns:key>tok-987654</ns:key>', ['tok-987654']));
+    }
+
+    public function testHtmlEscapedAndBase64FormsAreMasked(): void
+    {
+        $sanitizer = new HistorySanitizer();
+        $secret    = 'REDACTED-TEST<&"\'>?';
+
+        self::assertSame('<p>[REDACTED]</p>', $sanitizer->maskValues('<p>' . htmlspecialchars($secret, ENT_QUOTES | ENT_HTML5) . '</p>', [$secret]));
+        self::assertSame('<p>[REDACTED]</p>', $sanitizer->maskValues('<p>' . htmlspecialchars($secret, ENT_QUOTES | ENT_HTML401) . '</p>', [$secret]));
+        self::assertSame('{"t":"[REDACTED]"}', $sanitizer->maskValues('{"t":"' . base64_encode($secret) . '"}', [$secret]));
+        self::assertSame('t=[REDACTED]', $sanitizer->maskValues('t=' . rtrim(strtr(base64_encode($secret), '+/', '-_'), '='), [$secret]));
     }
 
     public function testSanitizeUrlWithoutQueryIsUnchanged(): void

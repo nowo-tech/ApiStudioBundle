@@ -84,6 +84,50 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+Target 1.15.0 (sandboxed scripts, opt-in): nothing changes with the default `scripts.mode: inline`, which is
+deprecated (`sandbox` becomes the default in 2.0). To switch:
+
+```yaml
+nowo_api_studio:
+    scripts:
+        mode: sandbox
+        # limits: { time_ms: 2000 }
+```
+
+- The console page then loads an `<iframe sandbox="allow-scripts">` from `<ui.path>/scripts/sandbox`: a host CSP must
+  allow `frame-src 'self'` on the Api Studio pages (and can drop `'unsafe-eval'` there). The frame response carries its
+  own CSP (header, and the same policy as a `<meta>` tag first in its `<head>`, so a listener that strips or rewrites
+  CSP headers does not lift it); a listener that rewrites HTML bodies must leave that route alone. The frame runs
+  the scripts in a Worker created from a `blob:` URL (its own policy has `worker-src blob:`); nothing is needed on
+  the studio pages for that.
+- Server runner with Node: Node 25+ with `--permission` only. The runner refuses every run under older Node or without
+  `--permission` (the run fails with the reason); the default Deno command is unaffected.
+- Scripts no longer see the page: code that touched `document`, `window.parent`, cookies or storage fails (it ran
+  with the user's session before). `pm` works as before; tests registered in a pre-request script are not kept for
+  the post phase.
+- `api-script-runtime.js` stays loaded (variable storage helpers); it never runs script code in this mode.
+- Sandbox mode maps two nullable columns on the workspace and folder tables (workspace / folder scripts). Generate a
+  migration (`doctrine:migrations:diff`) after switching, or apply (default `table_prefix`, MySQL):
+
+```sql
+ALTER TABLE api_studio_workspace ADD pre_request_script LONGTEXT DEFAULT NULL, ADD post_request_script LONGTEXT DEFAULT NULL;
+-- only with folders.enabled: true
+ALTER TABLE api_studio_folder ADD pre_request_script LONGTEXT DEFAULT NULL, ADD post_request_script LONGTEXT DEFAULT NULL;
+```
+
+  Switching back to `inline` unmaps them (the data stays in the table, unused).
+- Sandbox mode also maps the `script_variable` table (`pm.globals` / `pm.collectionVariables`): `id`, `workspace_id`
+  (FK, cascade), `service_id` (nullable FK, cascade), `scope_id` (0 or the service id), `variable_key` VARCHAR(128)
+  (binary NO PAD collation on MySQL / MariaDB), `value` TEXT, `updated_at`, unique (`workspace_id`, `scope_id`,
+  `variable_key`). Generate it with `doctrine:migrations:diff` together with the columns above.
+- `ScriptRunRequest` (server runner port) gains two optional trailing arguments, `responseHeaders` and
+  `responseTimeMs`; custom `ApiStudioScriptRunnerInterface` implementations should hand them to `pm.response`.
+- Workspace and folder scripts exist only in sandbox mode, also when `scripts.server_runner` is enabled
+  (`ScriptChainBuilder` leaves those levels out otherwise).
+- Globals and collection variables take part in template resolution after the environment: a runner without
+  `workspace.edit` whose global or collection variable feeds the URL or the auth of a request gets the usual
+  `override_not_allowed` refusal (ER-M1), as for an environment override.
+
 ## To 1.14.0
 
 From **1.13.2**:

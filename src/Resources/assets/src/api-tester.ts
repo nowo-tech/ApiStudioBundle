@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import type { BodyValidationResult, EnvironmentMaps, ScriptContext, StringMap } from './types/global';
+import type { BodyValidationResult, EnvironmentMaps, ScriptContext, ScriptScopes, StringMap } from './types/global';
 import {
   escapeHtmlAttr,
   hasUnresolved,
@@ -24,6 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
+import { DEFAULT_TIMEOUT_MS, MAX_SEND_BUDGET, MAX_SEND_REQUESTS, parseLevelScripts, parseScopes, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -85,6 +86,19 @@ type ExecuteResponse = {
   success?: boolean;
   error_message?: string | null;
 };
+
+/** Response headers (already masked by the server) as a flat string map for `pm.response.headers` (1.15). */
+function stringHeaders(headers: unknown): StringMap {
+  const out: StringMap = {};
+  if (typeof headers !== 'object' || headers === null || Array.isArray(headers)) {
+    return out;
+  }
+  Object.entries(headers as Record<string, unknown>).forEach(([k, v]) => {
+    out[k] = Array.isArray(v) ? v.map(String).join(', ') : String(v ?? '');
+  });
+
+  return out;
+}
 
 function httpMethodClass(method: string | null | undefined): string {
   const map: StringMap = {
@@ -474,6 +488,38 @@ function confirmStoredScripts(pending: PendingScript[]): Promise<ScriptDecision>
 }
 
 /**
+ * Runs the scripts of one phase. `scripts.mode: sandbox` (1.15): in a fresh opaque-origin frame (lib/sandbox.ts), the
+ * context being a {@link sandboxContext}; otherwise inline as before ({@link runScripts}).
+ */
+async function executeScripts(
+  scripts: Array<{ code: string; label: string }>,
+  ctx: ScriptContext,
+  enabled: boolean,
+  post: boolean,
+  sandbox: { url: string; timeoutMs: number; send?: SendTransport; sendBudget?: number } | null,
+): Promise<void> {
+  if (!sandbox || !('state' in ctx)) {
+    runScripts(scripts, ctx, enabled);
+
+    return;
+  }
+  const toRun = scripts.filter((s) => s.code && s.code.trim() !== '');
+  if (!enabled || !toRun.length) {
+    return;
+  }
+
+  const holder = ctx as ScriptContext & { state: SandboxState };
+  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs, sandbox.send, sandbox.sendBudget);
+  holder.state = { ...result.state, response: holder.state.response };
+  if (result.state.logs.length) {
+    appendScriptLog(result.state.logs);
+  }
+  if (!result.ok) {
+    throw new Error(`[${result.label ?? 'script'}] ${result.error ?? 'failed'}`);
+  }
+}
+
+/**
  * Hide the pre/post script sub-tabs and panels (`scripts.mode: disabled`).
  *
  * @param root The console root.
@@ -666,6 +712,21 @@ async function persistVariables(
     },
     body: JSON.stringify({ variables: dirtyKeys }),
   });
+}
+
+/** Saves the pm.globals / pm.collectionVariables changes of a send (1.15) and returns the stored values. */
+async function persistScopes(url: string, token: string, changes: ScriptScopes['changes']): Promise<ScriptScopes> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': token },
+    body: JSON.stringify({ globals: changes.globals, collection: changes.collection }),
+  });
+  const data = (await response.json()) as { globals?: unknown; collection?: unknown; error?: string };
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+
+  return parseScopes(JSON.stringify(data));
 }
 
 function applyVariableChanges(root: HTMLElement, envId: string, ctx: ScriptContext): void {
@@ -1103,8 +1164,42 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendLabel = sendButton.textContent?.trim() ?? 'Send';
   const servicePre = root.dataset.servicePreScript ?? '';
   const servicePost = root.dataset.servicePostScript ?? '';
+  const levels = parseLevelScripts(root.dataset.levelScripts);
+  // 1.15 (sandbox mode): pm.globals / pm.collectionVariables, kept across sends (and saved when persisting).
+  let scopes = parseScopes(root.dataset.scriptVariables);
+  const scopesUrl = root.dataset.scriptVariablesUrl ?? '';
   // Only an explicit data-scripts-confirm="0" turns it off: an override that predates the attribute still asks.
-  const confirmStored = Boolean(RT) && root.dataset.scriptsConfirm !== '0';
+  // 1.15: scripts.mode sandbox runs every script in an opaque-origin frame (no confirmation needed: scripts cannot
+  // reach the page, the session or the network).
+  const sandboxUrl = root.dataset.scriptsMode === 'sandbox' ? (root.dataset.scriptsSandboxUrl ?? '') : '';
+  const sendUrl = root.dataset.scriptsSendUrl ?? '';
+  // pm.sendRequest (1.15): relayed from the frame to the server, which sends it through the console's guards.
+  const send: SendTransport | undefined = sendUrl
+    ? async (request) => {
+        const response = await fetch(sendUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': root.dataset.csrfToken ?? '' },
+          body: JSON.stringify(request),
+        });
+        const data = (await response.json()) as { response?: SandboxHttpResponse; error?: string };
+        if (!response.ok || !data.response) {
+          throw new Error(data.error || 'pm.sendRequest failed.');
+        }
+
+        return data.response;
+      }
+    : undefined;
+  const budget = Number(root.dataset.scriptsSendBudget);
+  const sandbox =
+    sandboxUrl !== ''
+      ? {
+          url: sandboxUrl,
+          timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS,
+          send,
+          sendBudget: Number.isInteger(budget) && budget >= 0 && budget <= MAX_SEND_BUDGET ? budget : MAX_SEND_REQUESTS,
+        }
+      : null;
+  const confirmStored = Boolean(RT) && sandbox === null && root.dataset.scriptsConfirm !== '0';
 
   /**
    * Stored scripts of this send (service scripts, and endpoint fields that held server code when the page loaded),
@@ -1136,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.disabled = true;
     const snapshot = { pre: preScriptField?.value ?? '', post: postScriptField?.value ?? '' };
 
-    let scriptsEnabled = Boolean(RT);
+    let scriptsEnabled = Boolean(RT) || sandbox !== null;
     if (confirmStored) {
       let decision: 'run' | 'skip' | 'cancel' = 'run';
       try {
@@ -1189,7 +1284,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let variables = getMergedVariables(root);
     const headerTemplates = collectHeadersFromTable();
     const paramTemplates = collectParamsFromTable();
-    const scriptCtx = RT && scriptsEnabled
+    const scriptCtx = sandbox !== null
+      ? sandboxContext({
+          variables: { ...variables },
+          dirty: {},
+          request: { body: bodyField.value, headers: { ...headerTemplates }, queryParams: { ...paramTemplates } },
+          response: null,
+          logs: [],
+          tests: [],
+          scopes: { globals: { ...scopes.globals }, collection: { ...scopes.collection }, changes: { globals: {}, collection: {} } },
+        })
+      : RT && scriptsEnabled
       ? RT.createPm({
           baseVariables: variables,
           requestBody: bodyField.value,
@@ -1199,17 +1304,23 @@ document.addEventListener('DOMContentLoaded', () => {
       : requestOnlyContext(variables, bodyField.value, headerTemplates, paramTemplates);
 
     try {
-      runScripts(
+      await executeScripts(
         [
+          { code: levels.workspace.pre, label: 'workspace pre' },
           { code: servicePre, label: 'service pre' },
+          ...levels.folders.map((f) => ({ code: f.pre, label: `folder ${f.name} pre` })),
           { code: snapshot.pre, label: 'pre-request' },
         ],
         scriptCtx,
         scriptsEnabled,
+        false,
+        sandbox,
       );
 
       bodyField.value = scriptCtx.pm.request.body;
-      variables = scriptCtx.getVariables();
+      // Templates resolve the environment first, then collection variables, then globals (1.15, sandbox mode).
+      const scoped = scriptCtx.getScopes?.();
+      variables = { ...(scoped?.globals ?? {}), ...(scoped?.collection ?? {}), ...scriptCtx.getVariables() };
       const requestHeaders = resolveMap(scriptCtx.pm.request.headers, variables);
       const requestParams = resolveMap(scriptCtx.pm.request.queryParams, variables);
 
@@ -1243,15 +1354,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const status = data.response_status != null ? data.response_status : 'ERR';
       const ok = Boolean(data.success);
 
-      scriptCtx.setResponse(status, data.response_body || data.error_message || '');
+      scriptCtx.setResponse(status, data.response_body || data.error_message || '', stringHeaders(data.response_headers), data.duration_ms ?? 0);
 
-      runScripts(
+      await executeScripts(
         [
           { code: snapshot.post, label: 'post-request' },
+          ...levels.folders
+            .slice()
+            .reverse()
+            .map((f) => ({ code: f.post, label: `folder ${f.name} post` })),
           { code: servicePost, label: 'service post' },
+          { code: levels.workspace.post, label: 'workspace post' },
         ],
         scriptCtx,
         scriptsEnabled,
+        true,
+        sandbox,
       );
 
       scriptCtx.runTests().forEach((t) => {
@@ -1267,6 +1385,20 @@ document.addEventListener('DOMContentLoaded', () => {
           appendScriptLog(['Variables persisted to environment.']);
         } catch (e) {
           appendScriptLog([`Failed to persist variables: ${e instanceof Error ? e.message : String(e)}`]);
+        }
+      }
+
+      const after = scriptCtx.getScopes?.();
+      if (sandbox !== null && after) {
+        scopes = { ...after, changes: { globals: {}, collection: {} } };
+        const changed = Object.keys(after.changes.globals).length + Object.keys(after.changes.collection).length;
+        if (persistCheckbox?.checked && scopesUrl && changed > 0) {
+          try {
+            scopes = await persistScopes(scopesUrl, root.dataset.envSyncCsrf ?? '', after.changes);
+            appendScriptLog(['Globals and collection variables persisted.']);
+          } catch (e) {
+            appendScriptLog([`Failed to persist variables: ${e instanceof Error ? e.message : String(e)}`]);
+          }
         }
       }
 

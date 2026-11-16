@@ -442,7 +442,7 @@ final class FoldersTest extends StudioWebTestCase
         self::assertSame(4, $result->endpointsCreated);
         self::assertContains('1 auth settings of an unsupported type (or on a single request) were not imported.', $result->messages, 'the literal token is not imported');
         self::assertContains('1 folders deeper than the allowed depth were merged into their deepest allowed parent.', $result->messages);
-        self::assertContains('1 scripts were not imported (stored scripts from files arrive with the sandboxed runner).', $result->messages);
+        self::assertContains('1 scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $result->messages);
 
         $em      = $this->entityManager();
         $service = $em->getRepository(ApiService::class)->findOneBy(['name' => 'Shop']);

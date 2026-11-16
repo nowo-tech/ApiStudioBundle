@@ -27,7 +27,7 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata | FR-ORM-002 |
+| `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata; conditional folder (1.14) and workspace / folder script (1.15) mappings | FR-ORM-002, FR-SCR-008 (spec 003) |
 | `Doctrine/SecretVariableEncryptionListener.php` | Encrypts secret variable values before flush, decrypts after load/flush | FR-SEC-002 |
 | `Doctrine/FolderParentDetachListener.php` | Deletes the folders of deleted services / workspaces in the same flush (1.14, RJ-M2) | FR-FOLD-003 (spec 002) |
 | `Service/FolderTreeConflictException.php` | Retryable tree write conflict (deadlock / lost savepoint → 409) (1.14) | FR-FOLD-007 (spec 002) |
@@ -36,10 +36,10 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Entity/ApiWorkspace.php` | Workspace root aggregate | FR-ORM-001 |
+| `Entity/ApiWorkspace.php` | Workspace root aggregate; pre / post scripts in sandbox mode (1.15) | FR-ORM-001, FR-SCR-008 (spec 003) |
 | `Entity/ApiService.php` | Service collection under workspace | FR-ORM-001 |
 | `Entity/ApiEndpoint.php` | Endpoint definition (REST/SOAP/GraphQL) | FR-ORM-001 |
-| `Entity/ApiFolder.php` | Service folder tree node (1.14): parent, order, inheritable auth / headers, creator id | FR-FOLD-003 (spec 002) |
+| `Entity/ApiFolder.php` | Service folder tree node (1.14): parent, order, inheritable auth / headers, creator id; pre / post scripts in sandbox mode (1.15) | FR-FOLD-003 (spec 002), FR-SCR-008 (spec 003) |
 | `Entity/ApiEndpointTranslation.php` | Localized endpoint metadata | FR-ORM-001, FR-I18N-001 |
 | `Entity/ApiEnvironment.php` | Named environment (dev/test/prod) | FR-ORM-001 |
 | `Entity/ApiEnvironmentVariable.php` | Key/value variables per environment | FR-ORM-001 |
@@ -79,6 +79,17 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ApiServiceController.php` | Service CRUD | FR-CTRL-001 |
 | `Controller/ApiEndpointController.php` | Endpoint CRUD | FR-CTRL-001 |
 | `Controller/ApiFolderController.php` | Folder CRUD and tree moves (1.14) | FR-FOLD-005, FR-FOLD-007 (spec 002) |
+| `Controller/ScriptSandboxController.php` | Sandboxed script frame document with its own CSP (1.15) | FR-SCR-002 (spec 003) |
+| `Controller/ScriptSendRequestController.php` | `pm.sendRequest` relay endpoint (sandbox mode, 1.15) | FR-SCR-006 (spec 003) |
+| `Script/ScriptRequestSender.php` | Guarded literal sender of `pm.sendRequest` (1.15) | FR-SCR-006 (spec 003) |
+| `Script/Runner/ApiStudioScriptRunnerInterface.php` | Server-side script runner port (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptRunRequest.php`, `ScriptRunResult.php`, `ScriptSource.php`, `ScriptRunLimits.php`, `ScriptTestResult.php`, `ScriptRunStatus.php` | Runner value objects (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ProcessScriptRunner.php` | Reference runner: sidecar process per run, limits, sendRequest relay (1.15) | FR-SCR-004, FR-SCR-005 (spec 003) |
+| `Script/Runner/NullScriptRunner.php` | Default runner: scripts not run (1.15) | US2 (spec 003) |
+| `Script/ScriptChainBuilder.php` | Endpoint script chain in run order with log labels, for runs outside the browser (1.15) | US4 (spec 003) |
+| `Script/ScriptVariableStore.php` | `pm.globals` / `pm.collectionVariables` storage, DBAL per key (1.15) | US3 (spec 003) |
+| `Controller/ScriptVariablesController.php` | Saves script globals / collection variables (sandbox mode, 1.15) | US3 (spec 003) |
+| `Entity/ApiScriptVariable.php` | Script variable of a workspace (global) or service (collection), sandbox mode only (1.15) | US3 (spec 003) |
 | `Controller/ApiEnvironmentController.php` | Environment CRUD | FR-CTRL-001 |
 | `Controller/EnvironmentVariablesController.php` | Environment variable editor | FR-CTRL-001 |
 | `Controller/EndpointExamplesController.php` | Request/response example CRUD | FR-CTRL-001 |
@@ -218,6 +229,17 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/api-endpoint-doc.ts` | Endpoint documentation panel | FR-UI-001 |
 | `Resources/assets/src/lib/utils.ts` | Shared DOM/HTTP utilities | FR-UI-001 |
 | `Resources/assets/src/lib/script-approval.ts` | Stored-script approval (`scripts.confirm_stored`, SHA-256 per session) | FR-UI-001 |
+| `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
+| `Resources/assets/src/lib/expect.ts` | chai BDD subset of `pm.expect` (1.15) | FR-SCR-007 (spec 003) |
+| `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
+| `Resources/assets/src/api-script-worker.ts` | Script worker of the sandbox frame: runs the scripts, no network, nothing to navigate (1.15, audit RW-M1) | FR-SCR-002 (spec 003) |
+| `Resources/assets/src/lib/frame-relay.ts` | Sandbox frame relay between the console and the script worker (1.15, audit RW-M1) | FR-SCR-003 (spec 003) |
+| `Resources/assets/src/lib/node-refusal.ts` | Server runner refuses Node without a network block (1.15, audit RW-L1) | FR-SCR-005 (spec 003) |
+| `Resources/assets/src/lib/lockdown.ts` | Removes the network APIs from the sandbox frame before scripts run (1.15) | FR-SCR-002 (spec 003) |
+| `Resources/assets/src/lib/require.ts` | Closed `require()` library allow-list, frame and runner only (1.15) | FR-SCR-007 (spec 003) |
+| `Resources/assets/src/api-script-runner.ts` | Server runner sidecar entry, Deno / Node, line protocol (1.15) | FR-SCR-005 (spec 003) |
+| `Resources/runner/api-script-runner.js` | Built server runner sidecar (1.15) | FR-SCR-005 (spec 003) |
+| `Resources/assets/src/api-script-sandbox.ts` | Frame runtime of `scripts.mode: sandbox` (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/assets/src/types/global.d.ts` | Window/global type declarations | FR-UI-001 |
 
 ## Public assets — built (`src/Resources/public/`)
@@ -228,6 +250,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/public/api-studio-shell.js` | Built shell bundle | FR-UI-001 |
 | `Resources/public/api-body-tools.js` | Built body-tools bundle | FR-UI-001 |
 | `Resources/public/api-script-runtime.js` | Built script-runtime bundle | FR-UI-001 |
+| `Resources/public/api-script-sandbox.js` | Built sandbox frame runtime (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/public/api-endpoint-doc.js` | Built endpoint-doc bundle | FR-UI-001 |
 | `Resources/public/api-studio-theme.css` | Workbench / console stylesheet on the UiKit tokens | FR-UI-002 |
 

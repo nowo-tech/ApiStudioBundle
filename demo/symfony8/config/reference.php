@@ -1245,11 +1245,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     enabled?: bool|Param, // Default: true
  *     environments?: list<scalar|Param|null>,
  *     connection?: scalar|Param|null, // Default: "default"
+ *     entity_manager?: scalar|Param|null, // Doctrine entity manager the Api Studio entities are mapped on (1.12), e.g. a dedicated "api_studio" manager of a DDD host. The entities are then mapped on that manager only (also with auto_mapping on the default one) and every read, write and reset of the bundle uses it. Null (default) = the manager that maps ApiWorkspace (the default one in a standard host). // Default: null
  *     table_prefix?: scalar|Param|null, // Default: "api_studio_"
  *     ui?: array{
  *         path?: scalar|Param|null, // Dashboard path prefix (host should lock with security.access_control). // Default: "/api-studio"
+ *         path_requirements?: array<string, scalar|Param|null>,
  *         layout_template?: scalar|Param|null, // Layout the Api Studio pages (UiKit page scaffolds) extend. Null (default) = nowo_ui_kit.layouts.admin, set once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that renders {% block body %} is wrapped in a deprecated bridge. // Default: null
  *         css_framework?: "bootstrap5"|"tailwind"|"foundation"|"custom"|Param, // Deprecated since 1.10: the CSS stack is nowo_ui_kit.css_framework (UiKit page contract). When set (and nowo_ui_kit.css_framework is not), it still seeds nowo_ui_kit.css_framework / icon_set and the FormKit css_framework. // Default: null
+ *         locale_scope?: "global"|"routes"|"none"|Param, // Which requests get the Api Studio UI locale: routes (default since 1.11) = Api Studio pages only; global = every request of the host (1.10 behaviour); none = never (the host owns the locale). // Default: "routes"
  *         default_locale?: scalar|Param|null, // Default: "en"
  *         locales?: list<scalar|Param|null>,
  *         request_timeout_seconds?: int|Param, // Default: 30
@@ -1258,13 +1261,45 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     },
  *     execution_url_allowlist?: list<scalar|Param|null>,
  *     execution_max_redirects?: int|Param, // Redirects followed when executing requests. 0 (default) returns 3xx responses as-is. Followed hops are blocked from private networks but are not re-checked against execution_url_allowlist. // Default: 0
+ *     execution_max_response_bytes?: int|Param, // Largest response body (bytes) read from a remote API, SOAP endpoint or WSDL document (default 10 MiB); a bigger transfer is stopped and reported as an error. // Default: 10485760
  *     execution_url_allowlist_required?: bool|Param, // When true, an empty execution_url_allowlist fails container compilation. Recommended true in production. // Default: false
  *     secrets?: array{
  *         encrypt?: bool|Param, // Encrypt environment variables marked secret at rest (sodium). Existing plaintext values remain readable and are re-encrypted on next save. // Default: true
  *         encryption_key?: scalar|Param|null, // Optional key material for secret encryption. Defaults to kernel.secret when null. // Default: null
+ *         source?: scalar|Param|null, // 1.13: service id implementing ApiStudioSecretSourceInterface. A secret variable whose value is {{secret:<source>/<id>}} is then resolved on the server at execute time (per user and workspace, decided by the host); the value never reaches the browser, the history, logs or exports. null (default) = references are plain values, as before. // Default: null
+ *     },
+ *     tenancy?: array{
+ *         enabled?: bool|Param, // Tenants (1.11): each workspace belongs to a tenant resolved per request; lists, counts, the sidebar and lookups are scoped to it, and the workspace slug is unique per tenant. Maps two columns on the workspace table (migration). Literal boolean. // Default: false
+ *         resolver?: scalar|Param|null, // Service id implementing ApiStudioTenantResolverInterface (required when enabled, unless tenancy.provider is set): the tenant of an Api Studio request; null result = 404. // Default: null
+ *         provider?: scalar|Param|null, // Service id implementing ApiStudioTenantProviderInterface (1.12): a request-free alternative to tenancy.resolver for hosts that already know the current tenant (DDD application context). Set one of resolver or provider. // Default: null
+ *         sql_filter?: bool|Param, // With tenancy: also narrow every bundle query of an Api Studio request with a Doctrine SQL filter (defence in depth; the explicit checks stay the control). // Default: true
+ *     },
+ *     history?: array{
+ *         scope?: "endpoint"|"user"|Param, // endpoint (default) = one shared history per endpoint; user = rows record who executed them (maps executed_by, migration) and users see only their own unless granted history.view_all. // Default: "endpoint"
+ *         actor_resolver?: scalar|Param|null, // Service id implementing ApiStudioActorResolverInterface (history.scope: user). Default: the user identifier (hashed beyond 64 characters). // Default: null
+ *     },
+ *     folders?: array{
+ *         enabled?: bool|Param, // Nested folders in each service (1.14): tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the folder table and the endpoint folder_id column (migration). false (default) = the 1.13 schema and pages. // Default: false
+ *         max_depth?: int|Param, // Deepest folder level allowed (a top-level folder has depth 1). Checked on create, move and import. // Default: 8
+ *     },
+ *     scripts?: array{
+ *         mode?: "inline"|"sandbox"|"disabled"|Param, // Pre/post request scripts of the console. inline (default; deprecated since 1.15, sandbox becomes the default in 2.0) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src 'unsafe-eval'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src 'self' and no 'unsafe-eval'); disabled = no script tab, no script code sent to the browser (stored scripts are kept). // Default: "inline"
+ *         limits?: array{
+ *             time_ms?: int|Param, // sandbox mode and server runner (1.15): wall time of one phase (pre or post) before the frame / process is torn down and the request fails. // Default: 2000
+ *             memory_mb?: int|Param, // Server runner (1.15): memory of the sidecar, handed to its command through the {memory_mb} placeholder (V8 heap limit by default). // Default: 64
+ *             output_kb?: int|Param, // Server runner (1.15): most stdout + stderr of one run; the sidecar is killed past it. // Default: 256
+ *             send_requests?: int|Param, // sandbox mode and server runner (1.15): pm.sendRequest calls allowed per phase. // Default: 10
+ *         },
+ *         server_runner?: array{ // Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs proc_open). Disabled = unattended runs report scripts as not run.
+ *             enabled?: bool|Param, // Default: false
+ *             command?: list<scalar|Param|null>,
+ *         },
+ *         confirm_stored?: bool|Param, // inline mode (1.13.2): before Send runs a stored service / endpoint script this browser session has not approved yet, the console shows its code and asks to run it or to send without scripts (approval kept per SHA-256 of the code in sessionStorage). Code typed in the console by the user is not asked. false = 1.13.1 behaviour (stored scripts run without asking). // Default: true
  *     },
  *     security?: array{
  *         access_checker?: scalar|Param|null, // Default: null
+ *         permission_checker?: scalar|Param|null, // Service id implementing ApiStudioPermissionCheckerInterface (1.11): per-workspace, per-action decisions; forbidden actions are hidden, not viewable workspaces answer 404. Null = everything granted to whoever passes the role / access checks (1.10 behaviour). // Default: null
+ *         folder_permission_checker?: scalar|Param|null, // Service id implementing ApiStudioFolderPermissionCheckerInterface (1.14, folders.enabled): folder-level sharing on top of the workspace decisions; it can only deny (hidden folders answer 404, read-only folders 403). Null = folders follow their workspace. // Default: null
  *         access_roles?: list<scalar|Param|null>,
  *         allow_unauthenticated?: bool|Param, // DEV/DEMO ONLY. When true, the UI may load without SecurityBundle / without login. Production MUST keep false. // Default: false
  *     },

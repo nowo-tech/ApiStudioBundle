@@ -58,6 +58,7 @@ final class ApiFolderController extends AbstractController
         private readonly FolderTree $folderTree,
         private readonly FolderAccess $folderAccess,
         private readonly bool $foldersEnabled = false,
+        private readonly bool $scriptLevels = false,
     ) {
     }
 
@@ -71,7 +72,7 @@ final class ApiFolderController extends AbstractController
         if ($parentId > 0) {
             $folder->setParent($this->requireFolder($parentId, $context['service'], ApiStudioAction::WorkspaceEdit));
         }
-        $form = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], null)]);
+        $form = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], null), 'scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
         $form->handleRequest($request);
 
         $folder->setCreatedBy($this->currentActorId());
@@ -92,7 +93,7 @@ final class ApiFolderController extends AbstractController
     {
         $context = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
         $folder  = $this->requireFolder($id, $context['service'], ApiStudioAction::WorkspaceEdit);
-        $form    = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], $folder)]);
+        $form    = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], $folder), 'scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid() && $this->saved($form, $folder)) {

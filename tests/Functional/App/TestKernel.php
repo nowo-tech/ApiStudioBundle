@@ -68,7 +68,7 @@ final class TestKernel extends Kernel
         ]);
         $container->extension('twig', ['strict_variables' => true]);
         $container->extension('doctrine', [
-            'dbal' => ['url' => 'sqlite:///' . sys_get_temp_dir() . '/nowo_api_studio_functional/' . ($this->environment === 'folders' ? 'folders' : 'test') . '.sqlite'],
+            'dbal' => ['url' => 'sqlite:///' . sys_get_temp_dir() . '/nowo_api_studio_functional/' . $this->environment . '.sqlite'],
             'orm'  => ['auto_mapping' => true],
         ]);
         $container->extension('security', [
@@ -89,12 +89,17 @@ final class TestKernel extends Kernel
         ]);
 
         // Environment "folders" (1.14): folders on (max depth 3) with a host folder checker (TestFolderChecker).
-        if ($this->environment === 'folders') {
+        if (str_starts_with($this->environment, 'folders')) {
             $container->extension('nowo_api_studio', [
                 'folders'  => ['enabled' => true, 'max_depth' => 3],
                 'security' => ['folder_permission_checker' => TestFolderChecker::class],
             ]);
             $container->services()->set(TestFolderChecker::class)->public();
+        }
+
+        // Environment "folders_sandbox" (1.15): folders plus scripts.mode sandbox (workspace / folder scripts, frame).
+        if ($this->environment === 'folders_sandbox') {
+            $container->extension('nowo_api_studio', ['scripts' => ['mode' => 'sandbox']]);
         }
     }
 
