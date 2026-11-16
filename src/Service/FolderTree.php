@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Service\ImportExport\FolderImportHelper;
 use Throwable;
 
 use function array_filter;
@@ -113,8 +114,12 @@ final class FolderTree
     public function saveFolder(ApiFolder $folder): void
     {
         $service = $this->serviceOf($folder->getService());
+        $folder->setName(FolderImportHelper::cleanName($folder->getName()));
         $this->begin($service);
         try {
+            if ($folder->getId() !== null && !$this->exists($service, $folder)) {
+                throw new DomainException(self::ERROR_GONE);
+            }
             $this->assertCanPlaceFolder($folder, $folder->getParent());
             if ($folder->getId() === null) {
                 $folder->setSortOrder(self::nextSortOrder($this->folders->children($service, $folder->getParent())));
@@ -122,7 +127,7 @@ final class FolderTree
             }
             $this->commit();
         } catch (Throwable $e) {
-            $this->entityManager->rollback();
+            $this->rollback();
 
             throw $e;
         }
@@ -141,6 +146,9 @@ final class FolderTree
 
         $this->begin($service);
         try {
+            if (!$this->exists($service, $folder)) {
+                throw new DomainException(self::ERROR_GONE);
+            }
             $this->assertCanPlaceFolder($folder, $parent);
             $folder->setParent($parent);
             $siblings = array_values(array_filter(
@@ -150,7 +158,7 @@ final class FolderTree
             $this->renumber($this->insert($siblings, $folder, $beforeId));
             $this->commit();
         } catch (Throwable $e) {
-            $this->entityManager->rollback();
+            $this->rollback();
 
             throw $e;
         }
@@ -178,7 +186,7 @@ final class FolderTree
             $this->renumber($this->insert($siblings, $endpoint, $beforeId));
             $this->commit();
         } catch (Throwable $e) {
-            $this->entityManager->rollback();
+            $this->rollback();
 
             throw $e;
         }
@@ -201,9 +209,10 @@ final class FolderTree
         $this->begin($service);
         try {
             // The parent as stored now (a concurrent move may have changed it since $folder was loaded).
-            if ($folder->getId() !== null) {
-                $this->entityManager->refresh($folder);
+            if ($folder->getId() === null || !$this->exists($service, $folder)) {
+                throw new DomainException(self::ERROR_GONE);
             }
+            $this->entityManager->refresh($folder);
             $parent = $folder->getParent();
 
             $folders = array_values(array_filter($this->folders->children($service, $parent), static fn (ApiFolder $f): bool => $f !== $folder));
@@ -225,7 +234,7 @@ final class FolderTree
             $this->entityManager->remove($folder);
             $this->commit();
         } catch (Throwable $e) {
-            $this->entityManager->rollback();
+            $this->rollback();
 
             throw $e;
         }
@@ -257,9 +266,23 @@ final class FolderTree
         try {
             $this->entityManager->lock($service, LockMode::PESSIMISTIC_WRITE);
         } catch (Throwable $e) {
-            $this->entityManager->rollback();
+            $this->rollback();
 
             throw $e;
+        }
+    }
+
+    /**
+     * Rolls back; when the rollback itself fails (MySQL after a deadlock: the savepoint is gone, error 1305) the
+     * connection is closed so its transaction nesting level is reset (audit RJ-D-L2). The caller rethrows the first
+     * error (a {@see RetryableException} answers 409).
+     */
+    private function rollback(): void
+    {
+        try {
+            $this->entityManager->rollback();
+        } catch (Throwable) {
+            $this->entityManager->getConnection()->close();
         }
     }
 

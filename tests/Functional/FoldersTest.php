@@ -20,6 +20,7 @@ use function is_array;
 use function json_decode;
 use function json_encode;
 use function memory_get_usage;
+use function preg_match;
 use function sprintf;
 
 /**
@@ -338,6 +339,31 @@ final class FoldersTest extends StudioWebTestCase
         $em->flush();
 
         self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM api_studio_folder'));
+    }
+
+    public function testWorkspaceEditorCannotRedirectTheCredentialsOfAReadOnlyFolder(): void
+    {
+        $service = $this->entityManager()->getRepository(ApiService::class)->find($this->ids['service']);
+        self::assertInstanceOf(ApiService::class, $service);
+        self::assertSame(1, preg_match('/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/', $service->getBaseUrl(), $match), 'the seeded base URL uses a variable');
+        $top = $this->createFolder('Partners');
+        $this->moveEndpointTo($top);
+        $token = (string) $this->client->request('GET', $this->endpointUrl())->filter('#api-studio-tester')->attr('data-csrf-token');
+
+        $this->client->disableReboot();
+        $this->client->request('GET', $this->serviceUrl());
+        /** @var TestFolderChecker $checker */
+        $checker           = $this->client->getContainer()->get(TestFolderChecker::class);
+        $checker->readOnly = [$top];
+
+        $this->client->request('POST', '/api-studio/execute/' . $this->ids['endpoint'], server: ['HTTP_X_CSRF_TOKEN' => $token, 'CONTENT_TYPE' => 'application/json'], content: (string) json_encode([
+            'environment_id' => $this->ids['environment'],
+            'variables'      => [$match[1] => 'https://attacker.invalid'],
+        ]));
+
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('override_not_allowed', is_array($data) ? ($data['error'] ?? null) : null);
     }
 
     public function testKeptAliveKernelNeverReusesFolderDecisionsOfAnotherRequest(): void

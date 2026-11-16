@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Service;
 
+use ArrayObject;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,6 +22,7 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Service\FolderTree;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use RuntimeException;
 
 use function dirname;
@@ -140,19 +143,30 @@ final class FolderTreeTest extends TestCase
     public function testAFailedWriteRollsBack(): void
     {
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects(self::exactly(3))->method('beginTransaction');
-        $em->expects(self::exactly(3))->method('rollback');
+        $em->expects(self::exactly(4))->method('beginTransaction');
+        $rollbacks = new ArrayObject();
+        $em->expects(self::exactly(4))->method('rollback')->willReturnCallback(static function () use ($rollbacks): void {
+            $rollbacks->append(true);
+            if ($rollbacks->count() === 4) {
+                throw new RuntimeException('savepoint gone');
+            }
+        });
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())->method('close');
+        $em->method('getConnection')->willReturn($connection);
         $em->expects(self::never())->method('commit');
         $em->method('flush')->willThrowException(new RuntimeException('down'));
         $repository = $this->createStub(ApiFolderRepository::class);
         $repository->method('children')->willReturn([]);
         $repository->method('endpointsIn')->willReturn([]);
-        $repository->method('treeRows')->willReturn([]);
+        $repository->method('treeRows')->willReturn([['id' => 5, 'name' => 'F', 'parent' => null, 'service' => (int) $this->service->getId(), 'workspace' => 1, 'sortOrder' => 0, 'createdBy' => null]]);
         $tree = new FolderTree($em, $repository);
 
-        $folder   = (new ApiFolder('F'))->setService($this->service);
+        $folder = (new ApiFolder('F'))->setService($this->service);
+        (new ReflectionProperty(ApiFolder::class, 'id'))->setValue($folder, 5);
         $endpoint = (new ApiEndpoint('E', 'e'))->setService($this->service);
-        foreach ([static fn () => $tree->moveFolder($folder, null), static fn () => $tree->moveEndpoint($endpoint, null), static fn () => $tree->deleteFolder($folder)] as $write) {
+        // The fourth rollback fails (MySQL after a deadlock): the connection is closed and the first error surfaces.
+        foreach ([static fn () => $tree->moveFolder($folder, null), static fn () => $tree->moveEndpoint($endpoint, null), static fn () => $tree->deleteFolder($folder), static fn () => $tree->saveFolder($folder)] as $write) {
             try {
                 $write();
                 self::fail('Expected the flush error.');

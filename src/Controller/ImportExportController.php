@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiService;
@@ -231,9 +232,21 @@ final class ImportExportController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // 1.14 (audit RJ-D-L1): an import into a service runs under the service lock, like the tree writes, so a
+            // concurrent move cannot push its folders past the depth limit.
+            $locked = false;
             try {
+                if ($service instanceof ApiService && $service->getId() !== null) {
+                    $this->entityManager->beginTransaction();
+                    $locked = true;
+                    $this->entityManager->lock($service, LockMode::PESSIMISTIC_WRITE);
+                }
                 $result = $importer($form);
                 $this->entityManager->flush();
+                if ($locked) {
+                    $this->entityManager->commit();
+                    $locked = false;
+                }
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspace->getId(), $workspace->getId(), ApiStudioResourceChangedEvent::ACTION_IMPORTED);
                 $this->addFlash('success', $this->translator->trans('flash.imported', [
                     '%services%'          => $result->servicesCreated,
@@ -258,6 +271,13 @@ final class ImportExportController extends AbstractController
 
                 return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
             } catch (Throwable $e) {
+                if ($locked) {
+                    try {
+                        $this->entityManager->rollback();
+                    } catch (Throwable) {
+                        $this->entityManager->getConnection()->close();
+                    }
+                }
                 $this->flash('error', 'import.error');
             }
         }

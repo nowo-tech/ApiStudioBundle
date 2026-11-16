@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\DBAL\Exception\RetryableException;
+use Doctrine\ORM\EntityNotFoundException;
 use DomainException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
@@ -127,6 +128,9 @@ final class ApiFolderController extends AbstractController
 
         try {
             $moved = $this->folderTree->deleteFolder($folder);
+        } catch (DomainException|EntityNotFoundException) {
+            // Deleted meanwhile by someone else.
+            throw $this->createNotFoundException('Folder not found.');
         } catch (RetryableException) {
             $this->flash('error', 'folder.error.busy');
 
@@ -177,7 +181,11 @@ final class ApiFolderController extends AbstractController
                 $this->folderTree->moveEndpoint($endpoint, $parent, $before);
             }
         } catch (DomainException $e) {
-            return new JsonResponse(['error' => $this->translate($e->getMessage()), 'code' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $status = $e->getMessage() === FolderTree::ERROR_GONE ? Response::HTTP_NOT_FOUND : Response::HTTP_UNPROCESSABLE_ENTITY;
+
+            return new JsonResponse(['error' => $this->translate($e->getMessage()), 'code' => $e->getMessage()], $status);
+        } catch (EntityNotFoundException) {
+            return new JsonResponse(['error' => $this->translate(FolderTree::ERROR_GONE), 'code' => FolderTree::ERROR_GONE], Response::HTTP_NOT_FOUND);
         } catch (RetryableException) {
             // RJ-L1: lock timeout or deadlock under contention: nothing was written, the client may retry.
             return new JsonResponse(['error' => $this->translate('folder.error.busy'), 'code' => 'folder.error.busy'], Response::HTTP_CONFLICT, ['Retry-After' => '1']);
