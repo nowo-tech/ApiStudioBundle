@@ -98,8 +98,10 @@ document with tags; export it again.
    folder tree is recreated (order kept) and requests land in their folder.
 2. **Given** a folder deeper than `max_depth`, **Then** its requests land in the deepest allowed ancestor and the
    import result reports how many folders were merged.
-3. **Given** Postman `auth` on the collection, a folder or a request (`noauth`, `basic`, `bearer`, `apikey`), **Then**
-   it maps to service / folder / endpoint auth (`inherit` when absent); unsupported types are reported, not guessed.
+3. **Given** Postman `auth` on the collection or a folder (`noauth`, `basic`, `bearer`, `apikey` in a header), **Then**
+   it maps to service / folder auth (`inherit` when absent). Endpoints have no auth of their own in 1.14, so request
+   `bearer` and header `apikey` auth become endpoint headers; other request auth and unsupported types are reported,
+   not guessed.
 4. **Given** Postman `event[]` scripts, **Then** in 1.14 they are counted and reported as "not imported" (stored
    scripts from third-party files only land with the sandboxed runner of spec 003).
 5. **Given** an OpenAPI operation with `tags: [Users]`, **Then** it lands in top-level folder `Users` (first tag);
@@ -150,7 +152,7 @@ below) in the tree, its endpoints answer 404, and runs / edits inside answer 404
   queries, pages and importers.
 - **FR-FOLD-002**: `nowo_api_studio.folders.max_depth` (int 1–32, default 8). A top-level folder has depth 1.
 - **FR-FOLD-003**: `ApiFolder` belongs to one service, has an optional parent folder of the same service, a name
-  (≤ 255), an optional description, `sortOrder`, optional auth (`authType` null = inherit, plus `authConfig`), headers
+  (≤ 128, like endpoint names), an optional description, `sortOrder`, optional auth (`authType` null = inherit, plus `authConfig`), headers
   (JSON map), an optional creator id (≤ 128, exact binary comparison) and timestamps.
 - **FR-FOLD-004**: `ApiEndpoint` gains an optional folder (same service); null = service root.
 - **FR-FOLD-005**: Folder CRUD pages (UiKit form scaffold, FormKit form), delete through the UiKit confirm contract;
@@ -163,8 +165,8 @@ below) in the tree, its endpoints answer 404, and runs / edits inside answer 404
 - **FR-FOLD-008**: Effective auth = endpoint override (none in 1.14) → nearest folder with an explicit auth → service.
   Effective headers = service defaults, then each folder from root to leaf, then endpoint headers (case-insensitive
   names, deepest wins). Used by the executor, the console and the documentation.
-- **FR-FOLD-009**: Postman import recreates folders (order, nesting up to `max_depth`) and maps collection / folder /
-  request auth; scripts are reported, not imported (spec 003).
+- **FR-FOLD-009**: Postman import recreates folders (order, nesting up to `max_depth`) and maps collection / folder
+  auth (request bearer / header API key as endpoint headers); scripts are reported, not imported (spec 003).
 - **FR-FOLD-010**: OpenAPI import maps `x-api-studio-folder` (path) or the first tag (top-level folder) and tag
   descriptions; export writes `x-api-studio-folder` and the top-level folder as the first tag.
 - **FR-FOLD-011**: Optional SPI `ApiStudioFolderPermissionCheckerInterface`

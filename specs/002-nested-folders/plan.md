@@ -48,7 +48,7 @@ nowo_api_studio:
 | `id` | int PK | |
 | `service_id` | int FK → `{prefix}service.id` | `ON DELETE CASCADE`, not null |
 | `parent_id` | int FK → `{prefix}folder.id` | nullable, `ON DELETE CASCADE` (the app moves children up first) |
-| `name` | varchar(255) | |
+| `name` | varchar(128) | same limit as endpoint names |
 | `description` | text | nullable |
 | `sort_order` | int | default 0 |
 | `auth_type` | varchar(32) | nullable = inherit; `AuthType` values |
@@ -77,15 +77,16 @@ MySQL 8, MariaDB, PostgreSQL and SQLite. The `created_by` collation is emitted b
   disabled; sets the NO PAD collation of `created_by` on MySQL-family platforms.
 - `Service/FolderTree` (stateless): depth, ancestors, cycle checks and moves (inside an explicit transaction on the Api
   Studio EM, `clear()` after the write unit).
-- `Service/FolderInheritanceResolver` (stateless): effective auth source and merged headers for an endpoint; used by
-  `RequestExecutor`, `EndpointTesterFormFactory` / endpoint page and `OpenApiExporter`.
+- `Service/FolderInheritanceResolver` (pure static functions over the entity graph): effective auth source and merged
+  headers for an endpoint; used by `RequestExecutor` (including the ER-M1 protected / referenced variables),
+  `ApiExecuteController` (history redaction) and the endpoint page.
 - `Controller/ApiFolderController`: new / edit / delete pages, `tree/move` JSON endpoint. Route actions mapped in
   `ApiStudioRouteActions` (`workspace.view` / `workspace.edit`).
 - `Form/ApiFolderFormType` (FormKit profile `api_studio`), `ApiEndpointFormType` gains an optional `folder` choice
   (only when enabled).
 - `Security/ApiStudioFolderPermissionCheckerInterface`, `Security/ApiStudioFolderRef`, `Security/FolderAccess`
-  (applies the SPI after the workspace decision; memo per request cleared at `kernel.request` / `kernel.finish_request`
-  and on `kernel.reset`).
+  (applies the SPI after the workspace decision; decisions memoised on the main request's attributes, like
+  `ApiStudioAuthorization`, so nothing is kept in the service).
 - Importers: `PostmanCollectionImporter` and `OpenApiImporter` gain a folder path per created endpoint;
   `OpenApiExporter` writes `x-api-studio-folder` + tags.
 - UI: `_sidebar_tree.html.twig` renders folders recursively (macro), items carry `data-tree-*` attributes;
@@ -110,8 +111,8 @@ Nothing requires a 2.0. In 2.0 `folders.enabled` may default to `true`.
 
 - `FolderTree`, `FolderInheritanceResolver`, importers and exporter keep no request, user or tenant data in properties
   or statics; everything is passed per call.
-- `FolderAccess` memoises decisions per request only; the memo is cleared at `kernel.request` and
-  `kernel.finish_request` and implements `ResetInterface` (tested), never relying on the reset alone.
+- `FolderAccess` memoises decisions on the main request's attributes only (request-scoped; a new request asks again,
+  tested), so no memo survives in the service.
 - Moves run in an explicit transaction on the Api Studio EM; the EM is cleared after each write unit; a closed EM is
   recovered by the existing `EntityManagerRecoverySubscriber`.
 - Worker test: 1,000 tree builds and moves alternating two tenants / users in one kernel, asserting no cross-tenant
