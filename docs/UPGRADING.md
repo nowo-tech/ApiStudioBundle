@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.14.0](#to-1140)
 - [To 1.13.2](#to-1132)
 - [To 1.13.1](#to-1131)
 - [To 1.13.0](#to-1130)
@@ -100,6 +101,13 @@ nowo_api_studio:
   the post phase.
 - `api-script-runtime.js` stays loaded (variable storage helpers); it never runs script code in this mode.
 
+## To 1.14.0
+
+From **1.13.2**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 Target 1.14.0. From **1.13.x**: nothing to do with the defaults (`folders.enabled: false` maps nothing new).
 

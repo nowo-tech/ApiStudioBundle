@@ -17,9 +17,11 @@ use Nowo\ApiStudioBundle\Tests\Functional\App\TestFolderChecker;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 
 use function is_array;
+use function is_object;
 use function json_decode;
 use function json_encode;
 use function memory_get_usage;
+use function method_exists;
 use function preg_match;
 use function sprintf;
 
@@ -370,23 +372,47 @@ final class FoldersTest extends StudioWebTestCase
     {
         $top = $this->createFolder('Partners');
         $this->moveEndpointTo($top);
-        // Worker mode without kernel reset: one kernel, one container, many requests.
+
+        // Worker mode without kernel reset: one kernel and one container for every request.
         $this->client->disableReboot();
         $this->client->request('GET', $this->serviceUrl());
+        self::assertResponseIsSuccessful();
         /** @var TestFolderChecker $checker */
         $checker = $this->client->getContainer()->get(TestFolderChecker::class);
 
-        $baseline = 0;
-        for ($i = 0; $i < 60; ++$i) {
+        $marks = [];
+        for ($i = 0; $i < 120; ++$i) {
             $checker->hidden = $i % 2 === 0 ? [$top] : [];
             $crawler         = $this->client->request('GET', $this->serviceUrl());
             self::assertCount($i % 2 === 0 ? 0 : 1, $crawler->filter('#as-nav-tree [data-tree-folder][data-tree-id="' . $top . '"]'), 'request ' . $i);
-            if ($i === 10) {
-                $baseline = memory_get_usage();
+            $this->forgetDebugData();
+            if ($i % 20 === 19) {
+                gc_collect_cycles();
+                $marks[] = memory_get_usage();
             }
         }
 
-        self::assertLessThan(4 * 1024 * 1024, memory_get_usage() - $baseline, 'memory stays flat over the requests');
+        // After the first batch (warm-up: caches, lazy services, compiled templates), memory stays flat: 100 more
+        // requests may not add more than 1 MiB (a 10 KiB-per-request leak would add 1 MiB).
+        self::assertCount(6, $marks);
+        self::assertLessThan(1024 * 1024, (int) end($marks) - (int) reset($marks), 'memory per batch of 20 requests: ' . implode(', ', array_map(static fn (int $m): string => (string) round($m / 1024), $marks)) . ' KiB');
+    }
+
+    /**
+     * What the test kernel keeps per request only because it runs with kernel.debug (a production worker has none of
+     * it, and a profiler would reset it per request): the browser history, the Twig profile, the debug logger records
+     * (Symfony 8.1 keeps them in memory) and the DBAL debug queries. Cleared so the memory check sees the application.
+     */
+    private function forgetDebugData(): void
+    {
+        $this->client->getHistory()->clear();
+        $container = self::getContainer();
+        foreach (['twig.profile' => 'reset', 'doctrine.debug_data_holder' => 'reset', 'logger' => 'clear'] as $id => $method) {
+            $service = $container->has($id) ? $container->get($id) : null;
+            if (is_object($service) && method_exists($service, $method)) {
+                $service->{$method}();
+            }
+        }
     }
 
     public function testPostmanImportKeepsFoldersAuthAndCapsTheDepth(): void
