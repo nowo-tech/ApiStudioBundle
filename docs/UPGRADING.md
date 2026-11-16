@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.15.0](#to-1150)
 - [To 1.14.0](#to-1140)
 - [To 1.13.2](#to-1132)
 - [To 1.13.1](#to-1131)
@@ -83,6 +84,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.15.0
+
+From **1.14.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 Target 1.15.0 (sandboxed scripts, opt-in): nothing changes with the default `scripts.mode: inline`, which is
 deprecated (`sandbox` becomes the default in 2.0). To switch:

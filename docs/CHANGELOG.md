@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.15.0] - 2026-11-17](#1150---2026-11-17)
 - [[1.14.0] - 2026-11-16](#1140---2026-11-16)
 - [[1.13.2] - 2026-11-16](#1132---2026-11-16)
 - [[1.13.1] - 2026-11-15](#1131---2026-11-15)
@@ -63,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100---2026-07-16)
 
 ## [Unreleased]
+
+## [1.15.0] - 2026-11-17
 
 Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
 
@@ -179,6 +182,8 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
 ### Fixed
 
 - A MySQL error 1305 is only treated as a lost savepoint (409) when its message names a SAVEPOINT (audit RJ-D3-I2).
+
+[1.15.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.15.0
 
 ## [1.14.0] - 2026-11-16
 
