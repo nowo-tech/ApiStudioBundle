@@ -94,9 +94,13 @@ relay and the server runner runs before the tag).
   document could send data out in a URL (`location.href = …`, an anchor click; audit RW-M1, reproduced in Chromium,
   Firefox and WebKit with and without the header). Scripts therefore never run in the frame document: the frame
   starts a dedicated **Worker** from a `blob:` URL (the only thing `worker-src blob:` allows) and runs the scripts
-  there. The worker inherits the frame's policy (no network), has no `document`, no assignable `location`, no anchors,
-  forms or popups, and its network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`,
-  `importScripts`, nested workers) are removed before any script runs. The frame only relays between the console and
+  there. The worker inherits the frame's policy, has no `document`, no assignable `location`, no anchors, forms or
+  popups. **The CSP is the primary gate** for requests from the worker: whatever a script calls, the browser refuses
+  the request. As defence in depth only, the network APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
+  `WebTransport`, `importScripts`, nested workers) are removed before any script runs, along the whole prototype
+  chain of the worker global (in workers `fetch` and `importScripts` live on `WorkerGlobalScope.prototype`; before
+  audit RW-D-L1 only an own property shadowed them and the original was recoverable from the prototype's
+  descriptor), leaving a non-configurable `undefined` on the global. The frame only relays between the console and
   the worker; the console fails the run if the frame document ever loads a second time (a navigation) or reports a
   crashed worker.
 - The policy is carried twice: as the response header and as `<meta http-equiv="Content-Security-Policy">`, the first
@@ -105,7 +109,10 @@ relay and the server runner runs before the tag).
   `frame-ancestors 'self'` exists only in the header (a meta policy cannot carry it). DNS prefetching is off. Once
   the worker is started, the frame runtime also removes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
   `WebTransport`, WebRTC (`RTCPeerConnection`: no CSP directive governs it), workers, `navigator.sendBeacon` and
-  `window.open` from the frame itself.
+  `window.open` from the frame itself, along the prototype chains of `window` and `navigator` (defence in depth; no
+  script runs in the frame document).
+- `pm.globals` / `pm.collectionVariables` saves that deadlock or time out waiting for a lock (against another save or
+  a cascade delete) are rolled back as a whole and answer 409 with `Retry-After` (audit RW-D-I1).
 - The console accepts only messages from the frame it created, with origin `null` and the run's nonce; the frame
   accepts only messages from its parent. One fresh frame per phase, removed at the end or at `scripts.limits.time_ms`.
 - The frame is untrusted: the console posts the run once, validates the shape of the result (strings only in every

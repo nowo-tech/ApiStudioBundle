@@ -153,6 +153,11 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
   services and cloud metadata endpoints), and removes the network globals from the scripts' scope; each
   `pm.sendRequest` call gets only what is left of `scripts.limits.time_ms` and the run stops when it is used up.
   CI runs the runner's integration tests under Deno.
+- Defence in depth (audit RW-D-L1): the network APIs are removed along the whole prototype chain of the worker global
+  and the frame window (in workers `fetch` / `importScripts` live on `WorkerGlobalScope.prototype`, where an own
+  shadow left them recoverable). The CSP remains the primary gate.
+- A script-variable save that deadlocks or times out waiting for a lock answers 409 with `Retry-After` instead of
+  500 (audit RW-D-I1).
 - **Script variables** (audit RW-L3): keys of at most 128 characters, values of at most 65,535 bytes (not
   characters); one save writes globals and collection variables in one transaction after locking the workspace row,
   so the 500-keys cap holds under concurrent saves.

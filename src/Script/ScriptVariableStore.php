@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Script;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\RetryableException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -70,6 +71,7 @@ final class ScriptVariableStore
      * @param array<mixed, mixed> $collection
      *
      * @throws InvalidArgumentException on a malformed change, too many changes or a full scope (nothing written)
+     * @throws RetryableException on a deadlock or lock-wait timeout (rolled back; the caller may retry)
      *
      * @return int the number of keys written or removed
      */

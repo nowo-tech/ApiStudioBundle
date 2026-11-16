@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Doctrine\DBAL\Exception\RetryableException;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
@@ -80,6 +81,10 @@ final class ScriptVariablesController extends AbstractController
             $written = $this->store->save($workspaceId, $serviceId, $globals, $collection);
         } catch (InvalidArgumentException $e) {
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (RetryableException) {
+            // Audit RW-D-I1: a deadlock or lock-wait timeout against another save or a cascade delete; the save was
+            // rolled back as a whole, the client may retry (as the folder tree does, RJ-L1).
+            return new JsonResponse(['error' => 'Variables are being changed by someone else: try again in a moment.', 'code' => 'script_variables.busy'], Response::HTTP_CONFLICT, ['Retry-After' => '1']);
         }
 
         return new JsonResponse([

@@ -35,6 +35,9 @@ try { const a = document.createElement('a'); a.href = '/leak-nav-anchor'; docume
 try { const f = document.createElement('form'); f.action = '/leak-nav-form'; f.method = 'get'; document.body.appendChild(f); f.requestSubmit(); } catch (e) { /* nothing to navigate */ }
 try { open('/leak-nav-open'); } catch (e) { /* nothing to navigate */ }
 r.push('window:' + typeof window + ',document:' + typeof document);
+// Audit RW-D-L1: the originals must not be reachable through any prototype of the worker global either.
+const onChain = (n) => { for (let p = self; p; p = Object.getPrototypeOf(p)) { const d = Object.getOwnPropertyDescriptor(p, n); if (d && typeof d.value === 'function') return 'found'; } return 'none'; };
+r.push('chain:' + ['fetch', 'importScripts', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'Worker'].map(onChain).join('/'));
 pm.console.log(r.join(','));
 pm.console.log('lib:' + require('lodash').chunk([1, 2, 3], 2).length);
 pm.console.log('env:' + JSON.stringify(pm.environment.toObject()));
@@ -86,7 +89,7 @@ test.describe('Sandboxed scripts', () => {
       const payload = JSON.parse((await sent).postData() ?? '{}') as { headers?: Record<string, string> };
 
       expect(payload.headers?.['X-Sandboxed']).toBe('yes');
-      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked,fs:blocked,opener:blocked,open:blocked,parentfn:blocked,net:undefined/undefined/undefined/undefined/undefined/undefined/undefined,window:undefined,document:undefined');
+      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked,fs:blocked,opener:blocked,open:blocked,parentfn:blocked,net:undefined/undefined/undefined/undefined/undefined/undefined/undefined,window:undefined,document:undefined,chain:none/none/none/none/none/none');
       await expect(page.locator('#tester-script-log')).toContainText('lib:2');
       // Secret variables reach scripts as their own placeholder, never the value (US5).
       const log = (await page.locator('#tester-script-log').textContent()) ?? '';
