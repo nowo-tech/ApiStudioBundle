@@ -18,6 +18,8 @@ services:
             - '../../Secret/'
             - '../../ApiStudioBundle.php'
             - '../../Tenancy/TenantProviderResolver.php'
+            # 1.14: built per import call (holds that import's folder index), never a shared service.
+            - '../../Service/ImportExport/FolderImportHelper.php'
             - '../../Controller/'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
@@ -101,6 +103,24 @@ services:
         arguments:
             $listPageSize: '%nowo_api_studio.ui.list_page_size%'
 
+    Nowo\ApiStudioBundle\Controller\ApiServiceController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+
+    Nowo\ApiStudioBundle\Controller\ApiEndpointController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+
+    Nowo\ApiStudioBundle\Controller\ApiFolderController:
+        autoconfigure: false
+        tags: ['controller.service_arguments', 'container.service_subscriber']
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+
     Nowo\ApiStudioBundle\Controller\ApiWorkspaceController:
         autoconfigure: false
         tags: ['controller.service_arguments', 'container.service_subscriber']
@@ -112,12 +132,41 @@ services:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $cssFramework: '%nowo_api_studio.ui.css_framework%'
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
 
     # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
     Nowo\ApiStudioBundle\Ui\ApiStudioPages:
         arguments:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $twig: '@twig'
+
+    # 1.14 folders: depth limit; the folder checker is set by the extension (null without folders / checker).
+    Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory:
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+
+    Nowo\ApiStudioBundle\Service\StudioNavigationProvider:
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+
+    # 1.14: the importers recreate folders (Postman item groups, OpenAPI tags / x-api-studio-folder) only with folders on.
+    Nowo\ApiStudioBundle\Service\ImportExport\PostmanCollectionImporter:
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $maxDepth: '%nowo_api_studio.folders.max_depth%'
+
+    Nowo\ApiStudioBundle\Service\ImportExport\OpenApiImporter:
+        arguments:
+            $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $maxDepth: '%nowo_api_studio.folders.max_depth%'
+
+    Nowo\ApiStudioBundle\Service\FolderTree:
+        arguments:
+            $maxDepth: '%nowo_api_studio.folders.max_depth%'
+
+    Nowo\ApiStudioBundle\Security\FolderAccess:
+        arguments:
+            $checker: null
 
     Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber:
         arguments:

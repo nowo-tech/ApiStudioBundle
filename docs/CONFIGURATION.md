@@ -33,6 +33,9 @@ nowo_api_studio:
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
         # actor_resolver: App\ApiStudio\MyActorResolver
+    folders:
+        enabled: false           # 1.14: nested folders (migration)
+        max_depth: 8
     scripts:
         mode: inline             # inline | disabled
     execution_url_allowlist_required: false
@@ -85,6 +88,9 @@ nowo_api_studio:
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
+| `folders.enabled` | **1.14.** Nested folders in each service: tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the `folder` table and `endpoint.folder_id` (a migration, see [UPGRADING](UPGRADING.md#unreleased)). Default `false`: the 1.13 schema, pages and importers. |
+| `folders.max_depth` | **1.14.** Deepest folder level (1–32, default `8`; a top-level folder has depth 1). Checked on create, move and import (deeper imported folders are merged into their deepest allowed parent). |
+| `security.folder_permission_checker` | **1.14.** Service id implementing `ApiStudioFolderPermissionCheckerInterface` (with `folders.enabled`): folder-level sharing on top of the workspace decisions. It can only deny: hidden folders and their endpoints answer 404 and are left out of the tree, lists and exports; denied actions inside a visible folder answer 403. Null = folders follow their workspace. |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. Changing it (or `kernel.secret`) makes the stored secrets unreadable: they fail closed (never sent or exported, shown as *Needs re-entry*). `nowo:api-studio:secrets:status` lists them. |
 | `secrets.source` | **1.13.** Service id implementing `Nowo\ApiStudioBundle\Secret\ApiStudioSecretSourceInterface` (default `null`). A secret variable whose value is `{{secret:<source>/<id>}}` is then resolved on the server at execute time, per user and workspace as the host decides; the value never reaches the browser, the history, logs or exports, and a request that needs an unresolved reference is not sent (422 `secret_unresolved`). `null` = such values are ordinary secret values (1.12 behaviour). See [USAGE.md](USAGE.md#host-secrets-113). |

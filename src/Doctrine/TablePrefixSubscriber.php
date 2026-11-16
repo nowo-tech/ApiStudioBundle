@@ -5,15 +5,22 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Doctrine;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
+use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 
+use function in_array;
 use function is_array;
+use function is_string;
 
 /**
  * Applies the configured table prefix to all Api Studio entity tables and indexes.
@@ -27,6 +34,7 @@ final class TablePrefixSubscriber
         private readonly string $tablePrefix,
         private readonly bool $tenancy = false,
         private readonly bool $historyActor = false,
+        private readonly bool $folders = false,
     ) {
     }
 
@@ -42,6 +50,19 @@ final class TablePrefixSubscriber
         }
         if ($this->historyActor && $metadata->getName() === ApiRequestHistory::class) {
             $this->mapHistoryActor($metadata);
+        }
+        if ($metadata->getName() === ApiFolder::class) {
+            if (!$this->folders) {
+                // Folders off: no table, no association (the schema stays exactly 1.13's).
+                $metadata->isMappedSuperclass  = true;
+                $metadata->associationMappings = [];
+
+                return;
+            }
+            $this->mapFolderCreator($metadata, $event->getObjectManager()->getConnection());
+        }
+        if ($this->folders && $metadata->getName() === ApiEndpoint::class) {
+            $this->mapEndpointFolder($metadata);
         }
 
         $this->applyPrefix($metadata);
@@ -90,6 +111,72 @@ final class TablePrefixSubscriber
         $indexes['idx_history_endpoint_actor'] = ['columns' => ['endpoint_id', 'executed_by', 'executed_at']];
         $table['indexes']                      = $indexes;
         $metadata->setPrimaryTable($table);
+    }
+
+    /**
+     * `nowo_api_studio.folders.enabled` (1.14): the endpoint's folder (`folder_id`, SET NULL when the folder goes).
+     *
+     * @param ClassMetadata<object> $metadata
+     */
+    private function mapEndpointFolder(ClassMetadata $metadata): void
+    {
+        if (!$metadata->hasAssociation('folder')) {
+            $metadata->mapManyToOne([
+                'fieldName'    => 'folder',
+                'targetEntity' => ApiFolder::class,
+                'joinColumns'  => [['name' => 'folder_id', 'referencedColumnName' => 'id', 'nullable' => true, 'onDelete' => 'SET NULL']],
+            ]);
+        }
+
+        /** @var array<string, mixed> $table */
+        $table                          = $metadata->table;
+        $indexes                        = is_array($table['indexes'] ?? null) ? $table['indexes'] : [];
+        $indexes['idx_endpoint_folder'] = ['columns' => ['folder_id']];
+        $table['indexes']               = $indexes;
+        $metadata->setPrimaryTable($table);
+    }
+
+    /**
+     * Identifier columns compare exactly (audit LQ): `created_by` gets a binary NO PAD collation on MySQL
+     * (`utf8mb4_0900_bin`) and MariaDB (`utf8mb4_nopad_bin`). PostgreSQL and SQLite compare exactly already.
+     *
+     * @param ClassMetadata<object> $metadata
+     */
+    private function mapFolderCreator(ClassMetadata $metadata, Connection $connection): void
+    {
+        $collation = self::binaryCollation($connection);
+        if ($collation === null || !$metadata->hasField('createdBy')) {
+            return;
+        }
+
+        $mapping              = $metadata->getFieldMapping('createdBy');
+        $options              = is_array($mapping->options) ? $mapping->options : [];
+        $options['collation'] = $collation;
+        $mapping->options     = $options;
+    }
+
+    /**
+     * Binary NO PAD collation of the connection's platform, or null when it is not MySQL / MariaDB. The platform is
+     * read from the configured server version when there is one; without it, from the driver name (MySQL 8 assumed),
+     * so building metadata never needs a database connection.
+     */
+    public static function binaryCollation(Connection $connection): ?string
+    {
+        $params  = $connection->getParams();
+        $driver  = is_string($params['driver'] ?? null) ? $params['driver'] : '';
+        $mysql   = in_array($driver, ['pdo_mysql', 'mysqli'], true);
+        $version = $params['serverVersion'] ?? $params['primary']['serverVersion'] ?? null;
+        if (is_string($version) && $version !== '') {
+            // With a server version DBAL builds the platform without connecting.
+            $platform = $connection->getDatabasePlatform();
+            if ($platform instanceof MariaDBPlatform) {
+                return 'utf8mb4_nopad_bin';
+            }
+
+            return $platform instanceof AbstractMySQLPlatform ? 'utf8mb4_0900_bin' : null;
+        }
+
+        return $mysql ? 'utf8mb4_0900_bin' : null;
     }
 
     /**

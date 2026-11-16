@@ -82,6 +82,59 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+Target 1.14.0. From **1.13.x**: nothing to do with the defaults (`folders.enabled: false` maps nothing new).
+
+To enable folders:
+
+```yaml
+nowo_api_studio:
+    folders:
+        enabled: true
+        max_depth: 8            # optional
+    # security:
+    #     folder_permission_checker: App\ApiStudio\FolderSharing   # optional
+```
+
+then migrate the Api Studio entity manager (`php bin/console doctrine:migrations:diff --em=<api studio manager>` or
+`php bin/console nowo:api-studio:sync-schema`). Reference DDL with the default `api_studio_` prefix (MySQL 8; use
+`utf8mb4_nopad_bin` on MariaDB, drop the `COLLATE` clause on PostgreSQL / SQLite):
+
+```sql
+CREATE TABLE api_studio_folder (
+    id INT AUTO_INCREMENT NOT NULL,
+    service_id INT NOT NULL,
+    parent_id INT DEFAULT NULL,
+    name VARCHAR(128) NOT NULL,
+    description LONGTEXT DEFAULT NULL,
+    sort_order INT DEFAULT 0 NOT NULL,
+    auth_type VARCHAR(32) DEFAULT NULL,
+    auth_config JSON NOT NULL,
+    headers JSON NOT NULL,
+    created_by VARCHAR(128) DEFAULT NULL COLLATE `utf8mb4_0900_bin`,
+    created_at DATETIME NOT NULL COMMENT '(DC2Type:datetime_immutable)',
+    updated_at DATETIME NOT NULL COMMENT '(DC2Type:datetime_immutable)',
+    INDEX api_studio_idx_folder_service_parent (service_id, parent_id, sort_order),
+    PRIMARY KEY (id)
+);
+ALTER TABLE api_studio_folder ADD CONSTRAINT FK_folder_service FOREIGN KEY (service_id) REFERENCES api_studio_service (id) ON DELETE CASCADE;
+ALTER TABLE api_studio_folder ADD CONSTRAINT FK_folder_parent FOREIGN KEY (parent_id) REFERENCES api_studio_folder (id) ON DELETE CASCADE;
+ALTER TABLE api_studio_endpoint ADD folder_id INT DEFAULT NULL;
+ALTER TABLE api_studio_endpoint ADD CONSTRAINT FK_endpoint_folder FOREIGN KEY (folder_id) REFERENCES api_studio_folder (id) ON DELETE SET NULL;
+CREATE INDEX api_studio_idx_endpoint_folder ON api_studio_endpoint (folder_id);
+```
+
+Prefer the generated migration (constraint names differ); the collation of `created_by` is emitted by the mapping when
+the connection's `serverVersion` is set (without it, MySQL 8 is assumed).
+
+Notes:
+- With folders on, header names merge case-insensitively for endpoints inside a folder (the deepest level wins);
+  endpoints at the service root keep the 1.13 merge.
+- Template overrides: `_sidebar_tree.html.twig` and `_sidebar_endpoints.html.twig` render folders and the drag & drop
+  attributes (`data-tree-*`), `_sidebar_folders.html.twig` is new, `service/show.html.twig` has a Folders section,
+  `endpoint/show.html.twig` takes `effectiveAuthType` / `effectiveAuthFolder`. Overrides keep working without folders.
+- `ApiStudioResourceChangedEvent` gains `TYPE_FOLDER` and `ACTION_MOVED`: listeners should ignore unknown values.
+- A host folder checker can only deny; without one nothing changes.
+
 ## To 1.13.1
 
 From **1.13.0**:

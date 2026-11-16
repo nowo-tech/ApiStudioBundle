@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
@@ -292,6 +293,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 
         $this->registerTenancy($container, $config['tenancy']);
         $this->registerPermissions($container, $config['security'], $config['history']);
+        $this->registerFolders($container, $config['folders'], $config['security']);
         $source = $config['secrets']['source'] ?? null;
         $container->getDefinition(HostSecretResolver::class)
             ->setArgument('$source', is_string($source) && $source !== '' ? new Reference($source) : null);
@@ -350,6 +352,23 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->getDefinition(ApiStudioHistoryScope::class)
             ->setArgument('$scope', $history['scope'])
             ->setArgument('$actorResolver', is_string($history['actor_resolver']) && $history['actor_resolver'] !== '' ? new Reference($history['actor_resolver']) : null);
+    }
+
+    /**
+     * @param array{enabled: bool, max_depth: int} $folders
+     * @param array<string, mixed> $security
+     */
+    private function registerFolders(ContainerBuilder $container, array $folders, array $security): void
+    {
+        $container->setParameter(Configuration::ALIAS . '.folders.enabled', $folders['enabled']);
+        $container->setParameter(Configuration::ALIAS . '.folders.max_depth', $folders['max_depth']);
+        $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$folders', $folders['enabled']);
+
+        $checker = $security['folder_permission_checker'] ?? null;
+        $container->getDefinition(FolderAccess::class)->setArgument(
+            '$checker',
+            $folders['enabled'] && is_string($checker) && $checker !== '' ? new Reference($checker) : null,
+        );
     }
 
     /**

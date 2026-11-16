@@ -16,11 +16,11 @@
                 <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}"
                    class="as-service-collection-name">{{ service.name }}</a>
                 <code class="as-service-collection-url">{{ service.baseUrl }}</code>
-                <span class="as-endpoint-badge" title="{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}">{{ service.endpoints|length }}</span>
+                <span class="as-endpoint-badge" title="{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}">{{ nowo_api_studio_visible_endpoints(service.endpoints)|length }}</span>
                 {{ include('@NowoApiStudioBundle/_service_kebab_menu.html.twig', {service: service, workspace: workspace, bundle: bundle|default(null)}, false) }}
             </div>
             <div class="as-service-collection-body"{% if not loop.first %} hidden{% endif %}>
-                {% if service.endpoints|length > 0 %}
+                {% if nowo_api_studio_visible_endpoints(service.endpoints)|length > 0 %}
                     {{ include('@NowoApiStudioBundle/_endpoint_expandable_list.html.twig', {endpoints: service.endpoints, service: service, workspace: workspace}, false) }}
                 {% else %}
                     <p class="as-empty as-endpoint-list-empty">{{ 'empty.endpoints'|trans({}, 'NowoApiStudioBundle') }}</p>

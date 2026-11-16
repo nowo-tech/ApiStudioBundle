@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Validator\SlugFormat;
@@ -33,6 +34,13 @@ class ApiEndpoint
     #[ORM\ManyToOne(targetEntity: ApiService::class, inversedBy: 'endpoints')]
     #[ORM\JoinColumn(name: 'service_id', nullable: false, onDelete: 'CASCADE')]
     private ?ApiService $service = null;
+
+    /**
+     * Folder of the endpoint in its service's tree (1.14), null = service root. Not mapped by attributes:
+     * {@see TablePrefixSubscriber} maps `folder_id` only with
+     * `nowo_api_studio.folders.enabled`, so it stays null (and 1.13's schema) otherwise.
+     */
+    private ?ApiFolder $folder = null;
 
     #[ORM\Column(type: Types::STRING, length: 128)]
     private string $name;
@@ -135,6 +143,19 @@ class ApiEndpoint
     {
         // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->service = $service;
+
+        return $this->touch();
+    }
+
+    public function getFolder(): ?ApiFolder
+    {
+        return $this->folder;
+    }
+
+    public function setFolder(?ApiFolder $folder): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->folder = $folder;
 
         return $this->touch();
     }

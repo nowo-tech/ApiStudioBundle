@@ -196,8 +196,12 @@
                                     </tbody>
                                 </table>
                                 <button type="button" class="as-btn as-kv-add" id="tester-headers-add">+ {{ 'tester.add_header'|trans({}, 'NowoApiStudioBundle') }}</button>
-                                {% if service.authType.value != 'none' %}
-                                    <p class="as-hint as-hint--spaced">{{ 'tester.auth_hint'|trans({'%type%': service.authType.value}, 'NowoApiStudioBundle') }}</p>
+                                {% set _auth_type = effectiveAuthType|default(service.authType) %}
+                                {% if _auth_type.value != 'none' %}
+                                    <p class="as-hint as-hint--spaced">{{ 'tester.auth_hint'|trans({'%type%': _auth_type.value}, 'NowoApiStudioBundle') }}</p>
+                                {% endif %}
+                                {% if effectiveAuthFolder|default(null) %}
+                                    <p class="as-hint" data-testid="api-studio-auth-source">{{ 'folder.auth_source'|trans({'%folder%': effectiveAuthFolder.name}, 'NowoApiStudioBundle') }}</p>
                                 {% endif %}
                             </div>
                             <div class="as-subpanel" data-subpanel="variables">

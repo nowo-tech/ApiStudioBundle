@@ -33,9 +33,19 @@ abstract class StudioWebTestCase extends WebTestCase
         return TestKernel::class;
     }
 
+    /**
+     * Kernel options of the client (e.g. another environment).
+     *
+     * @return array<string, mixed>
+     */
+    protected static function clientOptions(): array
+    {
+        return [];
+    }
+
     protected function setUp(): void
     {
-        $this->client = self::createClient();
+        $this->client = self::createClient(static::clientOptions());
         $this->client->catchExceptions(false);
 
         $entityManager = $this->entityManager();

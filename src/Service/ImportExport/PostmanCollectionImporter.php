@@ -9,17 +9,21 @@ use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
+use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ImportResult;
+use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 
 use function in_array;
 use function is_array;
 use function is_scalar;
 use function is_string;
+use function sprintf;
 
 /**
  * Imports Postman Collection v2.0/v2.1 into services, endpoints, and variables.
@@ -29,6 +33,9 @@ final class PostmanCollectionImporter
     public function __construct(
         private readonly DocumentParser $parser,
         private readonly EntityManagerInterface $entityManager,
+        private readonly bool $foldersEnabled = false,
+        private readonly int $maxDepth = 8,
+        private readonly ?ApiFolderRepository $folderRepository = null,
     ) {
     }
 
@@ -54,8 +61,23 @@ final class PostmanCollectionImporter
 
         $endpointsCreated = 0;
         $items            = $data['item'] ?? [];
+        // 1.14: with folders the item groups become folders (depth capped) and auth is mapped; without, 1.13's flat walk.
+        $folders = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth) : null;
+        $stats   = ['scripts' => 0, 'auth' => 0];
+        if ($folders instanceof FolderImportHelper && !$targetService instanceof ApiService) {
+            $collectionAuth = PostmanAuthMapper::map($data['auth'] ?? null);
+            if ($collectionAuth !== null) {
+                $service->setAuthType($collectionAuth['type']);
+                $service->setAuthConfig($collectionAuth['config']);
+            } elseif (PostmanAuthMapper::isPresent($data['auth'] ?? null)) {
+                ++$stats['auth'];
+            }
+        }
+        if ($folders instanceof FolderImportHelper) {
+            $stats['scripts'] += self::scriptCount($data);
+        }
         if (is_array($items)) {
-            $this->walkItems(array_values($items), $service, $endpointsCreated);
+            $this->walkItems(array_values($items), $service, $endpointsCreated, $folders, null, $stats);
         }
 
         if (!$targetService instanceof ApiService) {
@@ -65,11 +87,44 @@ final class PostmanCollectionImporter
             $result = $result->merge(new ImportResult(endpointsCreated: $endpointsCreated));
         }
 
-        return $result->merge(new ImportResult(messages: ['Imported Postman collection']));
+        $messages = ['Imported Postman collection'];
+        if ($folders instanceof FolderImportHelper) {
+            if ($folders->mergedCount() > 0) {
+                $messages[] = sprintf('%d folders deeper than the allowed depth were merged into their deepest allowed parent.', $folders->mergedCount());
+            }
+            if ($stats['scripts'] > 0) {
+                $messages[] = sprintf('%d scripts were not imported (stored scripts from files arrive with the sandboxed runner).', $stats['scripts']);
+            }
+            if ($stats['auth'] > 0) {
+                $messages[] = sprintf('%d auth settings of an unsupported type (or on a single request) were not imported.', $stats['auth']);
+            }
+        }
+
+        return $result->merge(new ImportResult(messages: $messages));
     }
 
-    /** @param list<mixed> $items */
-    private function walkItems(array $items, ApiService $service, int &$endpointsCreated): void
+    /**
+     * Pre-request and test scripts of a collection / folder / request (`event[]` with `script.exec`).
+     *
+     * @param array<string, mixed> $node
+     */
+    private static function scriptCount(array $node): int
+    {
+        $count = 0;
+        foreach (is_array($node['event'] ?? null) ? $node['event'] : [] as $event) {
+            if (is_array($event) && is_array($event['script'] ?? null) && ($event['script']['exec'] ?? []) !== [] && ($event['script']['exec'] ?? '') !== '') {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param list<mixed> $items
+     * @param array{scripts: int, auth: int} $stats
+     */
+    private function walkItems(array $items, ApiService $service, int &$endpointsCreated, ?FolderImportHelper $folders = null, ?ApiFolder $parent = null, array &$stats = ['scripts' => 0, 'auth' => 0]): void
     {
         foreach ($items as $item) {
             if (!is_array($item)) {
@@ -77,7 +132,23 @@ final class PostmanCollectionImporter
             }
 
             if (isset($item['item']) && is_array($item['item'])) {
-                $this->walkItems(array_values($item['item']), $service, $endpointsCreated);
+                $folder = $parent;
+                if ($folders instanceof FolderImportHelper) {
+                    $stats['scripts'] += self::scriptCount($item);
+                    $description = $item['description'] ?? null;
+                    $child       = $folders->child($parent, (string) ($item['name'] ?? 'Folder'), is_string($description) ? $description : null);
+                    if ($child instanceof ApiFolder) {
+                        $folder = $child;
+                        $auth   = PostmanAuthMapper::map($item['auth'] ?? null);
+                        if ($auth !== null) {
+                            $folder->setAuthType($auth['type']);
+                            $folder->setAuthConfig($auth['config']);
+                        } elseif (PostmanAuthMapper::isPresent($item['auth'] ?? null)) {
+                            ++$stats['auth'];
+                        }
+                    }
+                }
+                $this->walkItems(array_values($item['item']), $service, $endpointsCreated, $folders, $folder, $stats);
 
                 continue;
             }
@@ -87,9 +158,41 @@ final class PostmanCollectionImporter
             }
 
             $endpoint = $this->createEndpointFromRequest($service, $item);
+            if ($folders instanceof FolderImportHelper) {
+                $stats['scripts'] += self::scriptCount($item);
+                $endpoint->setFolder($parent);
+                $endpoint->setSortOrder($endpointsCreated * 10);
+                $this->applyRequestAuth($endpoint, $item['request']['auth'] ?? null, $stats);
+            }
             $this->entityManager->persist($endpoint);
             ++$endpointsCreated;
         }
+    }
+
+    /**
+     * Request-level auth (1.14): endpoints have no auth of their own, so bearer and header API keys become endpoint
+     * headers; anything else is reported.
+     *
+     * @param array{scripts: int, auth: int} $stats
+     */
+    private function applyRequestAuth(ApiEndpoint $endpoint, mixed $auth, array &$stats): void
+    {
+        if (!PostmanAuthMapper::isPresent($auth)) {
+            return;
+        }
+
+        $mapped  = PostmanAuthMapper::map($auth);
+        $headers = $endpoint->getHeaders();
+        if ($mapped !== null && $mapped['type'] === AuthType::Bearer && $mapped['config']['token'] !== '') {
+            $headers['Authorization'] = 'Bearer ' . $mapped['config']['token'];
+        } elseif ($mapped !== null && $mapped['type'] === AuthType::ApiKey && $mapped['config']['value'] !== '') {
+            $headers[$mapped['config']['header']] = $mapped['config']['value'];
+        } else {
+            ++$stats['auth'];
+
+            return;
+        }
+        $endpoint->setHeaders($headers);
     }
 
     /** @param array<string, mixed> $item */

@@ -270,3 +270,189 @@ document.querySelectorAll<HTMLElement>('.as-subtabs[data-subtabs]').forEach((bar
     });
   });
 });
+
+/*
+ * 1.14 folders: folder rows of the API tree expand / collapse with their chevron button.
+ */
+document.querySelectorAll<HTMLButtonElement>('[data-tree-folder-toggle]').forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const folder = btn.closest('[data-tree-folder]');
+    if (!folder) {
+      return;
+    }
+    btn.setAttribute('aria-expanded', folder.classList.toggle('is-open') ? 'true' : 'false');
+  });
+});
+
+type TreeMove = { type: 'folder' | 'endpoint'; id: number; parent: number | null; before: number | null };
+
+/**
+ * Folder of an element inside a service tree (its closest folder row below the root), or null for the root level.
+ */
+function folderIdOf(el: Element, root: Element): number | null {
+  const folder = el.parentElement?.closest<HTMLElement>('[data-tree-folder]');
+  if (!folder || !root.contains(folder)) {
+    return null;
+  }
+
+  return Number(folder.dataset.treeId) || null;
+}
+
+/**
+ * The move a drop of `dragged` on `target` means: onto a folder = into it (last); onto an endpoint = before it for an
+ * endpoint, into the endpoint's folder for a folder; onto the service row = to the service root (last). Null when the
+ * drop is not allowed (a folder into itself or one of its descendants, a node onto itself).
+ */
+function treeMoveFor(dragged: HTMLElement, target: HTMLElement, root: HTMLElement): TreeMove | null {
+  const type = dragged.dataset.treeNode === 'folder' ? 'folder' : 'endpoint';
+  const id = Number(dragged.dataset.treeId);
+  if (!id || dragged === target || (type === 'folder' && dragged.contains(target))) {
+    return null;
+  }
+
+  if (target.dataset.treeDrop === 'root') {
+    return { type, id, parent: null, before: null };
+  }
+  if (target.dataset.treeNode === 'folder') {
+    return { type, id, parent: Number(target.dataset.treeId) || null, before: null };
+  }
+  if (target.dataset.treeNode === 'endpoint') {
+    const parent = folderIdOf(target, root);
+    return { type, id, parent, before: type === 'endpoint' ? Number(target.dataset.treeId) || null : null };
+  }
+
+  return null;
+}
+
+/**
+ * Applies a confirmed move to the DOM: folders stay before the endpoints of their level.
+ */
+function applyTreeMove(dragged: HTMLElement, move: TreeMove, root: HTMLElement): void {
+  let container: Element = root;
+  if (move.parent !== null) {
+    const folder = root.querySelector(`[data-tree-folder][data-tree-id="${move.parent}"]`);
+    const children = folder?.querySelector(':scope > [data-tree-children]');
+    if (!children) {
+      window.location.reload();
+      return;
+    }
+    container = children;
+  }
+
+  if (move.type === 'endpoint') {
+    const before = move.before !== null ? container.querySelector(`:scope > [data-tree-node="endpoint"][data-tree-id="${move.before}"]`) : null;
+    container.insertBefore(dragged, before);
+    return;
+  }
+
+  const firstEndpoint = container.querySelector(':scope > [data-tree-endpoint-group]');
+  container.insertBefore(dragged, firstEndpoint);
+}
+
+document.querySelectorAll<HTMLElement>('[data-tree-root][data-tree-move-url]').forEach((root) => {
+  const url = root.dataset.treeMoveUrl ?? '';
+  const token = root.dataset.treeCsrf ?? '';
+  const serviceRow = root.previousElementSibling instanceof HTMLElement && root.previousElementSibling.dataset.treeDrop === 'root'
+    ? root.previousElementSibling
+    : null;
+  let dragged: HTMLElement | null = null;
+  let status: HTMLElement | null = null;
+
+  function report(message: string): void {
+    if (!status) {
+      status = document.createElement('p');
+      status.className = 'as-tree-move-error';
+      status.setAttribute('role', 'status');
+      root.prepend(status);
+    }
+    status.textContent = message;
+  }
+
+  function dropTarget(e: Event): HTMLElement | null {
+    const el = e.target instanceof Element ? e.target : null;
+    if (!el) {
+      return null;
+    }
+    if (serviceRow && serviceRow.contains(el)) {
+      return serviceRow;
+    }
+    const node = el.closest<HTMLElement>('[data-tree-node]');
+    return node && root.contains(node) ? node : null;
+  }
+
+  function clearTargets(): void {
+    document.querySelectorAll('.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+  }
+
+  root.addEventListener('dragstart', (e) => {
+    const node = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-tree-node]') : null;
+    if (!node || !root.contains(node)) {
+      return;
+    }
+    e.stopPropagation();
+    dragged = node;
+    node.classList.add('is-dragging');
+    const transfer = (e as DragEvent).dataTransfer;
+    if (transfer) {
+      transfer.effectAllowed = 'move';
+      transfer.setData('text/plain', node.dataset.treeId ?? '');
+    }
+  });
+
+  root.addEventListener('dragend', () => {
+    dragged?.classList.remove('is-dragging');
+    dragged = null;
+    clearTargets();
+  });
+
+  const onOver = (e: Event): void => {
+    const target = dropTarget(e);
+    if (!dragged || !target || !treeMoveFor(dragged, target, root)) {
+      return;
+    }
+    e.preventDefault();
+    clearTargets();
+    target.classList.add('is-drop-target');
+  };
+
+  const onDrop = async (e: Event): Promise<void> => {
+    const target = dropTarget(e);
+    const node = dragged;
+    clearTargets();
+    if (!node || !target) {
+      return;
+    }
+    const move = treeMoveFor(node, target, root);
+    if (!move) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': token },
+        body: JSON.stringify(move),
+      });
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) {
+        report(data.error || root.dataset.treeMoveError || 'Move failed.');
+        return;
+      }
+      if (status) {
+        status.textContent = '';
+      }
+      applyTreeMove(node, move, root);
+    } catch {
+      report(root.dataset.treeMoveError || 'Move failed.');
+    }
+  };
+
+  root.addEventListener('dragover', onOver);
+  root.addEventListener('drop', (e) => void onDrop(e));
+  serviceRow?.addEventListener('dragover', onOver);
+  serviceRow?.addEventListener('drop', (e) => void onDrop(e));
+});

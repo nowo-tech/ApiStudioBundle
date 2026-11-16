@@ -5,16 +5,24 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Service\ImportExport;
 
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 
 /**
  * Exports services/endpoints as OpenAPI 3.0 document.
+ *
+ * 1.14 folders: each operation in a folder carries its path as `x-api-studio-folder` (top-level folder first) and its
+ * top-level folder as a tag (first tag of a service export, after the service tag in a workspace export); endpoints
+ * of folders hidden by a host folder checker are left out.
  */
 final class OpenApiExporter
 {
     public function __construct(
         private readonly DocumentParser $parser,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -32,7 +40,9 @@ final class OpenApiExporter
             $tags[] = ['name' => $tag, 'description' => $service->getDescription() ?? ''];
 
             foreach ($service->getEndpoints() as $endpoint) {
-                $this->appendEndpoint($paths, $endpoint, $tag);
+                if ($this->visible($endpoint)) {
+                    $this->appendEndpoint($paths, $endpoint, $tag, false);
+                }
             }
         }
 
@@ -52,9 +62,17 @@ final class OpenApiExporter
 
     public function exportService(ApiService $service): string
     {
-        $paths = [];
+        $paths      = [];
+        $folderTags = [];
         foreach ($service->getEndpoints() as $endpoint) {
-            $this->appendEndpoint($paths, $endpoint, $service->getName());
+            if (!$this->visible($endpoint)) {
+                continue;
+            }
+            $this->appendEndpoint($paths, $endpoint, $service->getName(), true);
+            $top = $endpoint->getFolder()?->getPath()[0] ?? null;
+            if ($top instanceof ApiFolder) {
+                $folderTags[$top->getName()] ??= ['name' => $top->getName(), 'description' => $top->getDescription() ?? ''];
+            }
         }
 
         $document = [
@@ -67,20 +85,31 @@ final class OpenApiExporter
             'servers' => [['url' => $service->getBaseUrl()]],
             'paths'   => $paths,
         ];
+        if ($folderTags !== []) {
+            $document['tags'] = array_values($folderTags);
+        }
 
         return $this->parser->encodeJson($document);
     }
 
     /** @param array<string, mixed> $paths */
-    private function appendEndpoint(array &$paths, ApiEndpoint $endpoint, string $tag): void
+    private function appendEndpoint(array &$paths, ApiEndpoint $endpoint, string $tag, bool $folderTagFirst): void
     {
-        $path      = $endpoint->getPath() ?: '/';
-        $method    = strtolower($endpoint->getMethod()->value);
+        $path    = $endpoint->getPath() ?: '/';
+        $method  = strtolower($endpoint->getMethod()->value);
+        $folders = array_map(static fn (ApiFolder $folder): string => $folder->getName(), $endpoint->getFolder()?->getPath() ?? []);
+        $tags    = [$tag];
+        if ($folders !== []) {
+            $tags = $folderTagFirst ? [$folders[0]] : [$tag, $folders[0]];
+        }
         $operation = [
-            'tags'        => [$tag],
+            'tags'        => $tags,
             'summary'     => $endpoint->getName(),
             'operationId' => $endpoint->getSlug(),
         ];
+        if ($folders !== []) {
+            $operation[OpenApiImporter::FOLDER_EXTENSION] = $folders;
+        }
 
         $parameters = [];
         foreach ($endpoint->getQueryParams() as $name => $value) {
@@ -129,5 +158,10 @@ final class OpenApiExporter
 
         $paths[$path] ??= [];
         $paths[$path][$method] = $operation;
+    }
+
+    private function visible(ApiEndpoint $endpoint): bool
+    {
+        return !$this->folderAccess instanceof FolderAccess || $this->folderAccess->canEndpoint(ApiStudioAction::WorkspaceView, $endpoint);
     }
 }

@@ -22,6 +22,8 @@ use Nowo\ApiStudioBundle\Secret\SecretForms;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
+use Nowo\ApiStudioBundle\Service\FolderInheritanceResolver;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
@@ -82,6 +84,7 @@ final class ApiExecuteController extends AbstractController
         private readonly RequestExecutor $requestExecutor,
         private readonly HistorySanitizer $historySanitizer,
         private readonly EntityManagerInterface $entityManager,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -100,6 +103,8 @@ final class ApiExecuteController extends AbstractController
         // The endpoint's workspace: outside the scope or not viewable → 404, viewable but not runnable → 403.
         try {
             $this->authorization()->requireWorkspace($endpoint->getService()?->getWorkspace(), ApiStudioAction::WorkspaceRun);
+            // 1.14: a host folder checker may hide (404) or deny running in (403) the endpoint's folder.
+            $this->folderAccess?->requireEndpoint($endpoint, ApiStudioAction::WorkspaceRun);
         } catch (NotFoundHttpException) {
             return new JsonResponse(['error' => 'Endpoint not found.'], Response::HTTP_NOT_FOUND);
         } catch (AccessDeniedHttpException) {
@@ -231,8 +236,9 @@ final class ApiExecuteController extends AbstractController
             $unresolvedSecrets = $resolution->unresolvedKeys;
             if ($resolution->values !== []) {
                 $hostSecretOrigin = $targetOrigin;
-                $basicUser        = $service->getAuthType() === AuthType::Basic
-                    ? $variableResolver->resolve((string) ($service->getAuthConfig()['username'] ?? ''), $variableMap)
+                $auth             = FolderInheritanceResolver::auth($service, $endpoint);
+                $basicUser        = $auth['type'] === AuthType::Basic
+                    ? $variableResolver->resolve((string) ($auth['config']['username'] ?? ''), $variableMap)
                     : null;
                 // QE-B-L1: the encodings a target may echo (base64, Basic `user:secret`, HTML entities, \u escapes).
                 $hostSecretValues = SecretForms::expand($resolution->values, $basicUser);
@@ -337,7 +343,7 @@ final class ApiExecuteController extends AbstractController
             $templates[] = $overrideBody;
         }
 
-        $storedHeaders = array_merge($service->getDefaultHeaders(), $endpoint->getHeaders());
+        $storedHeaders = FolderInheritanceResolver::headers($service, $endpoint);
         foreach ($overrideHeaders as $name => $value) {
             if (!isset($storedHeaders[$name]) || !self::sameTemplate($value, $storedHeaders[$name])) {
                 $templates[] = $value;
@@ -454,9 +460,10 @@ final class ApiExecuteController extends AbstractController
     {
         $names   = [];
         $service = $endpoint->getService();
-        if ($service !== null && $service->getAuthType() === AuthType::ApiKey) {
+        $auth    = $service !== null ? FolderInheritanceResolver::auth($service, $endpoint) : null;
+        if ($auth !== null && $auth['type'] === AuthType::ApiKey) {
             // Same default as RequestExecutor::applyApiKeyAuth(); the name is also redacted if it appears in the query.
-            $names[] = (string) ($service->getAuthConfig()['header'] ?? 'X-Api-Key');
+            $names[] = (string) ($auth['config']['header'] ?? 'X-Api-Key');
         }
 
         $secrets = [];

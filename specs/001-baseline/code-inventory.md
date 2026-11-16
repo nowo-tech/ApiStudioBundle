@@ -37,6 +37,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Entity/ApiWorkspace.php` | Workspace root aggregate | FR-ORM-001 |
 | `Entity/ApiService.php` | Service collection under workspace | FR-ORM-001 |
 | `Entity/ApiEndpoint.php` | Endpoint definition (REST/SOAP/GraphQL) | FR-ORM-001 |
+| `Entity/ApiFolder.php` | Service folder tree node (1.14): parent, order, inheritable auth / headers, creator id | FR-FOLD-003 (spec 002) |
 | `Entity/ApiEndpointTranslation.php` | Localized endpoint metadata | FR-ORM-001, FR-I18N-001 |
 | `Entity/ApiEnvironment.php` | Named environment (dev/test/prod) | FR-ORM-001 |
 | `Entity/ApiEnvironmentVariable.php` | Key/value variables per environment | FR-ORM-001 |
@@ -58,6 +59,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | --- | --- | --- |
 | `Repository/ApiWorkspaceRepository.php` | Workspace persistence | FR-ORM-002 |
 | `Repository/ApiServiceRepository.php` | Service persistence | FR-ORM-002 |
+| `Repository/ApiFolderRepository.php` | Folder tree rows, endpoint folder ids, levels (1.14) | FR-FOLD-006 (spec 002) |
 | `Repository/ApiEndpointRepository.php` | Endpoint persistence | FR-ORM-002 |
 | `Repository/ApiEndpointTranslationRepository.php` | Translation persistence | FR-ORM-002 |
 | `Repository/ApiEnvironmentRepository.php` | Environment persistence | FR-ORM-002 |
@@ -74,6 +76,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ApiWorkspaceController.php` | Workspace CRUD | FR-CTRL-001 |
 | `Controller/ApiServiceController.php` | Service CRUD | FR-CTRL-001 |
 | `Controller/ApiEndpointController.php` | Endpoint CRUD | FR-CTRL-001 |
+| `Controller/ApiFolderController.php` | Folder CRUD and tree moves (1.14) | FR-FOLD-005, FR-FOLD-007 (spec 002) |
 | `Controller/ApiEnvironmentController.php` | Environment CRUD | FR-CTRL-001 |
 | `Controller/EnvironmentVariablesController.php` | Environment variable editor | FR-CTRL-001 |
 | `Controller/EndpointExamplesController.php` | Request/response example CRUD | FR-CTRL-001 |
@@ -90,6 +93,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Form/ApiWorkspaceFormType.php` | Workspace create/edit form | FR-FORM-001 |
 | `Form/ApiServiceFormType.php` | Service create/edit form | FR-FORM-001 |
 | `Form/ApiEndpointFormType.php` | Endpoint create/edit form | FR-FORM-001 |
+| `Form/ApiFolderFormType.php` | Folder form type (1.14) | FR-FOLD-005 (spec 002) |
 | `Form/ApiEnvironmentFormType.php` | Environment create/edit form | FR-FORM-001 |
 | `Form/ApiEndpointTranslationFormType.php` | Per-locale endpoint title/description/notes sub-form | FR-FORM-001, FR-I18N-001 |
 | `Form/ApiEnvironmentVariableFormType.php` | Environment variable row (key, value, secret flag) | FR-FORM-001, FR-SEC-002 |
@@ -119,6 +123,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Service/DemoSeedService.php` | Demo workspace seed data | FR-CLI-001 |
 | `Service/LocaleManager.php` | Enabled locales and defaults | FR-I18N-001 |
 | `Service/StudioNavigationProvider.php` | Sidebar workspace→service→endpoint tree | FR-TWIG-001 |
+| `Service/FolderTree.php` | Folder depth / cycle rules, moves, reorders, deletes (1.14) | FR-FOLD-002, FR-FOLD-007 (spec 002) |
+| `Service/FolderInheritanceResolver.php` | Headers and auth inherited from folders (1.14) | FR-FOLD-008 (spec 002) |
 | `Service/HistorySanitizer.php` | Redacts secrets/PII from history URL, headers and bodies before persistence | FR-OBS-001 |
 | `Service/WorkspaceEnvironmentInitializer.php` | Seeds a new workspace with the configured `environments` (first = default) | FR-CFG-001, FR-ORM-003 |
 | `Service/ResponseBodyReader.php` | Response body read within `execution_max_response_bytes` (REST, SOAP, WSDL) | FR-EXEC-001, FR-EXEC-003 |
@@ -132,6 +138,8 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Service/ImportExport/SlugHelper.php` | Unique slug generation on import | FR-IMP-002 |
 | `Service/ImportExport/OpenApiImporter.php` | OpenAPI → entities merge | FR-IMP-001 |
 | `Service/ImportExport/PostmanCollectionImporter.php` | Postman collection → entities merge | FR-IMP-001 |
+| `Service/ImportExport/PostmanAuthMapper.php` | Postman auth objects → Api Studio auth (1.14) | FR-FOLD-009 (spec 002) |
+| `Service/ImportExport/FolderImportHelper.php` | Per-import folder lookup / creation with depth cap (1.14) | FR-FOLD-009, FR-FOLD-010 (spec 002) |
 | `Service/ImportExport/OpenApiExporter.php` | Entities → OpenAPI document | FR-IMP-001 |
 | `Service/ImportExport/EnvironmentVariableExporter.php` | Variables → export file | FR-IMP-001 |
 | `Service/ImportExport/EnvironmentVariableImporter.php` | Import file → variables | FR-IMP-001 |
@@ -142,6 +150,9 @@ This file proves that **every production source artifact** under `src/` is refer
 | --- | --- | --- |
 | `Security/ApiStudioAccessCheckerInterface.php` | Host-app access policy contract | FR-SEC-001 |
 | `Security/ConfigurableApiStudioAccessChecker.php` | Default role/config checker | FR-SEC-001 |
+| `Security/FolderAccess.php` | Folder decisions over the host folder checker (1.14) | FR-FOLD-011 (spec 002) |
+| `Security/ApiStudioFolderPermissionCheckerInterface.php` | Host folder sharing SPI (1.14) | FR-FOLD-011 (spec 002) |
+| `Security/ApiStudioFolderRef.php` | Folder ids VO for the folder SPI (1.14) | FR-FOLD-011 (spec 002) |
 | `Security/ExecutionUrlValidator.php` | SSRF / open-redirect guard | FR-EXEC-003 |
 | `Security/SecretValueCipher.php` | Sodium secretbox cipher for secret variable values at rest | FR-SEC-002 |
 | `EventSubscriber/ApiStudioAccessSubscriber.php` | Route-level access enforcement | FR-SEC-001 |
@@ -227,6 +238,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/views/_scripts.html.twig` | Api Studio script tags (deferred, CSP nonce) | FR-UI-003 |
 | `Resources/views/_sidebar_tree.html.twig` | API tree (one query) and client-side filter | FR-TWIG-001 |
 | `Resources/views/_sidebar_endpoints.html.twig` | Endpoint list in sidebar | FR-TWIG-001 |
+| `Resources/views/_sidebar_folders.html.twig` | Nested folders of the API tree (1.14) | FR-FOLD-006 (spec 002) |
 | `Resources/views/_variable_catalog.html.twig` | Environment variable reference | FR-TWIG-001, FR-EXEC-002 |
 | `Resources/views/_endpoint_expandable_list.html.twig` | Collapsible endpoint list | FR-TWIG-001 |
 | `Resources/views/_service_collection_list.html.twig` | Service listing partial | FR-TWIG-001 |
@@ -238,6 +250,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/views/workspace/show.html.twig` | Workspace detail | FR-TWIG-001 |
 | `Resources/views/service/index.html.twig` | Service index | FR-TWIG-001 |
 | `Resources/views/service/form.html.twig` | Service form | FR-TWIG-001, FR-FORM-001 |
+| `Resources/views/folder/form.html.twig` | Folder form (1.14) | FR-FOLD-005 (spec 002) |
 | `Resources/views/service/show.html.twig` | Service detail | FR-TWIG-001 |
 | `Resources/views/endpoint/index.html.twig` | Endpoint index | FR-TWIG-001 |
 | `Resources/views/endpoint/form.html.twig` | Endpoint form with locale tabs | FR-TWIG-001, FR-FORM-001, FR-I18N-001 |

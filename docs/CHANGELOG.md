@@ -62,6 +62,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, pages and importers are 1.13's.
+
+### Added
+
+- **Nested folders** (`folders.enabled`, `folders.max_depth`): `ApiFolder` (parent, sort order, description, auth and
+  headers) inside each service, folder create / edit / delete pages (deleting moves subfolders and endpoints up), a
+  folder select on the endpoint form and a Folders section on the service page.
+- **API tree with folders and drag & drop**: folders nest in the sidebar; with `workspace.edit`, endpoints and folders
+  are dragged into folders, before other endpoints or to the service root (`POST …/folders/move`, CSRF header); cycles,
+  other services and the depth limit are refused (422).
+- **Inherited auth and headers**: an endpoint is sent with the nearest folder's explicit auth (`none` included), else
+  the service's; headers merge service → folders → endpoint (case-insensitive, deepest wins). The console names the
+  folder the auth comes from. The runner variable protection (ER-M1) covers folder auth and headers.
+- **Folder-aware import / export**: Postman item groups become folders (depth capped, merges reported) with their
+  collection / folder auth; bearer and header API-key request auth become endpoint headers; scripts are counted, not
+  imported. OpenAPI operations land in the folder of `x-api-studio-folder` or of their first tag (tag descriptions
+  kept); service exports write both.
+- **Folder sharing hook**: `security.folder_permission_checker` (`ApiStudioFolderPermissionCheckerInterface`,
+  `ApiStudioFolderRef` with ids, ancestors and the creator id) narrows the workspace decisions per folder.
+- `ApiStudioResourceChangedEvent::TYPE_FOLDER` and `ACTION_MOVED` (folder CRUD and tree moves, after commit).
+- Folder `created_by` uses a binary NO PAD collation on MySQL (`utf8mb4_0900_bin`) and MariaDB (`utf8mb4_nopad_bin`).
+
 ## [1.13.1] - 2026-11-15
 
 Target 1.13.1
