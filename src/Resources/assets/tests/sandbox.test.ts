@@ -4,6 +4,7 @@ import {
   executeRun,
   isRunMessage,
   MAX_CODE_LENGTH,
+  MAX_SEND_BUDGET,
   MAX_SEND_REQUESTS,
   normalizeRequest,
   parseLevelScripts,
@@ -210,6 +211,14 @@ describe('pm.sendRequest (sandbox)', () => {
 
     const none = await executeRun(run([{ label: 'pre', code: "pm.sendRequest('https://x.test')" }]));
     expect(none.error).toContain('scripts.mode: sandbox');
+
+    // scripts.limits.send_requests travels with the run message.
+    const two = await executeRun({ ...run([{ label: 'pre', code: "for (let i = 0; i < 3; i++) pm.sendRequest('https://x.test/' + i)" }]), sendBudget: 2 }, async () => ok);
+    expect(two.error).toContain('at most 2');
+    expect(isRunMessage({ ...run([]), sendBudget: 2 })).toBe(true);
+    expect(isRunMessage({ ...run([]), sendBudget: -1 })).toBe(false);
+    expect(isRunMessage({ ...run([]), sendBudget: 1.5 })).toBe(false);
+    expect(isRunMessage({ ...run([]), sendBudget: MAX_SEND_BUDGET + 1 })).toBe(false);
   });
 
   it('relays the frame request through the page and answers the frame', async () => {

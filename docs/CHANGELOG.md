@@ -98,6 +98,15 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
   checked (`nowo_api_studio_script_variables`: environment-sync CSRF token, `workspace.edit` on the workspace and the
   endpoint's folder; at most 100 changes per save, 500 variables per scope, 64 KiB per value). Request templates
   resolve the environment first, then collection variables, then globals; `pm.variables.get` reads in the same order.
+- **Server-side script runner** (`scripts.server_runner`, off by default): the port
+  `ApiStudioScriptRunnerInterface::run(ScriptRunRequest): ScriptRunResult` (value objects only) for unattended runs,
+  `NullScriptRunner` (default: scripts reported as not run) and the reference `ProcessScriptRunner`: one sidecar
+  process per run (Deno without permissions by default, or Node) running the bundled
+  `Resources/runner/api-script-runner.js` over a line-delimited JSON protocol (the sandbox messages). Limits: wall
+  time (killed), output (`scripts.limits.output_kb`, killed), memory (`scripts.limits.memory_mb`, handed to the
+  sidecar) and `pm.sendRequest` calls (sent through the same guarded sender as the console). The sidecar's environment
+  is scrubbed; no process outlives a run. Needs `symfony/process` (suggested).
+- `scripts.limits.send_requests` (default 10): `pm.sendRequest` calls per phase, now also for the sandbox frame.
 - **Postman `event[]` import** (sandbox mode, for a user with `workspace.edit_scripts`): `prerequest` / `test`
   scripts of the collection, its folders and requests are stored as the pre / post scripts of the service (only a
   service the import creates), the folders (only folders the import creates) and the endpoints. Disabled and empty

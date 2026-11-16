@@ -158,6 +158,7 @@ final class PageContractTest extends PageContractTestCase
         $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_confirm_stored', static fn (): bool => true));
         $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_mode', static fn (): string => 'inline'));
         $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_timeout_ms', static fn (): int => 2000));
+        $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_send_budget', static fn (): int => 10));
         $twig->addFunction(new TwigFunction('nowo_api_studio_can', static fn (): bool => true));
         $twig->addFunction(new TwigFunction('nowo_api_studio_folders_enabled', static fn (): bool => true));
         $twig->addFunction(new TwigFunction('nowo_api_studio_visible_endpoints', static fn (iterable $endpoints): array => [...$endpoints]));

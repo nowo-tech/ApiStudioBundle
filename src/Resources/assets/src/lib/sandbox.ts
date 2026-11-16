@@ -36,7 +36,16 @@ export function emptyScopes(): ScriptScopes {
 
 export type SandboxScript = { label: string; code: string };
 
-export type RunMessage = { v: 1; kind: 'run'; nonce: string; scripts: SandboxScript[]; state: SandboxState; runTests: boolean };
+export type RunMessage = {
+  v: 1;
+  kind: 'run';
+  nonce: string;
+  scripts: SandboxScript[];
+  state: SandboxState;
+  runTests: boolean;
+  /** `pm.sendRequest` calls allowed in this run (`scripts.limits.send_requests`; default MAX_SEND_REQUESTS). */
+  sendBudget?: number;
+};
 
 export type ResultMessage = { v: 1; kind: 'result'; nonce: string; ok: boolean; error?: string; label?: string; state: SandboxState };
 
@@ -79,6 +88,9 @@ export function isRunMessage(data: unknown): data is RunMessage {
   if (m.v !== 1 || m.kind !== 'run' || typeof m.nonce !== 'string' || !Array.isArray(m.scripts) || typeof m.runTests !== 'boolean') {
     return false;
   }
+  if (m.sendBudget !== undefined && !(Number.isInteger(m.sendBudget) && m.sendBudget >= 0 && m.sendBudget <= MAX_SEND_BUDGET)) {
+    return false;
+  }
   let length = 0;
   for (const s of m.scripts) {
     if (typeof s !== 'object' || s === null || typeof s.label !== 'string' || typeof s.code !== 'string') {
@@ -103,8 +115,11 @@ export function isRunMessage(data: unknown): data is RunMessage {
   );
 }
 
-/** Largest number of `pm.sendRequest` calls of one run (pre or post phase). */
+/** Default number of `pm.sendRequest` calls of one run (pre or post phase). */
 export const MAX_SEND_REQUESTS = 10;
+
+/** Highest `pm.sendRequest` budget a run message may carry. */
+export const MAX_SEND_BUDGET = 100;
 
 export type SandboxHttpRequest = { url: string; method: string; header: StringMap; body: string | null };
 
@@ -190,7 +205,8 @@ export async function executeRun(message: RunMessage, transport?: SendTransport)
   }
 
   const pending = new Set<Promise<unknown>>();
-  let budget = MAX_SEND_REQUESTS;
+  const allowed = message.sendBudget ?? MAX_SEND_REQUESTS;
+  let budget = allowed;
   let asyncError: unknown = null;
   (ctx.pm as unknown as { sendRequest: unknown }).sendRequest = (
     input: unknown,
@@ -200,7 +216,7 @@ export async function executeRun(message: RunMessage, transport?: SendTransport)
       throw new Error('pm.sendRequest needs scripts.mode: sandbox.');
     }
     if (budget <= 0) {
-      throw new Error(`pm.sendRequest: at most ${MAX_SEND_REQUESTS} requests per run.`);
+      throw new Error(`pm.sendRequest: at most ${allowed} requests per run.`);
     }
     budget--;
     const call = transport(normalizeRequest(input)).then(
@@ -310,6 +326,7 @@ export function runInSandbox(
   runTests: boolean,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
   sendRequest?: SendTransport,
+  sendBudget: number = MAX_SEND_REQUESTS,
 ): Promise<ResultMessage> {
   return new Promise<ResultMessage>((resolve, reject) => {
     const frame = document.createElement('iframe');
@@ -339,7 +356,7 @@ export function runInSandbox(
         return;
       }
       if (data.kind === 'ready') {
-        const run: RunMessage = { v: 1, kind: 'run', nonce, scripts, state, runTests };
+        const run: RunMessage = { v: 1, kind: 'run', nonce, scripts, state, runTests, sendBudget };
         frame.contentWindow?.postMessage(run, '*');
 
         return;
@@ -352,7 +369,7 @@ export function runInSandbox(
             frame.contentWindow?.postMessage({ v: 1, kind: 'sendResult', nonce, id, ...answer }, '*');
           }
         };
-        if (!sendRequest || ++sent > MAX_SEND_REQUESTS || typeof ask.request !== 'object' || ask.request === null) {
+        if (!sendRequest || ++sent > sendBudget || typeof ask.request !== 'object' || ask.request === null) {
           reply({ error: 'pm.sendRequest is not available.' });
 
           return;

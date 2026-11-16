@@ -162,6 +162,8 @@ final class ScriptLevelsTest extends StudioWebTestCase
         $this->client->request('POST', $this->serviceUrl('/folders/move'), server: ['HTTP_X_CSRF_TOKEN' => $move, 'CONTENT_TYPE' => 'application/json'], content: (string) json_encode(['type' => 'endpoint', 'id' => $this->ids['endpoint'], 'parent' => $folder->getId(), 'before' => null]));
         self::assertResponseIsSuccessful();
         $token = $this->syncToken();
+        // The checker instance must survive between requests.
+        $this->client->disableReboot();
 
         /** @var TestFolderChecker $checker */
         $checker           = $this->client->getContainer()->get(TestFolderChecker::class);

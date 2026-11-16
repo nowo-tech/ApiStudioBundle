@@ -1285,7 +1285,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     scripts?: array{
  *         mode?: "inline"|"sandbox"|"disabled"|Param, // Pre/post request scripts of the console. inline (default) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src 'unsafe-eval'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src 'self' and no 'unsafe-eval'); disabled = no script tab, no script code sent to the browser (stored scripts are kept). // Default: "inline"
  *         limits?: array{
- *             time_ms?: int|Param, // sandbox mode (1.15): wall time of one phase (pre or post) before the frame is torn down and the request fails. // Default: 2000
+ *             time_ms?: int|Param, // sandbox mode and server runner (1.15): wall time of one phase (pre or post) before the frame / process is torn down and the request fails. // Default: 2000
+ *             memory_mb?: int|Param, // Server runner (1.15): memory of the sidecar, handed to its command through the {memory_mb} placeholder (V8 heap limit by default). // Default: 64
+ *             output_kb?: int|Param, // Server runner (1.15): most stdout + stderr of one run; the sidecar is killed past it. // Default: 256
+ *             send_requests?: int|Param, // sandbox mode and server runner (1.15): pm.sendRequest calls allowed per phase. // Default: 10
+ *         },
+ *         server_runner?: array{ // Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs symfony/process). Disabled = unattended runs report scripts as not run.
+ *             enabled?: bool|Param, // Default: false
+ *             command?: list<scalar|Param|null>,
  *         },
  *         confirm_stored?: bool|Param, // inline mode (1.13.2): before Send runs a stored service / endpoint script this browser session has not approved yet, the console shows its code and asks to run it or to send without scripts (approval kept per SHA-256 of the code in sessionStorage). Code typed in the console by the user is not asked. false = 1.13.1 behaviour (stored scripts run without asking). // Default: true
  *     },

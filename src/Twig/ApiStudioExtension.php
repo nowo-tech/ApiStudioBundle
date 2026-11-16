@@ -49,6 +49,7 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
         private readonly bool $foldersEnabled = false,
         private readonly ?FolderAccess $folderAccess = null,
         private readonly int $scriptsTimeoutMs = 2000,
+        private readonly int $scriptsSendBudget = 10,
     ) {
     }
 
@@ -62,6 +63,7 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
             new TwigFunction('nowo_api_studio_scripts_confirm_stored', [$this, 'scriptsConfirmStored']),
             new TwigFunction('nowo_api_studio_scripts_mode', [$this, 'scriptsMode']),
             new TwigFunction('nowo_api_studio_scripts_timeout_ms', [$this, 'scriptsTimeoutMs']),
+            new TwigFunction('nowo_api_studio_scripts_send_budget', [$this, 'scriptsSendBudget']),
             new TwigFunction('nowo_api_studio_can', [$this, 'can']),
             new TwigFunction('nowo_api_studio_folders_enabled', [$this, 'foldersEnabled']),
             new TwigFunction('nowo_api_studio_visible_endpoints', [$this, 'visibleEndpoints']),
@@ -119,6 +121,14 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
     public function scriptsTimeoutMs(): int
     {
         return $this->scriptsTimeoutMs;
+    }
+
+    /**
+     * `scripts.limits.send_requests` (1.15): pm.sendRequest calls allowed per sandboxed phase.
+     */
+    public function scriptsSendBudget(): int
+    {
+        return $this->scriptsSendBudget;
     }
 
     /**

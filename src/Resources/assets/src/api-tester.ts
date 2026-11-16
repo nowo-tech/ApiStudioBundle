@@ -24,7 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
-import { DEFAULT_TIMEOUT_MS, parseLevelScripts, parseScopes, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
+import { DEFAULT_TIMEOUT_MS, MAX_SEND_BUDGET, MAX_SEND_REQUESTS, parseLevelScripts, parseScopes, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -483,7 +483,7 @@ async function executeScripts(
   ctx: ScriptContext,
   enabled: boolean,
   post: boolean,
-  sandbox: { url: string; timeoutMs: number; send?: SendTransport } | null,
+  sandbox: { url: string; timeoutMs: number; send?: SendTransport; sendBudget?: number } | null,
 ): Promise<void> {
   if (!sandbox || !('state' in ctx)) {
     runScripts(scripts, ctx, enabled);
@@ -496,7 +496,7 @@ async function executeScripts(
   }
 
   const holder = ctx as ScriptContext & { state: SandboxState };
-  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs, sandbox.send);
+  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs, sandbox.send, sandbox.sendBudget);
   holder.state = { ...result.state, response: holder.state.response };
   if (result.state.logs.length) {
     appendScriptLog(result.state.logs);
@@ -1176,7 +1176,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.response;
       }
     : undefined;
-  const sandbox = sandboxUrl !== '' ? { url: sandboxUrl, timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS, send } : null;
+  const budget = Number(root.dataset.scriptsSendBudget);
+  const sandbox =
+    sandboxUrl !== ''
+      ? {
+          url: sandboxUrl,
+          timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS,
+          send,
+          sendBudget: Number.isInteger(budget) && budget >= 0 && budget <= MAX_SEND_BUDGET ? budget : MAX_SEND_REQUESTS,
+        }
+      : null;
   const confirmStored = Boolean(RT) && sandbox === null && root.dataset.scriptsConfirm !== '0';
 
   /**

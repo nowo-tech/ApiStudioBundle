@@ -20,6 +20,8 @@ services:
             - '../../Tenancy/TenantProviderResolver.php'
             # 1.14: built per import call (holds that import's folder index), never a shared service.
             - '../../Service/ImportExport/FolderImportHelper.php'
+            # 1.15: server runner value objects (ScriptRunRequest, ScriptRunResult, ...).
+            - '../../Script/Runner/Script*.php'
             - '../../Controller/'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
@@ -135,6 +137,15 @@ services:
         arguments:
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
 
+    # 1.15 server runner: the sidecar gets pm.sendRequest through the same guarded sender.
+    Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner:
+        arguments:
+            $sender: '@Nowo\ApiStudioBundle\Script\ScriptRequestSender'
+
+    Nowo\ApiStudioBundle\Script\Runner\ApiStudioScriptRunnerInterface:
+        alias: Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner
+        public: true
+
     # 1.15 pm.sendRequest: same guards and limits as the console executor.
     Nowo\ApiStudioBundle\Script\ScriptRequestSender:
         arguments:
@@ -163,6 +174,7 @@ services:
             $scriptsConfirmStored: '%nowo_api_studio.scripts.confirm_stored%'
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
             $scriptsTimeoutMs: '%nowo_api_studio.scripts.limits.time_ms%'
+            $scriptsSendBudget: '%nowo_api_studio.scripts.limits.send_requests%'
 
     # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
     Nowo\ApiStudioBundle\Ui\ApiStudioPages:
