@@ -112,6 +112,7 @@ services:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $cssFramework: '%nowo_api_studio.ui.css_framework%'
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
+            $scriptsConfirmStored: '%nowo_api_studio.scripts.confirm_stored%'
 
     # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
     Nowo\ApiStudioBundle\Ui\ApiStudioPages:

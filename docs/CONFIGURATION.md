@@ -35,6 +35,7 @@ nowo_api_studio:
         # actor_resolver: App\ApiStudio\MyActorResolver
     scripts:
         mode: inline             # inline | disabled
+        confirm_stored: true     # 1.13.2: ask before running stored scripts not yet approved
     execution_url_allowlist_required: false
     execution_url_allowlist: []
     execution_max_redirects: 0
@@ -85,6 +86,7 @@ nowo_api_studio:
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
+| `scripts.confirm_stored` | **1.13.2.** `true` (default): with `inline`, before Send runs a stored service or endpoint script that this browser session has not approved, the console shows the code in a dialog: *Run with scripts* (the approval is kept in `sessionStorage` per SHA-256 of the code, so a changed script is asked again), *Send without scripts* (no script runs) or *Cancel*. Code typed by the user in an empty script field is not asked. Without Web Crypto (plain HTTP other than localhost) every send asks. `false`: stored scripts run without asking (1.13.1 behaviour). |
 | `secrets.encrypt` | Encrypt environment variables marked `secret` at rest with sodium (default `true`). |
 | `secrets.encryption_key` | Optional key material; defaults to `kernel.secret` when null. Changing it (or `kernel.secret`) makes the stored secrets unreadable: they fail closed (never sent or exported, shown as *Needs re-entry*). `nowo:api-studio:secrets:status` lists them. |
 | `secrets.source` | **1.13.** Service id implementing `Nowo\ApiStudioBundle\Secret\ApiStudioSecretSourceInterface` (default `null`). A secret variable whose value is `{{secret:<source>/<id>}}` is then resolved on the server at execute time, per user and workspace as the host decides; the value never reaches the browser, the history, logs or exports, and a request that needs an unresolved reference is not sent (422 `secret_unresolved`). `null` = such values are ordinary secret values (1.12 behaviour). See [USAGE.md](USAGE.md#host-secrets-113). |

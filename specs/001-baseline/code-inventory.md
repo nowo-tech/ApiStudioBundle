@@ -204,6 +204,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/api-script-runtime.ts` | Pre/post-request script runner | FR-UI-001 |
 | `Resources/assets/src/api-endpoint-doc.ts` | Endpoint documentation panel | FR-UI-001 |
 | `Resources/assets/src/lib/utils.ts` | Shared DOM/HTTP utilities | FR-UI-001 |
+| `Resources/assets/src/lib/script-approval.ts` | Stored-script approval (`scripts.confirm_stored`, SHA-256 per session) | FR-UI-001 |
 | `Resources/assets/src/types/global.d.ts` | Window/global type declarations | FR-UI-001 |
 
 ## Public assets — built (`src/Resources/public/`)

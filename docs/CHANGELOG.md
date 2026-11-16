@@ -62,6 +62,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Stored scripts are confirmed before they run (`scripts.confirm_stored`, default `true`).** Pre / post request
+  scripts stored on a service or an endpoint run in the request console of whoever sends the request, in the page and
+  with that user's session. The console now shows the code of the stored scripts this browser session has not
+  approved and asks to run them, send the request without scripts, or cancel. An approval is kept in
+  `sessionStorage` per SHA-256 of the code, so any change asks again; code the user typed in an empty script field is
+  not asked. `scripts.confirm_stored: false` restores the previous behaviour. `scripts.mode: disabled` is unchanged.
+
+### Changed
+
+- The `scripts.mode` configuration help no longer announces a sandboxed runner for 1.13; it is planned on the roadmap
+  (spec 003). `docs/SECURITY.md` describes the confirmation and the remaining residual risk.
+
 ## [1.13.1] - 2026-11-15
 
 Target 1.13.1
