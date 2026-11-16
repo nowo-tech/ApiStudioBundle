@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Spec Kit: the 53 `src/` files added since the 2026-10-30 baseline review are mapped in `code-inventory.md`, with five new area requirements in `spec.md` (REQ-SPECKIT-001 / REQ-SPECKIT-003)
+- README: measured TypeScript coverage reported instead of "N/A" (REQ-TEST-007)
+
 ## [1.13.1] - 2026-11-15
 
 Target 1.13.1
