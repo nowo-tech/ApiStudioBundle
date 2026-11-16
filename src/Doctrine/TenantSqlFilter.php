@@ -11,6 +11,7 @@ use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestExample;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
@@ -27,7 +28,7 @@ use function substr;
 /**
  * Defence in depth for tenancy (`nowo_api_studio_tenant`): during an Api Studio request every bundle query on a
  * workspace, or on a row that hangs off one (service, environment, endpoint, variable, examples, translations,
- * history), is narrowed to the request's tenant and visible workspaces. The explicit checks of the controllers stay
+ * history, folders), is narrowed to the request's tenant and visible workspaces. The explicit checks of the controllers stay
  * the control: SQL filters do not apply to entities already in the identity map, DBAL queries or DQL UPDATE / DELETE.
  * Enabled by {@see TenantSqlFilterListener}; off everywhere else.
  */
@@ -46,6 +47,7 @@ final class TenantSqlFilter extends SQLFilter
         ApiResponseExample::class     => 'response_example',
         ApiEndpointTranslation::class => 'endpoint_translation',
         ApiRequestHistory::class      => 'request_history',
+        ApiFolder::class              => 'folder',
     ];
 
     public static function configure(self $filter, ApiStudioScope $scope): void
@@ -81,7 +83,7 @@ final class TenantSqlFilter extends SQLFilter
         return match ($class) {
             ApiWorkspace::class                      => $this->workspaceCondition($targetTableAlias),
             ApiService::class, ApiEnvironment::class => sprintf('%s.workspace_id IN (%s)', $targetTableAlias, $workspaces),
-            ApiEndpoint::class                       => sprintf('%s.service_id IN (SELECT nast_s2.id FROM %sservice nast_s2 WHERE nast_s2.workspace_id IN (%s))', $targetTableAlias, $prefix, $workspaces),
+            ApiEndpoint::class, ApiFolder::class     => sprintf('%s.service_id IN (SELECT nast_s2.id FROM %sservice nast_s2 WHERE nast_s2.workspace_id IN (%s))', $targetTableAlias, $prefix, $workspaces),
             ApiEnvironmentVariable::class            => sprintf('%s.environment_id IN (SELECT nast_v.id FROM %senvironment nast_v WHERE nast_v.workspace_id IN (%s))', $targetTableAlias, $prefix, $workspaces),
             default                                  => sprintf('%s.endpoint_id IN (%s)', $targetTableAlias, $endpoints),
         };

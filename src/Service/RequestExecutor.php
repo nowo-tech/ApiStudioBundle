@@ -432,8 +432,7 @@ final class RequestExecutor
         $headers = $replaceHeaders
             ? $overrideHeaders
             : array_merge(
-                $service->getDefaultHeaders(),
-                $endpoint->getHeaders(),
+                FolderInheritanceResolver::headers($service, $endpoint),
                 $overrideHeaders,
             );
         $headers = $this->variableResolver->resolveMap($headers, $variables);
@@ -442,7 +441,7 @@ final class RequestExecutor
             $headers['Content-Type'] = $endpoint->getContentType();
         }
 
-        $headers = $this->applyAuthHeaders($service, $variables, $headers);
+        $headers = $this->applyAuthHeaders($service, $endpoint, $variables, $headers);
 
         return $headers;
     }
@@ -453,11 +452,13 @@ final class RequestExecutor
      *
      * @return array<string, string>
      */
-    private function applyAuthHeaders(ApiService $service, array $variables, array $headers): array
+    private function applyAuthHeaders(ApiService $service, ApiEndpoint $endpoint, array $variables, array $headers): array
     {
-        $config = $service->getAuthConfig();
+        // 1.14: the nearest folder with an explicit auth wins over the service (folders off: the service's).
+        $auth   = FolderInheritanceResolver::auth($service, $endpoint);
+        $config = $auth['config'];
 
-        return match ($service->getAuthType()) {
+        return match ($auth['type']) {
             AuthType::Basic  => $this->applyBasicAuth($config, $variables, $headers),
             AuthType::Bearer => $this->applyBearerAuth($config, $variables, $headers),
             AuthType::ApiKey => $this->applyApiKeyAuth($config, $variables, $headers),
@@ -556,9 +557,9 @@ final class RequestExecutor
             $endpoint->getPath(),
             (string) ($overrideBody ?? $endpoint->getRequestBodyTemplate()),
             ...array_values($replaceQueryParams ? $overrideQueryParams : array_merge($endpoint->getQueryParams(), $overrideQueryParams)),
-            ...array_values($replaceHeaders ? $overrideHeaders : array_merge($service->getDefaultHeaders(), $endpoint->getHeaders(), $overrideHeaders)),
+            ...array_values($replaceHeaders ? $overrideHeaders : array_merge(FolderInheritanceResolver::headers($service, $endpoint), $overrideHeaders)),
         ];
-        $authConfig = $service->getAuthConfig();
+        $authConfig = FolderInheritanceResolver::auth($service, $endpoint)['config'];
         array_walk_recursive($authConfig, static function (mixed $value) use (&$templates): void {
             if (is_string($value)) {
                 $templates[] = $value;
@@ -596,13 +597,17 @@ final class RequestExecutor
         }
 
         $templates  = [$service->getBaseUrl(), $endpoint->getPath(), ...array_values($endpoint->getQueryParams())];
-        $authConfig = $service->getAuthConfig();
+        $authConfig = FolderInheritanceResolver::auth($service, $endpoint)['config'];
         array_walk_recursive($authConfig, static function (mixed $value) use (&$templates): void {
             if (is_string($value)) {
                 $templates[] = $value;
             }
         });
-        foreach ([...array_values($service->getDefaultHeaders()), ...array_values($endpoint->getHeaders())] as $header) {
+        $folderHeaders = [];
+        foreach ($endpoint->getFolder()?->getPath() ?? [] as $folder) {
+            $folderHeaders = [...$folderHeaders, ...array_values($folder->getHeaders())];
+        }
+        foreach ([...array_values($service->getDefaultHeaders()), ...$folderHeaders, ...array_values($endpoint->getHeaders())] as $header) {
             foreach (self::keysIn($header) as $key) {
                 if (isset($secrets[$key])) {
                     $templates[] = $header;
@@ -670,7 +675,7 @@ final class RequestExecutor
      */
     private static function hostHeadersMatch(ApiService $service, ApiEndpoint $endpoint, array $variables, array $overrideHeaders, bool $replaceHeaders, string $url, VariableResolver $resolver): bool
     {
-        $headers = $replaceHeaders ? $overrideHeaders : array_merge($service->getDefaultHeaders(), $endpoint->getHeaders(), $overrideHeaders);
+        $headers = $replaceHeaders ? $overrideHeaders : array_merge(FolderInheritanceResolver::headers($service, $endpoint), $overrideHeaders);
         $origin  = RequestOrigin::of($url);
         $scheme  = (string) parse_url($url, PHP_URL_SCHEME);
         foreach ($headers as $name => $value) {

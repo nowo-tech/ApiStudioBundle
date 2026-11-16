@@ -1,4 +1,5 @@
-{# Expandable endpoint rows with named request examples (use cases). #}
+{# Expandable endpoint rows with named request examples (use cases). 1.14: endpoints of folders hidden by a host folder checker are left out. #}
+{% set endpoints = nowo_api_studio_visible_endpoints(endpoints) %}
 <div class="as-endpoint-list">
     {% for endpoint in endpoints %}
         {% set example_names = endpoint.requestExamples|map(e => e.name|lower)|join(' ') %}

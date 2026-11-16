@@ -68,7 +68,7 @@ final class TestKernel extends Kernel
         ]);
         $container->extension('twig', ['strict_variables' => true]);
         $container->extension('doctrine', [
-            'dbal' => ['url' => 'sqlite:///' . sys_get_temp_dir() . '/nowo_api_studio_functional/test.sqlite'],
+            'dbal' => ['url' => 'sqlite:///' . sys_get_temp_dir() . '/nowo_api_studio_functional/' . ($this->environment === 'folders' ? 'folders' : 'test') . '.sqlite'],
             'orm'  => ['auto_mapping' => true],
         ]);
         $container->extension('security', [
@@ -87,6 +87,15 @@ final class TestKernel extends Kernel
             ],
             'security' => ['access_roles' => [], 'allow_unauthenticated' => true],
         ]);
+
+        // Environment "folders" (1.14): folders on (max depth 3) with a host folder checker (TestFolderChecker).
+        if ($this->environment === 'folders') {
+            $container->extension('nowo_api_studio', [
+                'folders'  => ['enabled' => true, 'max_depth' => 3],
+                'security' => ['folder_permission_checker' => TestFolderChecker::class],
+            ]);
+            $container->services()->set(TestFolderChecker::class)->public();
+        }
     }
 
     protected function configureRoutes(RoutingConfigurator $routes): void

@@ -1,0 +1,13 @@
+{#
+  Folder create / edit (1.14, REQ-UI-003): UiKit form scaffold. Variable: page (View\FormPage from
+  ApiStudioPageFactory::folderForm(): header page.new_folder / page.edit_folder with breadcrumbs (service, folder
+  path) and a back link; ApiFolderFormType; Save / Cancel; on edit the delete zone behind the UiKit confirm dialog:
+  subfolders and endpoints move up to the parent). Blocks filled: nowo_ui_styles (the form body is the scaffold's
+  REQ-TWIG-003 child loop).
+#}
+{% extends '@NowoUiKit/page/form.html.twig' %}
+
+{% block nowo_ui_styles %}
+    {{ parent() }}
+    {{ include('@NowoApiStudioBundle/_styles.html.twig') }}
+{% endblock %}

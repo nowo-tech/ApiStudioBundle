@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.14.0] - 2026-11-16](#1140---2026-11-16)
+- [[1.13.2] - 2026-11-16](#1132---2026-11-16)
 - [[1.13.1] - 2026-11-15](#1131---2026-11-15)
 - [[1.13.0] - 2026-11-15](#1130---2026-11-15)
 - [[1.12.4] - 2026-11-15](#1124---2026-11-15)
@@ -66,6 +68,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Spec Kit: the 53 `src/` files added since the 2026-10-30 baseline review are mapped in `code-inventory.md`, with five new area requirements in `spec.md` (REQ-SPECKIT-001 / REQ-SPECKIT-003)
 - README: measured TypeScript coverage reported instead of "N/A" (REQ-TEST-007)
+
+## [1.14.0] - 2026-11-16
+
+Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, pages and importers are 1.13's.
+
+### Added
+
+- **Nested folders** (`folders.enabled`, `folders.max_depth`): `ApiFolder` (parent, sort order, description, auth and
+  headers) inside each service, folder create / edit / delete pages (deleting moves subfolders and endpoints up), a
+  folder select on the endpoint form and a Folders section on the service page.
+- **API tree with folders and drag & drop**: folders nest in the sidebar; with `workspace.edit`, endpoints and folders
+  are dragged into folders, before other endpoints or to the service root (`POST …/folders/move`, CSRF header); cycles,
+  other services and the depth limit are refused (422).
+- **Inherited auth and headers**: an endpoint is sent with the nearest folder's explicit auth (`none` included), else
+  the service's; headers merge service → folders → endpoint (case-insensitive, deepest wins). The console names the
+  folder the auth comes from. The runner variable protection (ER-M1) covers folder auth and headers.
+- **Folder-aware import / export**: Postman item groups become folders (depth capped, merges reported) with their
+  collection / folder auth; bearer and header API-key request auth become endpoint headers; scripts are counted, not
+  imported. OpenAPI operations land in the folder of `x-api-studio-folder` or of their first tag (tag descriptions
+  kept); service exports write both.
+- **Folder sharing hook**: `security.folder_permission_checker` (`ApiStudioFolderPermissionCheckerInterface`,
+  `ApiStudioFolderRef` with ids, ancestors and the creator id) narrows the workspace decisions per folder.
+- `ApiStudioResourceChangedEvent::TYPE_FOLDER` and `ACTION_MOVED` (folder CRUD and tree moves, after commit).
+- Folder `created_by` uses a binary NO PAD collation on MySQL (`utf8mb4_0900_bin`) and MariaDB (`utf8mb4_nopad_bin`).
+- Tree writes (create, edit, move, delete) lock the service row and check depth and cycles on rows read inside the
+  transaction; `folder.parent_id` has no ON DELETE action; contention answers 409 with `Retry-After`.
+- Imports never reuse a folder the user may not edit, set auth only on folders they create, keep literal request
+  credentials out of endpoint headers, and clean imported names (control, zero-width and bidi characters).
+- Inside a folder, the ER-M1 and host-secret console gates also need `workspace.edit` on the folder.
+- The tenant SQL filter covers folders. Deleting a folder emits `ACTION_MOVED` for the content it moves up.
+- Service / workspace deletes remove their folders in the same flush (no managed folder left behind); imports into a service take the
+  service lock; a failed rollback closes the connection; a folder deleted meanwhile answers 404.
+
+[1.14.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.14.0
+
+## [1.13.2] - 2026-11-16
+
+### Security
+
+- **Stored scripts are confirmed before they run (`scripts.confirm_stored`, default `true`).** Pre / post request
+  scripts stored on a service or an endpoint run in the request console of whoever sends the request, in the page and
+  with that user's session. The console now shows the code of the stored scripts this browser session has not
+  approved and asks to run them, send the request without scripts, or cancel. An approval is kept in
+  `sessionStorage` per SHA-256 of the code, so any change asks again; code the user typed in an empty script field is
+  not asked. The dialog shows each script whole, with its line and character count, makes invisible and
+  direction-changing characters visible, and flags code built at run time. Send is disabled while a request or the
+  dialog is pending, and the approved code is the code that runs. `scripts.confirm_stored: false` restores the
+  previous behaviour. `scripts.mode: disabled` is unchanged.
+
+### Changed
+
+- The `scripts.mode` configuration help no longer announces a sandboxed runner for 1.13; it is planned on the roadmap
+  (spec 003). `docs/SECURITY.md` describes the confirmation and the remaining residual risk.
+
+[1.13.2]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.13.2
 
 ## [1.13.1] - 2026-11-15
 

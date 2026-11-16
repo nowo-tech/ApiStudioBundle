@@ -8,6 +8,8 @@
 - [Testing requests](#testing-requests)
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
+- [Folders (1.14)](#folders-114)
+  - [Folder sharing hook](#folder-sharing-hook)
 - [Tenants and permissions](#tenants-and-permissions)
 - [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
@@ -107,6 +109,45 @@ SOAP executions send the same HTTP headers as REST: the service auth (`basic` / 
 The same headers (without the framing ones) are sent when downloading the WSDL, so WSDLs behind auth work, but only to documents on the **same origin** (scheme, host, port) as the WSDL URL: `<xsd:import>` / `<wsdl:import>` documents on another host are fetched without them so credentials never leak to a third party. Redirects follow `execution_max_redirects`; when a redirect leaves the host, the HTTP client drops `Authorization`/`Cookie` but custom headers (e.g. an API key header) are forwarded, so keep `execution_max_redirects: 0` (default) for credentialed SOAP services unless you trust the redirect targets. API key auth is header-only (there is no query-string variant, for REST or SOAP).
 
 Executions are stored in history with the headers that were sent (framing headers excluded in JSON-parameters mode; included in raw-envelope mode, where they are part of the request you wrote), redacted by `HistorySanitizer` exactly like REST: the auth header, the configured API key header and values of secret environment variables are replaced by `[REDACTED]`, and secret values are masked in the stored SOAP envelope (in both modes).
+
+## Folders (1.14)
+
+With `nowo_api_studio.folders.enabled: true` each service has a tree of folders (up to `folders.max_depth` levels):
+
+- **Create / edit / delete** from the service page (*New folder*, the Folders section) or the folder link in the API
+  tree. Deleting a folder moves its subfolders and endpoints up to its parent; nothing else is deleted.
+- **Move** endpoints and folders by drag & drop in the API tree (onto a folder = into it; onto an endpoint = before it;
+  onto the service row = to the service root), or with the *Folder* select of the endpoint form and the *Parent
+  folder* select of the folder form (keyboard alternative). Moves stay inside the service; cycles and the depth limit
+  are refused.
+- **Inheritance**: a folder's *Authentication* is empty (inherit), `none` (send without auth) or a type with its
+  configuration (`basic`: `username`, `password`; `bearer`: `token`; `api_key`: `header`, `value`; use
+  `{{variable}}` placeholders for secrets). An endpoint is sent with the nearest folder's explicit auth, else the
+  service's. Headers merge service → folders → endpoint, the deepest level winning.
+- **Import / export**: Postman item groups become folders with their auth (collection auth on a new service); OpenAPI
+  operations go to the folder of `x-api-studio-folder` (`[Users, Admin]`) or of their first tag. Service exports
+  write `x-api-studio-folder` and the top-level folder as the first tag. Postman scripts are counted, not imported.
+
+### Folder sharing hook
+
+```php
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioFolderPermissionCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioFolderRef;
+
+final class FolderSharing implements ApiStudioFolderPermissionCheckerInterface
+{
+    public function isFolderGranted(?object $user, ApiStudioAction $action, ApiStudioFolderRef $folder): bool
+    {
+        // $folder->folderId, ->serviceId, ->workspaceId, ->ancestorIds (top-level first), ->createdBy, ->tenant
+        return $this->grants->allows($user, $folder->folderId, $action->value);
+    }
+}
+```
+
+Set it as `security.folder_permission_checker`. It is asked only after the workspace decision and can only deny:
+`workspace.view` denied hides the folder, everything below it and their endpoints (404, left out of the tree, lists and
+exports); another action denied answers 403 inside the folder. Decisions are memoised per request.
 
 ## Tenants and permissions
 

@@ -9,6 +9,7 @@ use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestExample;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
@@ -222,6 +223,7 @@ final class EntityAccessorsTest extends TestCase
             ApiService::class     => new ApiService('S', 's'),
             ApiEndpoint::class    => new ApiEndpoint('E', 'e'),
             ApiEnvironment::class => new ApiEnvironment('Env', 'env'),
+            ApiFolder::class      => new ApiFolder('F'),
             ApiProtocol::class    => ApiProtocol::Soap,
             AuthType::class       => AuthType::Bearer,
             HttpMethod::class     => HttpMethod::Post,

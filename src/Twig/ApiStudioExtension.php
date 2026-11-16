@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Twig;
 
+use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Nowo\ApiStudioBundle\Service\StudioNavigationProvider;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
@@ -40,6 +42,9 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
         private readonly ?string $cssFramework = null,
         private readonly string $scriptsMode = self::SCRIPTS_INLINE,
         private readonly ?ApiStudioAuthorization $authorization = null,
+        private readonly bool $scriptsConfirmStored = true,
+        private readonly bool $foldersEnabled = false,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -50,7 +55,10 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
             new TwigFunction('api_studio_var', [$this, 'formatVariable']),
             new TwigFunction('api_studio_nav_tree', [$this, 'navigationTree']),
             new TwigFunction('nowo_api_studio_scripts_enabled', [$this, 'scriptsEnabled']),
+            new TwigFunction('nowo_api_studio_scripts_confirm_stored', [$this, 'scriptsConfirmStored']),
             new TwigFunction('nowo_api_studio_can', [$this, 'can']),
+            new TwigFunction('nowo_api_studio_folders_enabled', [$this, 'foldersEnabled']),
+            new TwigFunction('nowo_api_studio_visible_endpoints', [$this, 'visibleEndpoints']),
         ];
     }
 
@@ -80,6 +88,42 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
     public function scriptsEnabled(): bool
     {
         return $this->scriptsMode !== self::SCRIPTS_DISABLED;
+    }
+
+    /**
+     * `scripts.confirm_stored` (1.13.2): the console asks before it runs stored service / endpoint scripts the browser
+     * session has not approved. Always false when scripts are disabled (nothing runs, nothing to confirm).
+     */
+    public function scriptsConfirmStored(): bool
+    {
+        return $this->scriptsEnabled() && $this->scriptsConfirmStored;
+    }
+
+    /**
+     * `nowo_api_studio.folders.enabled` (1.14): templates render folders, their links and the drag & drop markup.
+     */
+    public function foldersEnabled(): bool
+    {
+        return $this->foldersEnabled;
+    }
+
+    /**
+     * The endpoints the user may see (1.14: a host folder checker may hide folders; without one, all of them).
+     *
+     * @param iterable<ApiEndpoint> $endpoints
+     *
+     * @return list<ApiEndpoint>
+     */
+    public function visibleEndpoints(iterable $endpoints): array
+    {
+        $visible = [];
+        foreach ($endpoints as $endpoint) {
+            if (!$this->folderAccess instanceof FolderAccess || $this->folderAccess->canEndpoint(ApiStudioAction::WorkspaceView, $endpoint)) {
+                $visible[] = $endpoint;
+            }
+        }
+
+        return $visible;
     }
 
     /**

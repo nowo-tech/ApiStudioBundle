@@ -7,11 +7,14 @@ namespace Nowo\ApiStudioBundle\Service\ImportExport;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ImportResult;
+use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 
 use function in_array;
 use function is_array;
@@ -27,9 +30,16 @@ use const JSON_UNESCAPED_UNICODE;
  */
 final class OpenApiImporter
 {
+    /** OpenAPI extension carrying an operation's folder path (1.14), top-level folder first. */
+    public const FOLDER_EXTENSION = 'x-api-studio-folder';
+
     public function __construct(
         private readonly DocumentParser $parser,
         private readonly EntityManagerInterface $entityManager,
+        private readonly bool $foldersEnabled = false,
+        private readonly int $maxDepth = 8,
+        private readonly ?ApiFolderRepository $folderRepository = null,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -63,6 +73,8 @@ final class OpenApiImporter
         );
 
         $endpointsCreated = 0;
+        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
+        $tags             = self::tagDescriptions($data);
         foreach ($data['paths'] ?? [] as $path => $operations) {
             if (!is_string($path) || !is_array($operations)) {
                 continue;
@@ -74,6 +86,10 @@ final class OpenApiImporter
                 }
 
                 $endpoint = $this->createEndpoint($service, (string) $method, $path, $operation);
+                if ($folders instanceof FolderImportHelper) {
+                    $endpoint->setFolder($this->folderFor($folders, $operation, $tags));
+                    $endpoint->setSortOrder($endpointsCreated * 10);
+                }
                 $this->entityManager->persist($endpoint);
                 ++$endpointsCreated;
             }
@@ -106,6 +122,8 @@ final class OpenApiImporter
         );
 
         $endpointsCreated = 0;
+        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
+        $tags             = self::tagDescriptions($data);
         foreach ($data['paths'] ?? [] as $path => $operations) {
             if (!is_string($path) || !is_array($operations)) {
                 continue;
@@ -117,6 +135,10 @@ final class OpenApiImporter
                 }
 
                 $endpoint = $this->createEndpoint($service, (string) $method, $path, $operation);
+                if ($folders instanceof FolderImportHelper) {
+                    $endpoint->setFolder($this->folderFor($folders, $operation, $tags));
+                    $endpoint->setSortOrder($endpointsCreated * 10);
+                }
                 $this->entityManager->persist($endpoint);
                 ++$endpointsCreated;
             }
@@ -133,10 +155,52 @@ final class OpenApiImporter
         );
     }
 
+    /**
+     * 1.14: the operation's folder: its `x-api-studio-folder` path when it has one, else its first tag (a top-level
+     * folder, with the tag's description), else the service root.
+     *
+     * @param array<string, mixed> $operation
+     * @param array<string, string> $tags tag name => description
+     */
+    private function folderFor(FolderImportHelper $folders, array $operation, array $tags): ?ApiFolder
+    {
+        $path = $operation[self::FOLDER_EXTENSION] ?? null;
+        if (is_array($path)) {
+            $names = array_values(array_filter(array_map(static fn (mixed $name): string => is_scalar($name) ? trim((string) $name) : '', $path), static fn (string $name): bool => $name !== ''));
+            if ($names !== []) {
+                return $folders->path($names);
+            }
+        }
+
+        $tag = $operation['tags'][0] ?? null;
+        if (is_string($tag) && trim($tag) !== '') {
+            return $folders->child(null, $tag, $tags[$tag] ?? null);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, string>
+     */
+    private static function tagDescriptions(array $data): array
+    {
+        $descriptions = [];
+        foreach (is_array($data['tags'] ?? null) ? $data['tags'] : [] as $tag) {
+            if (is_array($tag) && is_string($tag['name'] ?? null) && is_string($tag['description'] ?? null)) {
+                $descriptions[$tag['name']] = $tag['description'];
+            }
+        }
+
+        return $descriptions;
+    }
+
     /** @param array<string, mixed> $operation */
     private function createEndpoint(ApiService $service, string $method, string $path, array $operation): ApiEndpoint
     {
-        $name          = (string) ($operation['summary'] ?? $operation['operationId'] ?? strtoupper($method) . ' ' . $path);
+        $name          = FolderImportHelper::cleanName($operation['summary'] ?? $operation['operationId'] ?? null, mb_substr(strtoupper($method) . ' ' . $path, 0, 128));
         $existingSlugs = array_map(static fn (ApiEndpoint $e): string => $e->getSlug(), $service->getEndpoints()->toArray());
         $slug          = SlugHelper::unique($name, $existingSlugs);
 

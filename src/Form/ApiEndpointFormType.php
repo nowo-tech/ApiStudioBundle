@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Form;
 
 use Nowo\ApiStudioBundle\ApiStudioBundle;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Form\EventListener\SlugFromName;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
@@ -16,6 +17,8 @@ use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+
+use function is_array;
 
 /** @extends AbstractType<ApiEndpoint> */
 #[FormKitConfig('api_studio')]
@@ -38,6 +41,21 @@ final class ApiEndpointFormType extends AbstractType
             'choice_label'              => static fn (HttpMethod $method): string => $method->value,
             'choice_translation_domain' => false,
         ]);
+        // 1.14 folders: the folder select (option `folders`: the service's folders, null when folders are off). Also
+        // the keyboard alternative to drag & drop in the tree.
+        if (is_array($options['folders'])) {
+            /** @var list<ApiFolder> $folders */
+            $folders = $options['folders'];
+            $this->addChoice($builder, 'folder', [
+                'label'                     => 'field.folder',
+                'required'                  => false,
+                'placeholder'               => 'folder.root',
+                'choices'                   => $folders,
+                'choice_value'              => static fn (?ApiFolder $folder): string => $folder?->getId() !== null ? (string) $folder->getId() : '',
+                'choice_label'              => static fn (ApiFolder $folder): string => ApiFolderFormType::pathLabel($folder),
+                'choice_translation_domain' => false,
+            ]);
+        }
         $this->addText($builder, 'path', []);
         $this->addText($builder, 'soapAction', ['required' => false]);
         $this->addText($builder, 'contentType', []);
@@ -83,8 +101,10 @@ final class ApiEndpointFormType extends AbstractType
     {
         $resolver->setDefaults([
             'scripts'            => true,
+            'folders'            => null,
             'data_class'         => ApiEndpoint::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
+        $resolver->setAllowedTypes('folders', ['null', 'array']);
     }
 }

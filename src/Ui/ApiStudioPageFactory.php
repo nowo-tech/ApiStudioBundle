@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Ui;
 
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
+use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
@@ -46,6 +47,7 @@ final readonly class ApiStudioPageFactory
         private UrlGeneratorInterface $urlGenerator,
         private ApiStudioPages $pages = new ApiStudioPages(),
         private ?ApiStudioAuthorization $authorization = null,
+        private bool $foldersEnabled = false,
     ) {
     }
 
@@ -243,6 +245,7 @@ final readonly class ApiStudioPageFactory
                 $service->getDescription(),
                 self::actions([
                     $this->permitted('nowo_api_studio_endpoint_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_endpoint'), $this->url('nowo_api_studio_endpoint_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), variant: 'primary', attributes: ['data-testid' => 'api-studio-new-endpoint']) : null,
+                    $this->foldersEnabled && $this->permitted('nowo_api_studio_folder_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_folder'), $this->url('nowo_api_studio_folder_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), attributes: ['data-testid' => 'api-studio-new-folder']) : null,
                     $this->permitted('nowo_api_studio_environment_index', $workspace) ? new Action('custom', ApiStudioPages::label('section.environments'), $this->url('nowo_api_studio_environment_index', ['workspaceId' => $wid])) : null,
                     $this->permitted('nowo_api_studio_service_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_service_edit', ['workspaceId' => $wid, 'id' => $service->getId()]), ApiStudioPages::label('action.edit')) : null,
                 ]),
@@ -361,7 +364,7 @@ final readonly class ApiStudioPageFactory
                     $this->permitted('nowo_api_studio_environment_index', $workspace) ? new Action('custom', ApiStudioPages::label('section.environments'), $this->url('nowo_api_studio_environment_index', ['workspaceId' => $wid])) : null,
                     $this->permitted('nowo_api_studio_endpoint_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_endpoint_edit', ['workspaceId' => $wid, 'serviceId' => $service->getId(), 'id' => $endpoint->getId()]), ApiStudioPages::label('action.edit')) : null,
                 ]),
-                [...$this->serviceCrumbs($workspace, $service), new Crumb($endpoint->getName())],
+                [...$this->serviceCrumbs($workspace, $service), ...$this->folderCrumbs($endpoint->getFolder()), new Crumb($endpoint->getName())],
             ),
             bundle: ApiStudioPages::BUNDLE,
             layout: $this->pages->layout(),
@@ -393,6 +396,37 @@ final readonly class ApiStudioPageFactory
                 : null,
             'api-studio-endpoint-form',
         );
+    }
+
+    /**
+     * Folder form (1.14): new (under $parent when given) or edit, with the delete zone (children move up).
+     */
+    public function folderForm(ApiWorkspace $workspace, ApiService $service, ?ApiFolder $folder, FormView $form, ?FormView $deleteForm = null): FormPage
+    {
+        $base   = ['workspaceId' => $workspace->getId(), 'serviceId' => $service->getId()];
+        $title  = ApiStudioPages::label($folder instanceof ApiFolder ? 'page.edit_folder' : 'page.new_folder');
+        $back   = $this->url('nowo_api_studio_service_show', ['workspaceId' => $workspace->getId(), 'id' => $service->getId()]);
+        $crumbs = [...$this->serviceCrumbs($workspace, $service), ...$this->folderCrumbs($folder), new Crumb($title)];
+
+        $delete = null;
+        if ($folder instanceof ApiFolder && $deleteForm instanceof FormView) {
+            $delete = new Action(
+                'delete',
+                ApiStudioPages::label('action.delete'),
+                $this->url('nowo_api_studio_folder_delete', $base + ['id' => $folder->getId()]),
+                method: 'POST',
+                confirm: new Confirm(
+                    ApiStudioPages::label('folder.delete_title'),
+                    ApiStudioPages::label('folder.delete_warning', ['%name%' => $folder->getName()]),
+                    ApiStudioPages::label('action.delete'),
+                    cancelLabel: ApiStudioPages::label('action.cancel'),
+                ),
+                attributes: ['data-testid' => 'api-studio-folder-delete'],
+                form: $deleteForm,
+            );
+        }
+
+        return $this->formPage($title, $service->getName(), $crumbs, $back, $form, $delete, 'api-studio-folder-form');
     }
 
     /**
@@ -638,6 +672,20 @@ final readonly class ApiStudioPageFactory
             ...$this->workspaceCrumbs($workspace),
             new Crumb($service->getName(), $this->url('nowo_api_studio_service_show', ['workspaceId' => $workspace->getId(), 'id' => $service->getId()])),
         ];
+    }
+
+    /**
+     * Crumbs of a folder path (names only: folders have no page of their own besides their form).
+     *
+     * @return list<Crumb>
+     */
+    private function folderCrumbs(?ApiFolder $folder): array
+    {
+        if (!$folder instanceof ApiFolder) {
+            return [];
+        }
+
+        return array_map(static fn (ApiFolder $node): Crumb => new Crumb($node->getName()), $folder->getPath());
     }
 
     /**

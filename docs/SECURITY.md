@@ -73,10 +73,34 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 The request console runs the endpoint **pre-request / post-response scripts** (Postman-style `pm` API) in the browser with `new Function('pm', 'console', code)` (`api-script-runtime.ts`). They are code by design:
 
-- Only users who can edit endpoints (Api Studio access roles) can store scripts; they run in the browser of whoever opens the endpoint, with that user's session. Treat endpoint editing as trusted, like editing a Postman collection, and grant `access_roles` accordingly.
+- Only users granted `workspace.edit_scripts` (1.11; without a `security.permission_checker`, everyone who passes the Api Studio access roles) can store scripts. A stored service or endpoint script runs in the browser of whoever sends a request from that endpoint, in the page origin and with that user's session. Treat script editing as a trust grant over every user of the workspace, and map `workspace.edit_scripts` accordingly.
+- **Confirmation (1.13.2, `scripts.confirm_stored`, default `true`):** before Send runs a stored script that the browser session has not approved, the console shows its code and asks to run it, to send without scripts, or to cancel. Approvals are kept in `sessionStorage` per SHA-256 of the exact code (a changed script asks again; without Web Crypto every send asks). Code the user typed in an empty script field is the user's own and is not asked. Stored scripts never run when the page is loaded, and imports (OpenAPI, Postman) do not create scripts.
+- `scripts.mode: disabled` sends no script code to the browser at all; use it where scripts are not needed.
 - Scripts receive only the `pm` facade (variables, request, response, a console that writes to the in-page log); they are not sandboxed in an iframe, so they can reach the page DOM.
 - A strict Content-Security-Policy without `'unsafe-eval'` blocks `new Function`: on such hosts every script fails with an error that `runScriptSafe()` catches and reports in the script log. Allow `'unsafe-eval'` only on the Api Studio route prefix if you need scripts.
 - Other dynamic markup (`innerHTML`) is built from static templates; user-provided values are escaped (`escapeHtmlAttr`) or written with `textContent` (REQ-UX-001).
+
+## Folders (1.14)
+
+- A host folder checker (`security.folder_permission_checker`) can only narrow the workspace decisions: hidden
+  folders and their endpoints answer 404 and are left out of the tree, lists and exports; denied actions answer 403.
+- Running an endpoint inside a folder with changed URL / auth variables (ER-M1) or host secrets in a changed template
+  (QE-B-M2) needs `workspace.edit` on the workspace **and** on the folder (audit RJ-M4).
+- Not covered by folder restrictions: environments and variables belong to the workspace and are shared by all its
+  folders. Folder auth configuration is stored and edited as plain JSON, readable by whoever may edit the folder; put
+  credentials in secret variables (`{{token}}`) or host secrets, never literally.
+- Imports never reuse a folder the importing user may not edit and only set auth on folders they create (RJ-M1).
+  Request-level Postman credentials become endpoint headers only when they are `{{variable}}` placeholders; literal
+  tokens are reported and not imported (RJ-L3).
+- Tree writes lock the service row and check the rules on rows read inside the transaction; `folder.parent_id` has
+  no ON DELETE action, so the database never removes a folder subtree (RJ-M2); service / workspace deletes remove their
+  folders in the same flush transaction, read with SQL filters suspended (RJ-D-M1, RJ-D2-M1, RJ-D2-L2). Contention answers 409 with `Retry-After` (RJ-L1); imports into
+  a service take the same lock (RJ-D-L1).
+- The re-read after the lock needs a fresh view: PostgreSQL READ COMMITTED (default) takes one per statement, and
+  MySQL / MariaDB REPEATABLE READ (default) takes its snapshot at the first plain read, which comes after the lock.
+  A host that forces REPEATABLE READ on PostgreSQL makes every read use the snapshot of the transaction's first
+  statement (the lock, taken before the wait), so the rules may be checked against stale rows. Keep the default
+  isolation level for the Api Studio connection on PostgreSQL (RJ-D-L4).
 
 ## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 
@@ -113,7 +137,11 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   them no lower than the people you would trust with the values; `workspace.export_variables` hands the values out.
 - **Per-workspace access** (1.11): with `security.permission_checker` a host restricts who may view, run, edit, import or export each workspace (variable exports hold secret values in clear: `workspace.export_variables`), and with `tenancy` each tenant only sees its own workspaces (404 otherwise). Without them:
 - **Secrets are readable by every Api Studio user** (no per-workspace ACL): through exports (clear values, by design), by sending a request to a host they control, or by a browser script reading `pm.environment` after a request (scripts get the placeholder, not the value, but can exfiltrate what the upstream answers). Encryption protects the database at rest, not the UI.
-- Browser scripts (`new Function`) run unsandboxed in the Api Studio origin (see above).
+- Browser scripts (`new Function`) run unsandboxed in the Api Studio origin (see above). Since 1.13.2 a stored script
+  runs only after the sending user approved its code in the confirmation dialog (`scripts.confirm_stored`), but an
+  approved script still runs with that user's session: the confirmation relies on the user reading the code. An
+  isolated runner (worker / sandboxed iframe without `'unsafe-eval'` on the page, and a server-side runtime) is planned
+  in roadmap spec 003; until then, use `scripts.mode: disabled` where scripts are not needed.
 
 ## AI security audit (REQ-SEC-004)
 
@@ -123,7 +151,7 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 | Method | Independent Claude Code static review + PoCs (Symfony Dotenv parse, env-placeholder container build, YAML alias expansion), fixes in `fix/bw-audit` |
 | Grade | **Pass (conditional) / Medium** at `06a70f5`; with the BW fixes **Pass (good) / Low** expected |
 | Fixed | M1 `.env` export command execution / line injection (affects 1.0.0–1.9.2, GHSA); L1 secrets sent to the browser; L2 unbounded responses; L3 `allow_unauthenticated` env placeholder / prod; L4 cipher-prefix values stored in clear and 500 on load; L5 SOAP credentials to another origin; L6 response-side history masking; I2 server-side typed name for workspace deletes; I4 VARCHAR overflows; I5 YAML alias bomb; I8 UiKit / FormKit floors |
-| Residual | Secrets readable by every Api Studio user (exports, scripts, requests to own hosts); unsandboxed browser scripts (I1); empty allowlist outside prod; no history retention command (host owns TTL); demo e2e `sharp` dev dependency advisory (I7, dev only) |
+| Residual | Secrets readable by every Api Studio user (exports, scripts, requests to own hosts); unsandboxed browser scripts (I1; stored scripts need the sending user's approval since 1.13.2, `scripts.confirm_stored`); empty allowlist outside prod; no history retention command (host owns TTL); demo e2e `sharp` dev dependency advisory (I7, dev only) |
 
 ## Release security checklist (12.4.1)
 

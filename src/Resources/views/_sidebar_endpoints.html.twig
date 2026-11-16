@@ -1,4 +1,8 @@
-{# Endpoints (and their saved requests) of one service in the API tree. Variables: svc (tree node), active_ep. #}
+{#
+  Endpoints (and their saved requests) of one service or folder in the API tree. Variables: svc (tree node with
+  `endpoints`), active_ep, movable (1.14: draggable rows for the folder drag & drop).
+#}
+{% set movable = movable|default(false) %}
                         {% for ep in svc.endpoints %}
                             {% set ep_search = (ep.name ~ ' ' ~ ep.method)|lower %}
                             {% for ex in ep.request_examples %}
@@ -6,7 +10,8 @@
                             {% endfor %}
                             <div class="as-tree-endpoint-group{% if active_ep == ep.id %} is-open{% endif %}"
                                  data-tree-endpoint-group
-                                 data-tree-search="{{ ep_search }}">
+                                 data-tree-search="{{ ep_search }}"
+                                 {%- if movable %} data-tree-node="endpoint" data-tree-id="{{ ep.id }}" draggable="true"{% endif %}>
                                 <div class="as-tree-endpoint{% if active_ep == ep.id %} is-active{% endif %}">
                                     {% if ep.request_examples|length > 0 %}
                                         <button type="button"

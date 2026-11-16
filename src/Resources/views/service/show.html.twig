@@ -34,6 +34,34 @@
                     {{ include('@NowoApiStudioBundle/_endpoint_expandable_list.html.twig', {endpoints: service.endpoints, service: service, workspace: workspace}, false) }}
                 </div>
             </section>
+            {% if folders is defined and folders is not null %}
+            {# 1.14 folders: the service tree's folders (indented by depth) with their edit and "new subfolder" links. #}
+            <section class="{{ nowo_ui_class('card', bundle) }}" data-testid="api-studio-service-folders"{{ nowo_ui_attrs('card', bundle) }}>
+                <header class="{{ nowo_ui_class('card_header', bundle) }}">
+                    <h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'section.folders'|trans({}, 'NowoApiStudioBundle') }}</h2>
+                </header>
+                <div class="{{ nowo_ui_class('card_body', bundle) }}">
+                    {% if folders|length > 0 %}
+                        <ul class="as-folder-list">
+                            {% for row in folders %}
+                                <li class="as-folder-row as-folder-depth-{{ min(row.depth, 12) }}" data-testid="api-studio-folder-row">
+                                    <span class="as-tree-folder-icon" aria-hidden="true">▤</span>
+                                    {% if nowo_api_studio_can('workspace.edit', workspace) %}
+                                        <a href="{{ path('nowo_api_studio_folder_edit', {workspaceId: workspace.id, serviceId: service.id, id: row.folder.id}) }}">{{ row.folder.name }}</a>
+                                        <a class="{{ nowo_ui_class('btn_link', bundle) }}" href="{{ path('nowo_api_studio_folder_new', {workspaceId: workspace.id, serviceId: service.id, parent: row.folder.id}) }}">+ {{ 'action.new_folder'|trans({}, 'NowoApiStudioBundle') }}</a>
+                                        <a class="{{ nowo_ui_class('btn_link', bundle) }}" href="{{ path('nowo_api_studio_endpoint_new', {workspaceId: workspace.id, serviceId: service.id, folder: row.folder.id}) }}">+ {{ 'action.new_endpoint'|trans({}, 'NowoApiStudioBundle') }}</a>
+                                    {% else %}
+                                        <span>{{ row.folder.name }}</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="as-empty">{{ 'folder.empty'|trans({}, 'NowoApiStudioBundle') }}</p>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
             <section class="{{ nowo_ui_class('card', bundle) }}" data-testid="api-studio-service-variables"{{ nowo_ui_attrs('card', bundle) }}>
                 <header class="{{ nowo_ui_class('card_header', bundle) }}">
                     <h2 class="{{ nowo_ui_class('card_title', bundle) }}">{{ 'variables.workspace_title'|trans({}, 'NowoApiStudioBundle') }}</h2>
