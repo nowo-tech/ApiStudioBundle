@@ -130,9 +130,9 @@ apart without connecting; set `serverVersion` or add the collation in your migra
 
 Notes:
 - `folder.parent_id` has no ON DELETE action: the database never deletes a folder subtree. Service and workspace
-  deletes through Doctrine detach the folder parents first (`FolderParentDetachListener`); a host that deletes
-  services or workspaces with plain SQL must run `UPDATE <prefix>folder SET parent_id = NULL WHERE service_id IN (…)`
-  first.
+  deletes through Doctrine delete the service's folders in the same flush, subfolders first
+  (`FolderParentDetachListener`); a host that deletes services or workspaces with plain SQL must delete their folders
+  first (or run `UPDATE <prefix>folder SET parent_id = NULL WHERE service_id IN (…)` in the same transaction).
 - Template overrides of `_endpoint_expandable_list.html.twig` / `_service_collection_list.html.twig` (and any host
   list of `service.endpoints`) must filter with `nowo_api_studio_visible_endpoints(endpoints)` when a host folder
   checker hides folders; otherwise those overrides list hidden endpoints (their pages still answer 404).

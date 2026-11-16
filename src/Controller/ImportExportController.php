@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Doctrine\DBAL\Exception\RetryableException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
@@ -16,6 +17,7 @@ use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Service\FolderTreeConflictException;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiExporter;
@@ -277,6 +279,14 @@ final class ImportExportController extends AbstractController
                     } catch (Throwable) {
                         $this->entityManager->getConnection()->close();
                     }
+                }
+                // RJ-D2-L1: a write conflict on the service lock is retryable (409), anything else an import error.
+                if (FolderTreeConflictException::wrap($e) instanceof RetryableException) {
+                    $this->flash('error', 'folder.error.busy');
+
+                    return $this->renderPage('@NowoApiStudioBundle/import_export/import.html.twig', [
+                        'page' => $this->pages()->import($workspace, $titleKey, $form->createView(), $service, $environment),
+                    ], new Response(status: Response::HTTP_CONFLICT, headers: ['Retry-After' => '1']));
                 }
                 $this->flash('error', 'import.error');
             }

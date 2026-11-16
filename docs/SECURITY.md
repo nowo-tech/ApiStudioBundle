@@ -93,8 +93,8 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   Request-level Postman credentials become endpoint headers only when they are `{{variable}}` placeholders; literal
   tokens are reported and not imported (RJ-L3).
 - Tree writes lock the service row and check the rules on rows read inside the transaction; `folder.parent_id` has
-  no ON DELETE action, so the database never removes a folder subtree (RJ-M2); service / workspace deletes unset the
-  parents inside the same flush transaction (RJ-D-M1). Contention answers 409 with `Retry-After` (RJ-L1); imports into
+  no ON DELETE action, so the database never removes a folder subtree (RJ-M2); service / workspace deletes remove their
+  folders in the same flush transaction, read with SQL filters suspended (RJ-D-M1, RJ-D2-M1, RJ-D2-L2). Contention answers 409 with `Retry-After` (RJ-L1); imports into
   a service take the same lock (RJ-D-L1).
 - The re-read after the lock needs a fresh view: PostgreSQL READ COMMITTED (default) takes one per statement, and
   MySQL / MariaDB REPEATABLE READ (default) takes its snapshot at the first plain read, which comes after the lock.

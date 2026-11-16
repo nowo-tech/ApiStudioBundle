@@ -129,7 +129,7 @@ final class FolderTree
         } catch (Throwable $e) {
             $this->rollback();
 
-            throw $e;
+            throw FolderTreeConflictException::wrap($e);
         }
     }
 
@@ -160,7 +160,7 @@ final class FolderTree
         } catch (Throwable $e) {
             $this->rollback();
 
-            throw $e;
+            throw FolderTreeConflictException::wrap($e);
         }
     }
 
@@ -188,7 +188,7 @@ final class FolderTree
         } catch (Throwable $e) {
             $this->rollback();
 
-            throw $e;
+            throw FolderTreeConflictException::wrap($e);
         }
     }
 
@@ -236,7 +236,7 @@ final class FolderTree
         } catch (Throwable $e) {
             $this->rollback();
 
-            throw $e;
+            throw FolderTreeConflictException::wrap($e);
         }
 
         return $moved;
@@ -268,7 +268,7 @@ final class FolderTree
         } catch (Throwable $e) {
             $this->rollback();
 
-            throw $e;
+            throw FolderTreeConflictException::wrap($e);
         }
     }
 

@@ -11,14 +11,22 @@ use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 
+use function array_keys;
+use function implode;
+
 /**
  * 1.14 folders: `folder.parent_id` has no ON DELETE action (audit RJ-M2), so the database never removes a folder with
- * its subtree. When a flush deletes services or workspaces, their folders go with them by the `service_id` cascade;
- * this listener first unsets the parent of those folders **as part of the same flush** (entity change sets, audit
- * RJ-D-M1): the UPDATEs run inside the flush transaction, before the deletes, and roll back with them if the delete
- * fails. No SQL is run from the event itself (onFlush is dispatched before the flush opens its transaction).
+ * its subtree on its own. When a flush deletes services or workspaces, this listener schedules **every folder** of
+ * those services for deletion in the same flush (audits RJ-D-M1, RJ-D2-M1):
  *
- * Stateless (worker-safe); does nothing while folders are off.
+ * - the deletes run inside the flush transaction (no SQL from the event, which is dispatched before the flush opens
+ *   its transaction) and roll back with a failed delete;
+ * - the ORM orders them (subfolders before their parent, folders before their service) and removes them from the
+ *   identity map, so no managed folder is left pointing at a deleted service and later flushes on the same manager
+ *   keep working (the host's default manager is never cleared).
+ *
+ * The folders are read with every SQL filter suspended (RJ-D2-L2): a tenant or host filter must not hide a folder
+ * that the database would then refuse to orphan. Stateless (worker-safe); does nothing while folders are off.
  */
 #[AsDoctrineListener(event: Events::onFlush)]
 final class FolderParentDetachListener
@@ -41,15 +49,12 @@ final class FolderParentDetachListener
         if ($services === [] && $workspaces === []) {
             return;
         }
-        $metadata = $em->getClassMetadata(ApiFolder::class);
-        if ($metadata->isMappedSuperclass) {
+        if ($em->getClassMetadata(ApiFolder::class)->isMappedSuperclass) {
             return;
         }
 
-        $query = $em->createQueryBuilder()
-            ->select('f')->from(ApiFolder::class, 'f')->join('f.service', 's')
-            ->where('f.parent IS NOT NULL');
-        $or = [];
+        $query = $em->createQueryBuilder()->select('f')->from(ApiFolder::class, 'f')->join('f.service', 's');
+        $or    = [];
         if ($services !== []) {
             $or[] = 's.id IN (:services)';
             $query->setParameter('services', $services);
@@ -58,13 +63,26 @@ final class FolderParentDetachListener
             $or[] = 'IDENTITY(s.workspace) IN (:workspaces)';
             $query->setParameter('workspaces', $workspaces);
         }
-        $query->andWhere(implode(' OR ', $or));
+        $query->where(implode(' OR ', $or));
 
-        /** @var list<ApiFolder> $folders */
-        $folders = $query->getQuery()->getResult();
+        $filters   = $em->getFilters();
+        $suspended = array_keys($filters->getEnabledFilters());
+        foreach ($suspended as $name) {
+            $filters->suspend($name);
+        }
+        try {
+            /** @var list<ApiFolder> $folders */
+            $folders = $query->getQuery()->getResult();
+        } finally {
+            foreach ($suspended as $name) {
+                $filters->restore($name);
+            }
+        }
+
         foreach ($folders as $folder) {
-            $folder->setParent(null);
-            $uow->recomputeSingleEntityChangeSet($metadata, $folder);
+            if (!$uow->isScheduledForDelete($folder)) {
+                $uow->scheduleForDelete($folder);
+            }
         }
     }
 }

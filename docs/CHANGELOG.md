@@ -90,7 +90,7 @@ Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, 
   credentials out of endpoint headers, and clean imported names (control, zero-width and bidi characters).
 - Inside a folder, the ER-M1 and host-secret console gates also need `workspace.edit` on the folder.
 - The tenant SQL filter covers folders. Deleting a folder emits `ACTION_MOVED` for the content it moves up.
-- Service / workspace deletes unset the folder parents inside the flush transaction; imports into a service take the
+- Service / workspace deletes remove their folders in the same flush (no managed folder left behind); imports into a service take the
   service lock; a failed rollback closes the connection; a folder deleted meanwhile answers 404.
 
 ## [1.13.2] - 2026-11-16
