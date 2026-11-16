@@ -150,7 +150,7 @@ describe('page-side sandbox runner', () => {
     expect(ctx.getDirtyKeys()).toEqual({ a: '1' });
     expect(ctx.getLogs()).toEqual(['l']);
     expect(ctx.runTests()).toEqual([{ name: 't', ok: true }]);
-    expect(ctx.state.response).toEqual({ code: 200, body: 'ok' });
+    expect(ctx.state.response).toEqual({ code: 200, body: 'ok', headers: {}, responseTime: 0 });
   });
 });
 

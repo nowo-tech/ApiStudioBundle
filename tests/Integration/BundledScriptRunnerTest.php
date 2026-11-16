@@ -46,6 +46,9 @@ final class BundledScriptRunnerTest extends TestCase
             const json = pm.response.json();
             pm.test('three items', () => pm.expect(json.items).to.have.lengthOf(3));
             pm.test('fails', () => pm.expect(pm.response.code).to.equal(500));
+            pm.test('status', () => pm.response.to.have.status(200));
+            pm.test('header', () => pm.response.to.have.header('content-type', 'application/json'));
+            pm.test('time', () => pm.expect(pm.response.responseTime).to.equal(12));
             pm.globals.set('seen', json.items.length);
             pm.console.log(typeof process, typeof Deno, typeof require, pm.variables.get('host'));
             pm.sendRequest('https://93.184.215.14/more', (err, res) => pm.environment.set('more', res.json().items.length));
@@ -59,11 +62,13 @@ final class BundledScriptRunnerTest extends TestCase
             globals: ['host' => 'example.org'],
             runTests: true,
             limits: new ScriptRunLimits(timeMs: 15_000),
+            responseHeaders: ['Content-Type' => 'application/json'],
+            responseTimeMs: 12,
         ));
 
         self::assertSame(ScriptRunStatus::Completed, $result->status, (string) $result->error);
         self::assertSame(['[post-request] undefined undefined function example.org'], $result->logs);
-        self::assertEquals([new ScriptTestResult('three items', true), new ScriptTestResult('fails', false, 'Expected 500 but got 200')], $result->tests);
+        self::assertEquals([new ScriptTestResult('three items', true), new ScriptTestResult('fails', false, 'Expected 500 but got 200'), new ScriptTestResult('status', true), new ScriptTestResult('header', true), new ScriptTestResult('time', true)], $result->tests);
         self::assertSame(['seen' => '3'], $result->globalChanges);
         self::assertSame('3', $result->variables['more']);
         self::assertSame('6', $result->variables['sum']);

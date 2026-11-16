@@ -118,6 +118,15 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
   events are skipped; the import reports how many scripts were imported and how many were not (other modes, missing
   right, existing service or folder, other event kinds).
 
+- **`pm.response` helpers** (every mode): `pm.response.headers` (`get` / `has` ignoring case, `toObject`; the masked
+  response headers), `pm.response.responseTime` (ms) and Postman's `pm.response.to.have.status()` / `.header()` /
+  `.body()` / `.jsonBody()`, `pm.response.to.be.ok` / `.success` / `.error` / `.clientError` / `.serverError` /
+  `.json` and `pm.response.to.not.*`; the same on `pm.sendRequest` responses and in the server runner
+  (`ScriptRunRequest` gains optional `responseHeaders` and `responseTimeMs`).
+- `ScriptChainBuilder`: the scripts of an endpoint in run order with the console's log labels (workspace, service,
+  folders root to leaf, endpoint; the reverse after the response), for runs outside the browser through the server
+  runner. Workspace and folder levels are included only in sandbox mode, where they exist.
+
 ### Deprecated
 
 - `scripts.mode: inline` (still the 1.x default): scripts run unsandboxed in the page with the sender's session.
@@ -127,6 +136,18 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
 
 - Secret values are also masked in their HTML-escaped and base64 / base64url forms (history, execute responses and so
   what post-response scripts see), on top of the raw, URL-encoded and JSON-escaped forms (spec 003 US5).
+- The sandbox frame no longer depends on its CSP response header alone: the same policy is the first element of the
+  frame document's `<head>` (a meta policy that host middleware cannot strip; the dev web profiler removes CSP
+  headers, a host CSP listener may replace them), DNS prefetching is off, and the frame runtime removes `fetch`,
+  `XMLHttpRequest`, `WebSocket`, `EventSource`, WebRTC (`RTCPeerConnection`, which no CSP governs), workers,
+  `navigator.sendBeacon` and `window.open` before any script runs. Found by the extended Playwright corpus: in the dev
+  demo the header was stripped and a script's `fetch`, image, `EventSource`, WebSocket and beacon requests reached
+  the server (unreleased code, never tagged).
+- The console treats the sandbox frame as untrusted: it posts the run once (a repeated `ready` is ignored), accepts
+  only a well-formed result whose JSON grows the state it was given by at most 256 KB, refuses `pm.sendRequest`
+  messages over 256 KB, and removes the frame (failing the phase) when the frame sends more messages than its
+  `pm.sendRequest` budget plus `ready` and `result` (FR-SCR-003, `postMessage` flood edge case).
+- Worker test: 1,000 server-runner runs in one process leave no child process and keep memory flat (SC-004).
 - Tests now prove that no secret value reaches the script context: the sandbox console page carries secret variables
   only as their `{{placeholder}}` (functional and Playwright), and `pm.sendRequest` sends placeholders literally.
 

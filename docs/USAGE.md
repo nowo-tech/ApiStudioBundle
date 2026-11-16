@@ -6,6 +6,7 @@
 - [Documenting endpoints](#documenting-endpoints)
 - [Demo seed](#demo-seed)
 - [Testing requests](#testing-requests)
+- [Pre / post request scripts](#pre--post-request-scripts)
 - [Auth on services](#auth-on-services)
   - [SOAP services](#soap-services)
 - [Folders (1.14)](#folders-114)
@@ -61,6 +62,42 @@ Open an endpoint detail page, pick an environment, edit the body if needed, and 
 Before persistence, `HistorySanitizer` redacts sensitive headers (`Authorization`, API keys, cookies, …) and common secret patterns in bodies. See [SECURITY.md](SECURITY.md).
 
 Outbound calls use `nowo_api_studio.ui.request_timeout_seconds` (default **30**). See [CONFIGURATION.md](CONFIGURATION.md) and [DEMO-FRANKENPHP.md](DEMO-FRANKENPHP.md).
+
+## Pre / post request scripts
+
+The console runs Postman-style scripts before a request is sent (pre-request) and after the response arrives
+(post-response), with a `pm` object: `pm.environment`, `pm.variables`, `pm.request` (headers, query parameters, body),
+`pm.response` (`code`, `json()`, `text()`, and since 1.15 `headers`, `responseTime` and `pm.response.to.*`),
+`pm.test` / `pm.expect` (chai BDD subset since 1.15) and `pm.console.log`. `scripts.mode` decides where they run
+(see [CONFIGURATION.md](CONFIGURATION.md) and [SECURITY.md](SECURITY.md)):
+
+- `inline` (1.x default, deprecated since 1.15): in the page, with the user's session; stored scripts ask for
+  approval first (`scripts.confirm_stored`).
+- `sandbox` (1.15, recommended): in an opaque-origin iframe without network, page, cookies or storage. It adds
+  `pm.globals` (per workspace), `pm.collectionVariables` (per service), `pm.sendRequest` (sent by the server through
+  the console guards, at most `scripts.limits.send_requests` per phase), `require()` of the bundled libraries (`ajv`,
+  `chai`, `crypto-js`, `dayjs` / `moment`, `fast-xml-parser`, `lodash`, `uuid`) and scripts on the workspace and
+  folders. Pre-request scripts run workspace → service → folders (top level first) → endpoint, post-response scripts
+  in the reverse order; each log line names its level.
+- `disabled`: no script runs and no script code reaches the browser.
+
+```js
+// post-response script
+pm.test('created', () => pm.response.to.have.status(201));
+pm.test('content type', () => pm.response.to.have.header('Content-Type'));
+const items = pm.response.json().items;
+pm.test('three items', () => pm.expect(items).to.have.lengthOf(3));
+pm.collectionVariables.set('first_id', items[0].id);
+pm.sendRequest(`https://api.example.org/items/${items[0].id}`, (err, res) => {
+  pm.test('detail', () => {
+    pm.expect(err).to.be.null;
+    res.to.be.ok;
+  });
+});
+```
+
+Secret variables reach scripts only as their `{{placeholder}}`; responses are masked before a script sees them.
+Unattended runs use the server runner (`scripts.server_runner`, off by default: scripts are reported as not run).
 
 ## Auth on services
 
@@ -126,7 +163,9 @@ With `nowo_api_studio.folders.enabled: true` each service has a tree of folders 
   service's. Headers merge service → folders → endpoint, the deepest level winning.
 - **Import / export**: Postman item groups become folders with their auth (collection auth on a new service); OpenAPI
   operations go to the folder of `x-api-studio-folder` (`[Users, Admin]`) or of their first tag. Service exports
-  write `x-api-studio-folder` and the top-level folder as the first tag. Postman scripts are counted, not imported.
+  write `x-api-studio-folder` and the top-level folder as the first tag. Postman scripts are counted, not imported,
+  except in `scripts.mode: sandbox` (1.15) for a user with `workspace.edit_scripts`, where they become the scripts of
+  the service, folders and endpoints the import creates.
 
 ### Folder sharing hook
 

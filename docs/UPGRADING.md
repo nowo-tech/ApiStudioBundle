@@ -96,7 +96,8 @@ nowo_api_studio:
 
 - The console page then loads an `<iframe sandbox="allow-scripts">` from `<ui.path>/scripts/sandbox`: a host CSP must
   allow `frame-src 'self'` on the Api Studio pages (and can drop `'unsafe-eval'` there). The frame response carries its
-  own CSP; a host listener that rewrites CSP headers must leave that route alone.
+  own CSP (header, and the same policy as a `<meta>` tag first in its `<head>`, so a listener that strips or rewrites
+  CSP headers does not lift it); a listener that rewrites HTML bodies must leave that route alone.
 - Scripts no longer see the page: code that touched `document`, `window.parent`, cookies or storage fails (it ran
   with the user's session before). `pm` works as before; tests registered in a pre-request script are not kept for
   the post phase.
@@ -115,6 +116,10 @@ ALTER TABLE api_studio_folder ADD pre_request_script LONGTEXT DEFAULT NULL, ADD 
   (FK, cascade), `service_id` (nullable FK, cascade), `scope_id` (0 or the service id), `variable_key` VARCHAR(128)
   (binary NO PAD collation on MySQL / MariaDB), `value` TEXT, `updated_at`, unique (`workspace_id`, `scope_id`,
   `variable_key`). Generate it with `doctrine:migrations:diff` together with the columns above.
+- `ScriptRunRequest` (server runner port) gains two optional trailing arguments, `responseHeaders` and
+  `responseTimeMs`; custom `ApiStudioScriptRunnerInterface` implementations should hand them to `pm.response`.
+- Workspace and folder scripts exist only in sandbox mode, also when `scripts.server_runner` is enabled
+  (`ScriptChainBuilder` leaves those levels out otherwise).
 - Globals and collection variables take part in template resolution after the environment: a runner without
   `workspace.edit` whose global or collection variable feeds the URL or the auth of a request gets the usual
   `override_not_allowed` refusal (ER-M1), as for an environment override.

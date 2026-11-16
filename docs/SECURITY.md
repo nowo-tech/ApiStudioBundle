@@ -83,12 +83,27 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 
 ### Sandboxed scripts (1.15, `scripts.mode: sandbox`)
 
+**Status: re-verification pending** (spec 003, 1.15.0; the REQ-SEC-004 audit of the sandbox, the `pm.sendRequest`
+relay and the server runner runs before the tag).
+
 - Scripts run in `<iframe sandbox="allow-scripts">` (opaque origin: no DOM of the studio page, no cookies, no
   storage) loaded from `nowo_api_studio_script_sandbox`, whose response CSP is `default-src 'none'; script-src
   'nonce-…' 'unsafe-eval'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`: no `fetch`, XHR, WebSocket,
   image or form request can leave the frame.
+- The policy is carried twice: as the response header and as `<meta http-equiv="Content-Security-Policy">`, the first
+  element of the frame's `<head>`, so middleware that strips or replaces CSP headers (the dev web profiler does, a
+  host CSP listener may) does not lift it; anything injected into the document later (dev toolbars) is blocked by it.
+  `frame-ancestors 'self'` exists only in the header (a meta policy cannot carry it). DNS prefetching is off. Before
+  any script runs, the frame runtime also removes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
+  `WebTransport`, WebRTC (`RTCPeerConnection`: no CSP directive governs it), workers, `navigator.sendBeacon` and
+  `window.open` from the frame (scripts cannot create another realm to get them back).
 - The console accepts only messages from the frame it created, with origin `null` and the run's nonce; the frame
   accepts only messages from its parent. One fresh frame per phase, removed at the end or at `scripts.limits.time_ms`.
+- The frame is untrusted: the console posts the run once, validates the shape of the result (strings only in every
+  map, booleans and string lists where expected) and refuses one whose JSON is more than 256 KB larger than the run
+  it was given, refuses `pm.sendRequest` messages over 256 KB, and removes the frame when it sends more messages than
+  its `pm.sendRequest` budget plus `ready` and `result`. The response the post phase saw is never taken back from the
+  frame (the console keeps its own copy).
 - The studio page evaluates no script code in this mode (no `'unsafe-eval'` needed on it).
 - `pm.sendRequest` goes frame → console → `nowo_api_studio_script_send_request` → the guarded HTTP client: same SSRF
   guard and allow-list as the console, no redirects, no cookies, and **nothing resolved server-side** (no variable,
@@ -115,8 +130,15 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   are shown and accepted only with `workspace.edit_scripts`, and they run in the same frame as the other levels.
   A Postman import stores `event[]` scripts under the same rule (sandbox mode and `workspace.edit_scripts`), never on
   an existing service or folder.
+- `pm.response.headers` are the masked response headers the console already shows; `responseTime` is the measured
+  round trip. Neither carries anything the page does not already have.
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
-  the user sends (headers, body, variables) — that is its purpose.
+  the user sends (headers, body, variables) — that is its purpose. A script that points URL variables elsewhere is
+  subject to the ER-M1 / host-secret target checks of the execute endpoint, not to the sandbox.
+- Residual: a host that rewrites the frame document's HTML (not only its headers) can weaken the meta policy; the
+  JavaScript network lockdown still applies. Exclude `<ui.path>/scripts/sandbox` from such filters.
+- Residual: a hostile script can make its own phase fail (throw, loop until the time limit, flood messages); that only
+  affects the send of the user running it.
 
 ## Folders (1.14)
 

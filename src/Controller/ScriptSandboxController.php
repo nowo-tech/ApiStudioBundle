@@ -24,6 +24,11 @@ use const ENT_QUOTES;
  * page's DOM, cookies or storage). Its own CSP allows only the frame runtime (by nonce) and `'unsafe-eval'` for the
  * scripts, and no network at all (`default-src 'none'`): `fetch`, XHR, WebSocket, images and forms are refused, and
  * only the studio may embed it (`frame-ancestors 'self'`). Stateless (worker-safe).
+ *
+ * The same policy (minus `frame-ancestors`, which a meta tag cannot carry) is also the first thing in the document's
+ * `<head>`: host middleware may strip or replace the header (the dev web profiler removes CSP headers, a host CSP
+ * listener may overwrite them), and a meta policy applies to everything parsed after it, whatever the headers say.
+ * DNS prefetching is off as well. The frame runtime removes the network APIs from the frame on top of that.
  */
 final class ScriptSandboxController
 {
@@ -45,15 +50,18 @@ final class ScriptSandboxController
             ? $this->packages->getUrl('api-script-sandbox.js', 'nowo_api_studio')
             : '/bundles/nowoapistudio/api-script-sandbox.js';
 
-        $html = sprintf(
-            '<!doctype html><html><head><meta charset="utf-8"><title>Api Studio script sandbox</title></head><body><script nonce="%s" src="%s"></script></body></html>',
+        $policy = sprintf("default-src 'none'; script-src 'nonce-%s' 'unsafe-eval'; base-uri 'none'; form-action 'none'", $nonce);
+        $html   = sprintf(
+            '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="%s"><meta http-equiv="x-dns-prefetch-control" content="off"><title>Api Studio script sandbox</title></head><body><script nonce="%s" src="%s"></script></body></html>',
+            htmlspecialchars($policy, ENT_QUOTES),
             htmlspecialchars($nonce, ENT_QUOTES),
             htmlspecialchars($script, ENT_QUOTES),
         );
 
         return new Response($html, Response::HTTP_OK, [
             'Content-Type'            => 'text/html; charset=UTF-8',
-            'Content-Security-Policy' => sprintf("default-src 'none'; script-src 'nonce-%s' 'unsafe-eval'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'", $nonce),
+            'Content-Security-Policy' => $policy . "; frame-ancestors 'self'",
+            'X-DNS-Prefetch-Control'  => 'off',
             'X-Content-Type-Options'  => 'nosniff',
             'Referrer-Policy'         => 'no-referrer',
             'Cache-Control'           => 'no-store',

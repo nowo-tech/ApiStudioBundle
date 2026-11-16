@@ -87,6 +87,19 @@ type ExecuteResponse = {
   error_message?: string | null;
 };
 
+/** Response headers (already masked by the server) as a flat string map for `pm.response.headers` (1.15). */
+function stringHeaders(headers: unknown): StringMap {
+  const out: StringMap = {};
+  if (typeof headers !== 'object' || headers === null || Array.isArray(headers)) {
+    return out;
+  }
+  Object.entries(headers as Record<string, unknown>).forEach(([k, v]) => {
+    out[k] = Array.isArray(v) ? v.map(String).join(', ') : String(v ?? '');
+  });
+
+  return out;
+}
+
 function httpMethodClass(method: string | null | undefined): string {
   const map: StringMap = {
     GET: 'as-method-get',
@@ -1341,7 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const status = data.response_status != null ? data.response_status : 'ERR';
       const ok = Boolean(data.success);
 
-      scriptCtx.setResponse(status, data.response_body || data.error_message || '');
+      scriptCtx.setResponse(status, data.response_body || data.error_message || '', stringHeaders(data.response_headers), data.duration_ms ?? 0);
 
       await executeScripts(
         [

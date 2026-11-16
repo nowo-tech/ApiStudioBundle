@@ -86,6 +86,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Script/Runner/ScriptRunRequest.php`, `ScriptRunResult.php`, `ScriptSource.php`, `ScriptRunLimits.php`, `ScriptTestResult.php`, `ScriptRunStatus.php` | Runner value objects (1.15) | FR-SCR-005 (spec 003) |
 | `Script/Runner/ProcessScriptRunner.php` | Reference runner: sidecar process per run, limits, sendRequest relay (1.15) | FR-SCR-004, FR-SCR-005 (spec 003) |
 | `Script/Runner/NullScriptRunner.php` | Default runner: scripts not run (1.15) | US2 (spec 003) |
+| `Script/ScriptChainBuilder.php` | Endpoint script chain in run order with log labels, for runs outside the browser (1.15) | US4 (spec 003) |
 | `Script/ScriptVariableStore.php` | `pm.globals` / `pm.collectionVariables` storage, DBAL per key (1.15) | US3 (spec 003) |
 | `Controller/ScriptVariablesController.php` | Saves script globals / collection variables (sandbox mode, 1.15) | US3 (spec 003) |
 | `Entity/ApiScriptVariable.php` | Script variable of a workspace (global) or service (collection), sandbox mode only (1.15) | US3 (spec 003) |
@@ -231,6 +232,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/expect.ts` | chai BDD subset of `pm.expect` (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
+| `Resources/assets/src/lib/lockdown.ts` | Removes the network APIs from the sandbox frame before scripts run (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/assets/src/lib/require.ts` | Closed `require()` library allow-list, frame and runner only (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/api-script-runner.ts` | Server runner sidecar entry, Deno / Node, line protocol (1.15) | FR-SCR-005 (spec 003) |
 | `Resources/runner/api-script-runner.js` | Built server runner sidecar (1.15) | FR-SCR-005 (spec 003) |

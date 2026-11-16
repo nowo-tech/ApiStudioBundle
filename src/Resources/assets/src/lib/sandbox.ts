@@ -14,7 +14,7 @@
  */
 
 import type { ScopeChanges, ScriptContext, ScriptScopes, StringMap } from '../types/global';
-import { createPm, runScript } from './pm';
+import { createPm, headerList, responseAssertions, runScript } from './pm';
 
 export type SandboxTest = { name: string; ok: boolean; error?: string };
 
@@ -22,7 +22,8 @@ export type SandboxState = {
   variables: StringMap;
   dirty: StringMap;
   request: { body: string; headers: StringMap; queryParams: StringMap };
-  response: { code: number | string | null; body: string } | null;
+  /** The response of a post phase; 1.15 adds its masked headers and round trip (ms). */
+  response: SandboxResponse | null;
   logs: string[];
   tests: SandboxTest[];
   /** 1.15: `pm.globals` / `pm.collectionVariables` and the changes of the previous phases. */
@@ -33,6 +34,8 @@ export type SandboxState = {
 export function emptyScopes(): ScriptScopes {
   return { globals: {}, collection: {}, changes: { globals: {}, collection: {} } };
 }
+
+export type SandboxResponse = { code: number | string | null; body: string; headers?: StringMap; responseTime?: number };
 
 export type SandboxScript = { label: string; code: string };
 
@@ -52,6 +55,15 @@ export type ResultMessage = { v: 1; kind: 'result'; nonce: string; ok: boolean; 
 /** Largest script code accepted by the frame (characters, all scripts of a run). */
 export const MAX_CODE_LENGTH = 256 * 1024;
 
+/**
+ * How much a frame message may add to what the page sent (characters of JSON): a result may grow the run state by at
+ * most this much, and one `pm.sendRequest` message may not be larger.
+ */
+export const MAX_MESSAGE_GROWTH = 256 * 1024;
+
+/** Messages a frame may send in one run on top of its `pm.sendRequest` budget (`ready`, `result`); more = flood. */
+export const EXTRA_MESSAGES = 2;
+
 /** Default wall time of one run (pre or post phase) before the frame is torn down. */
 export const DEFAULT_TIMEOUT_MS = 2000;
 
@@ -61,6 +73,87 @@ function isStringMap(value: unknown): value is StringMap {
 
 function isScopeChanges(value: unknown): value is ScopeChanges {
   return typeof value === 'object' && value !== null && Object.values(value).every((v) => v === null || typeof v === 'string');
+}
+
+function isResponse(value: unknown): value is SandboxResponse | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  const r = value as Partial<SandboxResponse>;
+
+  return (
+    (r.code === null || typeof r.code === 'number' || typeof r.code === 'string') &&
+    typeof r.body === 'string' &&
+    (r.headers === undefined || isStringMap(r.headers)) &&
+    (r.responseTime === undefined || (typeof r.responseTime === 'number' && Number.isFinite(r.responseTime)))
+  );
+}
+
+function isTests(value: unknown): value is SandboxTest[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (t) =>
+        typeof t === 'object' &&
+        t !== null &&
+        typeof (t as SandboxTest).name === 'string' &&
+        typeof (t as SandboxTest).ok === 'boolean' &&
+        ((t as SandboxTest).error === undefined || typeof (t as SandboxTest).error === 'string'),
+    )
+  );
+}
+
+/** Whether $value has the shape of a run state (both directions of the protocol). */
+export function isSandboxState(value: unknown): value is SandboxState {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const st = value as Partial<SandboxState>;
+
+  return (
+    isStringMap(st.variables) &&
+    isStringMap(st.dirty) &&
+    typeof st.request === 'object' &&
+    st.request !== null &&
+    typeof st.request.body === 'string' &&
+    isStringMap(st.request.headers) &&
+    isStringMap(st.request.queryParams) &&
+    isResponse(st.response ?? null) &&
+    Array.isArray(st.logs) &&
+    st.logs.every((l) => typeof l === 'string') &&
+    isTests(st.tests) &&
+    isScopes(st.scopes)
+  );
+}
+
+/**
+ * Page side: whether $data is a well-formed result of the run with $nonce whose JSON is at most $maxLength characters
+ * (the page ignores anything else; the frame is untrusted).
+ */
+export function isResultMessage(data: unknown, nonce: string, maxLength: number): data is ResultMessage {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const m = data as Partial<ResultMessage>;
+  if (
+    m.v !== 1 ||
+    m.kind !== 'result' ||
+    m.nonce !== nonce ||
+    typeof m.ok !== 'boolean' ||
+    (m.error !== undefined && typeof m.error !== 'string') ||
+    (m.label !== undefined && typeof m.label !== 'string') ||
+    !isSandboxState(m.state)
+  ) {
+    return false;
+  }
+  try {
+    return JSON.stringify(data).length <= maxLength;
+  } catch {
+    return false;
+  }
 }
 
 function isScopes(value: unknown): value is ScriptScopes {
@@ -98,21 +191,8 @@ export function isRunMessage(data: unknown): data is RunMessage {
     }
     length += s.code.length;
   }
-  const st = m.state;
 
-  return (
-    length <= MAX_CODE_LENGTH &&
-    typeof st === 'object' &&
-    st !== null &&
-    isStringMap(st.variables) &&
-    isStringMap(st.dirty) &&
-    typeof st.request === 'object' &&
-    st.request !== null &&
-    typeof st.request.body === 'string' &&
-    isStringMap(st.request.headers) &&
-    isStringMap(st.request.queryParams) &&
-    isScopes(st.scopes)
-  );
+  return length <= MAX_CODE_LENGTH && isSandboxState(m.state);
 }
 
 /** Default number of `pm.sendRequest` calls of one run (pre or post phase). */
@@ -168,21 +248,16 @@ export function normalizeRequest(input: unknown): SandboxHttpRequest {
 
 /** The response object a script receives from `pm.sendRequest` (same helpers as `pm.response`). */
 export function scriptResponse(r: SandboxHttpResponse) {
-  return {
+  const response = {
     code: r.code,
     status: String(r.code),
     responseTime: r.responseTime,
-    headers: {
-      get(name: string): string | undefined {
-        const key = Object.keys(r.headers).find((k) => k.toLowerCase() === String(name).toLowerCase());
-
-        return key === undefined ? undefined : r.headers[key];
-      },
-      toObject: (): StringMap => ({ ...r.headers }),
-    },
+    headers: headerList(r.headers),
     text: (): string => r.body,
     json: (): unknown => JSON.parse(r.body || 'null'),
   };
+
+  return { ...response, to: responseAssertions({ ...response, body: r.body }, false) };
 }
 
 /**
@@ -201,7 +276,7 @@ export async function executeRun(message: RunMessage, transport?: SendTransport,
     collectionVariables: st.scopes.collection,
   });
   if (st.response) {
-    ctx.setResponse(st.response.code, st.response.body);
+    ctx.setResponse(st.response.code, st.response.body, st.response.headers, st.response.responseTime);
   }
 
   const pending = new Set<Promise<unknown>>();
@@ -338,7 +413,13 @@ export function runInSandbox(
     frame.className = 'as-script-sandbox';
     const nonce = newNonce();
     let settled = false;
+    let started = false;
     let sent = 0;
+    let received = 0;
+    // The frame is untrusted: a result may grow the state it was given by at most MAX_MESSAGE_GROWTH, and the frame
+    // may send at most its pm.sendRequest budget plus `ready` and `result`.
+    let maxResultLength = MAX_MESSAGE_GROWTH;
+    const maxMessages = sendBudget + EXTRA_MESSAGES;
 
     const finish = (): void => {
       settled = true;
@@ -351,25 +432,45 @@ export function runInSandbox(
       if (settled || event.source !== frame.contentWindow || event.origin !== 'null') {
         return;
       }
+      if (++received > maxMessages) {
+        finish();
+        reject(new Error('Scripts stopped: the sandbox sent too many messages.'));
+
+        return;
+      }
       const data = event.data as Omit<Partial<ResultMessage>, 'kind'> & { kind?: string; v?: number };
       if (typeof data !== 'object' || data === null || data.v !== 1) {
         return;
       }
       if (data.kind === 'ready') {
+        if (started) {
+          return;
+        }
+        started = true;
         const run: RunMessage = { v: 1, kind: 'run', nonce, scripts, state, runTests, sendBudget };
+        maxResultLength = JSON.stringify(run).length + MAX_MESSAGE_GROWTH;
         frame.contentWindow?.postMessage(run, '*');
 
         return;
       }
+      if (!started) {
+        return;
+      }
       if (data.kind === 'sendRequest' && data.nonce === nonce) {
         const ask = data as unknown as Partial<SendRequestMessage>;
-        const id = typeof ask.id === 'number' ? ask.id : -1;
+        const id = typeof ask.id === 'number' && Number.isSafeInteger(ask.id) ? ask.id : -1;
+        let size = Infinity;
+        try {
+          size = JSON.stringify(ask.request ?? null).length;
+        } catch {
+          // not serialisable: refused below
+        }
         const reply = (answer: Omit<SendResultMessage, 'v' | 'kind' | 'nonce' | 'id'>): void => {
           if (!settled) {
             frame.contentWindow?.postMessage({ v: 1, kind: 'sendResult', nonce, id, ...answer }, '*');
           }
         };
-        if (!sendRequest || ++sent > sendBudget || typeof ask.request !== 'object' || ask.request === null) {
+        if (!sendRequest || ++sent > sendBudget || typeof ask.request !== 'object' || ask.request === null || size > MAX_MESSAGE_GROWTH) {
           reply({ error: 'pm.sendRequest is not available.' });
 
           return;
@@ -381,9 +482,13 @@ export function runInSandbox(
 
         return;
       }
-      if (data.kind === 'result' && data.nonce === nonce && typeof data.state === 'object' && data.state !== null) {
+      if (data.kind === 'result' && data.nonce === nonce) {
         finish();
-        resolve(data as ResultMessage);
+        if (isResultMessage(data, nonce, maxResultLength)) {
+          resolve(data);
+        } else {
+          reject(new Error('Scripts stopped: the sandbox sent a malformed or oversized result.'));
+        }
       }
     }
 
@@ -416,8 +521,8 @@ export function sandboxContext(state: SandboxState): ScriptContext & { state: Sa
     getDirtyKeys: () => ({ ...ctx.state.dirty }),
     getScopes: () => ctx.state.scopes,
     runTests: () => ctx.state.tests.slice(),
-    setResponse: (status: number | string | null, body: string) => {
-      ctx.state.response = { code: status, body: body || '' };
+    setResponse: (status: number | string | null, body: string, headers?: StringMap, responseTime?: number) => {
+      ctx.state.response = { code: status, body: body || '', headers: { ...(headers ?? {}) }, responseTime: responseTime ?? 0 };
     },
   };
 

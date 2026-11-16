@@ -1283,7 +1283,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         max_depth?: int|Param, // Deepest folder level allowed (a top-level folder has depth 1). Checked on create, move and import. // Default: 8
  *     },
  *     scripts?: array{
- *         mode?: "inline"|"sandbox"|"disabled"|Param, // Pre/post request scripts of the console. inline (default) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src 'unsafe-eval'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src 'self' and no 'unsafe-eval'); disabled = no script tab, no script code sent to the browser (stored scripts are kept). // Default: "inline"
+ *         mode?: "inline"|"sandbox"|"disabled"|Param, // Pre/post request scripts of the console. inline (default; deprecated since 1.15, sandbox becomes the default in 2.0) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src 'unsafe-eval'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src 'self' and no 'unsafe-eval'); disabled = no script tab, no script code sent to the browser (stored scripts are kept). // Default: "inline"
  *         limits?: array{
  *             time_ms?: int|Param, // sandbox mode and server runner (1.15): wall time of one phase (pre or post) before the frame / process is torn down and the request fails. // Default: 2000
  *             memory_mb?: int|Param, // Server runner (1.15): memory of the sidecar, handed to its command through the {memory_mb} placeholder (V8 heap limit by default). // Default: 64

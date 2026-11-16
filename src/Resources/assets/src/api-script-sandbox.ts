@@ -8,6 +8,12 @@
  */
 import { scriptRequire } from './lib/require';
 import { executeRun, isRunMessage, type SandboxHttpResponse, type SendResultMessage } from './lib/sandbox';
+import { lockDownNetwork } from './lib/lockdown';
+
+// Before anything else: the frame needs no network of its own (pm.sendRequest goes through the parent), so scripts
+// get none either, whatever happened to the document's CSP on its way here.
+const post = window.parent.postMessage.bind(window.parent);
+lockDownNetwork(window);
 
 const waiting = new Map<number, { resolve: (r: SandboxHttpResponse) => void; reject: (e: Error) => void }>();
 let nextId = 0;
@@ -37,11 +43,11 @@ window.addEventListener('message', (event: MessageEvent) => {
 
     return new Promise<SandboxHttpResponse>((resolve, reject) => {
       waiting.set(id, { resolve, reject });
-      window.parent.postMessage({ v: 1, kind: 'sendRequest', nonce: run.nonce, id, request }, '*');
+      post({ v: 1, kind: 'sendRequest', nonce: run.nonce, id, request }, '*');
     });
   }, scriptRequire).then((result) => {
-    window.parent.postMessage(result, '*');
+    post(result, '*');
   });
 });
 
-window.parent.postMessage({ v: 1, kind: 'ready' }, '*');
+post({ v: 1, kind: 'ready' }, '*');

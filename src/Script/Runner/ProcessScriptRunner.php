@@ -189,10 +189,15 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
                 'variables' => (object) $request->variables,
                 'dirty'     => (object) [],
                 'request'   => ['body' => $request->body, 'headers' => (object) $request->headers, 'queryParams' => (object) $request->queryParams],
-                'response'  => $request->responseCode === null && $request->responseBody === null ? null : ['code' => $request->responseCode, 'body' => (string) $request->responseBody],
-                'logs'      => [],
-                'tests'     => [],
-                'scopes'    => [
+                'response'  => $request->responseCode === null && $request->responseBody === null ? null : [
+                    'code'         => $request->responseCode,
+                    'body'         => (string) $request->responseBody,
+                    'headers'      => (object) $request->responseHeaders,
+                    'responseTime' => $request->responseTimeMs,
+                ],
+                'logs'   => [],
+                'tests'  => [],
+                'scopes' => [
                     'globals'    => (object) $request->globals,
                     'collection' => (object) $request->collectionVariables,
                     'changes'    => ['globals' => (object) [], 'collection' => (object) []],

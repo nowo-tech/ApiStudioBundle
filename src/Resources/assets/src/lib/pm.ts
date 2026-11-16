@@ -6,7 +6,91 @@
  */
 
 import { expect } from './expect';
-import type { PmApi, PmCreateOptions, PmScopeApi, ScopeChanges, ScriptContext, StringMap } from '../types/global';
+import type { PmApi, PmCreateOptions, PmHeaderList, PmResponseAssertions, PmScopeApi, ScopeChanges, ScriptContext, StringMap } from '../types/global';
+
+/** Response headers as Postman's header list: `get` / `has` ignore case. */
+export function headerList(headers: StringMap): PmHeaderList {
+  const own: StringMap = { ...headers };
+  const find = (name: string): string | undefined =>
+    Object.keys(own).find((k) => k.toLowerCase() === String(name).toLowerCase());
+
+  return {
+    get(name: string) {
+      const key = find(name);
+
+      return key === undefined ? undefined : own[key];
+    },
+    has(name: string, value?: unknown) {
+      const key = find(name);
+
+      return key !== undefined && (value === undefined || own[key] === String(value));
+    },
+    toObject: () => ({ ...own }),
+  };
+}
+
+type AssertedResponse = { code: number | string | null; body: string; headers: PmHeaderList; text: () => string };
+
+/**
+ * Postman's `pm.response.to` assertions (1.15): `to.have.status(code)`, `to.have.header(name[, value])`,
+ * `to.have.body([text])`, `to.have.jsonBody()`, `to.be.ok` / `success` / `error` / `clientError` / `serverError` /
+ * `json`, and `to.not.*`. Each throws when it fails, like `pm.expect`.
+ */
+export function responseAssertions(response: AssertedResponse, negate: boolean): PmResponseAssertions {
+  const check = (pass: boolean, message: string): void => {
+    if (pass === negate) {
+      throw new Error(negate ? `Expected not: ${message}` : `Expected ${message}`);
+    }
+  };
+  const code = (): number => Number(response.code);
+  const isJson = (): boolean => {
+    try {
+      JSON.parse(response.text());
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const have = {
+    status(expected: number | string) {
+      check(typeof expected === 'number' ? code() === expected : String(response.code) === String(expected), `status ${String(expected)} but got ${String(response.code)}`);
+    },
+    header(name: string, value?: unknown) {
+      check(response.headers.has(name, value), value === undefined ? `header ${name}` : `header ${name}: ${String(value)}`);
+    },
+    body(expected?: string) {
+      check(expected === undefined ? response.text() !== '' : response.text() === expected, expected === undefined ? 'a response body' : `body ${expected}`);
+    },
+    jsonBody() {
+      check(isJson(), 'a JSON body');
+    },
+  };
+  const be = {
+    get ok() {
+      return check(code() >= 200 && code() < 300, `a 2xx status but got ${String(response.code)}`);
+    },
+    get success() {
+      return check(code() >= 200 && code() < 300, `a 2xx status but got ${String(response.code)}`);
+    },
+    get error() {
+      return check(code() >= 400 && code() < 600, `a 4xx or 5xx status but got ${String(response.code)}`);
+    },
+    get clientError() {
+      return check(code() >= 400 && code() < 500, `a 4xx status but got ${String(response.code)}`);
+    },
+    get serverError() {
+      return check(code() >= 500 && code() < 600, `a 5xx status but got ${String(response.code)}`);
+    },
+    get json() {
+      return check(isJson(), 'a JSON body');
+    },
+  };
+  const api = { have, be } as unknown as PmResponseAssertions;
+  Object.defineProperty(api, 'not', { get: () => responseAssertions(response, !negate) });
+
+  return api;
+}
 
 /** A `pm.globals` / `pm.collectionVariables` store: its values and the changes made by the scripts. */
 function scopeStore(initial: StringMap | undefined): { api: PmScopeApi; values: StringMap; changes: ScopeChanges } {
@@ -92,6 +176,9 @@ export function createPm(options: PmCreateOptions): ScriptContext {
     code: null as number | string | null,
     status: '',
     body: '',
+    /** 1.15: masked response headers (`get` ignores case) and the round trip in milliseconds. */
+    headers: headerList({}),
+    responseTime: 0,
     json() {
       try {
         return JSON.parse(this.body || '{}');
@@ -102,7 +189,9 @@ export function createPm(options: PmCreateOptions): ScriptContext {
     text() {
       return this.body || '';
     },
+    to: undefined as unknown as PmResponseAssertions,
   };
+  responseWrapper.to = responseAssertions(responseWrapper, false);
 
   const globals = scopeStore(options.globals);
   const collection = scopeStore(options.collectionVariables);
@@ -161,10 +250,12 @@ export function createPm(options: PmCreateOptions): ScriptContext {
           };
         }
       }),
-    setResponse(status, body) {
+    setResponse(status, body, headers, responseTime) {
       responseWrapper.code = status;
       responseWrapper.status = status ? String(status) : '';
       responseWrapper.body = body || '';
+      responseWrapper.headers = headerList(headers ?? {});
+      responseWrapper.responseTime = typeof responseTime === 'number' && Number.isFinite(responseTime) ? responseTime : 0;
     },
   };
 }

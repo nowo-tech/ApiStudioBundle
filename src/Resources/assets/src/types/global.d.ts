@@ -49,7 +49,8 @@ export type ScriptContext = {
   getLogs: () => string[];
   getDirtyKeys: () => StringMap;
   runTests: () => Array<{ name: string; ok: boolean; error?: string }>;
-  setResponse: (status: number | string | null, body: string) => void;
+  /** 1.15: also the masked response headers and the round trip (ms). */
+  setResponse: (status: number | string | null, body: string, headers?: StringMap, responseTime?: number) => void;
   /** 1.15: `pm.globals` / `pm.collectionVariables` values and the changes the scripts made. */
   getScopes?: () => ScriptScopes;
 };
@@ -91,12 +92,34 @@ export type PmRequestApi = {
   getQueryParam: (key: string) => string | undefined;
 };
 
+export type PmHeaderList = {
+  get: (name: string) => string | undefined;
+  has: (name: string, value?: unknown) => boolean;
+  toObject: () => StringMap;
+};
+
+export type PmResponseAssertions = {
+  have: {
+    status: (expected: number | string) => void;
+    header: (name: string, value?: unknown) => void;
+    body: (expected?: string) => void;
+    jsonBody: () => void;
+  };
+  be: { ok: void; success: void; error: void; clientError: void; serverError: void; json: void };
+  not: PmResponseAssertions;
+};
+
 export type PmResponseApi = {
   code: number | string | null;
   status: string;
   body: string;
+  /** 1.15: masked response headers and the round trip (ms). */
+  headers: PmHeaderList;
+  responseTime: number;
   json: () => unknown;
   text: () => string;
+  /** 1.15: Postman's `pm.response.to.*` assertions. */
+  to: PmResponseAssertions;
 };
 
 export type EnvironmentMaps = Record<
