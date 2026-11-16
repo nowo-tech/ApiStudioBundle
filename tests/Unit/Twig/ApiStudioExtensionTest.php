@@ -56,7 +56,7 @@ final class ApiStudioExtensionTest extends TestCase
         $extension = $this->extension($this->createMock(ApiWorkspaceRepository::class));
         $names     = array_map(static fn ($function): string => $function->getName(), $extension->getFunctions());
 
-        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree', 'nowo_api_studio_scripts_enabled', 'nowo_api_studio_can', 'nowo_api_studio_folders_enabled', 'nowo_api_studio_visible_endpoints'], $names);
+        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree', 'nowo_api_studio_scripts_enabled', 'nowo_api_studio_scripts_confirm_stored', 'nowo_api_studio_can', 'nowo_api_studio_folders_enabled', 'nowo_api_studio_visible_endpoints'], $names);
         self::assertSame('as-method-get', $extension->methodClass('get'));
         self::assertSame('as-method-default', $extension->methodClass('OPTIONS'));
         self::assertSame('as-method-post', $extension->methodClass('post'));
@@ -65,6 +65,28 @@ final class ApiStudioExtensionTest extends TestCase
         self::assertSame('as-method-delete', $extension->methodClass('DELETE'));
         self::assertSame('as-method-soap', $extension->methodClass('soap'));
         self::assertSame('{{token}}', $extension->formatVariable('token'));
+    }
+
+    public function testStoredScriptsAreConfirmedByDefault(): void
+    {
+        $extension = $this->extension($this->createMock(ApiWorkspaceRepository::class));
+
+        self::assertTrue($extension->scriptsEnabled());
+        self::assertTrue($extension->scriptsConfirmStored());
+    }
+
+    public function testConfirmStoredCanBeTurnedOff(): void
+    {
+        self::assertFalse($this->scriptsExtension(ApiStudioExtension::SCRIPTS_INLINE, false)->scriptsConfirmStored());
+        self::assertTrue($this->scriptsExtension(ApiStudioExtension::SCRIPTS_INLINE, true)->scriptsConfirmStored());
+    }
+
+    public function testNothingToConfirmWhenScriptsAreDisabled(): void
+    {
+        $extension = $this->scriptsExtension(ApiStudioExtension::SCRIPTS_DISABLED, true);
+
+        self::assertFalse($extension->scriptsEnabled());
+        self::assertFalse($extension->scriptsConfirmStored());
     }
 
     public function testLayoutAndCssFrameworkGlobalsDefaultToNull(): void
@@ -76,6 +98,16 @@ final class ApiStudioExtensionTest extends TestCase
 
         self::assertNull($extension->getGlobals()[ApiStudioExtension::GLOBAL_LAYOUT_TEMPLATE]);
         self::assertNull($extension->getGlobals()[ApiStudioExtension::GLOBAL_CSS_FRAMEWORK]);
+    }
+
+    private function scriptsExtension(string $mode, bool $confirmStored): ApiStudioExtension
+    {
+        return new ApiStudioExtension(
+            new LocaleManager(new RequestStack(), ['en'], 'en'),
+            new StudioNavigationProvider($this->createMock(ApiWorkspaceRepository::class), $this->createMock(UrlGeneratorInterface::class)),
+            scriptsMode: $mode,
+            scriptsConfirmStored: $confirmStored,
+        );
     }
 
     private function extension(ApiWorkspaceRepository $repository): ApiStudioExtension

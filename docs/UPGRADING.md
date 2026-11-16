@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.13.2](#to-1132)
 - [To 1.13.1](#to-1131)
 - [To 1.13.0](#to-1130)
 - [To 1.12.4](#to-1124)
@@ -143,6 +144,26 @@ Notes:
   `endpoint/show.html.twig` takes `effectiveAuthType` / `effectiveAuthFolder`. Overrides keep working without folders.
 - `ApiStudioResourceChangedEvent` gains `TYPE_FOLDER` and `ACTION_MOVED`: listeners should ignore unknown values.
 - A host folder checker can only deny; without one nothing changes.
+
+## To 1.13.2
+
+From **1.13.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+From **1.13.1**: no migration. `nowo_api_studio.scripts.confirm_stored` is new and defaults to `true`: with
+`scripts.mode: inline`, the request console asks before it runs stored service / endpoint scripts that the browser
+session has not approved (dialog `#tester-scripts-confirm-modal` in `endpoint/show.html.twig`, filled by
+`api-tester.js`). A host that overrides `endpoint/show.html.twig` should keep that dialog (`nowo_ui_modals` block) and
+the `data-scripts-confirm` attribute of `#api-studio-tester` (only `"0"` turns the confirmation off; a missing
+attribute asks). Without the dialog, stored scripts are not run and the request is sent without scripts. Set `scripts.confirm_stored: false` to keep the 1.13.1 behaviour; with an overriding `endpoint/show.html.twig` that does
+not render `data-scripts-confirm`, that option has no effect and the console keeps asking (fail-safe) until the
+override renders the attribute. Browser end-to-end
+tests that send requests from endpoints with stored scripts must answer the dialog. The dialog shows each script whole
+(wrapped, with its line and character count) and shows invisible or direction-changing characters as `⟨U+XXXX⟩`; an
+override of its markup should keep `#tester-scripts-confirm-list`.
 
 ## To 1.13.1
 

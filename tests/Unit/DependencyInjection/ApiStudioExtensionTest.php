@@ -23,6 +23,17 @@ final class ApiStudioExtensionTest extends TestCase
         self::assertSame(['ROLE_ADMIN'], $container->getParameter('nowo_api_studio.ui.required_roles'));
         self::assertSame([], $container->getParameter('nowo_api_studio.execution_url_allowlist'));
         self::assertSame('en|es|fr|it', $container->getParameter('nowo_api_studio.ui.locales_requirement'));
+        self::assertTrue($container->getParameter('nowo_api_studio.scripts.confirm_stored'));
+    }
+
+    public function testStoredScriptConfirmationCanBeTurnedOff(): void
+    {
+        $container = new ContainerBuilder();
+
+        (new ApiStudioExtension())->load([['scripts' => ['confirm_stored' => false]]], $container);
+
+        self::assertFalse($container->getParameter('nowo_api_studio.scripts.confirm_stored'));
+        self::assertSame('inline', $container->getParameter('nowo_api_studio.scripts.mode'));
     }
 
     public function testLocalesRequirementReflectsConfiguredLocales(): void

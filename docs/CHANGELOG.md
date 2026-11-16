@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.13.2] - 2026-11-16](#1132---2026-11-16)
 - [[1.13.1] - 2026-11-15](#1131---2026-11-15)
 - [[1.13.0] - 2026-11-15](#1130---2026-11-15)
 - [[1.12.4] - 2026-11-15](#1124---2026-11-15)
@@ -91,6 +92,27 @@ Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, 
 - The tenant SQL filter covers folders. Deleting a folder emits `ACTION_MOVED` for the content it moves up.
 - Service / workspace deletes unset the folder parents inside the flush transaction; imports into a service take the
   service lock; a failed rollback closes the connection; a folder deleted meanwhile answers 404.
+
+## [1.13.2] - 2026-11-16
+
+### Security
+
+- **Stored scripts are confirmed before they run (`scripts.confirm_stored`, default `true`).** Pre / post request
+  scripts stored on a service or an endpoint run in the request console of whoever sends the request, in the page and
+  with that user's session. The console now shows the code of the stored scripts this browser session has not
+  approved and asks to run them, send the request without scripts, or cancel. An approval is kept in
+  `sessionStorage` per SHA-256 of the code, so any change asks again; code the user typed in an empty script field is
+  not asked. The dialog shows each script whole, with its line and character count, makes invisible and
+  direction-changing characters visible, and flags code built at run time. Send is disabled while a request or the
+  dialog is pending, and the approved code is the code that runs. `scripts.confirm_stored: false` restores the
+  previous behaviour. `scripts.mode: disabled` is unchanged.
+
+### Changed
+
+- The `scripts.mode` configuration help no longer announces a sandboxed runner for 1.13; it is planned on the roadmap
+  (spec 003). `docs/SECURITY.md` describes the confirmation and the remaining residual risk.
+
+[1.13.2]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.13.2
 
 ## [1.13.1] - 2026-11-15
 
