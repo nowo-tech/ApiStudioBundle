@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.14.0] - 2026-11-16](#1140---2026-11-16)
 - [[1.13.2] - 2026-11-16](#1132---2026-11-16)
 - [[1.13.1] - 2026-11-15](#1131---2026-11-15)
 - [[1.13.0] - 2026-11-15](#1130---2026-11-15)
@@ -63,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-16
+
 Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, pages and importers are 1.13's.
 
 ### Added
@@ -92,6 +95,8 @@ Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, 
 - The tenant SQL filter covers folders. Deleting a folder emits `ACTION_MOVED` for the content it moves up.
 - Service / workspace deletes remove their folders in the same flush (no managed folder left behind); imports into a service take the
   service lock; a failed rollback closes the connection; a folder deleted meanwhile answers 404.
+
+[1.14.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.14.0
 
 ## [1.13.2] - 2026-11-16
 
