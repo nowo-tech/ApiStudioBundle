@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-10-30
+**Last audited**: 2026-11-16 (sweep: 2026-10-30 baseline + later sources)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -265,6 +265,66 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/views/import_export/import.html.twig` | File upload import UI | FR-TWIG-001, FR-IMP-001 |
 | `Resources/views/import_export/_workspace_panel.html.twig` | Workspace export panel | FR-TWIG-001, FR-IMP-001 |
 
+## Sources added after the last baseline review (sweep 2026-11-16)
+
+These 53 `src/` files were added by releases after the last review. Each row maps the file to the requirement already used for its neighbours in the same directory; the description comes from the class docblock. With them, every file under `src/` is listed in this inventory.
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Command/SecretsStatusCommand.php` | Class `SecretsStatusCommand` | FR-CLI-001 |
+| `Command/TenantCommandTrait.php` | Shared checks of the `nowo:api-studio:tenant:*` commands: tenancy must be on and the workspaces must be ORM-managed. | FR-CLI-001 |
+| `Command/TenantMoveCommand.php` | Class `TenantMoveCommand` | FR-CLI-001 |
+| `Command/TenantOrphansCommand.php` | Class `TenantOrphansCommand` | FR-CLI-001 |
+| `Command/TenantUnsuffixSlugsCommand.php` | Class `TenantUnsuffixSlugsCommand` | FR-CLI-001 |
+| `Controller/AuthorizesTrait.php` | The per-workspace, per-action decisions (ApiStudioAuthorization) from the controller's service locator. | FR-CTRL-001 |
+| `Controller/SlugConflictTrait.php` | Race safety net of the slug validation (UniqueSlug): when another request takes the same slug between validation and... | FR-CTRL-001 |
+| `Controller/StudioEventsTrait.php` | Bundle events of the Api Studio controllers (1.12): dispatched after the write was flushed, with ids and the opaque a... | FR-CTRL-001 |
+| `DependencyInjection/Compiler/ApiStudioEntityManagerPass.php` | `nowo_api_studio.entity_manager` (1.12, architecture bar rule 6): maps the Api Studio entities on that manager only. | FR-CFG-001 |
+| `Doctrine/ApiStudioEntityManagerResolver.php` | The entity manager of the Api Studio entities (1.12, architecture bar rule 6): `nowo_api_studio.entity_manager` when... | FR-ORM-002 |
+| `Doctrine/ExcludedEntityNamespaceDriver.php` | Metadata driver that maps nothing: registered for the Api Studio entity namespace on every entity manager other than... | FR-ORM-002 |
+| `Doctrine/TenantSqlFilter.php` | Defence in depth for tenancy (`nowo_api_studio_tenant`): during an Api Studio request every bundle query on a workspa... | FR-ORM-002 |
+| `Event/ApiRequestExecutedEvent.php` | Dispatched after the studio executed a request and stored its history row (1.12, architecture bar rules 4 and 7). | FR-EVENT-001 |
+| `Event/ApiStudioResourceChangedEvent.php` | Dispatched after the studio created, updated, deleted or imported a resource and the change was flushed (1.12, archit... | FR-EVENT-001 |
+| `Event/ApiWorkspaceCreatedCommittedEvent.php` | Dispatched once a workspace created from the studio is **committed** (1.12, architecture bar rule 7): ids only, for o... | FR-EVENT-001 |
+| `Event/ApiWorkspaceCreatedEvent.php` | Dispatched when a workspace is created from the studio, after its flush and **inside** the same database transaction:... | FR-EVENT-001 |
+| `Event/ApiWorkspaceDeletedEvent.php` | Dispatched after a workspace was deleted from the studio (informational: the bundle's own rows are gone through forei... | FR-EVENT-001 |
+| `Event/ApiWorkspaceMovedEvent.php` | Dispatched by `nowo:api-studio:tenant:move` after a workspace moved to another tenant (host rows, caches). | FR-EVENT-001 |
+| `EventListener/EntityManagerBoundarySubscriber.php` | Since 1.12.1 (REQ-RUNTIME-002 rule 4): unit-of-work boundaries of the Api Studio entity manager when it is bundle-own... | FR-I18N-001 |
+| `Form/EventListener/SlugFromName.php` | An empty slug is derived from the submitted name (1.11): lowercase, other characters as `_`. | FR-EVENT-001 |
+| `Model/HostSecretResolution.php` | Outcome of resolving the host secret references of one execution (1.13). | FR-EXEC-001 |
+| `Resources/assets/tests/sidebar-tree.test.ts` | Vitest test `sidebar-tree.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/tester-scripts-disabled.test.ts` | Vitest test `tester-scripts-disabled.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Routing/ApiStudioRouteLoader.php` | Route loader behind ` | FR-ROUTING-001 |
+| `Routing/ApiStudioRouteScopeListener.php` | `ui.path` placeholders (e.g. `/organizations/{organization}/api-studio`): on an Api Studio request the values of the... | FR-ROUTING-001 |
+| `Secret/ApiStudioSecretRef.php` | A host secret reference to resolve (1.13, ApiStudioSecretSourceInterface), with the context the host authorises it in. | FR-SECRET-001 |
+| `Secret/ApiStudioSecretSourceInterface.php` | Host contract (`nowo_api_studio.secrets.source`, 1.13): resolves a host secret that a secret environment variable ref... | FR-SECRET-001 |
+| `Secret/ApiStudioSecretValue.php` | A resolved host secret (1.13, ApiStudioSecretSourceInterface). | FR-SECRET-001 |
+| `Secret/RequestOrigin.php` | The origin of a request URL (1.13, QE-B-M1): `scheme://host[:port]`, lower case, default port omitted; null when the... | FR-SECRET-001 |
+| `Secret/SecretForms.php` | Encodings of a resolved host secret a target may echo back (1.13, QE-B-L1), masked next to the raw, URL-encoded and J... | FR-SECRET-001 |
+| `Secret/SecretRedactingLogger.php` | Masks resolved host secrets in the message and the string context values of every record before it reaches the host l... | FR-SECRET-001 |
+| `Secret/SecretTargetChangedException.php` | A request carrying host secrets would leave the origin they were resolved for (1.13, QE-D-L1: a WSDL naming a `soap:a... | FR-SECRET-001 |
+| `Security/ApiStudioAction.php` | What a user does in Api Studio, as asked to ApiStudioPermissionCheckerInterface. | FR-SEC-001 |
+| `Security/ApiStudioActorResolverInterface.php` | Host contract (`nowo_api_studio.history.actor_resolver`): the opaque id stored as `executed_by` on each history row w... | FR-SEC-001 |
+| `Security/ApiStudioAuthorization.php` | Per-workspace, per-action decisions of the current request: tenant scope (ApiStudioScope) + the host's ApiStudioPermi... | FR-SEC-001 |
+| `Security/ApiStudioHistoryScope.php` | `nowo_api_studio.history.scope`: `endpoint` (default, 1.10 behaviour) = one history per endpoint, shared; `user` = ev... | FR-SEC-001 |
+| `Security/ApiStudioPermissionCheckerInterface.php` | Host contract (`nowo_api_studio.security.permission_checker`): who may do what, per workspace. | FR-SEC-001 |
+| `Security/ApiStudioRouteActions.php` | Every Api Studio route and the action it needs. | FR-SEC-001 |
+| `Security/ApiStudioScope.php` | The workspaces the current request may see: those of the tenant (when tenancy is on), narrowed to `visibleIds` when t... | FR-SEC-001 |
+| `Security/ApiStudioSubject.php` | What an ApiStudioAction applies to: the tenant, and the workspace for workspace actions. | FR-SEC-001 |
+| `Security/LegacyPermissionChecker.php` | Default checker (no `security.permission_checker`): whoever passed the role check and the legacy access checker may d... | FR-SEC-001 |
+| `Service/HostSecretResolver.php` | Resolves the host secret references (`{{secret:<source>/<id>}}`) stored in secret environment variables through the h... | FR-SECRET-001 |
+| `Tenancy/ApiStudioTenant.php` | Opaque owner of a workspace: a `(type, id)` pair chosen by the host (e.g. `('organization', <public uuid>)`). | FR-TENANCY-001 |
+| `Tenancy/ApiStudioTenantContext.php` | The tenant of the work being done: the one ApiStudioTenantListener resolved for the current main request, else the on... | FR-TENANCY-001 |
+| `Tenancy/ApiStudioTenantListener.php` | With tenancy on, resolves the tenant of every Api Studio main request (`nowo_api_studio_*`) once, right after the rou... | FR-TENANCY-001 |
+| `Tenancy/ApiStudioTenantProviderInterface.php` | Host contract (`nowo_api_studio.tenancy.provider`, 1.12): the current tenant, without an HTTP request — for hosts who... | FR-TENANCY-001 |
+| `Tenancy/ApiStudioTenantResolverInterface.php` | Host contract (`nowo_api_studio.tenancy.resolver`): the tenant of an Api Studio request. | FR-TENANCY-001 |
+| `Tenancy/TenantProviderResolver.php` | Adapts a request-free ApiStudioTenantProviderInterface (`tenancy.provider`, 1.12) to the resolver the tenant listener... | FR-TENANCY-001 |
+| `Tenancy/TenantSqlFilterListener.php` | With `tenancy.enabled` and `tenancy.sql_filter` (default true): enables TenantSqlFilter with the request's scope once... | FR-TENANCY-001 |
+| `Validator/SlugFormat.php` | Slug format (1.11): lowercase letters and digits, single `-` or `_` between them, at most 128 characters. | FR-VALIDATOR-001 |
+| `Validator/SlugFormatValidator.php` | Applies SlugFormat to a new slug or a changed one (compared with the value Doctrine loaded). | FR-VALIDATOR-001 |
+| `Validator/UniqueSlug.php` | The entity's slug is unique within its scope: the instance for a workspace, the workspace for a service or an environ... | FR-VALIDATOR-001 |
+| `Validator/UniqueSlugValidator.php` | Looks the slug up in the entity's scope (UniqueSlug::$scope) and reports a duplicate on the `slug` field. | FR-VALIDATOR-001 |
+
 ## Coverage summary
 
 | Category | Files | Mapped |
@@ -290,7 +350,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | TypeScript source | 7 | 7 |
 | Public assets — built | 6 | 6 |
 | Twig views | 27 | 27 |
-| **Total production sources** | **138** | **138** |
+| **Total production sources** | **191** | **191** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 

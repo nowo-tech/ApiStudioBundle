@@ -88,6 +88,16 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 
 ---
 
+### Requirements added by the inventory sweep (2026-11-16)
+
+Areas introduced by releases after the baseline review; each requirement names the area and what its main source does (class docblock).
+
+- **FR-EVENT-001** `src/Event/`: Dispatched after the studio executed a request and stored its history row (1.12, architecture bar rules 4 and 7).
+- **FR-ROUTING-001** `src/Routing/`: Route loader behind `.
+- **FR-SECRET-001** `src/Secret/`: A host secret reference to resolve (1.13, ApiStudioSecretSourceInterface), with the context the host authorises it in.
+- **FR-TENANCY-001** `src/Tenancy/`: Opaque owner of a workspace: a `(type, id)` pair chosen by the host (e.g. `('organization', <public uuid>)`).
+- **FR-VALIDATOR-001** `src/Validator/`: Slug format (1.11): lowercase letters and digits, single `-` or `_` between them, at most 128 characters.
+
 ## Success Criteria
 
 - **SC-001**: **138/138** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).
