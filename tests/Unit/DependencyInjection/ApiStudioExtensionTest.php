@@ -24,6 +24,17 @@ final class ApiStudioExtensionTest extends TestCase
         self::assertSame([], $container->getParameter('nowo_api_studio.execution_url_allowlist'));
         self::assertSame('en|es|fr|it', $container->getParameter('nowo_api_studio.ui.locales_requirement'));
         self::assertTrue($container->getParameter('nowo_api_studio.scripts.confirm_stored'));
+        self::assertSame(2000, $container->getParameter('nowo_api_studio.scripts.limits.time_ms'));
+    }
+
+    public function testSandboxModeAndTimeLimit(): void
+    {
+        $container = new ContainerBuilder();
+
+        (new ApiStudioExtension())->load([['scripts' => ['mode' => 'sandbox', 'limits' => ['time_ms' => 500]]]], $container);
+
+        self::assertSame('sandbox', $container->getParameter('nowo_api_studio.scripts.mode'));
+        self::assertSame(500, $container->getParameter('nowo_api_studio.scripts.limits.time_ms'));
     }
 
     public function testStoredScriptConfirmationCanBeTurnedOff(): void

@@ -48,6 +48,7 @@ final class ApiStudioRouteActions
         'nowo_api_studio_folder_edit'                       => ApiStudioAction::WorkspaceEdit,
         'nowo_api_studio_folder_delete'                     => ApiStudioAction::WorkspaceEdit,
         'nowo_api_studio_folder_tree_move'                  => ApiStudioAction::WorkspaceEdit,
+        'nowo_api_studio_script_sandbox'                    => ApiStudioAction::StudioOpen,
         'nowo_api_studio_execute'                           => ApiStudioAction::WorkspaceRun,
         'nowo_api_studio_io_hub'                            => ApiStudioAction::WorkspaceView,
         'nowo_api_studio_io_import_openapi'                 => ApiStudioAction::WorkspaceImport,

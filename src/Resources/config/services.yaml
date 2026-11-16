@@ -115,6 +115,13 @@ services:
         arguments:
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
 
+    Nowo\ApiStudioBundle\Controller\ScriptSandboxController:
+        autoconfigure: false
+        tags: ['controller.service_arguments']
+        arguments:
+            $scriptsMode: '%nowo_api_studio.scripts.mode%'
+            $packages: '@?assets.packages'
+
     Nowo\ApiStudioBundle\Controller\ApiFolderController:
         autoconfigure: false
         tags: ['controller.service_arguments', 'container.service_subscriber']
@@ -134,6 +141,7 @@ services:
             $scriptsMode: '%nowo_api_studio.scripts.mode%'
             $scriptsConfirmStored: '%nowo_api_studio.scripts.confirm_stored%'
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $scriptsTimeoutMs: '%nowo_api_studio.scripts.limits.time_ms%'
 
     # UiKit page contract (REQ-UI-003): layout resolution (null = nowo_ui_kit.layouts.admin) + view models.
     Nowo\ApiStudioBundle\Ui\ApiStudioPages:

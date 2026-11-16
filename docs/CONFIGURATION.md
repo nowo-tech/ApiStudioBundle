@@ -37,7 +37,9 @@ nowo_api_studio:
         enabled: false           # 1.14: nested folders (migration)
         max_depth: 8
     scripts:
-        mode: inline             # inline | disabled
+        mode: inline             # inline | sandbox (1.15) | disabled
+        limits:
+            time_ms: 2000        # 1.15: sandbox wall time per phase
         confirm_stored: true     # 1.13.2: ask before running stored scripts not yet approved
     execution_url_allowlist_required: false
     execution_url_allowlist: []
@@ -89,6 +91,8 @@ nowo_api_studio:
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
+| `scripts.mode: sandbox` | **1.15.** Scripts run in an opaque-origin iframe with its own CSP (no network, no page, cookies or storage); the console page needs `frame-src 'self'` and no `'unsafe-eval'`. The confirmation of `scripts.confirm_stored` is not used in this mode. |
+| `scripts.limits.time_ms` | **1.15.** Sandbox only: wall time of one phase (pre or post, 100–30000 ms, default 2000); the frame is removed when it is reached. |
 | `scripts.confirm_stored` | **1.13.2.** `true` (default): with `inline`, before Send runs a stored service or endpoint script that this browser session has not approved, the console shows the code in a dialog: *Run with scripts* (the approval is kept in `sessionStorage` per SHA-256 of the code, so a changed script is asked again), *Send without scripts* (no script runs) or *Cancel*. Code typed by the user in an empty script field is not asked. Without Web Crypto (plain HTTP other than localhost) every send asks. `false`: stored scripts run without asking (1.13.1 behaviour). |
 | `folders.enabled` | **1.14.** Nested folders in each service: tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the `folder` table and `endpoint.folder_id` (a migration, see [UPGRADING](UPGRADING.md#unreleased)). Default `false`: the 1.13 schema, pages and importers. |
 | `folders.max_depth` | **1.14.** Deepest folder level (1–32, default `8`; a top-level folder has depth 1). Checked on create, move and import (deeper imported folders are merged into their deepest allowed parent). |

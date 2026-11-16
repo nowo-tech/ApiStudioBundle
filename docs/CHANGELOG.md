@@ -63,6 +63,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.14.0:
+
+### Added
+
+- **`scripts.mode: sandbox`.** Pre / post request scripts run in an opaque-origin iframe (`sandbox="allow-scripts"`)
+  served by `nowo_api_studio_script_sandbox` with its own CSP (`default-src 'none'`, the frame runtime by nonce,
+  `'unsafe-eval'` only there, `frame-ancestors 'self'`). Scripts cannot reach the page DOM, the session cookies,
+  storage or the network; they talk to the console only through a versioned `postMessage` protocol (source, opaque
+  origin and per-run nonce checked). The studio page never evaluates script code in this mode, so it needs no
+  `'unsafe-eval'` (it needs `frame-src 'self'`). No stored-script confirmation is shown in this mode.
+- `scripts.limits.time_ms` (default 2000): wall time of one sandboxed phase; the frame is removed when it is reached
+  and the request fails (pre) or the post scripts are reported as failed.
+- `api-script-sandbox.js` (frame runtime) and the shared `pm` facade module.
+
+### Fixed
+
+- A MySQL error 1305 is only treated as a lost savepoint (409) when its message names a SAVEPOINT (audit RJ-D3-I2).
+
+
 Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, pages and importers are 1.13's.
 
 ### Added

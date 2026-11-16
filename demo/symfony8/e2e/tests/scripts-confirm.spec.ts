@@ -33,6 +33,8 @@ test.describe('Stored script confirmation', () => {
   test.beforeEach(async ({ page }) => {
     await openCreatePostConsole(page);
     consoleUrl = new URL(page.url()).pathname;
+    const mode = await page.locator('#api-studio-tester').getAttribute('data-scripts-mode');
+    test.skip(mode !== 'inline', 'confirmation applies to scripts.mode: inline');
   });
 
   test.afterEach(async ({ page }) => {

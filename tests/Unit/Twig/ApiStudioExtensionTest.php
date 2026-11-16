@@ -56,7 +56,7 @@ final class ApiStudioExtensionTest extends TestCase
         $extension = $this->extension($this->createMock(ApiWorkspaceRepository::class));
         $names     = array_map(static fn ($function): string => $function->getName(), $extension->getFunctions());
 
-        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree', 'nowo_api_studio_scripts_enabled', 'nowo_api_studio_scripts_confirm_stored', 'nowo_api_studio_can', 'nowo_api_studio_folders_enabled', 'nowo_api_studio_visible_endpoints'], $names);
+        self::assertSame(['api_studio_method_class', 'api_studio_var', 'api_studio_nav_tree', 'nowo_api_studio_scripts_enabled', 'nowo_api_studio_scripts_confirm_stored', 'nowo_api_studio_scripts_mode', 'nowo_api_studio_scripts_timeout_ms', 'nowo_api_studio_can', 'nowo_api_studio_folders_enabled', 'nowo_api_studio_visible_endpoints'], $names);
         self::assertSame('as-method-get', $extension->methodClass('get'));
         self::assertSame('as-method-default', $extension->methodClass('OPTIONS'));
         self::assertSame('as-method-post', $extension->methodClass('post'));
@@ -79,6 +79,16 @@ final class ApiStudioExtensionTest extends TestCase
     {
         self::assertFalse($this->scriptsExtension(ApiStudioExtension::SCRIPTS_INLINE, false)->scriptsConfirmStored());
         self::assertTrue($this->scriptsExtension(ApiStudioExtension::SCRIPTS_INLINE, true)->scriptsConfirmStored());
+    }
+
+    public function testSandboxModeNeedsNoConfirmation(): void
+    {
+        $extension = $this->scriptsExtension(ApiStudioExtension::SCRIPTS_SANDBOX, true);
+
+        self::assertTrue($extension->scriptsEnabled());
+        self::assertFalse($extension->scriptsConfirmStored());
+        self::assertSame('sandbox', $extension->scriptsMode());
+        self::assertSame(2000, $extension->scriptsTimeoutMs());
     }
 
     public function testNothingToConfirmWhenScriptsAreDisabled(): void

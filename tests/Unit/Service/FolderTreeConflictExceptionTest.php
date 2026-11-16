@@ -41,6 +41,13 @@ final class FolderTreeConflictExceptionTest extends TestCase
         self::assertInstanceOf(FolderTreeConflictException::class, FolderTreeConflictException::wrap($outer));
     }
 
+    public function testError1305WithoutASavepointIsNotAConflict(): void
+    {
+        $missingFunction = new DriverException(self::driver('FUNCTION app.nope does not exist', 1305), null);
+
+        self::assertSame($missingFunction, FolderTreeConflictException::wrap($missingFunction));
+    }
+
     public function testOtherErrorsAreUnchanged(): void
     {
         $other = new DriverException(self::driver('Syntax error', 1064), null);

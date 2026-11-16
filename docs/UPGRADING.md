@@ -83,6 +83,24 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+Target 1.15.0 (sandboxed scripts, opt-in): nothing changes with the default `scripts.mode: inline`. To switch:
+
+```yaml
+nowo_api_studio:
+    scripts:
+        mode: sandbox
+        # limits: { time_ms: 2000 }
+```
+
+- The console page then loads an `<iframe sandbox="allow-scripts">` from `<ui.path>/scripts/sandbox`: a host CSP must
+  allow `frame-src 'self'` on the Api Studio pages (and can drop `'unsafe-eval'` there). The frame response carries its
+  own CSP; a host listener that rewrites CSP headers must leave that route alone.
+- Scripts no longer see the page: code that touched `document`, `window.parent`, cookies or storage fails (it ran
+  with the user's session before). `pm` works as before; tests registered in a pre-request script are not kept for
+  the post phase.
+- `api-script-runtime.js` stays loaded (variable storage helpers); it never runs script code in this mode.
+
+
 Target 1.14.0. From **1.13.x**: nothing to do with the defaults (`folders.enabled: false` maps nothing new).
 
 To enable folders:

@@ -79,6 +79,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ApiServiceController.php` | Service CRUD | FR-CTRL-001 |
 | `Controller/ApiEndpointController.php` | Endpoint CRUD | FR-CTRL-001 |
 | `Controller/ApiFolderController.php` | Folder CRUD and tree moves (1.14) | FR-FOLD-005, FR-FOLD-007 (spec 002) |
+| `Controller/ScriptSandboxController.php` | Sandboxed script frame document with its own CSP (1.15) | FR-SCR-002 (spec 003) |
 | `Controller/ApiEnvironmentController.php` | Environment CRUD | FR-CTRL-001 |
 | `Controller/EnvironmentVariablesController.php` | Environment variable editor | FR-CTRL-001 |
 | `Controller/EndpointExamplesController.php` | Request/response example CRUD | FR-CTRL-001 |
@@ -218,6 +219,9 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/api-endpoint-doc.ts` | Endpoint documentation panel | FR-UI-001 |
 | `Resources/assets/src/lib/utils.ts` | Shared DOM/HTTP utilities | FR-UI-001 |
 | `Resources/assets/src/lib/script-approval.ts` | Stored-script approval (`scripts.confirm_stored`, SHA-256 per session) | FR-UI-001 |
+| `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
+| `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
+| `Resources/assets/src/api-script-sandbox.ts` | Frame runtime of `scripts.mode: sandbox` (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/assets/src/types/global.d.ts` | Window/global type declarations | FR-UI-001 |
 
 ## Public assets — built (`src/Resources/public/`)
@@ -228,6 +232,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/public/api-studio-shell.js` | Built shell bundle | FR-UI-001 |
 | `Resources/public/api-body-tools.js` | Built body-tools bundle | FR-UI-001 |
 | `Resources/public/api-script-runtime.js` | Built script-runtime bundle | FR-UI-001 |
+| `Resources/public/api-script-sandbox.js` | Built sandbox frame runtime (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/public/api-endpoint-doc.js` | Built endpoint-doc bundle | FR-UI-001 |
 | `Resources/public/api-studio-theme.css` | Workbench / console stylesheet on the UiKit tokens | FR-UI-002 |
 

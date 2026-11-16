@@ -80,6 +80,20 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 - A strict Content-Security-Policy without `'unsafe-eval'` blocks `new Function`: on such hosts every script fails with an error that `runScriptSafe()` catches and reports in the script log. Allow `'unsafe-eval'` only on the Api Studio route prefix if you need scripts.
 - Other dynamic markup (`innerHTML`) is built from static templates; user-provided values are escaped (`escapeHtmlAttr`) or written with `textContent` (REQ-UX-001).
 
+
+### Sandboxed scripts (1.15, `scripts.mode: sandbox`)
+
+- Scripts run in `<iframe sandbox="allow-scripts">` (opaque origin: no DOM of the studio page, no cookies, no
+  storage) loaded from `nowo_api_studio_script_sandbox`, whose response CSP is `default-src 'none'; script-src
+  'nonce-…' 'unsafe-eval'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`: no `fetch`, XHR, WebSocket,
+  image or form request can leave the frame.
+- The console accepts only messages from the frame it created, with origin `null` and the run's nonce; the frame
+  accepts only messages from its parent. One fresh frame per phase, removed at the end or at `scripts.limits.time_ms`.
+- The studio page evaluates no script code in this mode (no `'unsafe-eval'` needed on it).
+- Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
+  the user sends (headers, body, variables) — that is its purpose; `pm.sendRequest` and server-side runs come in later
+  slices of spec 003.
+
 ## Folders (1.14)
 
 - A host folder checker (`security.folder_permission_checker`) can only narrow the workspace decisions: hidden

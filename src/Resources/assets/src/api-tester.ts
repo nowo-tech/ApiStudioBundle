@@ -24,6 +24,7 @@ import {
   type PendingScript,
   type StoredScript,
 } from './lib/script-approval';
+import { DEFAULT_TIMEOUT_MS, runInSandbox, sandboxContext, type SandboxState } from './lib/sandbox';
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even
@@ -471,6 +472,38 @@ function confirmStoredScripts(pending: PendingScript[]): Promise<ScriptDecision>
       dialog.showModal();
     }
   });
+}
+
+/**
+ * Runs the scripts of one phase. `scripts.mode: sandbox` (1.15): in a fresh opaque-origin frame (lib/sandbox.ts), the
+ * context being a {@link sandboxContext}; otherwise inline as before ({@link runScripts}).
+ */
+async function executeScripts(
+  scripts: Array<{ code: string; label: string }>,
+  ctx: ScriptContext,
+  enabled: boolean,
+  post: boolean,
+  sandbox: { url: string; timeoutMs: number } | null,
+): Promise<void> {
+  if (!sandbox || !('state' in ctx)) {
+    runScripts(scripts, ctx, enabled);
+
+    return;
+  }
+  const toRun = scripts.filter((s) => s.code && s.code.trim() !== '');
+  if (!enabled || !toRun.length) {
+    return;
+  }
+
+  const holder = ctx as ScriptContext & { state: SandboxState };
+  const result = await runInSandbox(sandbox.url, toRun, holder.state, post, sandbox.timeoutMs);
+  holder.state = { ...result.state, response: holder.state.response };
+  if (result.state.logs.length) {
+    appendScriptLog(result.state.logs);
+  }
+  if (!result.ok) {
+    throw new Error(`[${result.label ?? 'script'}] ${result.error ?? 'failed'}`);
+  }
 }
 
 /**
@@ -1104,7 +1137,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const servicePre = root.dataset.servicePreScript ?? '';
   const servicePost = root.dataset.servicePostScript ?? '';
   // Only an explicit data-scripts-confirm="0" turns it off: an override that predates the attribute still asks.
-  const confirmStored = Boolean(RT) && root.dataset.scriptsConfirm !== '0';
+  // 1.15: scripts.mode sandbox runs every script in an opaque-origin frame (no confirmation needed: scripts cannot
+  // reach the page, the session or the network).
+  const sandboxUrl = root.dataset.scriptsMode === 'sandbox' ? (root.dataset.scriptsSandboxUrl ?? '') : '';
+  const sandbox = sandboxUrl !== '' ? { url: sandboxUrl, timeoutMs: Number(root.dataset.scriptsTimeoutMs) || DEFAULT_TIMEOUT_MS } : null;
+  const confirmStored = Boolean(RT) && sandbox === null && root.dataset.scriptsConfirm !== '0';
 
   /**
    * Stored scripts of this send (service scripts, and endpoint fields that held server code when the page loaded),
@@ -1136,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.disabled = true;
     const snapshot = { pre: preScriptField?.value ?? '', post: postScriptField?.value ?? '' };
 
-    let scriptsEnabled = Boolean(RT);
+    let scriptsEnabled = Boolean(RT) || sandbox !== null;
     if (confirmStored) {
       let decision: 'run' | 'skip' | 'cancel' = 'run';
       try {
@@ -1189,7 +1226,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let variables = getMergedVariables(root);
     const headerTemplates = collectHeadersFromTable();
     const paramTemplates = collectParamsFromTable();
-    const scriptCtx = RT && scriptsEnabled
+    const scriptCtx = sandbox !== null
+      ? sandboxContext({
+          variables: { ...variables },
+          dirty: {},
+          request: { body: bodyField.value, headers: { ...headerTemplates }, queryParams: { ...paramTemplates } },
+          response: null,
+          logs: [],
+          tests: [],
+        })
+      : RT && scriptsEnabled
       ? RT.createPm({
           baseVariables: variables,
           requestBody: bodyField.value,
@@ -1199,13 +1245,15 @@ document.addEventListener('DOMContentLoaded', () => {
       : requestOnlyContext(variables, bodyField.value, headerTemplates, paramTemplates);
 
     try {
-      runScripts(
+      await executeScripts(
         [
           { code: servicePre, label: 'service pre' },
           { code: snapshot.pre, label: 'pre-request' },
         ],
         scriptCtx,
         scriptsEnabled,
+        false,
+        sandbox,
       );
 
       bodyField.value = scriptCtx.pm.request.body;
@@ -1245,13 +1293,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       scriptCtx.setResponse(status, data.response_body || data.error_message || '');
 
-      runScripts(
+      await executeScripts(
         [
           { code: snapshot.post, label: 'post-request' },
           { code: servicePost, label: 'service post' },
         ],
         scriptCtx,
         scriptsEnabled,
+        true,
+        sandbox,
       );
 
       scriptCtx.runTests().forEach((t) => {

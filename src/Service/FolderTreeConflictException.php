@@ -9,6 +9,8 @@ use Doctrine\DBAL\Exception\RetryableException;
 use RuntimeException;
 use Throwable;
 
+use function stripos;
+
 /**
  * A tree write lost a race with another writer (1.14, audit RJ-D2-L1): retryable, answered 409 with Retry-After.
  *
@@ -30,7 +32,8 @@ final class FolderTreeConflictException extends RuntimeException implements Retr
             if ($cause instanceof RetryableException) {
                 return $cause === $e ? $e : new self('The folder tree changed meanwhile.', 0, $e);
             }
-            if ($cause instanceof DriverException && $cause->getCode() === self::SAVEPOINT_GONE) {
+            // RJ-D3-I2: the code alone is not enough (1305 is also "FUNCTION … does not exist"): the message names the savepoint.
+            if ($cause instanceof DriverException && $cause->getCode() === self::SAVEPOINT_GONE && stripos($cause->getMessage(), 'SAVEPOINT') !== false) {
                 return new self('The folder tree changed meanwhile.', 0, $e);
             }
         }

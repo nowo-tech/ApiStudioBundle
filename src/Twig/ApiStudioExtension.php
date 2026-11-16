@@ -33,7 +33,10 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
     /** Scripts are neither rendered nor run (stored scripts are kept). */
     public const SCRIPTS_DISABLED = 'disabled';
 
-    public const SCRIPTS_MODES = [self::SCRIPTS_INLINE, self::SCRIPTS_DISABLED];
+    /** 1.15: scripts run in an opaque-origin sandboxed frame with its own CSP (no `'unsafe-eval'` on the page). */
+    public const SCRIPTS_SANDBOX = 'sandbox';
+
+    public const SCRIPTS_MODES = [self::SCRIPTS_INLINE, self::SCRIPTS_SANDBOX, self::SCRIPTS_DISABLED];
 
     public function __construct(
         private readonly LocaleManager $localeManager,
@@ -45,6 +48,7 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
         private readonly bool $scriptsConfirmStored = true,
         private readonly bool $foldersEnabled = false,
         private readonly ?FolderAccess $folderAccess = null,
+        private readonly int $scriptsTimeoutMs = 2000,
     ) {
     }
 
@@ -56,6 +60,8 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
             new TwigFunction('api_studio_nav_tree', [$this, 'navigationTree']),
             new TwigFunction('nowo_api_studio_scripts_enabled', [$this, 'scriptsEnabled']),
             new TwigFunction('nowo_api_studio_scripts_confirm_stored', [$this, 'scriptsConfirmStored']),
+            new TwigFunction('nowo_api_studio_scripts_mode', [$this, 'scriptsMode']),
+            new TwigFunction('nowo_api_studio_scripts_timeout_ms', [$this, 'scriptsTimeoutMs']),
             new TwigFunction('nowo_api_studio_can', [$this, 'can']),
             new TwigFunction('nowo_api_studio_folders_enabled', [$this, 'foldersEnabled']),
             new TwigFunction('nowo_api_studio_visible_endpoints', [$this, 'visibleEndpoints']),
@@ -92,11 +98,27 @@ final class ApiStudioExtension extends AbstractExtension implements GlobalsInter
 
     /**
      * `scripts.confirm_stored` (1.13.2): the console asks before it runs stored service / endpoint scripts the browser
-     * session has not approved. Always false when scripts are disabled (nothing runs, nothing to confirm).
+     * session has not approved. Only in `inline` mode: disabled runs nothing, and sandboxed scripts cannot reach the page.
      */
     public function scriptsConfirmStored(): bool
     {
-        return $this->scriptsEnabled() && $this->scriptsConfirmStored;
+        return $this->scriptsMode === self::SCRIPTS_INLINE && $this->scriptsConfirmStored;
+    }
+
+    /**
+     * `scripts.mode` (1.15): `inline`, `sandbox` or `disabled`.
+     */
+    public function scriptsMode(): string
+    {
+        return $this->scriptsMode;
+    }
+
+    /**
+     * `scripts.limits.time_ms` (1.15): wall time of one sandboxed phase before the frame is torn down.
+     */
+    public function scriptsTimeoutMs(): int
+    {
+        return $this->scriptsTimeoutMs;
     }
 
     /**
