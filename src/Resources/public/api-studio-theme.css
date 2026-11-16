@@ -795,6 +795,11 @@ a.as-service-collection-name:hover {
 
 .as-script-readonly { background: var(--as-bg-code); border: 1px solid var(--as-border-subtle); border-radius: var(--as-radius-sm); padding: 8px 10px; font-size: 11px; margin: 0 0 10px; overflow: auto; max-height: 120px; }
 
+/* 1.13.2 stored-script confirmation: the whole code, wrapped, never clipped (RC-M1). */
+.as-script-confirm-code { background: var(--as-bg-code); border: 1px solid var(--as-border-subtle); border-radius: var(--as-radius-sm); padding: 8px 10px; font-size: 12px; margin: 0 0 12px; max-height: none; overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
+.as-script-confirm-stats { color: var(--as-text-muted); font-size: 12px; }
+.as-script-confirm-warning { color: var(--as-danger); font-size: 12px; margin: 0 0 6px; }
+
 .as-response-tabs { display: flex; padding: 0 12px; border-bottom: 1px solid var(--as-border-subtle); }
 
 .as-response-panel { display: none; }

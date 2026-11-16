@@ -274,6 +274,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.execution_max_response_bytes', $config['execution_max_response_bytes']);
         $container->setParameter(Configuration::ALIAS . '.secrets.encrypt', $config['secrets']['encrypt']);
         $container->setParameter(Configuration::ALIAS . '.scripts.mode', $config['scripts']['mode']);
+        $container->setParameter(Configuration::ALIAS . '.scripts.confirm_stored', $config['scripts']['confirm_stored']);
         $encryptionKey = $config['secrets']['encryption_key'];
         $container->setParameter(
             Configuration::ALIAS . '.secrets.encryption_key_material',
