@@ -232,6 +232,9 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/assets/src/lib/pm.ts` | Shared `pm` facade and script runner (inline + sandbox, 1.15) | FR-UI-001, FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/expect.ts` | chai BDD subset of `pm.expect` (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/lib/sandbox.ts` | Sandboxed runner protocol, frame execution, page runner (1.15) | FR-SCR-001..004 (spec 003) |
+| `Resources/assets/src/api-script-worker.ts` | Script worker of the sandbox frame: runs the scripts, no network, nothing to navigate (1.15, audit RW-M1) | FR-SCR-002 (spec 003) |
+| `Resources/assets/src/lib/frame-relay.ts` | Sandbox frame relay between the console and the script worker (1.15, audit RW-M1) | FR-SCR-003 (spec 003) |
+| `Resources/assets/src/lib/node-refusal.ts` | Server runner refuses Node without a network block (1.15, audit RW-L1) | FR-SCR-005 (spec 003) |
 | `Resources/assets/src/lib/lockdown.ts` | Removes the network APIs from the sandbox frame before scripts run (1.15) | FR-SCR-002 (spec 003) |
 | `Resources/assets/src/lib/require.ts` | Closed `require()` library allow-list, frame and runner only (1.15) | FR-SCR-007 (spec 003) |
 | `Resources/assets/src/api-script-runner.ts` | Server runner sidecar entry, Deno / Node, line protocol (1.15) | FR-SCR-005 (spec 003) |

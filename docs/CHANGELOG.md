@@ -96,7 +96,7 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
   `script_variable` table (mapped only in sandbox mode; plain values, no secret flag) and handed to the console with
   the endpoint page. Changes are kept for the next sends of the page and saved only when "persist variables" is
   checked (`nowo_api_studio_script_variables`: environment-sync CSRF token, `workspace.edit` on the workspace and the
-  endpoint's folder; at most 100 changes per save, 500 variables per scope, 64 KiB per value). Request templates
+  endpoint's folder; at most 100 changes per save, 500 variables per scope, keys of 128 characters, values of 65,535 bytes). Request templates
   resolve the environment first, then collection variables, then globals; `pm.variables.get` reads in the same order.
 - **Server-side script runner** (`scripts.server_runner`, off by default): the port
   `ApiStudioScriptRunnerInterface::run(ScriptRunRequest): ScriptRunResult` (value objects only) for unattended runs,
@@ -142,6 +142,20 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
 
 - Secret values are also masked in their HTML-escaped and base64 / base64url forms (history, execute responses and so
   what post-response scripts see), on top of the raw, URL-encoded and JSON-escaped forms (spec 003 US5).
+- **Scripts run in a dedicated Worker of the sandbox frame** (audit RW-M1): CSP cannot stop a document from navigating
+  itself, so a script in the frame document could send data out in a URL (`location.href`, an anchor click), in
+  every engine and whatever the headers. The frame now starts a Worker from a `blob:` URL (frame policy
+  `worker-src blob:`), runs the scripts there (no `document`, nothing to navigate, network globals removed) and only
+  relays; the console fails the run if the frame loads a second time or reports a crashed worker. Playwright checks
+  location, anchor, form and `window.open` navigation in Chromium, Firefox and WebKit.
+- **Server runner** (audits RW-L1, RW-L2): the bundled runner refuses every run under Node below 25, or Node without
+  `--permission` (before Node 25 a script reaches the network through `fetch` / `node:http`: SSRF to internal
+  services and cloud metadata endpoints), and removes the network globals from the scripts' scope; each
+  `pm.sendRequest` call gets only what is left of `scripts.limits.time_ms` and the run stops when it is used up.
+  CI runs the runner's integration tests under Deno.
+- **Script variables** (audit RW-L3): keys of at most 128 characters, values of at most 65,535 bytes (not
+  characters); one save writes globals and collection variables in one transaction after locking the workspace row,
+  so the 500-keys cap holds under concurrent saves.
 - The sandbox frame no longer depends on its CSP response header alone: the same policy is the first element of the
   frame document's `<head>` (a meta policy that host middleware cannot strip; the dev web profiler removes CSP
   headers, a host CSP listener may replace them), DNS prefetching is off, and the frame runtime removes `fetch`,

@@ -245,7 +245,7 @@ final class Configuration implements ConfigurationInterface
                                 ->arrayNode('command')
                                     ->scalarPrototype()->end()
                                     ->defaultValue(['deno', 'run', '--quiet', '--no-prompt', '--no-config', '--no-lock', '--no-npm', '--no-remote', '--v8-flags=--max-old-space-size={memory_mb}', '{runner}'])
-                                    ->info('Sidecar command: {runner} = the bundled runner script, {memory_mb} = scripts.limits.memory_mb. The default Deno command grants no permission (no file system, network, environment or subprocess). Node works too (node --permission --max-old-space-size={memory_mb} {runner}) but only Node 25+ blocks the network under --permission.')
+                                    ->info('Sidecar command: {runner} = the bundled runner script, {memory_mb} = scripts.limits.memory_mb. The default Deno command grants no permission (no file system, network, environment or subprocess). Node 25+ works too (node --permission --max-old-space-size={memory_mb} {runner}); the runner refuses Node below 25 or without --permission (no network block: SSRF).')
                                 ->end()
                             ->end()
                         ->end()

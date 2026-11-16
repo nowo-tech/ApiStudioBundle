@@ -1,8 +1,13 @@
 /**
- * Defence in depth for the sandboxed script frame (spec 003, 1.15): removes the network APIs from the frame's global
- * scope before any script runs. The frame CSP (header and meta) is the boundary; this also covers channels a CSP does
- * not govern (WebRTC) and hosts whose middleware altered the document's policy. Scripts run in this same realm and
- * cannot create another one (no frames, no workers), so they cannot get the originals back.
+ * Defence in depth for the sandboxed script worker and frame (spec 003, 1.15): removes the network APIs from a global
+ * scope (the script worker's, and the frame's once it has started the worker). The CSP the worker inherits from the
+ * frame (header and meta, `connect-src` through `default-src 'none'`) is the boundary for requests; this also covers
+ * channels a CSP does not govern (WebRTC in the frame) and hosts whose middleware altered the document's policy.
+ *
+ * It does not stop navigation: CSP has no navigation directive and `sandbox="allow-scripts"` lets a document navigate
+ * itself, which is why scripts run in a Worker (nothing to navigate) and never in the frame document (audit RW-M1).
+ * Scripts run in the worker's realm and cannot create another one (no nested workers), so they cannot get the
+ * originals back.
  *
  * @packageDocumentation
  */
@@ -24,6 +29,7 @@ export const NETWORK_GLOBALS = [
   'PresentationRequest',
   'BroadcastChannel',
   'open',
+  'importScripts',
 ] as const;
 
 /** Prototype methods with the same reach (`navigator.sendBeacon`). */

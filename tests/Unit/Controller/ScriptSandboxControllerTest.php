@@ -35,11 +35,11 @@ final class ScriptSandboxControllerTest extends TestCase
         $csp      = (string) $response->headers->get('Content-Security-Policy');
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertMatchesRegularExpression("/^default-src 'none'; script-src 'nonce-([A-Za-z0-9+\\/=]+)' 'unsafe-eval'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'$/", $csp);
+        self::assertMatchesRegularExpression("/^default-src 'none'; script-src 'nonce-([A-Za-z0-9+\\/=]+)' 'unsafe-eval'; worker-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'$/", $csp);
         self::assertSame(1, preg_match("/'nonce-([^']+)'/", $csp, $nonce));
         self::assertStringContainsString('<script nonce="' . $nonce[1] . '" src="/bundles/nowoapistudio/api-script-sandbox.js?v=1"></script>', (string) $response->getContent());
         // The policy is also the first thing in <head>, so stripping or replacing the header does not lift it.
-        $meta = "default-src 'none'; script-src 'nonce-" . $nonce[1] . "' 'unsafe-eval'; base-uri 'none'; form-action 'none'";
+        $meta = "default-src 'none'; script-src 'nonce-" . $nonce[1] . "' 'unsafe-eval'; worker-src blob:; base-uri 'none'; form-action 'none'";
         self::assertStringStartsWith('<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' . htmlspecialchars($meta, ENT_QUOTES) . '"><meta http-equiv="x-dns-prefetch-control" content="off"><title>', (string) $response->getContent());
         self::assertSame('off', $response->headers->get('X-DNS-Prefetch-Control'));
         self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));

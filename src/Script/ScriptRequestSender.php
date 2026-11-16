@@ -19,6 +19,7 @@ use function in_array;
 use function is_array;
 use function is_scalar;
 use function is_string;
+use function min;
 use function preg_match;
 use function strlen;
 use function strtoupper;
@@ -53,13 +54,19 @@ final class ScriptRequestSender
 
     /**
      * @param array<string, mixed> $request `{url, method?, header?: {name: value}, body?}`
+     * @param float|null $maxSeconds most wall time of this call, e.g. what is left of a server run's time limit
+     *                               (audit RW-L2); null = the configured timeout; never more than it
      *
      * @throws InvalidArgumentException when the request is malformed or its URL is not allowed
      *
      * @return array{code: int, headers: array<string, string>, body: string, responseTime: int}
      */
-    public function send(array $request): array
+    public function send(array $request, ?float $maxSeconds = null): array
     {
+        $seconds = $maxSeconds === null ? (float) $this->timeoutSeconds : min((float) $this->timeoutSeconds, $maxSeconds);
+        if ($seconds <= 0.0) {
+            throw new InvalidArgumentException('pm.sendRequest: no time left in this run.');
+        }
         $url    = $request['url'] ?? null;
         $method = strtoupper(is_string($request['method'] ?? null) ? $request['method'] : 'GET');
         if (!is_string($url) || $url === '' || strlen($url) > self::MAX_URL_LENGTH || preg_match('#^https?://#i', $url) !== 1) {
@@ -90,7 +97,7 @@ final class ScriptRequestSender
             throw new InvalidArgumentException('pm.sendRequest: request URL is not allowed (SSRF or allowlist).');
         }
 
-        $options = ['headers' => $headers, 'timeout' => $this->timeoutSeconds, 'max_duration' => $this->timeoutSeconds, 'max_redirects' => 0];
+        $options = ['headers' => $headers, 'timeout' => $seconds, 'max_duration' => $seconds, 'max_redirects' => 0];
         if ($body !== null && $body !== '' && !in_array($method, ['GET', 'HEAD'], true)) {
             $options['body'] = $body;
         }

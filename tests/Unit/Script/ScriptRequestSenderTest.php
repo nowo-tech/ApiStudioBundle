@@ -45,6 +45,30 @@ final class ScriptRequestSenderTest extends TestCase
         self::assertSame(0, $calls[0][2]['max_redirects']);
         self::assertSame('{"a":1,"k":"{{api_key}}"}', $calls[0][2]['body']);
         self::assertContains('Authorization: Bearer {{api_key}}', $calls[0][2]['headers'], 'nor in headers (US5)');
+        self::assertSame(30.0, $calls[0][2]['max_duration']);
+    }
+
+    /**
+     * Audit RW-L2: a call never outlives what is left of the run, nor the configured timeout.
+     */
+    public function testTheCallIsBoundedByTheTimeLeft(): void
+    {
+        $calls  = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+            $calls[] = $options;
+
+            return new MockResponse('{}');
+        });
+        $sender = new ScriptRequestSender($client, new ExecutionUrlValidator([]), timeoutSeconds: 10);
+
+        $sender->send(['url' => 'https://93.184.215.14/'], 1.5);
+        $sender->send(['url' => 'https://93.184.215.14/'], 60.0);
+        self::assertSame([1.5, 10.0], [$calls[0]['max_duration'], $calls[1]['max_duration']]);
+        self::assertSame(1.5, $calls[0]['timeout']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('no time left');
+        $sender->send(['url' => 'https://93.184.215.14/'], 0.0);
     }
 
     /**

@@ -52,6 +52,12 @@ jobs:
           coverage: pcov
           tools: composer:v2
 
+      # Spec 003 (audit RW-L1): the bundled script runner's integration tests run under Deno, its default command.
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Validate composer.json
         run: composer validate --strict
 

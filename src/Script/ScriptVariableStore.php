@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Script;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiScriptVariable;
+use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
+use Throwable;
 
 use function count;
 use function is_string;
 use function mb_strlen;
+use function mb_substr;
 use function sprintf;
+use function strlen;
 
 /**
  * `pm.globals` (workspace) and `pm.collectionVariables` (service) of sandboxed scripts (spec 003, 1.15).
@@ -56,33 +61,56 @@ final class ScriptVariableStore
     }
 
     /**
-     * Checks script changes of one scope without writing anything.
+     * Saves the script changes of one run (audit RW-L3): workspace globals and the service's collection variables in one
+     * transaction, all or nothing. A string sets the key, null removes it. The workspace row is locked first (a no-op
+     * update, a row lock on MySQL / PostgreSQL and the write lock on SQLite), so two concurrent saves of the same
+     * workspace cannot both pass the per-scope cap.
      *
-     * @param array<mixed, mixed> $changes
-     *
-     * @throws InvalidArgumentException on a malformed change, too many changes or a full scope
-     */
-    public function validate(int $workspaceId, ?int $serviceId, array $changes): void
-    {
-        $this->normalize($workspaceId, $serviceId, $changes);
-    }
-
-    /**
-     * Applies script changes to one scope: a string sets the key, null removes it.
-     *
-     * @param array<mixed, mixed> $changes
+     * @param array<mixed, mixed> $globals
+     * @param array<mixed, mixed> $collection
      *
      * @throws InvalidArgumentException on a malformed change, too many changes or a full scope (nothing written)
      *
      * @return int the number of keys written or removed
      */
-    public function apply(int $workspaceId, ?int $serviceId, array $changes): int
+    public function save(int $workspaceId, int $serviceId, array $globals, array $collection): int
     {
-        $normalized = $this->normalize($workspaceId, $serviceId, $changes);
-        $table      = $this->table();
+        // Cheap checks before any lock.
+        $this->checkChanges($globals);
+        $this->checkChanges($collection);
+        $connection = $this->entityManager->getConnection();
+
+        $connection->beginTransaction();
+        try {
+            $connection->executeStatement(
+                sprintf('UPDATE %s SET id = id WHERE id = ?', $this->entityManager->getClassMetadata(ApiWorkspace::class)->getTableName()),
+                [$workspaceId],
+                [Types::INTEGER],
+            );
+            // Both scopes are checked against the cap under the lock before anything is written.
+            $globalChanges     = $this->normalize($workspaceId, null, $globals);
+            $collectionChanges = $this->normalize($workspaceId, $serviceId, $collection);
+            $count             = $this->apply($connection, $workspaceId, null, $globalChanges)
+                + $this->apply($connection, $workspaceId, $serviceId, $collectionChanges);
+            $connection->commit();
+        } catch (Throwable $e) {
+            $connection->rollBack();
+
+            throw $e;
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param array<string, string|null> $normalized
+     */
+    private function apply(Connection $connection, int $workspaceId, ?int $serviceId, array $normalized): int
+    {
+        $table = $this->table();
         foreach ($normalized as $key => $value) {
             if ($value === null) {
-                $this->entityManager->getConnection()->executeStatement(
+                $connection->executeStatement(
                     sprintf('DELETE FROM %s WHERE workspace_id = ? AND scope_id = ? AND variable_key = ?', $table),
                     [$workspaceId, $serviceId ?? 0, $key],
                     [Types::INTEGER, Types::INTEGER, Types::STRING],
@@ -97,25 +125,41 @@ final class ScriptVariableStore
     }
 
     /**
+     * Shape and size of one scope's changes: string keys, string or null values, at most MAX_CHANGES, values at most
+     * MAX_VALUE_BYTES bytes (a TEXT column holds 65,535 bytes, not characters).
+     *
+     * @param array<mixed, mixed> $changes
+     */
+    private function checkChanges(array $changes): void
+    {
+        if (count($changes) > self::MAX_CHANGES) {
+            throw new InvalidArgumentException(sprintf('At most %d variable changes per run.', self::MAX_CHANGES));
+        }
+        foreach ($changes as $key => $value) {
+            if (!is_string($key) || ($value !== null && !is_string($value))) {
+                throw new InvalidArgumentException('Invalid variable change.');
+            }
+            if ($value !== null && strlen($value) > ApiScriptVariable::MAX_VALUE_BYTES) {
+                throw new InvalidArgumentException(sprintf('Variable "%s" is too long (at most %d bytes).', mb_substr($key, 0, 64), ApiScriptVariable::MAX_VALUE_BYTES));
+            }
+        }
+    }
+
+    /**
      * @param array<mixed, mixed> $changes
      *
      * @return array<string, string|null>
      */
     private function normalize(int $workspaceId, ?int $serviceId, array $changes): array
     {
-        if (count($changes) > self::MAX_CHANGES) {
-            throw new InvalidArgumentException(sprintf('At most %d variable changes per run.', self::MAX_CHANGES));
-        }
-
+        $this->checkChanges($changes);
         $normalized = [];
         foreach ($changes as $key => $value) {
-            if (!is_string($key) || ($value !== null && !is_string($value))) {
-                throw new InvalidArgumentException('Invalid variable change.');
+            $key = VariableSyntax::normalizeKey((string) $key);
+            if (mb_strlen($key) > ApiScriptVariable::MAX_KEY_LENGTH) {
+                throw new InvalidArgumentException(sprintf('Variable names have at most %d characters.', ApiScriptVariable::MAX_KEY_LENGTH));
             }
-            if ($value !== null && mb_strlen($value) > ApiScriptVariable::MAX_VALUE_LENGTH) {
-                throw new InvalidArgumentException(sprintf('Variable "%s" is too long.', $key));
-            }
-            $normalized[VariableSyntax::normalizeKey($key)] = $value;
+            $normalized[$key] = $value;
         }
         if ($normalized === []) {
             return [];

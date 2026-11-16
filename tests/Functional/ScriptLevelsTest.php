@@ -129,7 +129,11 @@ final class ScriptLevelsTest extends StudioWebTestCase
         self::assertStringContainsString('{{variable_name}}', (string) ($this->saveVariables($token, ['globals' => ['bad key' => '1']])['error'] ?? ''));
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Invalid variable change.', $this->saveVariables($token, ['collection' => ['a' => 1]])['error'] ?? null);
-        self::assertStringContainsString('too long', (string) ($this->saveVariables($token, ['globals' => ['a' => str_repeat('x', ApiScriptVariable::MAX_VALUE_LENGTH + 1)]])['error'] ?? ''));
+        self::assertStringContainsString('too long', (string) ($this->saveVariables($token, ['globals' => ['a' => str_repeat('x', ApiScriptVariable::MAX_VALUE_BYTES + 1)]])['error'] ?? ''));
+        // Audit RW-L3: the TEXT column holds bytes, not characters; keys fit the 128-character column.
+        self::assertStringContainsString('at most 65535 bytes', (string) ($this->saveVariables($token, ['globals' => ['a' => str_repeat('é', 33_000)]])['error'] ?? ''));
+        self::assertStringContainsString('at most 128 characters', (string) ($this->saveVariables($token, ['collection' => [str_repeat('k', 129) => '1']])['error'] ?? ''));
+        self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('At most 100', (string) ($this->saveVariables($token, ['globals' => array_fill_keys(array_map(static fn (int $i): string => 'k' . $i, range(1, 101)), '1')])['error'] ?? ''));
 
         // Nothing was written by a refused save, even for the valid scope of the payload.

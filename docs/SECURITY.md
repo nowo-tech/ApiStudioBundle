@@ -86,17 +86,26 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 **Status: re-verification pending** (spec 003, 1.15.0; the REQ-SEC-004 audit of the sandbox, the `pm.sendRequest`
 relay and the server runner runs before the tag).
 
-- Scripts run in `<iframe sandbox="allow-scripts">` (opaque origin: no DOM of the studio page, no cookies, no
-  storage) loaded from `nowo_api_studio_script_sandbox`, whose response CSP is `default-src 'none'; script-src
-  'nonce-…' 'unsafe-eval'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`: no `fetch`, XHR, WebSocket,
-  image or form request can leave the frame.
+- The console loads `<iframe sandbox="allow-scripts">` (opaque origin: no DOM of the studio page, no cookies, no
+  storage) from `nowo_api_studio_script_sandbox`, whose CSP is `default-src 'none'; script-src 'nonce-…'
+  'unsafe-eval'; worker-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`. The CSP blocks
+  requests (`fetch`, XHR, WebSocket, EventSource, images, styles, scripts, frames, forms) but **not navigation**: CSP
+  has no navigation directive and `allow-scripts` lets a document navigate itself, so code running in the frame
+  document could send data out in a URL (`location.href = …`, an anchor click; audit RW-M1, reproduced in Chromium,
+  Firefox and WebKit with and without the header). Scripts therefore never run in the frame document: the frame
+  starts a dedicated **Worker** from a `blob:` URL (the only thing `worker-src blob:` allows) and runs the scripts
+  there. The worker inherits the frame's policy (no network), has no `document`, no assignable `location`, no anchors,
+  forms or popups, and its network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`,
+  `importScripts`, nested workers) are removed before any script runs. The frame only relays between the console and
+  the worker; the console fails the run if the frame document ever loads a second time (a navigation) or reports a
+  crashed worker.
 - The policy is carried twice: as the response header and as `<meta http-equiv="Content-Security-Policy">`, the first
   element of the frame's `<head>`, so middleware that strips or replaces CSP headers (the dev web profiler does, a
   host CSP listener may) does not lift it; anything injected into the document later (dev toolbars) is blocked by it.
-  `frame-ancestors 'self'` exists only in the header (a meta policy cannot carry it). DNS prefetching is off. Before
-  any script runs, the frame runtime also removes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
+  `frame-ancestors 'self'` exists only in the header (a meta policy cannot carry it). DNS prefetching is off. Once
+  the worker is started, the frame runtime also removes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`,
   `WebTransport`, WebRTC (`RTCPeerConnection`: no CSP directive governs it), workers, `navigator.sendBeacon` and
-  `window.open` from the frame (scripts cannot create another realm to get them back).
+  `window.open` from the frame itself.
 - The console accepts only messages from the frame it created, with origin `null` and the run's nonce; the frame
   accepts only messages from its parent. One fresh frame per phase, removed at the end or at `scripts.limits.time_ms`.
 - The frame is untrusted: the console posts the run once, validates the shape of the result (strings only in every
@@ -113,15 +122,24 @@ relay and the server runner runs before the tag).
 - `pm.globals` / `pm.collectionVariables` hold plain values readable by every workspace viewer (they are on the
   endpoint page): they have no secret flag and nothing secret is resolved into them; saving needs the
   environment-sync token and `workspace.edit` (and the folder's edit right), and is capped (100 changes per save, 500
-  keys per scope, 64 KiB per value). Writes go through DBAL one statement per key (a concurrent insert of the same
-  key becomes an update; no closed entity manager in worker mode).
+  keys per scope, keys of at most 128 characters, values of at most 65,535 bytes). One save writes both scopes in one
+  transaction after locking the workspace row, so a failure leaves nothing behind and two concurrent saves cannot
+  both pass the per-scope cap (audit RW-L3). Writes go through DBAL one statement per key (no closed entity manager in
+  worker mode).
 - Server runner (`scripts.server_runner`, 1.15): the isolation boundary is the sidecar runtime. The default Deno
   command grants no permission at all (no file system, network, environment or subprocess access); the runner hides
   the runtime globals from scripts only as a convenience. The sidecar gets a scrubbed environment (no host secret),
   one process per run, killed at the time or output limit and always stopped before `run()` returns. Output is read
   in bounded chunks and input written non-blocking, so a sidecar that floods its output or never reads cannot exhaust
-  PHP memory or stall the worker past the time limit. A custom command
-  (e.g. Node, whose `--permission` model blocks the network only from Node 25) is the host's responsibility.
+  PHP memory or stall the worker past the time limit. Each `pm.sendRequest` call gets only what is left of the time
+  limit (`max_duration`), and the run stops as soon as that time is used up (audit RW-L2). The runner also removes
+  `fetch` and the other network globals from the scripts' scope.
+- **Node** (audit RW-L1): before Node 25, `--permission` does not block the network, and a script reaches it through
+  `fetch` or `node:http` (a full-read SSRF: internal services, `127.0.0.1`, cloud metadata endpoints such as
+  `169.254.169.254` and the credentials they hand out). The bundled runner therefore **refuses every run** under Node
+  below 25, and under Node 25+ without `--permission` (or with network access granted), with the reason as the run
+  error. Use the default Deno command, or Node 25+ with `--permission`. Any other custom command is the host's
+  responsibility.
 - `require()` (sandbox frame and server runner) returns only the bundled allow-listed libraries (see the CHANGELOG
   for the list and versions); there is no module loading, file or network access behind it.
 - Secrets never reach scripts: the console hands secret variables as `{{placeholder}}`, `pm.sendRequest` sends
@@ -136,7 +154,14 @@ relay and the server runner runs before the tag).
   round trip. Neither carries anything the page does not already have.
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
   the user sends (headers, body, variables) — that is its purpose. A script that points URL variables elsewhere is
-  subject to the ER-M1 / host-secret target checks of the execute endpoint, not to the sandbox.
+  subject to the ER-M1 / host-secret target checks of the execute endpoint, not to the sandbox, and those checks are
+  partial (audit RW-L4): ER-M1 refuses such overrides only for a runner **without** `workspace.edit`; when a user
+  with `workspace.edit` sends a request whose stored script (written by someone else with `workspace.edit_scripts`)
+  repoints the base URL, the stored secrets resolved into the templates go to the new host, limited only by
+  `execution_url_allowlist`. Host secrets are kept to their origin only when the host's secret source binds them to
+  one (`ApiStudioSecretRef::$targetOrigin`); unbound host secrets follow the URL like stored secrets. Grant
+  `workspace.edit_scripts` only to people you would trust with the secrets of the workspace, and set
+  `execution_url_allowlist`.
 - Residual: a host that rewrites the frame document's HTML (not only its headers) can weaken the meta policy; the
   JavaScript network lockdown still applies. Exclude `<ui.path>/scripts/sandbox` from such filters.
 - Residual: a hostile script can make its own phase fail (throw, loop until the time limit, flood messages); that only
@@ -149,7 +174,9 @@ relay and the server runner runs before the tag).
 - Running an endpoint inside a folder with changed URL / auth variables (ER-M1) or host secrets in a changed template
   (QE-B-M2) needs `workspace.edit` on the workspace **and** on the folder (audit RJ-M4).
 - Not covered by folder restrictions: environments and variables belong to the workspace and are shared by all its
-  folders. Folder auth configuration is stored and edited as plain JSON, readable by whoever may edit the folder; put
+  folders. So are, in sandbox mode (1.15, audit RW-I3), workspace-level pre / post scripts (they run for every
+  endpoint of every folder, including folders the script's author may not edit) and `pm.globals` (one store per
+  workspace, writable from a run in any folder the runner may edit). Folder auth configuration is stored and edited as plain JSON, readable by whoever may edit the folder; put
   credentials in secret variables (`{{token}}`) or host secrets, never literally.
 - Imports never reuse a folder the importing user may not edit and only set auth on folders they create (RJ-M1).
   Request-level Postman credentials become endpoint headers only when they are `{{variable}}` placeholders; literal

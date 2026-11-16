@@ -23,8 +23,11 @@ use Nowo\ApiStudioBundle\Service\VariableSyntax;
 #[ORM\UniqueConstraint(name: 'uniq_script_var_key', columns: ['workspace_id', 'scope_id', 'variable_key'])]
 class ApiScriptVariable
 {
-    /** Longest value stored (characters). */
-    public const MAX_VALUE_LENGTH = 65535;
+    /** Longest value stored: 65,535 bytes, what a TEXT column holds on MySQL (audit RW-L3). */
+    public const MAX_VALUE_BYTES = 65535;
+
+    /** Longest key: the `variable_key` column length (audit RW-L3). */
+    public const MAX_KEY_LENGTH = 128;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -44,7 +47,7 @@ class ApiScriptVariable
     #[ORM\Column(name: 'scope_id', type: Types::INTEGER)]
     private int $scopeId;
 
-    #[ORM\Column(name: 'variable_key', type: Types::STRING, length: 128)]
+    #[ORM\Column(name: 'variable_key', type: Types::STRING, length: self::MAX_KEY_LENGTH)]
     private string $variableKey;
 
     #[ORM\Column(type: Types::TEXT)]

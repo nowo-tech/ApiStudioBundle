@@ -420,6 +420,14 @@ export function runInSandbox(
     // may send at most its pm.sendRequest budget plus `ready` and `result`.
     let maxResultLength = MAX_MESSAGE_GROWTH;
     const maxMessages = sendBudget + EXTRA_MESSAGES;
+    // The frame document loads once; a second load means it navigated (audit RW-M1): fail the run.
+    let loads = 0;
+    frame.addEventListener('load', () => {
+      if (++loads > 1 && !settled) {
+        finish();
+        reject(new Error('Scripts stopped: the sandbox frame navigated.'));
+      }
+    });
 
     const finish = (): void => {
       settled = true;
@@ -479,6 +487,12 @@ export function runInSandbox(
           (response) => reply({ response }),
           (error: unknown) => reply({ error: error instanceof Error ? error.message : String(error) }),
         );
+
+        return;
+      }
+      if (data.kind === 'error' && data.nonce === nonce) {
+        finish();
+        reject(new Error('Scripts stopped: the script worker failed.'));
 
         return;
       }

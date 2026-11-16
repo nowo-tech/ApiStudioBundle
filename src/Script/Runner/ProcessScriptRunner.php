@@ -165,7 +165,11 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
                     return $this->result($request, $message);
                 }
                 if (($message['kind'] ?? null) === 'sendRequest' && is_int($message['id'] ?? null)) {
-                    $pending .= $this->encode($this->sendResult($message, $nonce, $budget));
+                    $pending .= $this->encode($this->sendResult($message, $nonce, $budget, $deadline));
+                    // A pm.sendRequest call may use up the run's time: stop as soon as it has.
+                    if (hrtime(true) > $deadline) {
+                        return ScriptRunResult::unchanged($request, ScriptRunStatus::TimedOut, sprintf('Scripts exceeded the %d ms time limit.', $limits->timeMs));
+                    }
                 }
             }
 
@@ -196,7 +200,7 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
      *
      * @return array<string, mixed>
      */
-    private function sendResult(array $message, string $nonce, int &$budget): array
+    private function sendResult(array $message, string $nonce, int &$budget, int $deadline): array
     {
         $reply = ['v' => 1, 'kind' => 'sendResult', 'nonce' => $nonce, 'id' => $message['id']];
         if (!$this->sender instanceof ScriptRequestSender) {
@@ -209,7 +213,8 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
         $payload = $message['request'] ?? null;
 
         try {
-            return $reply + ['response' => $this->sender->send(is_array($payload) ? $payload : [])];
+            // Only what is left of the run's time limit (audit RW-L2), never the sender's full timeout.
+            return $reply + ['response' => $this->sender->send(is_array($payload) ? $payload : [], ($deadline - hrtime(true)) / 1e9)];
         } catch (InvalidArgumentException $e) {
             // The sender reports refusals and transport failures this way (exception class only, no detail).
             return $reply + ['error' => $e->getMessage()];

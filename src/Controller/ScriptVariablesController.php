@@ -77,9 +77,7 @@ final class ScriptVariablesController extends AbstractController
         $workspaceId = (int) $workspace->getId();
         $serviceId   = (int) $service->getId();
         try {
-            $this->store->validate($workspaceId, null, $globals);
-            $this->store->validate($workspaceId, $serviceId, $collection);
-            $written = $this->store->apply($workspaceId, null, $globals) + $this->store->apply($workspaceId, $serviceId, $collection);
+            $written = $this->store->save($workspaceId, $serviceId, $globals, $collection);
         } catch (InvalidArgumentException $e) {
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

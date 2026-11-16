@@ -29,6 +29,11 @@ use const ENT_QUOTES;
  * `<head>`: host middleware may strip or replace the header (the dev web profiler removes CSP headers, a host CSP
  * listener may overwrite them), and a meta policy applies to everything parsed after it, whatever the headers say.
  * DNS prefetching is off as well. The frame runtime removes the network APIs from the frame on top of that.
+ *
+ * The scripts themselves do not run in this document: CSP has no navigation directive and `allow-scripts` lets a
+ * document navigate itself (a way out with data in the URL, audit RW-M1). The frame runtime starts a dedicated Worker
+ * from a `blob:` URL (`worker-src blob:`, the only addition to the policy); the worker inherits this policy, has no
+ * network and nothing to navigate, and runs the scripts. 'unsafe-eval' is there for the worker (`new Function`).
  */
 final class ScriptSandboxController
 {
@@ -50,7 +55,7 @@ final class ScriptSandboxController
             ? $this->packages->getUrl('api-script-sandbox.js', 'nowo_api_studio')
             : '/bundles/nowoapistudio/api-script-sandbox.js';
 
-        $policy = sprintf("default-src 'none'; script-src 'nonce-%s' 'unsafe-eval'; base-uri 'none'; form-action 'none'", $nonce);
+        $policy = sprintf("default-src 'none'; script-src 'nonce-%s' 'unsafe-eval'; worker-src blob:; base-uri 'none'; form-action 'none'", $nonce);
         $html   = sprintf(
             '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="%s"><meta http-equiv="x-dns-prefetch-control" content="off"><title>Api Studio script sandbox</title></head><body><script nonce="%s" src="%s"></script></body></html>',
             htmlspecialchars($policy, ENT_QUOTES),

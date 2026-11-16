@@ -6,6 +6,8 @@
  *
  * @packageDocumentation
  */
+import { lockDownNetwork } from './lib/lockdown';
+import { nodeRefusal, type NodeLike } from './lib/node-refusal';
 import { scriptRequire } from './lib/require';
 import { executeRun, isRunMessage, type ResultMessage, type SandboxHttpResponse, type SendResultMessage } from './lib/sandbox';
 
@@ -14,16 +16,12 @@ type DenoLike = {
   stdout: { write: (data: Uint8Array) => Promise<number> };
   exit: (code: number) => never;
 };
-type NodeLike = {
-  stdin: AsyncIterable<Uint8Array>;
-  stdout: { write: (data: string, callback: () => void) => boolean };
-  exit: (code: number) => never;
-};
-
 const host = globalThis as unknown as { Deno?: DenoLike; process?: NodeLike };
 const deno = host.Deno;
 const node = deno ? undefined : host.process;
 const encoder = new TextEncoder();
+// Decided before the runtime globals are hidden below.
+const refusal = nodeRefusal(node);
 
 async function write(message: unknown): Promise<void> {
   const line = `${JSON.stringify(message)}\n`;
@@ -41,6 +39,9 @@ async function write(message: unknown): Promise<void> {
 function exit(code: number): never {
   return (deno ?? node)!.exit(code);
 }
+
+// No network API in the scripts' scope either (the sidecar's permissions remain the boundary; audit RW-L1).
+lockDownNetwork(globalThis);
 
 // Scripts reach only `pm` and their console: hide the runtime objects from the global scope (best effort; the sidecar's
 // permissions are the boundary).
@@ -81,6 +82,11 @@ function onLine(line: string): void {
   }
   started = true;
   const run = data;
+  if (refusal !== null) {
+    void write({ v: 1, kind: 'result', nonce: run.nonce, ok: false, error: refusal, state: run.state }).then(() => exit(0));
+
+    return;
+  }
   void executeRun(run, (request) => {
     const id = ++nextId;
 

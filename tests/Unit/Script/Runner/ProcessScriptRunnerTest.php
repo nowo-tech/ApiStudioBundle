@@ -29,6 +29,7 @@ use function preg_split;
 use function putenv;
 use function str_repeat;
 use function trim;
+use function usleep;
 
 use const PHP_BINARY;
 use const PREG_SPLIT_NO_EMPTY;
@@ -110,6 +111,29 @@ final class ProcessScriptRunnerTest extends TestCase
         $missing = (new ProcessScriptRunner(['/nonexistent/api-studio-runner'], 'runner.js'))->run($this->request());
         self::assertSame(ScriptRunStatus::Failed, $missing->status);
         self::assertStringContainsString('script runner', (string) $missing->error);
+    }
+
+    /**
+     * Audit RW-L2: pm.sendRequest gets only what is left of the run's time, and the run stops once it is used up.
+     */
+    public function testSendRequestIsBoundedByTheRunDeadline(): void
+    {
+        $durations = [];
+        $client    = new MockHttpClient(static function (string $method, string $url, array $options) use (&$durations): MockResponse {
+            $durations[] = $options['max_duration'];
+            usleep(2_500_000); // a slow upstream: the mock does not enforce max_duration itself
+
+            return new MockResponse('{}');
+        });
+        $sender  = new ScriptRequestSender($client, new ExecutionUrlValidator([]), timeoutSeconds: 30);
+        $started = hrtime(true);
+        $result  = $this->runner('send', $sender)->run($this->request(new ScriptRunLimits(timeMs: 2000, sendRequests: 5)));
+
+        self::assertSame(ScriptRunStatus::TimedOut, $result->status);
+        self::assertCount(1, $durations, 'no further call once the time is up');
+        self::assertLessThanOrEqual(2.0, $durations[0]);
+        self::assertGreaterThan(0.0, $durations[0]);
+        self::assertLessThan(5_000_000_000, hrtime(true) - $started);
     }
 
     public function testSendRequestIsRelayedThroughTheGuardedSender(): void

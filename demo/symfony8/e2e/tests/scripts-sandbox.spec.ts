@@ -6,7 +6,8 @@ import { openCreatePostConsole } from './helpers';
  * can change the request through `pm`, and cannot reach the page, the cookies, storage, popups or the network: the
  * frame removes fetch, XHR, WebSocket, EventSource, WebRTC, beacons and workers, and its CSP blocks the rest (dynamic
  * import, images, styles, scripts, frames, forms). The dev demo's web profiler strips the frame's CSP header, so this
- * also proves the policy the document carries in its own <head>.
+ * also proves the policy the document carries in its own <head>. Scripts run in a Worker of the frame (audit RW-M1):
+ * self-navigation (location, anchors, forms, window.open) has nothing to act on. Runs in Chromium, Firefox and WebKit.
  */
 const HOSTILE = `
 const r = [];
@@ -27,6 +28,13 @@ try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '
 try { const s = document.createElement('script'); s.src = '/leak-script.js'; document.head.appendChild(s); } catch (e) { /* blocked */ }
 try { const f = document.createElement('iframe'); f.src = '/leak-frame'; document.body.appendChild(f); } catch (e) { /* blocked */ }
 try { const f = document.createElement('form'); f.action = '/leak-form'; f.method = 'post'; document.body.appendChild(f); f.submit(); } catch (e) { /* blocked */ }
+// Self-navigation (audit RW-M1): CSP has no navigation directive, so scripts must have nothing to navigate.
+try { location.href = '/leak-nav-location?d=' + pm.environment.get('host'); } catch (e) { /* nothing to navigate */ }
+try { self.location.assign('/leak-nav-assign'); } catch (e) { /* nothing to navigate */ }
+try { const a = document.createElement('a'); a.href = '/leak-nav-anchor'; document.body.appendChild(a); a.click(); } catch (e) { /* nothing to navigate */ }
+try { const f = document.createElement('form'); f.action = '/leak-nav-form'; f.method = 'get'; document.body.appendChild(f); f.requestSubmit(); } catch (e) { /* nothing to navigate */ }
+try { open('/leak-nav-open'); } catch (e) { /* nothing to navigate */ }
+r.push('window:' + typeof window + ',document:' + typeof document);
 pm.console.log(r.join(','));
 pm.console.log('lib:' + require('lodash').chunk([1, 2, 3], 2).length);
 pm.console.log('env:' + JSON.stringify(pm.environment.toObject()));
@@ -78,7 +86,7 @@ test.describe('Sandboxed scripts', () => {
       const payload = JSON.parse((await sent).postData() ?? '{}') as { headers?: Record<string, string> };
 
       expect(payload.headers?.['X-Sandboxed']).toBe('yes');
-      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked,fs:blocked,opener:blocked,open:blocked,parentfn:blocked,net:undefined/undefined/undefined/undefined/undefined/undefined/undefined');
+      await expect(page.locator('#tester-script-log')).toContainText('cookie:blocked,parent:blocked,top:blocked,storage:blocked,xhr:blocked,fs:blocked,opener:blocked,open:blocked,parentfn:blocked,net:undefined/undefined/undefined/undefined/undefined/undefined/undefined,window:undefined,document:undefined');
       await expect(page.locator('#tester-script-log')).toContainText('lib:2');
       // Secret variables reach scripts as their own placeholder, never the value (US5).
       const log = (await page.locator('#tester-script-log').textContent()) ?? '';

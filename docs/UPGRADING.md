@@ -97,7 +97,11 @@ nowo_api_studio:
 - The console page then loads an `<iframe sandbox="allow-scripts">` from `<ui.path>/scripts/sandbox`: a host CSP must
   allow `frame-src 'self'` on the Api Studio pages (and can drop `'unsafe-eval'` there). The frame response carries its
   own CSP (header, and the same policy as a `<meta>` tag first in its `<head>`, so a listener that strips or rewrites
-  CSP headers does not lift it); a listener that rewrites HTML bodies must leave that route alone.
+  CSP headers does not lift it); a listener that rewrites HTML bodies must leave that route alone. The frame runs
+  the scripts in a Worker created from a `blob:` URL (its own policy has `worker-src blob:`); nothing is needed on
+  the studio pages for that.
+- Server runner with Node: Node 25+ with `--permission` only. The runner refuses every run under older Node or without
+  `--permission` (the run fails with the reason); the default Deno command is unaffected.
 - Scripts no longer see the page: code that touched `document`, `window.parent`, cookies or storage fails (it ran
   with the user's session before). `pm` works as before; tests registered in a pre-request script are not kept for
   the post phase.
