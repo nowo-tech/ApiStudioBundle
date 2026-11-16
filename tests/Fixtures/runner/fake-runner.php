@@ -7,7 +7,11 @@ declare(strict_types=1);
  * bundled runner. argv: mode, memory limit, runner path.
  */
 
-$mode  = $argv[1] ?? 'echo';
+$mode = $argv[1] ?? 'echo';
+if ($mode === 'deaf') {
+    // Never reads its input: the runner must not block writing a large run message.
+    sleep(30);
+}
 $line  = fgets(\STDIN);
 $run   = is_string($line) ? json_decode($line, true) : null;
 $nonce = is_array($run) ? (string) ($run['nonce'] ?? '') : '';

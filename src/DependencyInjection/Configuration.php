@@ -239,7 +239,7 @@ final class Configuration implements ConfigurationInterface
                         ->end()
                         ->arrayNode('server_runner')
                             ->addDefaultsIfNotSet()
-                            ->info('Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs symfony/process). Disabled = unattended runs report scripts as not run.')
+                            ->info('Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs proc_open). Disabled = unattended runs report scripts as not run.')
                             ->children()
                                 ->booleanNode('enabled')->defaultFalse()->end()
                                 ->arrayNode('command')

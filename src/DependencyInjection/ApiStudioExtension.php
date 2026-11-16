@@ -30,11 +30,9 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\Process\Process;
 
 use function array_key_exists;
 use function array_keys;
-use function class_exists;
 use function dirname;
 use function implode;
 use function in_array;
@@ -381,9 +379,6 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             $container->setAlias(ApiStudioScriptRunnerInterface::class, NullScriptRunner::class)->setPublic(true);
 
             return;
-        }
-        if (!class_exists(Process::class)) {
-            throw new InvalidConfigurationException('nowo_api_studio.scripts.server_runner needs symfony/process (composer require symfony/process).');
         }
         $container->getDefinition(ProcessScriptRunner::class)
             ->setArgument('$command', $runner['command'])

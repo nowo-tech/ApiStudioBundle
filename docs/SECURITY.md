@@ -118,7 +118,9 @@ relay and the server runner runs before the tag).
 - Server runner (`scripts.server_runner`, 1.15): the isolation boundary is the sidecar runtime. The default Deno
   command grants no permission at all (no file system, network, environment or subprocess access); the runner hides
   the runtime globals from scripts only as a convenience. The sidecar gets a scrubbed environment (no host secret),
-  one process per run, killed at the time or output limit and always stopped before `run()` returns. A custom command
+  one process per run, killed at the time or output limit and always stopped before `run()` returns. Output is read
+  in bounded chunks and input written non-blocking, so a sidecar that floods its output or never reads cannot exhaust
+  PHP memory or stall the worker past the time limit. A custom command
   (e.g. Node, whose `--permission` model blocks the network only from Node 25) is the host's responsibility.
 - `require()` (sandbox frame and server runner) returns only the bundled allow-listed libraries (see the CHANGELOG
   for the list and versions); there is no module loading, file or network access behind it.

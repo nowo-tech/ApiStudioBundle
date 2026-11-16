@@ -148,7 +148,6 @@
     },
     "suggest": {
         "ext-soap": "Required for SOAP endpoint execution",
-        "symfony/process": "Required for the server-side script runner (scripts.server_runner, 1.15)",
         "symfony/flex": "For automatic recipe installation"
     }
 }

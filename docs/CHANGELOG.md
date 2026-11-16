@@ -105,7 +105,8 @@ Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
   `Resources/runner/api-script-runner.js` over a line-delimited JSON protocol (the sandbox messages). Limits: wall
   time (killed), output (`scripts.limits.output_kb`, killed), memory (`scripts.limits.memory_mb`, handed to the
   sidecar) and `pm.sendRequest` calls (sent through the same guarded sender as the console). The sidecar's environment
-  is scrubbed; no process outlives a run. Needs `symfony/process` (suggested).
+  is scrubbed; no process outlives a run. Uses `proc_open` with bounded, non-blocking reads and writes (no extra
+  package; a sidecar that floods its output is killed at the limit without filling PHP memory).
 - `scripts.limits.send_requests` (default 10): `pm.sendRequest` calls per phase, now also for the sandbox frame.
 - **`require()` allow-list** (sandbox frame and server runner; not in `inline` mode): a closed list bundled into
   `api-script-sandbox.js` and the runner, never into the console page. Anything else throws. 1.15 list (all MIT):

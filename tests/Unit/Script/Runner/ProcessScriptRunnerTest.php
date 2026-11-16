@@ -27,6 +27,7 @@ use function is_file;
 use function memory_get_usage;
 use function preg_split;
 use function putenv;
+use function str_repeat;
 use function trim;
 
 use const PHP_BINARY;
@@ -87,9 +88,17 @@ final class ProcessScriptRunnerTest extends TestCase
         self::assertLessThan(5_000_000_000, hrtime(true) - $started, 'the sidecar is killed at the limit');
         self::assertSame('abc', $timeout->variables['token'], 'the request state is kept');
 
-        $flood = $this->runner('flood')->run($this->request(new ScriptRunLimits(timeMs: 20_000, outputKb: 64)));
+        $memory = memory_get_usage();
+        $flood  = $this->runner('flood')->run($this->request(new ScriptRunLimits(timeMs: 20_000, outputKb: 64)));
         self::assertSame(ScriptRunStatus::OutputExceeded, $flood->status);
         self::assertSame('Scripts exceeded the 64 KB output limit.', $flood->error);
+        self::assertLessThan(1024 * 1024, memory_get_usage() - $memory, 'a flooding sidecar never fills PHP memory');
+
+        // A sidecar that never reads its input cannot stall the runner on a large run message.
+        $started = hrtime(true);
+        $deaf    = $this->runner('deaf')->run(new ScriptRunRequest(scripts: [new ScriptSource('pre', '1')], body: str_repeat('x', 1024 * 1024), limits: new ScriptRunLimits(timeMs: 500)));
+        self::assertSame(ScriptRunStatus::TimedOut, $deaf->status);
+        self::assertLessThan(5_000_000_000, hrtime(true) - $started);
 
         $exit = $this->runner('exit')->run($this->request());
         self::assertSame(ScriptRunStatus::Failed, $exit->status);

@@ -5,30 +5,36 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Script\Runner;
 
 use InvalidArgumentException;
-use LogicException;
 use Nowo\ApiStudioBundle\Script\ScriptRequestSender;
-use Symfony\Component\Process\Exception\ExceptionInterface as ProcessException;
-use Symfony\Component\Process\InputStream;
-use Symfony\Component\Process\Process;
 
 use function array_filter;
 use function array_is_list;
 use function array_map;
 use function array_values;
 use function bin2hex;
-use function class_exists;
+use function fclose;
+use function fread;
+use function fwrite;
 use function getenv;
 use function hrtime;
 use function in_array;
 use function is_array;
 use function is_bool;
 use function is_int;
+use function is_resource;
 use function is_string;
 use function json_decode;
 use function json_encode;
+use function max;
+use function min;
+use function proc_close;
+use function proc_get_status;
+use function proc_open;
+use function proc_terminate;
 use function random_bytes;
 use function sprintf;
 use function str_replace;
+use function stream_set_blocking;
 use function strlen;
 use function strpos;
 use function substr;
@@ -40,8 +46,8 @@ use const JSON_UNESCAPED_UNICODE;
 
 /**
  * Reference server runner (spec 003, 1.15): one sidecar process per run (Deno by default: no file system, network,
- * environment or subprocess permission), started with symfony/process and spoken to over stdin / stdout with the
- * sandbox protocol, one JSON message per line:
+ * environment or subprocess permission), started with proc_open (no shell) and spoken to over non-blocking stdin /
+ * stdout with the sandbox protocol, one JSON message per line:
  *
  * - runner ← `{v:1, kind:'run', nonce, scripts, state, runTests, sendBudget}`;
  * - runner → `{v:1, kind:'sendRequest', nonce, id, request}` ← `{v:1, kind:'sendResult', nonce, id, response|error}`;
@@ -51,6 +57,9 @@ use const JSON_UNESCAPED_UNICODE;
  * the sidecar through the `{memory_mb}` placeholder of the command, e.g. the V8 heap limit) and the `pm.sendRequest`
  * budget (enforced here too). `pm.sendRequest` goes through {@see ScriptRequestSender}: literal, guarded, no secret
  * resolved. The process is always stopped before run() returns; nothing is kept between runs (worker mode).
+ *
+ * Output is read here in bounded chunks (never more than the output limit plus one chunk is held), so a sidecar that
+ * floods stdout is killed at the limit instead of filling the PHP process memory.
  */
 final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
 {
@@ -69,40 +78,49 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
         private readonly ?ScriptRequestSender $sender = null,
         private readonly int $pollMicroseconds = 1000,
     ) {
-        if (!class_exists(Process::class)) {
-            throw new LogicException('scripts.server_runner needs symfony/process (composer require symfony/process).');
-        }
         if ($command === []) {
             throw new InvalidArgumentException('scripts.server_runner.command cannot be empty.');
         }
     }
 
+    /** Most bytes read from one pipe per call. */
+    private const CHUNK = 8192;
+
     public function run(ScriptRunRequest $request): ScriptRunResult
     {
-        $limits  = $request->limits;
-        $nonce   = bin2hex(random_bytes(16));
-        $input   = new InputStream();
-        $process = new Process($this->commandLine($limits), null, $this->environment());
-        $process->setInput($input);
-        // Safety net only: run() enforces the wall time itself and stops the process at the limit.
-        $process->setTimeout($limits->timeMs / 1000 + 5);
+        $nonce = bin2hex(random_bytes(16));
+        $pipes = [];
+        // The wall-time limit is enforced by converse(), which kills the sidecar at the deadline.
+        // @phpstan-ignore frankenphp.classic.noUnlimitedIoTimeout
+        $process = @proc_open($this->commandLine($request->limits), [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $this->environment());
+        if (!is_resource($process)) {
+            return ScriptRunResult::unchanged($request, ScriptRunStatus::Failed, 'The script runner could not be started.');
+        }
 
         try {
-            $process->start();
-            $input->write($this->encode($this->runMessage($request, $nonce)));
-
-            return $this->converse($process, $input, $request, $nonce);
-        } catch (ProcessException) {
-            return ScriptRunResult::unchanged($request, ScriptRunStatus::Failed, 'The script runner could not be started.');
-        } finally {
-            $input->close();
-            if ($process->isRunning()) {
-                $process->stop(0);
+            foreach ($pipes as $pipe) {
+                stream_set_blocking($pipe, false);
             }
+
+            return $this->converse($process, $pipes, $request, $nonce);
+        } finally {
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+            if (proc_get_status($process)['running']) {
+                proc_terminate($process, 9);
+            }
+            proc_close($process);
         }
     }
 
-    private function converse(Process $process, InputStream $input, ScriptRunRequest $request, string $nonce): ScriptRunResult
+    /**
+     * @param resource $process
+     * @param array<int, resource> $pipes
+     */
+    private function converse($process, array $pipes, ScriptRunRequest $request, string $nonce): ScriptRunResult
     {
         $limits    = $request->limits;
         $deadline  = hrtime(true) + $limits->timeMs * 1_000_000;
@@ -110,19 +128,32 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
         $output    = 0;
         $buffer    = '';
         $budget    = $limits->sendRequests;
+        $pending   = $this->encode($this->runMessage($request, $nonce));
 
         while (true) {
-            $running = $process->isRunning();
-            // Error output first: reading it also pulls pending stdout into the process buffer, which the stdout read
-            // below then returns (the buffers are not cleared: they never exceed the output limit plus one chunk).
-            $output += strlen($process->getIncrementalErrorOutput());
-            $chunk = $process->getIncrementalOutput();
-            $output += strlen($chunk);
-            if ($output > $maxOutput) {
-                return ScriptRunResult::unchanged($request, ScriptRunStatus::OutputExceeded, sprintf('Scripts exceeded the %d KB output limit.', $limits->outputKb));
+            $status = proc_get_status($process);
+            // stdin: what the sidecar has not taken yet (non-blocking, so a sidecar that never reads cannot stall us).
+            if ($pending !== '') {
+                $written = @fwrite($pipes[0], $pending);
+                if ($written === false) {
+                    $pending = '';
+                } elseif ($written > 0) {
+                    $pending = substr($pending, $written);
+                }
+            }
+            // stderr is only counted; stdout is parsed. Never more than the remaining allowance plus one byte is read.
+            foreach ([2, 1] as $fd) {
+                while (($chunk = $this->readChunk($pipes[$fd], $maxOutput - $output + 1)) !== '') {
+                    $output += strlen($chunk);
+                    if ($output > $maxOutput) {
+                        return ScriptRunResult::unchanged($request, ScriptRunStatus::OutputExceeded, sprintf('Scripts exceeded the %d KB output limit.', $limits->outputKb));
+                    }
+                    if ($fd === 1) {
+                        $buffer .= $chunk;
+                    }
+                }
             }
 
-            $buffer .= $chunk;
             while (($end = strpos($buffer, "\n")) !== false) {
                 $message = json_decode(substr($buffer, 0, $end), true);
                 $buffer  = substr($buffer, $end + 1);
@@ -134,18 +165,30 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
                     return $this->result($request, $message);
                 }
                 if (($message['kind'] ?? null) === 'sendRequest' && is_int($message['id'] ?? null)) {
-                    $input->write($this->encode($this->sendResult($message, $nonce, $budget)));
+                    $pending .= $this->encode($this->sendResult($message, $nonce, $budget));
                 }
             }
 
-            if (!$running) {
-                return ScriptRunResult::unchanged($request, ScriptRunStatus::Failed, sprintf('The script runner exited without a result (exit code %s).', $process->getExitCode() ?? '?'));
+            if (!$status['running']) {
+                return ScriptRunResult::unchanged($request, ScriptRunStatus::Failed, sprintf('The script runner exited without a result (exit code %s).', $status['exitcode'] >= 0 ? $status['exitcode'] : '?'));
             }
             if (hrtime(true) > $deadline) {
                 return ScriptRunResult::unchanged($request, ScriptRunStatus::TimedOut, sprintf('Scripts exceeded the %d ms time limit.', $limits->timeMs));
             }
             usleep($this->pollMicroseconds);
         }
+    }
+
+    /**
+     * At most min(CHUNK, $max) bytes available on $pipe now ('' when none).
+     *
+     * @param resource $pipe
+     */
+    private function readChunk($pipe, int $max): string
+    {
+        $chunk = @fread($pipe, max(1, min(self::CHUNK, $max)));
+
+        return is_string($chunk) ? $chunk : '';
     }
 
     /**
@@ -298,13 +341,15 @@ final class ProcessScriptRunner implements ApiStudioScriptRunnerInterface
      * The parent's environment minus everything but a few harmless variables (no secret of the host reaches the
      * sidecar through its environment).
      *
-     * @return array<string, false|string>
+     * @return array<string, string>
      */
     private function environment(): array
     {
         $environment = [];
         foreach (getenv() as $name => $value) {
-            $environment[$name] = in_array($name, self::KEPT_ENVIRONMENT, true) ? $value : false;
+            if (in_array($name, self::KEPT_ENVIRONMENT, true)) {
+                $environment[$name] = $value;
+            }
         }
 
         return $environment;

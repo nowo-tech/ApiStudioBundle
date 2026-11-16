@@ -1290,7 +1290,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             output_kb?: int|Param, // Server runner (1.15): most stdout + stderr of one run; the sidecar is killed past it. // Default: 256
  *             send_requests?: int|Param, // sandbox mode and server runner (1.15): pm.sendRequest calls allowed per phase. // Default: 10
  *         },
- *         server_runner?: array{ // Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs symfony/process). Disabled = unattended runs report scripts as not run.
+ *         server_runner?: array{ // Server-side script runner (1.15) for unattended runs (collection runner, CLI, monitors): one sidecar process per run (needs proc_open). Disabled = unattended runs report scripts as not run.
  *             enabled?: bool|Param, // Default: false
  *             command?: list<scalar|Param|null>,
  *         },
