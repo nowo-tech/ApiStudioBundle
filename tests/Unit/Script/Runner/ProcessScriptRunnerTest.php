@@ -18,11 +18,19 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+use function file_get_contents;
+use function gc_collect_cycles;
+use function glob;
 use function hrtime;
+use function is_dir;
+use function is_file;
 use function memory_get_usage;
+use function preg_split;
 use function putenv;
+use function trim;
 
 use const PHP_BINARY;
+use const PREG_SPLIT_NO_EMPTY;
 
 /**
  * Spec 003 (1.15): the reference server runner against a fake sidecar (tests/Fixtures/runner/fake-runner.php):
@@ -30,7 +38,8 @@ use const PHP_BINARY;
  */
 final class ProcessScriptRunnerTest extends TestCase
 {
-    private const FIXTURE = __DIR__ . '/../../../Fixtures/runner/fake-runner.php';
+    private const FIXTURE    = __DIR__ . '/../../../Fixtures/runner/fake-runner.php';
+    private const FIXTURE_SH = __DIR__ . '/../../../Fixtures/runner/fake-runner.sh';
 
     protected function tearDown(): void
     {
@@ -121,6 +130,34 @@ final class ProcessScriptRunnerTest extends TestCase
         self::assertLessThan(256 * 1024, memory_get_usage() - $before);
     }
 
+    /**
+     * SC-004: 1,000 runs in one process (a FrankenPHP worker with kernel reset off keeps the runner service alive): every
+     * run completes, no sidecar outlives its run and memory stays flat.
+     */
+    public function testAThousandRunsInOneWorkerLeakNoProcessAndNoMemory(): void
+    {
+        if (!is_dir('/proc/self/task') || !is_file('/bin/sh')) {
+            self::markTestSkipped('needs /proc and /bin/sh.');
+        }
+        $runner  = new ProcessScriptRunner(['/bin/sh', self::FIXTURE_SH], '/bundle/runner/api-script-runner.js', pollMicroseconds: 200);
+        $request = new ScriptRunRequest(scripts: [new ScriptSource('pre', 'pm.environment.set("run", 1)')], limits: new ScriptRunLimits(timeMs: 20_000));
+        for ($i = 0; $i < 20; ++$i) {
+            self::assertTrue($runner->run($request)->isCompleted());
+        }
+        gc_collect_cycles();
+        $before = memory_get_usage();
+        for ($i = 0; $i < 1_000; ++$i) {
+            $result = $runner->run($request);
+            if (!$result->isCompleted() || $result->variables !== ['run' => '1']) {
+                self::fail('run ' . $i . ': ' . $result->status->value . ' ' . $result->error);
+            }
+        }
+        gc_collect_cycles();
+
+        self::assertLessThan(512 * 1024, memory_get_usage() - $before);
+        self::assertSame([], $this->childProcesses());
+    }
+
     public function testConfigurationErrors(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -141,6 +178,21 @@ final class ProcessScriptRunnerTest extends TestCase
         self::assertStringContainsString('scripts.server_runner', (string) $result->error);
         self::assertSame(['token' => 'abc'], $result->variables);
         self::assertSame(['g' => '1'], $result->globals);
+    }
+
+    /**
+     * PIDs of the live children of this process (zombies included: they are listed until reaped).
+     *
+     * @return list<string>
+     */
+    private function childProcesses(): array
+    {
+        $children = [];
+        foreach (glob('/proc/self/task/*/children') ?: [] as $file) {
+            $children = [...$children, ...preg_split('/\s+/', trim((string) file_get_contents($file)), -1, PREG_SPLIT_NO_EMPTY) ?: []];
+        }
+
+        return $children;
     }
 
     private function runner(string $mode, ?ScriptRequestSender $sender = null): ProcessScriptRunner

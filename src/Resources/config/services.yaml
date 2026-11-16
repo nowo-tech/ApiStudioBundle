@@ -146,6 +146,11 @@ services:
         alias: Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner
         public: true
 
+    # 1.15: scripts of an endpoint in run order for runs outside the browser (server runner).
+    Nowo\ApiStudioBundle\Script\ScriptChainBuilder:
+        arguments:
+            $scriptLevels: '%nowo_api_studio.scripts.levels%'
+
     # 1.15 pm.sendRequest: same guards and limits as the console executor.
     Nowo\ApiStudioBundle\Script\ScriptRequestSender:
         arguments:
