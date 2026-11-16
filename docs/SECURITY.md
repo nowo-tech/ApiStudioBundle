@@ -102,6 +102,8 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   key becomes an update; no closed entity manager in worker mode).
 - Workspace and folder scripts (sandbox mode only) follow the same rules as service / endpoint scripts: their fields
   are shown and accepted only with `workspace.edit_scripts`, and they run in the same frame as the other levels.
+  A Postman import stores `event[]` scripts under the same rule (sandbox mode and `workspace.edit_scripts`), never on
+  an existing service or folder.
 - Residual: secrets reach scripts only as `{{placeholders}}` (as before), and a script can still change the request
   the user sends (headers, body, variables) — that is its purpose.
 

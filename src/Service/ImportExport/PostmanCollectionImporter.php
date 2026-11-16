@@ -20,11 +20,15 @@ use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 
+use function array_filter;
+use function count;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_scalar;
 use function is_string;
 use function sprintf;
+use function trim;
 
 /**
  * Imports Postman Collection v2.0/v2.1 into services, endpoints, and variables.
@@ -38,6 +42,7 @@ final class PostmanCollectionImporter
         private readonly int $maxDepth = 8,
         private readonly ?ApiFolderRepository $folderRepository = null,
         private readonly ?FolderAccess $folderAccess = null,
+        private readonly bool $scriptsImportable = false,
     ) {
     }
 
@@ -47,6 +52,7 @@ final class PostmanCollectionImporter
         ?string $filename = null,
         bool $importVariables = true,
         ?ApiService $targetService = null,
+        bool $allowScripts = false,
     ): ImportResult {
         $data = $this->parser->parse($content, $filename);
         if (($data['info']['schema'] ?? '') === '' && !isset($data['item'])) {
@@ -65,7 +71,8 @@ final class PostmanCollectionImporter
         $items            = $data['item'] ?? [];
         // 1.14: with folders the item groups become folders (depth capped) and auth is mapped; without, 1.13's flat walk.
         $folders = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
-        $stats   = ['scripts' => 0, 'auth' => 0];
+        // 1.15: event[] scripts are kept only in sandbox mode, for a user allowed to edit scripts.
+        $stats = ['scripts' => 0, 'auth' => 0, 'imported' => 0, 'withScripts' => $this->scriptsImportable && $allowScripts];
         if ($folders instanceof FolderImportHelper && !$targetService instanceof ApiService) {
             $collectionAuth = PostmanAuthMapper::map($data['auth'] ?? null);
             if ($collectionAuth !== null) {
@@ -75,9 +82,8 @@ final class PostmanCollectionImporter
                 ++$stats['auth'];
             }
         }
-        if ($folders instanceof FolderImportHelper) {
-            $stats['scripts'] += self::scriptCount($data);
-        }
+        // Collection scripts land on the service only when this import creates it.
+        $this->applyScripts($targetService instanceof ApiService ? null : $service, $data, $stats);
         if (is_array($items)) {
             $this->walkItems(array_values($items), $service, $endpointsCreated, $folders, null, $stats);
         }
@@ -94,39 +100,85 @@ final class PostmanCollectionImporter
             if ($folders->mergedCount() > 0) {
                 $messages[] = sprintf('%d folders deeper than the allowed depth were merged into their deepest allowed parent.', $folders->mergedCount());
             }
-            if ($stats['scripts'] > 0) {
-                $messages[] = sprintf('%d scripts were not imported (stored scripts from files arrive with the sandboxed runner).', $stats['scripts']);
-            }
             if ($stats['auth'] > 0) {
                 $messages[] = sprintf('%d auth settings of an unsupported type (or on a single request) were not imported.', $stats['auth']);
             }
+        }
+
+        if ($stats['imported'] > 0) {
+            $messages[] = sprintf('%d scripts were imported (they run in the sandboxed runner).', $stats['imported']);
+        }
+        if ($stats['scripts'] > 0) {
+            $messages[] = sprintf('%d scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $stats['scripts']);
         }
 
         return $result->merge(new ImportResult(messages: $messages));
     }
 
     /**
-     * Pre-request and test scripts of a collection / folder / request (`event[]` with `script.exec`).
+     * Stores the `event[]` scripts of a collection / folder / request on $target (pre-request: `prerequest`, post:
+     * `test`), or counts them as not imported when $target is null or scripts are not imported.
      *
      * @param array<string, mixed> $node
+     * @param array{scripts: int, auth: int, imported: int, withScripts: bool} $stats
      */
-    private static function scriptCount(array $node): int
+    private function applyScripts(ApiService|ApiFolder|ApiEndpoint|null $target, array $node, array &$stats): void
     {
-        $count = 0;
-        foreach (is_array($node['event'] ?? null) ? $node['event'] : [] as $event) {
-            if (is_array($event) && is_array($event['script'] ?? null) && ($event['script']['exec'] ?? []) !== [] && ($event['script']['exec'] ?? '') !== '') {
-                ++$count;
+        $scripts = self::eventScripts($node);
+        if ($scripts === []) {
+            return;
+        }
+        if ($target === null || !$stats['withScripts']) {
+            $stats['scripts'] += count($scripts);
+
+            return;
+        }
+        foreach ($scripts as $listen => $code) {
+            if ($listen === 'prerequest') {
+                $target->setPreRequestScript($code);
+            } elseif ($listen === 'test') {
+                $target->setPostRequestScript($code);
+            } else {
+                ++$stats['scripts'];
+
+                continue;
             }
+            ++$stats['imported'];
+        }
+    }
+
+    /**
+     * Pre-request and test scripts of a collection / folder / request (`event[]` with `script.exec`, a string or a list
+     * of lines), by `listen`; scripts of another kind count under their own name. The last one of a kind wins.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, string>
+     */
+    private static function eventScripts(array $node): array
+    {
+        $scripts = [];
+        foreach (is_array($node['event'] ?? null) ? $node['event'] : [] as $event) {
+            if (!is_array($event) || !is_array($event['script'] ?? null) || ($event['disabled'] ?? false) === true) {
+                continue;
+            }
+            $exec = $event['script']['exec'] ?? null;
+            $code = is_array($exec) ? implode("\n", array_filter($exec, is_string(...))) : (is_string($exec) ? $exec : '');
+            if (trim($code) === '') {
+                continue;
+            }
+            $listen           = is_string($event['listen'] ?? null) ? $event['listen'] : 'unknown';
+            $scripts[$listen] = $code;
         }
 
-        return $count;
+        return $scripts;
     }
 
     /**
      * @param list<mixed> $items
-     * @param array{scripts: int, auth: int} $stats
+     * @param array{scripts: int, auth: int, imported: int, withScripts: bool} $stats
      */
-    private function walkItems(array $items, ApiService $service, int &$endpointsCreated, ?FolderImportHelper $folders = null, ?ApiFolder $parent = null, array &$stats = ['scripts' => 0, 'auth' => 0]): void
+    private function walkItems(array $items, ApiService $service, int &$endpointsCreated, ?FolderImportHelper $folders, ?ApiFolder $parent, array &$stats): void
     {
         foreach ($items as $item) {
             if (!is_array($item)) {
@@ -134,14 +186,15 @@ final class PostmanCollectionImporter
             }
 
             if (isset($item['item']) && is_array($item['item'])) {
-                $folder = $parent;
+                $folder       = $parent;
+                $scriptTarget = null;
                 if ($folders instanceof FolderImportHelper) {
-                    $stats['scripts'] += self::scriptCount($item);
                     $description = $item['description'] ?? null;
                     $child       = $folders->child($parent, $item['name'] ?? null, is_string($description) ? $description : null);
                     if ($child instanceof ApiFolder) {
-                        $folder = $child;
-                        $auth   = PostmanAuthMapper::map($item['auth'] ?? null);
+                        $folder       = $child;
+                        $scriptTarget = $folders->isCreated($child) ? $child : null;
+                        $auth         = PostmanAuthMapper::map($item['auth'] ?? null);
                         // RJ-M1: the imported auth only lands on a folder this import created, never on a reused one.
                         if (!$folders->isCreated($child)) {
                             if (PostmanAuthMapper::isPresent($item['auth'] ?? null)) {
@@ -155,6 +208,7 @@ final class PostmanCollectionImporter
                         }
                     }
                 }
+                $this->applyScripts($scriptTarget, $item, $stats);
                 $this->walkItems(array_values($item['item']), $service, $endpointsCreated, $folders, $folder, $stats);
 
                 continue;
@@ -165,8 +219,8 @@ final class PostmanCollectionImporter
             }
 
             $endpoint = $this->createEndpointFromRequest($service, $item);
+            $this->applyScripts($endpoint, $item, $stats);
             if ($folders instanceof FolderImportHelper) {
-                $stats['scripts'] += self::scriptCount($item);
                 $endpoint->setFolder($parent);
                 $endpoint->setSortOrder($endpointsCreated * 10);
                 $this->applyRequestAuth($endpoint, $item['request']['auth'] ?? null, $stats);
@@ -181,7 +235,7 @@ final class PostmanCollectionImporter
      * headers, but only when the credential is a `{{variable}}` placeholder (RJ-L3): a literal token would sit in a
      * plain header that every viewer and every OpenAPI export sees. Literal credentials and other types are reported.
      *
-     * @param array{scripts: int, auth: int} $stats
+     * @param array{scripts: int, auth: int, imported: int, withScripts: bool} $stats
      */
     private function applyRequestAuth(ApiEndpoint $endpoint, mixed $auth, array &$stats): void
     {

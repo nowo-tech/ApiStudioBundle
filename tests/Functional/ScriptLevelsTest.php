@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Functional;
 
+use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiScriptVariable;
+use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Service\ImportExport\PostmanCollectionImporter;
 use Nowo\ApiStudioBundle\Tests\Functional\App\TestFolderChecker;
 
 use function array_fill_keys;
@@ -187,5 +190,56 @@ final class ScriptLevelsTest extends StudioWebTestCase
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
 
         return is_array($data) ? $data : [];
+    }
+
+    public function testPostmanEventScriptsLandOnTheirLevel(): void
+    {
+        $event      = static fn (string $listen, string|array $exec, bool $disabled = false): array => ['listen' => $listen, 'script' => ['exec' => $exec], 'disabled' => $disabled];
+        $collection = [
+            'info'  => ['name' => 'Scripted', 'schema' => 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'],
+            'event' => [$event('prerequest', ["pm.environment.set('a', 1);", 'pm.console.log(1);']), $event('test', 'pm.test("ok", () => {});')],
+            'item'  => [
+                ['name' => 'Users', 'event' => [$event('test', 'folder post'), $event('prerequest', 'ignored', true)], 'item' => [
+                    ['name' => 'List', 'event' => [$event('prerequest', 'request pre'), $event('prerequest', [' ']), $event('sync', 'odd')], 'request' => ['method' => 'GET', 'url' => 'https://example.org/users']],
+                ]],
+            ],
+        ];
+        $workspace = $this->entityManager()->getRepository(ApiWorkspace::class)->find($this->ids['workspace']);
+        self::assertInstanceOf(ApiWorkspace::class, $workspace);
+        /** @var PostmanCollectionImporter $importer */
+        $importer = self::getContainer()->get(PostmanCollectionImporter::class);
+
+        $refused = $importer->import($workspace, (string) json_encode($collection), 'a.json', false);
+        self::assertContains('5 scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $refused->messages);
+        $this->entityManager()->clear();
+
+        $workspace = $this->entityManager()->getRepository(ApiWorkspace::class)->find($this->ids['workspace']);
+        self::assertInstanceOf(ApiWorkspace::class, $workspace);
+        $collection['info']['name'] = 'Scripted 2';
+        $result                     = $importer->import($workspace, (string) json_encode($collection), 'b.json', false, null, true);
+        $this->entityManager()->flush();
+        self::assertContains('4 scripts were imported (they run in the sandboxed runner).', $result->messages);
+        self::assertContains('1 scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $result->messages, 'the "sync" event');
+
+        $this->entityManager()->clear();
+        $service = $this->entityManager()->getRepository(ApiService::class)->findOneBy(['name' => 'Scripted 2']);
+        self::assertInstanceOf(ApiService::class, $service);
+        self::assertSame("pm.environment.set('a', 1);\npm.console.log(1);", $service->getPreRequestScript());
+        self::assertSame('pm.test("ok", () => {});', $service->getPostRequestScript());
+        $folder = $this->entityManager()->getRepository(ApiFolder::class)->findOneBy(['service' => $service, 'name' => 'Users']);
+        self::assertInstanceOf(ApiFolder::class, $folder);
+        self::assertNull($folder->getPreRequestScript(), 'disabled event');
+        self::assertSame('folder post', $folder->getPostRequestScript());
+        $endpoint = $this->entityManager()->getRepository(ApiEndpoint::class)->findOneBy(['service' => $service]);
+        self::assertSame('request pre', $endpoint?->getPreRequestScript());
+
+        // Into an existing service: the collection scripts never replace the service's own.
+        $existing = $this->entityManager()->getRepository(ApiService::class)->find($this->ids['service']);
+        self::assertInstanceOf(ApiService::class, $existing);
+        $before = $existing->getPreRequestScript();
+        $into   = $importer->import($existing->getWorkspace() ?? $workspace, (string) json_encode($collection), 'c.json', false, $existing, true);
+        self::assertContains('2 scripts were imported (they run in the sandboxed runner).', $into->messages);
+        self::assertContains('3 scripts were not imported (they need scripts.mode: sandbox, the right to edit scripts and, for folder scripts, folders created by this import).', $into->messages);
+        self::assertSame($before, $existing->getPreRequestScript());
     }
 }

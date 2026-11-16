@@ -184,6 +184,7 @@ services:
         arguments:
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
             $maxDepth: '%nowo_api_studio.folders.max_depth%'
+            $scriptsImportable: '%nowo_api_studio.scripts.levels%'
 
     Nowo\ApiStudioBundle\Service\ImportExport\OpenApiImporter:
         arguments:
