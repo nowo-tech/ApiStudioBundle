@@ -175,11 +175,12 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
   them no lower than the people you would trust with the values; `workspace.export_variables` hands the values out.
 - **Per-workspace access** (1.11): with `security.permission_checker` a host restricts who may view, run, edit, import or export each workspace (variable exports hold secret values in clear: `workspace.export_variables`), and with `tenancy` each tenant only sees its own workspaces (404 otherwise). Without them:
 - **Secrets are readable by every Api Studio user** (no per-workspace ACL): through exports (clear values, by design), by sending a request to a host they control, or by a browser script reading `pm.environment` after a request (scripts get the placeholder, not the value, but can exfiltrate what the upstream answers). Encryption protects the database at rest, not the UI.
-- Browser scripts (`new Function`) run unsandboxed in the Api Studio origin (see above). Since 1.13.2 a stored script
-  runs only after the sending user approved its code in the confirmation dialog (`scripts.confirm_stored`), but an
-  approved script still runs with that user's session: the confirmation relies on the user reading the code. An
-  isolated runner (worker / sandboxed iframe without `'unsafe-eval'` on the page, and a server-side runtime) is planned
-  in roadmap spec 003; until then, use `scripts.mode: disabled` where scripts are not needed.
+- In `scripts.mode: inline` (the 1.x default, deprecated since 1.15) browser scripts (`new Function`) run unsandboxed
+  in the Api Studio origin (see above). Since 1.13.2 a stored script runs only after the sending user approved its code
+  in the confirmation dialog (`scripts.confirm_stored`), but an approved script still runs with that user's session:
+  the confirmation relies on the user reading the code. Since 1.15 `scripts.mode: sandbox` runs every script in the
+  opaque-origin frame instead (and `scripts.server_runner` outside the browser); use it, or `scripts.mode: disabled`
+  where scripts are not needed.
 
 ## AI security audit (REQ-SEC-004)
 
@@ -189,7 +190,7 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 | Method | Independent Claude Code static review + PoCs (Symfony Dotenv parse, env-placeholder container build, YAML alias expansion), fixes in `fix/bw-audit` |
 | Grade | **Pass (conditional) / Medium** at `06a70f5`; with the BW fixes **Pass (good) / Low** expected |
 | Fixed | M1 `.env` export command execution / line injection (affects 1.0.0–1.9.2, GHSA); L1 secrets sent to the browser; L2 unbounded responses; L3 `allow_unauthenticated` env placeholder / prod; L4 cipher-prefix values stored in clear and 500 on load; L5 SOAP credentials to another origin; L6 response-side history masking; I2 server-side typed name for workspace deletes; I4 VARCHAR overflows; I5 YAML alias bomb; I8 UiKit / FormKit floors |
-| Residual | Secrets readable by every Api Studio user (exports, scripts, requests to own hosts); unsandboxed browser scripts (I1; stored scripts need the sending user's approval since 1.13.2, `scripts.confirm_stored`); empty allowlist outside prod; no history retention command (host owns TTL); demo e2e `sharp` dev dependency advisory (I7, dev only) |
+| Residual | Secrets readable by every Api Studio user (exports, scripts, requests to own hosts); unsandboxed browser scripts in `inline` mode (I1; stored scripts need the sending user's approval since 1.13.2, `scripts.confirm_stored`; `sandbox` mode since 1.15); empty allowlist outside prod; no history retention command (host owns TTL); demo e2e `sharp` dev dependency advisory (I7, dev only) |
 
 ## Release security checklist (12.4.1)
 

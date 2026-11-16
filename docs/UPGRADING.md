@@ -84,7 +84,8 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
-Target 1.15.0 (sandboxed scripts, opt-in): nothing changes with the default `scripts.mode: inline`. To switch:
+Target 1.15.0 (sandboxed scripts, opt-in): nothing changes with the default `scripts.mode: inline`, which is
+deprecated (`sandbox` becomes the default in 2.0). To switch:
 
 ```yaml
 nowo_api_studio:

@@ -37,7 +37,7 @@ nowo_api_studio:
         enabled: false           # 1.14: nested folders (migration)
         max_depth: 8
     scripts:
-        mode: inline             # inline | sandbox (1.15) | disabled
+        mode: inline             # inline (deprecated in 1.15) | sandbox (1.15) | disabled
         limits:
             time_ms: 2000        # 1.15: wall time per phase (sandbox frame and server runner)
             memory_mb: 64        # 1.15: server runner sidecar memory ({memory_mb} of the command)

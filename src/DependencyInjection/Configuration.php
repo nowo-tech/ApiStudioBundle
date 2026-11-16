@@ -206,7 +206,7 @@ final class Configuration implements ConfigurationInterface
                         ->enumNode('mode')
                             ->values(ApiStudioTwigExtension::SCRIPTS_MODES)
                             ->defaultValue(ApiStudioTwigExtension::SCRIPTS_INLINE)
-                            ->info('Pre/post request scripts of the console. inline (default) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src \'unsafe-eval\'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src \'self\' and no \'unsafe-eval\'); disabled = no script tab, no script code sent to the browser (stored scripts are kept).')
+                            ->info('Pre/post request scripts of the console. inline (default; deprecated since 1.15, sandbox becomes the default in 2.0) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src \'unsafe-eval\'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src \'self\' and no \'unsafe-eval\'); disabled = no script tab, no script code sent to the browser (stored scripts are kept).')
                         ->end()
                         ->arrayNode('limits')
                             ->addDefaultsIfNotSet()

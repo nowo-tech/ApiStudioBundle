@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.14.0:
+Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
 
 ### Added
 
@@ -117,6 +117,11 @@ Target 1.15.0 (spec 003, sandboxed script runner — first slice), on top of 1.1
   service the import creates), the folders (only folders the import creates) and the endpoints. Disabled and empty
   events are skipped; the import reports how many scripts were imported and how many were not (other modes, missing
   right, existing service or folder, other event kinds).
+
+### Deprecated
+
+- `scripts.mode: inline` (still the 1.x default): scripts run unsandboxed in the page with the sender's session.
+  `sandbox` becomes the default in 2.0 (spec 003 FR-SCR-001); set `scripts.mode` explicitly to keep a mode.
 
 ### Security
 
