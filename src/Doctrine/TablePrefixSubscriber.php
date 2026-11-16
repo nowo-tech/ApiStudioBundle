@@ -18,7 +18,6 @@ use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 
-use function in_array;
 use function is_array;
 use function is_string;
 
@@ -157,14 +156,12 @@ final class TablePrefixSubscriber
 
     /**
      * Binary NO PAD collation of the connection's platform, or null when it is not MySQL / MariaDB. The platform is
-     * read from the configured server version when there is one; without it, from the driver name (MySQL 8 assumed),
-     * so building metadata never needs a database connection.
+     * read from the configured server version (`serverVersion`, required for the collation), so building metadata
+     * never needs a database connection.
      */
     public static function binaryCollation(Connection $connection): ?string
     {
         $params  = $connection->getParams();
-        $driver  = is_string($params['driver'] ?? null) ? $params['driver'] : '';
-        $mysql   = in_array($driver, ['pdo_mysql', 'mysqli'], true);
         $version = $params['serverVersion'] ?? $params['primary']['serverVersion'] ?? null;
         if (is_string($version) && $version !== '') {
             // With a server version DBAL builds the platform without connecting.
@@ -176,7 +173,9 @@ final class TablePrefixSubscriber
             return $platform instanceof AbstractMySQLPlatform ? 'utf8mb4_0900_bin' : null;
         }
 
-        return $mysql ? 'utf8mb4_0900_bin' : null;
+        // RJ-L7: without a server version MySQL and MariaDB cannot be told apart without connecting, and each refuses
+        // the other's collation name: emit none (the PHP side compares creator ids with === anyway).
+        return null;
     }
 
     /**

@@ -173,7 +173,12 @@ final class ApiExecuteController extends AbstractController
         // which credential it carries (that would send the stored secrets to a host of their choice). Values the
         // console sends unchanged (the stored ones) are fine.
         $service = $endpoint->getService();
-        if ($service !== null && !$this->authorization()->can(ApiStudioAction::WorkspaceEdit, $service->getWorkspace())) {
+        // 1.14 (audit RJ-M4): inside a folder, editing means editing that folder too (a host folder checker may make it
+        // read-only for a workspace editor), so its stored credentials cannot be redirected either.
+        $canEdit = $service !== null
+            && $this->authorization()->can(ApiStudioAction::WorkspaceEdit, $service->getWorkspace())
+            && (!$this->folderAccess instanceof FolderAccess || $this->folderAccess->canEndpoint(ApiStudioAction::WorkspaceEdit, $endpoint));
+        if ($service !== null && !$canEdit) {
             $refused = $this->refusedOverrides($endpoint, $service, $environment, $variableOverrides);
             if ($refused !== null) {
                 $this->logRefusedOverride($endpoint, $environment, $refused);
@@ -211,7 +216,7 @@ final class ApiExecuteController extends AbstractController
 
             // QE-B-M2: host secrets stay where an editor put them. A runner without workspace.edit may not use one in a
             // body, header or query template of their own (an echo in an unmasked form would hand the value out).
-            if ($hostKeys !== [] && !$this->authorization()->can(ApiStudioAction::WorkspaceEdit, $workspace)) {
+            if ($hostKeys !== [] && !$canEdit) {
                 $placed = self::hostSecretsInConsoleTemplates($endpoint, $service, $hostKeys, $overrideBody, $overrideHeaders, $overrideQueryParams);
                 if ($placed !== []) {
                     $this->logRefusedOverride($endpoint, $environment, $placed);

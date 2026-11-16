@@ -17,6 +17,7 @@ use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ImportResult;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\VariableSyntax;
 
 use function in_array;
@@ -36,6 +37,7 @@ final class PostmanCollectionImporter
         private readonly bool $foldersEnabled = false,
         private readonly int $maxDepth = 8,
         private readonly ?ApiFolderRepository $folderRepository = null,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -62,7 +64,7 @@ final class PostmanCollectionImporter
         $endpointsCreated = 0;
         $items            = $data['item'] ?? [];
         // 1.14: with folders the item groups become folders (depth capped) and auth is mapped; without, 1.13's flat walk.
-        $folders = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth) : null;
+        $folders = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
         $stats   = ['scripts' => 0, 'auth' => 0];
         if ($folders instanceof FolderImportHelper && !$targetService instanceof ApiService) {
             $collectionAuth = PostmanAuthMapper::map($data['auth'] ?? null);
@@ -136,11 +138,16 @@ final class PostmanCollectionImporter
                 if ($folders instanceof FolderImportHelper) {
                     $stats['scripts'] += self::scriptCount($item);
                     $description = $item['description'] ?? null;
-                    $child       = $folders->child($parent, (string) ($item['name'] ?? 'Folder'), is_string($description) ? $description : null);
+                    $child       = $folders->child($parent, $item['name'] ?? null, is_string($description) ? $description : null);
                     if ($child instanceof ApiFolder) {
                         $folder = $child;
                         $auth   = PostmanAuthMapper::map($item['auth'] ?? null);
-                        if ($auth !== null) {
+                        // RJ-M1: the imported auth only lands on a folder this import created, never on a reused one.
+                        if (!$folders->isCreated($child)) {
+                            if (PostmanAuthMapper::isPresent($item['auth'] ?? null)) {
+                                ++$stats['auth'];
+                            }
+                        } elseif ($auth !== null) {
                             $folder->setAuthType($auth['type']);
                             $folder->setAuthConfig($auth['config']);
                         } elseif (PostmanAuthMapper::isPresent($item['auth'] ?? null)) {
@@ -171,7 +178,8 @@ final class PostmanCollectionImporter
 
     /**
      * Request-level auth (1.14): endpoints have no auth of their own, so bearer and header API keys become endpoint
-     * headers; anything else is reported.
+     * headers, but only when the credential is a `{{variable}}` placeholder (RJ-L3): a literal token would sit in a
+     * plain header that every viewer and every OpenAPI export sees. Literal credentials and other types are reported.
      *
      * @param array{scripts: int, auth: int} $stats
      */
@@ -183,9 +191,9 @@ final class PostmanCollectionImporter
 
         $mapped  = PostmanAuthMapper::map($auth);
         $headers = $endpoint->getHeaders();
-        if ($mapped !== null && $mapped['type'] === AuthType::Bearer && $mapped['config']['token'] !== '') {
+        if ($mapped !== null && $mapped['type'] === AuthType::Bearer && VariableSyntax::isPlaceholder($mapped['config']['token'])) {
             $headers['Authorization'] = 'Bearer ' . $mapped['config']['token'];
-        } elseif ($mapped !== null && $mapped['type'] === AuthType::ApiKey && $mapped['config']['value'] !== '') {
+        } elseif ($mapped !== null && $mapped['type'] === AuthType::ApiKey && VariableSyntax::isPlaceholder($mapped['config']['value'])) {
             $headers[$mapped['config']['header']] = $mapped['config']['value'];
         } else {
             ++$stats['auth'];
@@ -199,7 +207,7 @@ final class PostmanCollectionImporter
     private function createEndpointFromRequest(ApiService $service, array $item): ApiEndpoint
     {
         $request       = $item['request'];
-        $name          = (string) ($item['name'] ?? 'Request');
+        $name          = FolderImportHelper::cleanName($item['name'] ?? null, 'Request');
         $existingSlugs = array_map(static fn (ApiEndpoint $e): string => $e->getSlug(), $service->getEndpoints()->toArray());
         $slug          = SlugHelper::unique($name, $existingSlugs);
 

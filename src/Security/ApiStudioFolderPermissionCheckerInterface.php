@@ -16,6 +16,12 @@ namespace Nowo\ApiStudioBundle\Security;
  * - Unknown actions must be denied, as for the workspace checker.
  *
  * Decisions are memoised per request.
+ *
+ * What a folder restriction does not cover (audit RJ-M4): the workspace's environments and variables are shared by all
+ * its folders, and a workspace editor can read and change them. Running an endpoint of a read-only folder with changed
+ * URL / auth variables or host secrets in their own templates is refused (it needs `workspace.edit` on the workspace
+ * AND on the folder), but credentials typed literally in a folder's auth configuration are readable by whoever may
+ * edit that folder. Keep secrets in secret variables or host secrets, not in folder auth configuration.
  */
 interface ApiStudioFolderPermissionCheckerInterface
 {

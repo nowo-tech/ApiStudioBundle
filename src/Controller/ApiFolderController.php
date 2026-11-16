@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\DBAL\Exception\RetryableException;
 use DomainException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
@@ -54,7 +54,6 @@ final class ApiFolderController extends AbstractController
         private readonly ApiServiceRepository $serviceRepository,
         private readonly ApiFolderRepository $folderRepository,
         private readonly ApiEndpointRepository $endpointRepository,
-        private readonly EntityManagerInterface $entityManager,
         private readonly FolderTree $folderTree,
         private readonly FolderAccess $folderAccess,
         private readonly bool $foldersEnabled = false,
@@ -71,15 +70,11 @@ final class ApiFolderController extends AbstractController
         if ($parentId > 0) {
             $folder->setParent($this->requireFolder($parentId, $context['service'], ApiStudioAction::WorkspaceEdit));
         }
-        $folder->setSortOrder(FolderTree::nextSortOrder($this->folderRepository->children($context['service'], $folder->getParent())));
-
         $form = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], null)]);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid() && $this->placeable($form, $folder)) {
-            $folder->setCreatedBy($this->currentActorId());
-            $this->entityManager->persist($folder);
-            $this->entityManager->flush();
+        $folder->setCreatedBy($this->currentActorId());
+        if ($form->isSubmitted() && $form->isValid() && $this->saved($form, $folder)) {
             $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $folder->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
             $this->flash('success', 'flash.created');
 
@@ -99,8 +94,7 @@ final class ApiFolderController extends AbstractController
         $form    = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], $folder)]);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid() && $this->placeable($form, $folder)) {
-            $this->entityManager->flush();
+        if ($form->isSubmitted() && $form->isValid() && $this->saved($form, $folder)) {
             $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
             $this->flash('success', 'flash.updated');
 
@@ -131,9 +125,21 @@ final class ApiFolderController extends AbstractController
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
 
-        $this->folderTree->deleteFolder($folder);
-        $this->entityManager->clear();
+        try {
+            $moved = $this->folderTree->deleteFolder($folder);
+        } catch (RetryableException) {
+            $this->flash('error', 'folder.error.busy');
+
+            return $this->redirectToRoute('nowo_api_studio_service_show', ['workspaceId' => $workspaceId, 'id' => $serviceId]);
+        }
         $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
+        // RJ-L6: what the delete moved up is reported as moved.
+        foreach ($moved['folders'] as $movedFolder) {
+            $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $movedFolder, $workspaceId, ApiStudioResourceChangedEvent::ACTION_MOVED);
+        }
+        foreach ($moved['endpoints'] as $movedEndpoint) {
+            $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $movedEndpoint, $workspaceId, ApiStudioResourceChangedEvent::ACTION_MOVED);
+        }
         $this->flash('success', 'flash.deleted');
 
         return $this->redirectToRoute('nowo_api_studio_service_show', ['workspaceId' => $workspaceId, 'id' => $serviceId]);
@@ -172,29 +178,36 @@ final class ApiFolderController extends AbstractController
             }
         } catch (DomainException $e) {
             return new JsonResponse(['error' => $this->translate($e->getMessage()), 'code' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (RetryableException) {
+            // RJ-L1: lock timeout or deadlock under contention: nothing was written, the client may retry.
+            return new JsonResponse(['error' => $this->translate('folder.error.busy'), 'code' => 'folder.error.busy'], Response::HTTP_CONFLICT, ['Retry-After' => '1']);
         }
 
-        $this->entityManager->clear();
         $this->resourceChanged($type === 'folder' ? ApiStudioResourceChangedEvent::TYPE_FOLDER : ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_MOVED);
 
         return new JsonResponse(['ok' => true]);
     }
 
     /**
-     * The folder's new place is valid (same service, no cycle, depth); otherwise the form gets the error.
+     * Saves the folder through {@see FolderTree::saveFolder()} (service lock, rules checked on current rows); a broken
+     * rule or a write conflict becomes a form error.
      *
      * @param FormInterface<ApiFolder> $form
      */
-    private function placeable(FormInterface $form, ApiFolder $folder): bool
+    private function saved(FormInterface $form, ApiFolder $folder): bool
     {
         try {
             $parent = $folder->getParent();
             if ($parent instanceof ApiFolder) {
                 $this->folderAccess->requireFolder($parent, ApiStudioAction::WorkspaceEdit);
             }
-            $this->folderTree->assertCanPlaceFolder($folder, $parent);
+            $this->folderTree->saveFolder($folder);
         } catch (DomainException $e) {
             $form->get('parent')->addError(new FormError($this->translate($e->getMessage())));
+
+            return false;
+        } catch (RetryableException) {
+            $form->addError(new FormError($this->translate('folder.error.busy')));
 
             return false;
         }

@@ -29,6 +29,7 @@ This file proves that **every production source artifact** under `src/` is refer
 | --- | --- | --- |
 | `Doctrine/TablePrefixSubscriber.php` | Configurable table prefix on ORM metadata | FR-ORM-002 |
 | `Doctrine/SecretVariableEncryptionListener.php` | Encrypts secret variable values before flush, decrypts after load/flush | FR-SEC-002 |
+| `Doctrine/FolderParentDetachListener.php` | Detaches folder parents before service / workspace deletes (1.14, RJ-M2) | FR-FOLD-003 (spec 002) |
 
 ## Entities (`src/Entity/`)
 

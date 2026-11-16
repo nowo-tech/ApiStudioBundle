@@ -14,6 +14,7 @@ use Nowo\ApiStudioBundle\Enum\ApiProtocol;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Model\ImportResult;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Security\FolderAccess;
 
 use function in_array;
 use function is_array;
@@ -38,6 +39,7 @@ final class OpenApiImporter
         private readonly bool $foldersEnabled = false,
         private readonly int $maxDepth = 8,
         private readonly ?ApiFolderRepository $folderRepository = null,
+        private readonly ?FolderAccess $folderAccess = null,
     ) {
     }
 
@@ -71,7 +73,7 @@ final class OpenApiImporter
         );
 
         $endpointsCreated = 0;
-        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth) : null;
+        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
         $tags             = self::tagDescriptions($data);
         foreach ($data['paths'] ?? [] as $path => $operations) {
             if (!is_string($path) || !is_array($operations)) {
@@ -120,7 +122,7 @@ final class OpenApiImporter
         );
 
         $endpointsCreated = 0;
-        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth) : null;
+        $folders          = $this->foldersEnabled ? new FolderImportHelper($service, $this->entityManager, $this->folderRepository, $this->maxDepth, $this->folderAccess) : null;
         $tags             = self::tagDescriptions($data);
         foreach ($data['paths'] ?? [] as $path => $operations) {
             if (!is_string($path) || !is_array($operations)) {
@@ -198,7 +200,7 @@ final class OpenApiImporter
     /** @param array<string, mixed> $operation */
     private function createEndpoint(ApiService $service, string $method, string $path, array $operation): ApiEndpoint
     {
-        $name          = (string) ($operation['summary'] ?? $operation['operationId'] ?? strtoupper($method) . ' ' . $path);
+        $name          = FolderImportHelper::cleanName($operation['summary'] ?? $operation['operationId'] ?? null, mb_substr(strtoupper($method) . ' ' . $path, 0, 128));
         $existingSlugs = array_map(static fn (ApiEndpoint $e): string => $e->getSlug(), $service->getEndpoints()->toArray());
         $slug          = SlugHelper::unique($name, $existingSlugs);
 

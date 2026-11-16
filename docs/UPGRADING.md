@@ -117,16 +117,25 @@ CREATE TABLE api_studio_folder (
     PRIMARY KEY (id)
 );
 ALTER TABLE api_studio_folder ADD CONSTRAINT FK_folder_service FOREIGN KEY (service_id) REFERENCES api_studio_service (id) ON DELETE CASCADE;
-ALTER TABLE api_studio_folder ADD CONSTRAINT FK_folder_parent FOREIGN KEY (parent_id) REFERENCES api_studio_folder (id) ON DELETE CASCADE;
+ALTER TABLE api_studio_folder ADD CONSTRAINT FK_folder_parent FOREIGN KEY (parent_id) REFERENCES api_studio_folder (id);
 ALTER TABLE api_studio_endpoint ADD folder_id INT DEFAULT NULL;
 ALTER TABLE api_studio_endpoint ADD CONSTRAINT FK_endpoint_folder FOREIGN KEY (folder_id) REFERENCES api_studio_folder (id) ON DELETE SET NULL;
 CREATE INDEX api_studio_idx_endpoint_folder ON api_studio_endpoint (folder_id);
 ```
 
 Prefer the generated migration (constraint names differ); the collation of `created_by` is emitted by the mapping when
-the connection's `serverVersion` is set (without it, MySQL 8 is assumed).
+the connection's `serverVersion` is set (without it no collation is emitted, since MySQL and MariaDB cannot be told
+apart without connecting; set `serverVersion` or add the collation in your migration).
 
 Notes:
+- `folder.parent_id` has no ON DELETE action: the database never deletes a folder subtree. Service and workspace
+  deletes through Doctrine detach the folder parents first (`FolderParentDetachListener`); a host that deletes
+  services or workspaces with plain SQL must run `UPDATE <prefix>folder SET parent_id = NULL WHERE service_id IN (…)`
+  first.
+- Template overrides of `_endpoint_expandable_list.html.twig` / `_service_collection_list.html.twig` (and any host
+  list of `service.endpoints`) must filter with `nowo_api_studio_visible_endpoints(endpoints)` when a host folder
+  checker hides folders; otherwise those overrides list hidden endpoints (their pages still answer 404).
+- Tree moves answer 409 with `Retry-After: 1` when the database reports a lock timeout or deadlock.
 - With folders on, header names merge case-insensitively for endpoints inside a folder (the deepest level wins);
   endpoints at the service root keep the 1.13 merge.
 - Template overrides: `_sidebar_tree.html.twig` and `_sidebar_endpoints.html.twig` render folders and the drag & drop

@@ -7,9 +7,11 @@ namespace Nowo\ApiStudioBundle\Entity;
 use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Nowo\ApiStudioBundle\Doctrine\FolderParentDetachListener;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Service\FolderTree;
 use Symfony\Component\Validator\Constraints as Assert;
 
 use function count;
@@ -38,8 +40,13 @@ class ApiFolder
     #[ORM\JoinColumn(name: 'service_id', nullable: false, onDelete: 'CASCADE')]
     private ?ApiService $service = null;
 
+    /**
+     * No ON DELETE action (RESTRICT / NO ACTION, audit RJ-M2): a folder row is never removed with its subtree by the
+     * database. Folder deletes move the content up first ({@see FolderTree}); service
+     * and workspace deletes detach the parents first ({@see FolderParentDetachListener}).
+     */
     #[ORM\ManyToOne(targetEntity: self::class)]
-    #[ORM\JoinColumn(name: 'parent_id', nullable: true, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'parent_id', nullable: true)]
     private ?ApiFolder $parent = null;
 
     #[ORM\Column(type: Types::STRING, length: 128)]

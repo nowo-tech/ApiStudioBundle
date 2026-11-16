@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Functional;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
@@ -238,6 +240,106 @@ final class FoldersTest extends StudioWebTestCase
         self::assertNotNull($this->entityManager()->getRepository(ApiFolder::class)->findOneBy(['name' => 'Orders']));
     }
 
+    public function testImportNeverReusesRestrictedFoldersNorOverwritesAuth(): void
+    {
+        $hidden = $this->createFolder('Hidden');
+        $locked = $this->createFolder('Locked');
+        $authed = $this->createFolder('Authed');
+        $em     = $this->entityManager();
+        $em->getRepository(ApiFolder::class)->find($authed)?->setAuthType(AuthType::Basic)->setAuthConfig(['username' => 'u', 'password' => 'p'])->setDescription('Hand made');
+        $em->flush();
+
+        /** @var TestFolderChecker $checker */
+        $checker           = self::getContainer()->get(TestFolderChecker::class);
+        $checker->hidden   = [$hidden];
+        $checker->readOnly = [$locked];
+
+        $bearer     = ['type' => 'bearer', 'bearer' => [['key' => 'token', 'value' => '{{t}}']]];
+        $collection = [
+            'info' => ['name' => 'Again', 'schema' => 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'],
+            'item' => [
+                ['name' => 'Hidden', 'auth' => $bearer, 'item' => [['name' => 'Into hidden', 'request' => ['method' => 'GET', 'url' => '/h']]]],
+                ['name' => 'Locked', 'auth' => $bearer, 'item' => [['name' => 'Into locked', 'request' => ['method' => 'GET', 'url' => '/l']]]],
+                ['name' => 'Authed', 'description' => 'Imported', 'auth' => $bearer, 'item' => [['name' => 'Into authed', 'request' => ['method' => 'GET', 'url' => '/a']]]],
+                ['name' => "Evil\u{202E}\u{0000}name", 'item' => [['name' => ['not', 'a', 'string'], 'request' => ['method' => 'GET', 'url' => '/e']]]],
+                ['name' => ['array'], 'item' => []],
+            ],
+        ];
+        $service = $em->getRepository(ApiService::class)->find($this->ids['service']);
+        self::assertInstanceOf(ApiService::class, $service);
+        /** @var PostmanCollectionImporter $importer */
+        $importer = self::getContainer()->get(PostmanCollectionImporter::class);
+        $importer->import($service->getWorkspace() ?? self::fail('workspace'), (string) json_encode($collection), null, false, $service);
+        $em->flush();
+        $em->clear();
+
+        $endpoints  = $em->getRepository(ApiEndpoint::class);
+        $intoHidden = $endpoints->findOneBy(['name' => 'Into hidden'])?->getFolder();
+        $intoLocked = $endpoints->findOneBy(['name' => 'Into locked'])?->getFolder();
+        self::assertNotSame($hidden, $intoHidden?->getId(), 'a hidden folder is never reused');
+        self::assertSame('Hidden', $intoHidden?->getName());
+        self::assertSame(AuthType::Bearer, $intoHidden->getAuthType(), 'auth lands on the folder the import created');
+        self::assertNotSame($locked, $intoLocked?->getId(), 'a read-only folder is never reused');
+
+        $reused = $endpoints->findOneBy(['name' => 'Into authed'])?->getFolder();
+        self::assertSame($authed, $reused?->getId());
+        self::assertSame(AuthType::Basic, $reused->getAuthType(), 'auth of a reused folder is never overwritten');
+        self::assertSame('Hand made', $reused->getDescription());
+
+        $evil = $endpoints->findOneBy(['path' => '/e']);
+        self::assertSame('Request', $evil?->getName());
+        self::assertSame('Evilname', $evil->getFolder()?->getName());
+        self::assertNotNull($em->getRepository(ApiFolder::class)->findOneBy(['name' => 'Folder']));
+    }
+
+    public function testMoveAndDeleteNeverClearTheEntityManager(): void
+    {
+        $top   = $this->createFolder('Users');
+        $child = $this->createFolder('Admin', $top);
+        $this->client->disableReboot();
+        $token = $this->moveToken();
+        $em    = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $clears = new class {
+            public int $count = 0;
+
+            public function onClear(): void
+            {
+                ++$this->count;
+            }
+        };
+        $em->getEventManager()->addEventListener(Events::onClear, $clears);
+
+        // Baseline: the test client resets the services (and so the manager) between requests by itself.
+        $this->client->request('GET', $this->serviceUrl());
+        $baseline = $clears->count;
+
+        $this->move(['type' => 'endpoint', 'id' => $this->ids['endpoint'], 'parent' => $top, 'before' => null], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame(2 * $baseline, $clears->count, 'the move controller does not clear the host entity manager (RJ-M3)');
+
+        $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $child)));
+        $before  = $clears->count;
+        $this->client->submit($crawler->filter('dialog[data-nowo-ui-confirm] form[action$="/delete"]')->form());
+        self::assertResponseRedirects($this->serviceUrl());
+        self::assertSame($before + $baseline, $clears->count, 'the delete controller does not clear the host entity manager (RJ-M3)');
+    }
+
+    public function testDeletingAServiceWithNestedFoldersDetachesThemFirst(): void
+    {
+        $top = $this->createFolder('Users');
+        $this->createFolder('Admin', $top);
+        $em      = $this->entityManager();
+        $service = $em->getRepository(ApiService::class)->find($this->ids['service']);
+        self::assertInstanceOf(ApiService::class, $service);
+        $em->getConnection()->executeStatement('PRAGMA foreign_keys = ON');
+
+        $em->remove($service);
+        $em->flush();
+
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM api_studio_folder'));
+    }
+
     public function testKeptAliveKernelNeverReusesFolderDecisionsOfAnotherRequest(): void
     {
         $top = $this->createFolder('Partners');
@@ -274,7 +376,8 @@ final class FoldersTest extends StudioWebTestCase
                         ['name' => 'Deep call', 'request' => ['method' => 'GET', 'url' => '{{base_url}}/deep']],
                     ]]]]]],
                 ]],
-                ['name' => 'Ping', 'request' => ['method' => 'GET', 'url' => '{{base_url}}/ping', 'auth' => ['type' => 'bearer', 'bearer' => [['key' => 'token', 'value' => 'abc']]]]],
+                ['name' => 'Ping', 'request' => ['method' => 'GET', 'url' => '{{base_url}}/ping', 'auth' => ['type' => 'bearer', 'bearer' => [['key' => 'token', 'value' => '{{ping_token}}']]]]],
+                ['name' => 'Literal', 'request' => ['method' => 'GET', 'url' => '{{base_url}}/literal', 'auth' => ['type' => 'bearer', 'bearer' => [['key' => 'token', 'value' => 'REDACTED-TEST']]]]],
             ],
         ];
         $workspace = $this->entityManager()->getRepository(ApiService::class)->find($this->ids['service'])?->getWorkspace();
@@ -284,7 +387,8 @@ final class FoldersTest extends StudioWebTestCase
         $result   = $importer->import($workspace, (string) json_encode($collection), 'shop.postman_collection.json', false);
         $this->entityManager()->flush();
 
-        self::assertSame(3, $result->endpointsCreated);
+        self::assertSame(4, $result->endpointsCreated);
+        self::assertContains('1 auth settings of an unsupported type (or on a single request) were not imported.', $result->messages, 'the literal token is not imported');
         self::assertContains('1 folders deeper than the allowed depth were merged into their deepest allowed parent.', $result->messages);
         self::assertContains('1 scripts were not imported (stored scripts from files arrive with the sandboxed runner).', $result->messages);
 
@@ -299,7 +403,9 @@ final class FoldersTest extends StudioWebTestCase
         self::assertSame('L3', $deep?->getFolder()?->getName(), 'L4 is merged into L3 (max depth 3)');
         $ping = $em->getRepository(ApiEndpoint::class)->findOneBy(['service' => $service, 'name' => 'Ping']);
         self::assertNull($ping?->getFolder());
-        self::assertSame('Bearer abc', $ping?->getHeaders()['Authorization'] ?? null);
+        self::assertSame('Bearer {{ping_token}}', $ping?->getHeaders()['Authorization'] ?? null);
+        $literal = $em->getRepository(ApiEndpoint::class)->findOneBy(['service' => $service, 'name' => 'Literal']);
+        self::assertArrayNotHasKey('Authorization', $literal?->getHeaders() ?? []);
     }
 
     public function testOpenApiTagsAndFolderExtensionRoundTrip(): void

@@ -58,6 +58,26 @@ final class FolderMappingTest extends TestCase
         self::assertMatchesRegularExpression('/created_by VARCHAR\(128\)[^,]*COLLATE `?utf8mb4_0900_bin`?/', $sql);
     }
 
+    public function testSchemaDiffIsIdempotentWithFoldersOn(): void
+    {
+        $em   = $this->entityManager(true, ['driver' => 'pdo_sqlite', 'memory' => true]);
+        $tool = new SchemaTool($em);
+        $tool->createSchema($em->getMetadataFactory()->getAllMetadata());
+
+        self::assertSame([], $tool->getUpdateSchemaSql($em->getMetadataFactory()->getAllMetadata()));
+    }
+
+    public function testMysqlCollationIsAColumnPlatformOptionLikeIntrospection(): void
+    {
+        // Introspection reports a column collation as the `collation` platform option: the comparator then sees no
+        // difference for the mapped column, so migrations:diff stays empty after the first migration.
+        $em     = $this->entityManager(true, ['driver' => 'pdo_mysql', 'serverVersion' => '8.4.0', 'host' => 'localhost.invalid']);
+        $schema = (new SchemaTool($em))->getSchemaFromMetadata($em->getMetadataFactory()->getAllMetadata());
+        $column = $schema->getTable('api_studio_folder')->getColumn('created_by');
+
+        self::assertSame('utf8mb4_0900_bin', $column->getPlatformOption('collation'));
+    }
+
     /**
      * @param array<string, mixed> $params
      */
@@ -76,7 +96,7 @@ final class FolderMappingTest extends TestCase
     {
         yield 'mysql 8' => [['driver' => 'pdo_mysql', 'serverVersion' => '8.4.0'], 'utf8mb4_0900_bin'];
         yield 'mariadb' => [['driver' => 'pdo_mysql', 'serverVersion' => '10.11.2-MariaDB'], 'utf8mb4_nopad_bin'];
-        yield 'mysql without version' => [['driver' => 'mysqli'], 'utf8mb4_0900_bin'];
+        yield 'mysql without version (MySQL or MariaDB unknown)' => [['driver' => 'mysqli'], null];
         yield 'postgresql' => [['driver' => 'pdo_pgsql', 'serverVersion' => '16'], null];
         yield 'sqlite' => [['driver' => 'pdo_sqlite', 'memory' => true], null];
     }

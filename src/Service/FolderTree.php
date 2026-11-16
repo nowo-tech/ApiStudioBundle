@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Service;
 
+use Doctrine\DBAL\Exception\RetryableException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
@@ -12,24 +14,31 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Throwable;
 
+use function array_filter;
+use function array_key_exists;
 use function array_splice;
 use function array_values;
 use function count;
 use function max;
 
 /**
- * Rules and writes of the service folder trees (1.14): depth, cycles, moves, reorders and deletes. Stateless: every
- * call works on the entities it is given, inside an explicit transaction of the Api Studio entity manager (no
- * closure kept by the shared service).
+ * Rules and writes of the service folder trees (1.14): depth, cycles, saves, moves, reorders and deletes. Stateless:
+ * every call works on the entities it is given.
  *
- * Errors are {@see DomainException}s whose message is a translation key of the bundle domain
- * (`folder.error.*`).
+ * Every write runs in its own transaction on the Api Studio entity manager and starts by locking the service row
+ * (PESSIMISTIC_WRITE), so the writes of one service tree are serialised; the rules (parent chain, depth with the
+ * subtree height, siblings) are then checked against rows read inside that transaction (audit RJ-M2), never against
+ * entities loaded before it. Under contention the database may still answer a lock timeout or a deadlock
+ * ({@see RetryableException}); callers report it as a retryable conflict.
+ *
+ * Errors are {@see DomainException}s whose message is a translation key of the bundle domain (`folder.error.*`).
  */
 final class FolderTree
 {
     public const ERROR_OTHER_SERVICE = 'folder.error.other_service';
     public const ERROR_CYCLE         = 'folder.error.cycle';
     public const ERROR_DEPTH         = 'folder.error.depth';
+    public const ERROR_GONE          = 'folder.error.gone';
 
     /** Gap between sort orders written by a reorder, so manual values can still be squeezed in between. */
     private const SORT_STEP = 10;
@@ -47,25 +56,43 @@ final class FolderTree
     }
 
     /**
-     * Throws when $folder may not sit under $parent (null = service root): another service, itself or one of its
-     * own descendants, or deeper than `folders.max_depth` once its subfolders are counted.
+     * Throws when $folder may not sit under $parent (null = service root): another service, a parent that no longer
+     * exists, itself or one of its own descendants, or deeper than `folders.max_depth` once its subfolders are
+     * counted. Reads the current rows of the service tree.
      */
     public function assertCanPlaceFolder(ApiFolder $folder, ?ApiFolder $parent): void
     {
         $service = $folder->getService();
+        if ($parent instanceof ApiFolder && $parent->getService() !== $service) {
+            throw new DomainException(self::ERROR_OTHER_SERVICE);
+        }
+        if (!$service instanceof ApiService || $service->getId() === null) {
+            return;
+        }
+
+        /** @var array<int, int|null> $parents folder id => parent id */
+        $parents = [];
+        foreach ($this->folders->treeRows([(int) $service->getId()]) as $row) {
+            $parents[$row['id']] = $row['parent'];
+        }
+
+        $parentDepth = 0;
         if ($parent instanceof ApiFolder) {
-            if ($parent->getService() !== $service) {
-                throw new DomainException(self::ERROR_OTHER_SERVICE);
+            $parentId = $parent->getId();
+            if ($parentId === null || !array_key_exists($parentId, $parents)) {
+                throw new DomainException(self::ERROR_GONE);
             }
-            foreach ($parent->getPath() as $ancestor) {
-                if ($ancestor === $folder) {
+            $seen = [];
+            for ($node = $parentId; $node !== null; $node = $parents[$node] ?? null) {
+                if ($node === $folder->getId() || isset($seen[$node])) {
                     throw new DomainException(self::ERROR_CYCLE);
                 }
+                $seen[$node] = true;
+                ++$parentDepth;
             }
         }
 
-        $parentDepth = $parent instanceof ApiFolder ? $parent->getDepth() : 0;
-        if ($parentDepth + $this->height($folder) > $this->maxDepth) {
+        if ($parentDepth + $this->height($folder, $parents) > $this->maxDepth) {
             throw new DomainException(self::ERROR_DEPTH);
         }
     }
@@ -81,27 +108,47 @@ final class FolderTree
     }
 
     /**
+     * Creates or updates $folder (its parent already set, e.g. by a form) once its place is checked under the lock.
+     */
+    public function saveFolder(ApiFolder $folder): void
+    {
+        $service = $this->serviceOf($folder->getService());
+        $this->begin($service);
+        try {
+            $this->assertCanPlaceFolder($folder, $folder->getParent());
+            if ($folder->getId() === null) {
+                $folder->setSortOrder(self::nextSortOrder($this->folders->children($service, $folder->getParent())));
+                $this->entityManager->persist($folder);
+            }
+            $this->commit();
+        } catch (Throwable $e) {
+            $this->entityManager->rollback();
+
+            throw $e;
+        }
+    }
+
+    /**
      * Moves $folder under $parent (null = root), before the sibling folder $beforeId (null = last), and renumbers the
      * sibling folders.
      */
     public function moveFolder(ApiFolder $folder, ?ApiFolder $parent, ?int $beforeId = null): void
     {
-        $this->assertCanPlaceFolder($folder, $parent);
-        $service = $folder->getService();
-        if (!$service instanceof ApiService) {
+        if ($parent instanceof ApiFolder && $parent->getService() !== $folder->getService()) {
             throw new DomainException(self::ERROR_OTHER_SERVICE);
         }
+        $service = $this->serviceOf($folder->getService());
 
-        $this->entityManager->beginTransaction();
+        $this->begin($service);
         try {
+            $this->assertCanPlaceFolder($folder, $parent);
             $folder->setParent($parent);
             $siblings = array_values(array_filter(
                 $this->folders->children($service, $parent),
                 static fn (ApiFolder $sibling): bool => $sibling !== $folder,
             ));
             $this->renumber($this->insert($siblings, $folder, $beforeId));
-            $this->entityManager->flush();
-            $this->entityManager->commit();
+            $this->commit();
         } catch (Throwable $e) {
             $this->entityManager->rollback();
 
@@ -116,21 +163,20 @@ final class FolderTree
     public function moveEndpoint(ApiEndpoint $endpoint, ?ApiFolder $folder, ?int $beforeId = null): void
     {
         $this->assertCanPlaceEndpoint($endpoint, $folder);
-        $service = $endpoint->getService();
-        if (!$service instanceof ApiService) {
-            throw new DomainException(self::ERROR_OTHER_SERVICE);
-        }
+        $service = $this->serviceOf($endpoint->getService());
 
-        $this->entityManager->beginTransaction();
+        $this->begin($service);
         try {
+            if ($folder instanceof ApiFolder && !$this->exists($service, $folder)) {
+                throw new DomainException(self::ERROR_GONE);
+            }
             $endpoint->setFolder($folder);
             $siblings = array_values(array_filter(
                 $this->folders->endpointsIn($service, $folder),
                 static fn (ApiEndpoint $sibling): bool => $sibling !== $endpoint,
             ));
             $this->renumber($this->insert($siblings, $endpoint, $beforeId));
-            $this->entityManager->flush();
-            $this->entityManager->commit();
+            $this->commit();
         } catch (Throwable $e) {
             $this->entityManager->rollback();
 
@@ -141,40 +187,50 @@ final class FolderTree
     /**
      * Deletes $folder; its subfolders and endpoints move up to its parent (or the service root), after the items
      * already there. Nothing else is deleted.
+     *
+     * @return array{folders: list<int>, endpoints: list<int>} ids of the subfolders and endpoints that moved up
      */
-    public function deleteFolder(ApiFolder $folder): void
+    public function deleteFolder(ApiFolder $folder): array
     {
+        $moved   = ['folders' => [], 'endpoints' => []];
         $service = $folder->getService();
         if (!$service instanceof ApiService) {
-            return;
+            return $moved;
         }
 
-        $this->entityManager->beginTransaction();
+        $this->begin($service);
         try {
+            // The parent as stored now (a concurrent move may have changed it since $folder was loaded).
+            if ($folder->getId() !== null) {
+                $this->entityManager->refresh($folder);
+            }
             $parent = $folder->getParent();
 
             $folders = array_values(array_filter($this->folders->children($service, $parent), static fn (ApiFolder $f): bool => $f !== $folder));
             foreach ($this->folders->children($service, $folder) as $child) {
                 $child->setParent($parent);
-                $folders[] = $child;
+                $folders[]          = $child;
+                $moved['folders'][] = (int) $child->getId();
             }
             $this->renumber($folders);
 
             $endpoints = $this->folders->endpointsIn($service, $parent);
             foreach ($this->folders->endpointsIn($service, $folder) as $endpoint) {
                 $endpoint->setFolder($parent);
-                $endpoints[] = $endpoint;
+                $endpoints[]          = $endpoint;
+                $moved['endpoints'][] = (int) $endpoint->getId();
             }
             $this->renumber($endpoints);
 
             $this->entityManager->remove($folder);
-            $this->entityManager->flush();
-            $this->entityManager->commit();
+            $this->commit();
         } catch (Throwable $e) {
             $this->entityManager->rollback();
 
             throw $e;
         }
+
+        return $moved;
     }
 
     /**
@@ -193,20 +249,62 @@ final class FolderTree
     }
 
     /**
-     * Levels of folders from $folder down to its deepest descendant (1 when it has no subfolder).
+     * Opens the transaction and locks the service row: the writes of one service tree are serialised.
      */
-    private function height(ApiFolder $folder): int
+    private function begin(ApiService $service): void
     {
-        $service = $folder->getService();
-        $id      = $folder->getId();
-        if (!$service instanceof ApiService || $id === null || $service->getId() === null) {
+        $this->entityManager->beginTransaction();
+        try {
+            $this->entityManager->lock($service, LockMode::PESSIMISTIC_WRITE);
+        } catch (Throwable $e) {
+            $this->entityManager->rollback();
+
+            throw $e;
+        }
+    }
+
+    private function commit(): void
+    {
+        $this->entityManager->flush();
+        $this->entityManager->commit();
+    }
+
+    private function exists(ApiService $service, ApiFolder $folder): bool
+    {
+        foreach ($this->folders->treeRows([(int) $service->getId()]) as $row) {
+            if ($row['id'] === $folder->getId()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function serviceOf(?ApiService $service): ApiService
+    {
+        if (!$service instanceof ApiService) {
+            throw new DomainException(self::ERROR_OTHER_SERVICE);
+        }
+
+        return $service;
+    }
+
+    /**
+     * Levels of folders from $folder down to its deepest descendant (1 when it has no subfolder).
+     *
+     * @param array<int, int|null> $parents folder id => parent id (current rows)
+     */
+    private function height(ApiFolder $folder, array $parents): int
+    {
+        $id = $folder->getId();
+        if ($id === null) {
             return 1;
         }
 
         $children = [];
-        foreach ($this->folders->treeRows([(int) $service->getId()]) as $row) {
-            if ($row['parent'] !== null) {
-                $children[$row['parent']][] = $row['id'];
+        foreach ($parents as $child => $parent) {
+            if ($parent !== null) {
+                $children[$parent][] = $child;
             }
         }
 

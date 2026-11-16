@@ -78,6 +78,22 @@ The request console runs the endpoint **pre-request / post-response scripts** (P
 - A strict Content-Security-Policy without `'unsafe-eval'` blocks `new Function`: on such hosts every script fails with an error that `runScriptSafe()` catches and reports in the script log. Allow `'unsafe-eval'` only on the Api Studio route prefix if you need scripts.
 - Other dynamic markup (`innerHTML`) is built from static templates; user-provided values are escaped (`escapeHtmlAttr`) or written with `textContent` (REQ-UX-001).
 
+## Folders (1.14)
+
+- A host folder checker (`security.folder_permission_checker`) can only narrow the workspace decisions: hidden
+  folders and their endpoints answer 404 and are left out of the tree, lists and exports; denied actions answer 403.
+- Running an endpoint inside a folder with changed URL / auth variables (ER-M1) or host secrets in a changed template
+  (QE-B-M2) needs `workspace.edit` on the workspace **and** on the folder (audit RJ-M4).
+- Not covered by folder restrictions: environments and variables belong to the workspace and are shared by all its
+  folders. Folder auth configuration is stored and edited as plain JSON, readable by whoever may edit the folder; put
+  credentials in secret variables (`{{token}}`) or host secrets, never literally.
+- Imports never reuse a folder the importing user may not edit and only set auth on folders they create (RJ-M1).
+  Request-level Postman credentials become endpoint headers only when they are `{{variable}}` placeholders; literal
+  tokens are reported and not imported (RJ-L3).
+- Tree writes lock the service row and check the rules on rows read inside the transaction; `folder.parent_id` has
+  no ON DELETE action, so the database never removes a folder subtree (RJ-M2). Contention answers 409 with
+  `Retry-After` (RJ-L1).
+
 ## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 
 - **Request history** is sanitized on write (`HistorySanitizer`: sensitive headers → `[REDACTED]`; password/token/Bearer patterns in bodies). Host owns retention/TTL and unusual header names.

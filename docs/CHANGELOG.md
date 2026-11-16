@@ -83,6 +83,12 @@ Target 1.14.0 (spec 002, nested folders). Opt-in: with the defaults the schema, 
   `ApiStudioFolderRef` with ids, ancestors and the creator id) narrows the workspace decisions per folder.
 - `ApiStudioResourceChangedEvent::TYPE_FOLDER` and `ACTION_MOVED` (folder CRUD and tree moves, after commit).
 - Folder `created_by` uses a binary NO PAD collation on MySQL (`utf8mb4_0900_bin`) and MariaDB (`utf8mb4_nopad_bin`).
+- Tree writes (create, edit, move, delete) lock the service row and check depth and cycles on rows read inside the
+  transaction; `folder.parent_id` has no ON DELETE action; contention answers 409 with `Retry-After`.
+- Imports never reuse a folder the user may not edit, set auth only on folders they create, keep literal request
+  credentials out of endpoint headers, and clean imported names (control, zero-width and bidi characters).
+- Inside a folder, the ER-M1 and host-secret console gates also need `workspace.edit` on the folder.
+- The tenant SQL filter covers folders. Deleting a folder emits `ACTION_MOVED` for the content it moves up.
 
 ## [1.13.1] - 2026-11-15
 
