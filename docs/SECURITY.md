@@ -8,6 +8,7 @@
 - [Application responsibilities](#application-responsibilities)
 - [Bundle responsibilities](#bundle-responsibilities)
 - [Browser scripts and CSP](#browser-scripts-and-csp)
+- [Feature gate and 404 policy (1.16)](#feature-gate-and-404-policy-116)
 - [Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)](#residual-risks-accepted-for-req-sec-004-pass-good--low)
 - [AI security audit (REQ-SEC-004)](#ai-security-audit-req-sec-004)
 - [Release security checklist (12.4.1)](#release-security-checklist-1241)
@@ -51,6 +52,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 - Configure Symfony Security (`security.yaml`) with firewall and `access_control` for the Api Studio path
 - Keep `security.allow_unauthenticated: false` in production (demo-only footgun): it must be a literal boolean, needs `kernel.debug` and is refused in the `prod` environment
+- List every host page of the studio in `security.host_routes` (an unlisted host route is not guarded by the bundle) and check its workspace action in the controller with `ApiStudioAuthorization::requireWorkspace()`; a feature gate returns `true` only when the feature is on and keeps no per-request state
 - Set `nowo_api_studio.security.access_roles` appropriately (an empty list denies; both role lists empty fails compilation)
 - In production set `execution_url_allowlist_required: true` and a non-empty `execution_url_allowlist`
 - The Flex recipe (`when@prod`) forces `execution_url_allowlist_required: true` in production; keep a non-empty allowlist.
@@ -64,10 +66,34 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 - Block SSRF to private/local networks before outbound requests
 - Enforce role checks on Api Studio routes (an empty role list denies)
+- Consult the host feature gate on every Api Studio route and apply `security.access_denied_response` uniformly (1.16)
 - Encrypt `secret` environment variable values at rest when `secrets.encrypt` is true
 - CSRF protection on mutating controller actions
 - Validate `table_prefix` (alphanumeric + underscore only)
 - Document threat model and release checklist in this file
+
+## Feature gate and 404 policy (1.16)
+
+- **Order of the checks** on every Api Studio route (bundle `nowo_api_studio_*` and the host's `security.host_routes`):
+  bundle enabled (404) → tenant resolved (404) → firewall → roles and access checker → route mapped (404, deny by
+  default: a route of a future version without an entry in `ApiStudioRouteActions::MAP` answers 404) → `studio.open`
+  (404) → `security.feature_gate` (deny by default: only `true` passes) → `workspace.create` on the creation pages →
+  the controller's workspace checks (`requireWorkspace()`: hidden 404, refused 403). The gate runs after `studio.open`
+  so a person who may not open a tenant's studio cannot probe its plan.
+- **No oracle under `access_denied_response: 404`**: refusals are replaced on `kernel.exception` (priority 16, before
+  the firewall at 1 and the error renderer) by one `NotFoundHttpException('Not Found')` without headers or previous
+  exception; after every response listener a 404 of a studio route gets `Cache-Control: no-store, private` and no
+  `Expires` (the session listener would otherwise add `max-age=0, must-revalidate` only on the paths that read the
+  session). The JSON console endpoints answer the same body as an unknown endpoint. The functional suite enumerates
+  every route of the router and compares, byte for byte, the refusal with the genuine not-found of the same route
+  (`tests/Functional/AccessPolicy`). Anonymous users refused by the role / access check keep the firewall's entry
+  point (identical for every URL).
+- **Not covered by the policy**: invalid CSRF tokens on the JSON endpoints keep `{"error":"Invalid CSRF token."}` 403
+  (checked before any lookup, so they reveal nothing about a resource); 422 validation answers; debug error pages
+  (`kernel.debug` shows the original exception — never run production with debug).
+- **Worker mode**: `ApiStudioAccessPolicy`, `ApiStudioRoutes` and the access subscriber are readonly and keep no
+  per-request state; the gate is a host service and must not keep any either. The tenant SQL filter is turned off at
+  the start and at the end of every main request.
 
 ## Browser scripts and CSP
 

@@ -85,6 +85,39 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.15.0**: no breaking changes, nothing to do. Every new option is opt-in and the defaults keep the 1.15
+behaviour (`security.access_denied_response: 403`, no feature gate, no host routes).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- **Hosts on `scripts.mode: sandbox`**: `pm.sendRequest` and persisted script variables now apply your permission
+  checker and tenant scope (see CHANGELOG, Security). A user without `workspace.run` / `workspace.edit` on the
+  endpoint's workspace now gets 403 there (404 under the `404` policy), as on `/execute`.
+- **Optional: replace a host-side route guard.** A host that wrapped the studio in its own listener (plan check, 404 for
+  hidden pages, its own route table, its own SQL filter) can move to the bundle:
+
+```yaml
+nowo_api_studio:
+    tenancy:
+        enabled: true                       # tenant columns: see "Tenants and permissions" in USAGE.md
+        resolver: App\ApiStudio\OrganizationTenantResolver
+    security:
+        permission_checker: App\ApiStudio\MyPermissionChecker
+        feature_gate: App\ApiStudio\PlanFeatureGate     # ApiStudioFeatureGateInterface
+        access_denied_response: 404                      # or keep 403
+        host_routes:
+            app_api_studio_share: studio.open            # your own studio pages
+```
+
+  Then remove the host listener, its route table and SQL filter; keep a test that every host studio route is listed
+  in `host_routes` (a host route that is not listed is not guarded by the bundle). Full walkthrough:
+  [USAGE.md — Plan gate, 404 policy and host routes](USAGE.md#plan-gate-404-policy-and-host-routes-116).
+- **Custom error templates**: under `access_denied_response: 404`, a refused request renders your 404 template. Do not
+  print the exception message in it if it differs between layers; the bundle normalises its own message to
+  `Not Found`.
+
 ## To 1.15.0
 
 From **1.14.0**:

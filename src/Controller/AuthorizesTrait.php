@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 
@@ -23,6 +24,21 @@ trait AuthorizesTrait
         }
 
         return new ApiStudioAuthorization();
+    }
+
+    /**
+     * 1.16: the 403 / 404 policy of refused actions (default 403 when built by hand).
+     */
+    private function accessPolicy(): ApiStudioAccessPolicy
+    {
+        if ($this->container->has(ApiStudioAccessPolicy::class)) {
+            /** @var ApiStudioAccessPolicy $policy */
+            $policy = $this->container->get(ApiStudioAccessPolicy::class);
+
+            return $policy;
+        }
+
+        return new ApiStudioAccessPolicy();
     }
 
     private function historyScope(): ApiStudioHistoryScope

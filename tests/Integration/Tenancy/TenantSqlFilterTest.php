@@ -18,6 +18,7 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Nowo\ApiStudioBundle\Security\ApiStudioScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
@@ -29,6 +30,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
@@ -100,6 +102,20 @@ final class TenantSqlFilterTest extends TestCase
         $listener->onKernelFinishRequest(new FinishRequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
         self::assertFalse($em->getFilters()->isEnabled(TenantSqlFilter::NAME));
         self::assertSame(-8, TenantSqlFilterListener::getSubscribedEvents()['kernel.controller'][1]);
+
+        // 1.16: a main request that never finished (worker fatal path) cannot leave the filter on for the next one.
+        $listener->onKernelController(new ControllerEvent($kernel, $controller, $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->onKernelRequest(new RequestEvent($kernel, new Request(), HttpKernelInterface::SUB_REQUEST));
+        self::assertTrue($em->getFilters()->isEnabled(TenantSqlFilter::NAME), 'a sub-request keeps it');
+        $listener->onKernelRequest(new RequestEvent($kernel, new Request(), HttpKernelInterface::MAIN_REQUEST));
+        self::assertFalse($em->getFilters()->isEnabled(TenantSqlFilter::NAME), 'the next main request starts without it');
+        $off->onKernelRequest(new RequestEvent($kernel, new Request(), HttpKernelInterface::MAIN_REQUEST));
+        self::assertSame(31, TenantSqlFilterListener::getSubscribedEvents()['kernel.request'][1]);
+
+        // 1.16: a declared host route is narrowed as well.
+        $host = new TenantSqlFilterListener($registry, $authorization, true, null, new ApiStudioRoutes(['app_share' => 'studio.open']));
+        $host->onKernelController(new ControllerEvent($kernel, $controller, new Request(attributes: ['_route' => 'app_share']), HttpKernelInterface::MAIN_REQUEST));
+        self::assertTrue($em->getFilters()->isEnabled(TenantSqlFilter::NAME));
     }
 
     public function testFilterIgnoresOtherEntities(): void

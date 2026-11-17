@@ -8,6 +8,7 @@ use Nowo\ApiStudioBundle\DependencyInjection\Compiler\ApiStudioSecurityPass;
 use Nowo\ApiStudioBundle\DependencyInjection\Configuration;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -213,6 +214,35 @@ final class ApiStudioSecurityPassTest extends TestCase
         $this->expectExceptionMessage('both empty');
 
         (new ApiStudioSecurityPass())->process($container);
+    }
+
+    public function testWiresTheFeatureGateAndTheRouteList(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.security.feature_gate', 'app.plan_gate');
+        $container->setDefinition(ApiStudioRoutes::class, new Definition(ApiStudioRoutes::class));
+
+        (new ApiStudioSecurityPass())->process($container);
+
+        $definition = $container->getDefinition(ApiStudioAccessSubscriber::class);
+        self::assertSame('app.plan_gate', (string) $definition->getArgument('$featureGate'));
+        self::assertSame('security.token_storage', (string) $definition->getArgument('$tokenStorage'));
+        self::assertSame(ApiStudioRoutes::class, (string) $definition->getArgument('$routes'));
+    }
+
+    public function testNoGateWithoutConfigurationOrWhenDisabled(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.security.feature_gate', null);
+        (new ApiStudioSecurityPass())->process($container);
+        self::assertArrayNotHasKey('$featureGate', $container->getDefinition(ApiStudioAccessSubscriber::class)->getArguments());
+        self::assertArrayNotHasKey('$routes', $container->getDefinition(ApiStudioAccessSubscriber::class)->getArguments());
+
+        $container = $this->baseContainer();
+        $container->setParameter(Configuration::ALIAS . '.enabled', false);
+        $container->setParameter(Configuration::ALIAS . '.security.feature_gate', 'app.plan_gate');
+        (new ApiStudioSecurityPass())->process($container);
+        self::assertArrayNotHasKey('$featureGate', $container->getDefinition(ApiStudioAccessSubscriber::class)->getArguments());
     }
 
     private function baseContainer(): ContainerBuilder

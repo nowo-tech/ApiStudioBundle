@@ -11,8 +11,11 @@ use Nowo\ApiStudioBundle\Script\Runner\ApiStudioScriptRunnerInterface;
 use Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner;
 use Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
@@ -25,6 +28,7 @@ use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
@@ -41,6 +45,7 @@ use function is_bool;
 use function is_string;
 use function preg_match;
 use function sprintf;
+use function str_starts_with;
 use function trigger_deprecation;
 
 /**
@@ -312,6 +317,39 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $this->registerPathPlaceholders($container, $config['ui']['path'], $config['ui']['path_requirements']);
 
         $this->registerAccessChecker($container, $config['security'], $config['ui']['required_roles']);
+        $this->registerAccessPolicy($container, $config['security']);
+    }
+
+    /**
+     * 1.16: the route list (bundle + `security.host_routes`), the 403 / 404 policy and the feature gate.
+     *
+     * @param array<string, mixed> $security
+     */
+    private function registerAccessPolicy(ContainerBuilder $container, array $security): void
+    {
+        $status = $security['access_denied_response'];
+        if (!in_array($status, ApiStudioAccessPolicy::RESPONSES, true)) {
+            throw new InvalidConfigurationException('nowo_api_studio.security.access_denied_response must be the literal 403 or 404; environment variable placeholders are not supported for security switches.');
+        }
+
+        /** @var array<string, mixed> $hostRoutes */
+        $hostRoutes = $security['host_routes'];
+        foreach ($hostRoutes as $route => $action) {
+            $known = is_string($action) ? ApiStudioAction::tryFrom($action) : null;
+            if (str_starts_with((string) $route, ApiStudioRoutes::BUNDLE_PREFIX) || !in_array($known, ApiStudioRoutes::HOST_ROUTE_ACTIONS, true)) {
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.security.host_routes."%s": use a route of the host (not "%s*") mapped to studio.open or workspace.create; workspace actions are checked in the host controller with ApiStudioAuthorization::requireWorkspace().', $route, ApiStudioRoutes::BUNDLE_PREFIX));
+            }
+        }
+
+        $container->setParameter(Configuration::ALIAS . '.security.access_denied_response', $status);
+        $container->getDefinition(ApiStudioRoutes::class)->setArgument('$hostRoutes', $hostRoutes);
+        $container->getDefinition(ApiStudioAccessPolicy::class)
+            ->setArgument('$deniedStatus', $status)
+            ->setArgument('$tokenStorage', new Reference('security.token_storage', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+
+        $gate = $security['feature_gate'] ?? null;
+        $container->setParameter(Configuration::ALIAS . '.security.feature_gate', is_string($gate) && $gate !== '' ? $gate : null);
     }
 
     /**

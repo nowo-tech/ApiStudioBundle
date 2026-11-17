@@ -67,11 +67,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Plan / feature gate** (`security.feature_gate`): a host service implementing `ApiStudioFeatureGateInterface::isEnabled(?object $user, ApiStudioTenant $tenant, Request $request): bool` is consulted on every Api Studio route, after the role check, the access checker and `studio.open` (someone who may not open the studio never learns its plan) and before the controller. `false` refuses with the configured answer; deny by default (only `true` passes, an exception fails the request). Null (default) = no gate.
+- **403 / 404 policy** (`security.access_denied_response: 403|404`, default `403` = unchanged): with `404`, every refusal on an Api Studio route — permission checker, tenancy, feature gate, role / access checks of a signed-in user, the host's own denials on its `host_routes` — answers exactly the genuine not-found of that route (same body, `Cache-Control: no-store, private`, no `Expires`), so a refusal is no oracle. Refusals thrown as exceptions become one `NotFoundHttpException('Not Found')` before the firewall and the error renderer (the original is logged at info level); the console's JSON answers (`/execute`, `pm.sendRequest`, script variables) answer their own `{"error":"Endpoint not found."}` 404. Anonymous users refused by the role / access check keep the firewall's answer (the login entry point, identical for every URL). Literal value (no `%env()%`). New service `ApiStudioAccessPolicy` (stateless).
+- **Host routes** (`security.host_routes`: route name => `studio.open` | `workspace.create`): host pages that belong to the studio (e.g. a sharing page) go through the same chain as the bundle's own routes — bundle enabled check, tenant resolution (no tenant: 404), roles, access checker, `studio.open`, feature gate, the 403 / 404 policy, `no-store` headers, the tenant SQL filter and the `ui.path` placeholders in the router context. Workspace actions stay in the host controller (`ApiStudioAuthorization::requireWorkspace()`). New service `ApiStudioRoutes` (bundle + host routes, `isStudioRoute()` / `actionFor()`).
+
 - Vitest tests for the remaining frontend modules (request console, workbench shell, body tools, endpoint documentation, script runtime, the sandbox frame, worker and server runner entries, utils): TS/JS line coverage goes from 57% to 96%, and the `assets` CI job now runs `test:coverage` with thresholds (95% lines / statements / functions, 85% branches; the frame relay, lockdown, node refusal and require guard stay at 100% lines) (REQ-TEST-003). Tests only; the sandbox runner, frame relay, lockdown and console are untouched.
 
 ### Changed
 
+- The tenant SQL filter (`tenancy.sql_filter`) is also turned off when a main request starts, not only when it finishes: a request that never finished in a long-lived worker (fatal path) cannot leave it on for the next one.
 - Demo: the shell is UiKit's admin layout (header menu with the active item, UiKit flashes, default theme unchanged); Bootstrap 5, Bootstrap Icons and the CDN assets are gone (REQ-DEMO-014).
+
+### Security
+
+- `pm.sendRequest` (`/scripts/send-request/{id}`) and persisted script variables (`/scripts/variables/{id}`), live only with `scripts.mode: sandbox` (1.15.0), did not subscribe to the request's `ApiStudioAuthorization` and fell back to the tenant-less, everything-granted default: the host permission checker (`workspace.run` / `workspace.edit`), the tenant scope and `visibleWorkspaceIds()` were not applied to the endpoint's workspace (with `tenancy.sql_filter` the endpoint lookup itself stayed scoped to the tenant and visible workspaces). Both controllers now use the request's authorization (403, or 404 under `access_denied_response: 404`). Hosts on `scripts.mode: inline` or `disabled` were not affected.
 
 ## [1.15.0] - 2026-11-17
 

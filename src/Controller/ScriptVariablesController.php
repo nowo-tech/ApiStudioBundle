@@ -9,7 +9,9 @@ use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Script\ScriptVariableStore;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Twig\ApiStudioExtension;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,6 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Service\Attribute\SubscribedService;
 
 use function is_array;
 use function json_decode;
@@ -33,6 +36,20 @@ use function strlen;
 final class ScriptVariablesController extends AbstractController
 {
     use AuthorizesTrait;
+
+    /**
+     * The request's authorization and 403 / 404 policy (1.16.0: without them the controller fell back to the
+     * tenant-less, everything-granted default).
+     *
+     * @return array<string|SubscribedService>
+     */
+    public static function getSubscribedServices(): array
+    {
+        return parent::getSubscribedServices() + [
+            ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            ApiStudioAccessPolicy::class  => '?' . ApiStudioAccessPolicy::class,
+        ];
+    }
 
     private const MAX_PAYLOAD = 8_000_000;
 
@@ -64,7 +81,8 @@ final class ScriptVariablesController extends AbstractController
         } catch (NotFoundHttpException) {
             return new JsonResponse(['error' => 'Endpoint not found.'], Response::HTTP_NOT_FOUND);
         } catch (AccessDeniedHttpException) {
-            return new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN);
+            // 1.16: 403, or under access_denied_response: 404 exactly the not-found answer above.
+            return $this->accessPolicy()->deniedJson('Endpoint not found.');
         }
 
         $content    = $request->getContent();

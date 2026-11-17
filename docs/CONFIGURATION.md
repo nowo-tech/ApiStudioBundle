@@ -25,6 +25,9 @@ nowo_api_studio:
         allow_unauthenticated: false
         # access_checker: App\Security\MyApiStudioAccessChecker
         # permission_checker: App\ApiStudio\MyPermissionChecker   # 1.11: per-workspace, per-action decisions
+        # feature_gate: App\ApiStudio\PlanFeatureGate             # 1.16: plan / feature switch on every route
+        access_denied_response: 403                                # 1.16: 403 | 404 (404 = refusals look like not-found)
+        host_routes: {}                                            # 1.16: {app_api_studio_share: studio.open}
     tenancy:                     # 1.11
         enabled: false           # literal boolean; maps tenant_type / tenant_id on the workspace table
         # resolver: App\ApiStudio\MyTenantResolver               # required when enabled (or provider)
@@ -90,6 +93,9 @@ nowo_api_studio:
 | `execution_max_response_bytes` | Largest response body read from a remote API, SOAP endpoint or WSDL / XSD document (default 10 MiB, minimum 1024); a bigger transfer is cancelled and the request fails with a clear error. |
 | `execution_url_allowlist_required` | When `true`, an empty allowlist fails container compilation (recommended in production). Default `false` for BC. |
 | `security.permission_checker` | **1.11.** Service id implementing `ApiStudioPermissionCheckerInterface`: `isGranted(?user, ApiStudioAction, ApiStudioSubject)` and `visibleWorkspaceIds(?user, tenant)`. Not viewable workspaces answer 404, viewable ones without the action 403, and pages hide forbidden actions. Null = everything granted to whoever passes the role / access checks (1.10 behaviour). See [USAGE.md — Tenants and permissions](USAGE.md#tenants-and-permissions). |
+| `security.feature_gate` | **1.16.** Service id implementing `ApiStudioFeatureGateInterface::isEnabled(?user, tenant, request)`: whether Api Studio is available for the tenant and user (a plan feature). Consulted on every Api Studio route after the role check, the access checker and `studio.open`, before the controller; `false` answers `access_denied_response`. Null = no gate. See [USAGE.md — Plan gate, 404 policy and host routes](USAGE.md#plan-gate-404-policy-and-host-routes-116). |
+| `security.access_denied_response` | **1.16.** `403` (default, unchanged) or `404`: with `404` every refusal on an Api Studio route (permission checker, tenancy, feature gate, role / access checks of a signed-in user, host route denials) answers the same 404 as a genuine not-found (body and cache headers). Literal value (no `%env()%`). |
+| `security.host_routes` | **1.16.** Map of host route name => `studio.open` or `workspace.create`: host pages guarded like the bundle's routes (enabled check, tenant, roles, access checker, `studio.open`, feature gate, policy, `no-store`, SQL filter, `ui.path` placeholders). Workspace actions are checked in the host controller (`ApiStudioAuthorization::requireWorkspace()`). Routes starting with `nowo_api_studio_` are refused. |
 | `tenancy.enabled` | **1.11.** Workspaces belong to a tenant resolved per request; lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per tenant. Maps `tenant_type` / `tenant_id` (and swaps the slug index): a migration. Literal boolean. Default `false` (no schema change). |
 | `tenancy.sql_filter` | **1.11.** With tenancy (default `true`): the Doctrine filter `nowo_api_studio_tenant` narrows every bundle query of an Api Studio request to the tenant and the visible workspaces (defence in depth; the controllers' explicit checks stay the control). |
 | `tenancy.resolver` | **1.11.** Service id implementing `ApiStudioTenantResolverInterface` (required with tenancy). A null tenant answers 404. |
