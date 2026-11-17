@@ -173,8 +173,8 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
-      - name: Vitest
-        run: pnpm run test
+      - name: Vitest with coverage thresholds (REQ-TEST-003)
+        run: pnpm run test:coverage
 
       - name: Committed assets match a rebuild
         run: |
