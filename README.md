@@ -194,7 +194,7 @@ make test-coverage
 
 - PHP: **99.93%** lines (4413/4416) of the whole `src/` tree (`phpunit.xml.dist` excludes only `src/Resources`, measured 2026-10-30). CI and `make test-coverage` fail below **99%** (`composer coverage-check`, `scripts/check-coverage.php`, REQ-TEST-003). The 3 uncovered lines are defensive branches that cannot be reached in-process: `RequestExecutor` without ext-soap (the test image ships it) and the `GuardedWsdlLoader` temp-file failures (`tempnam()` / `file_put_contents()` returning `false`).
 - UI: the page contract test (`tests/Integration/Contract/PageContractTest.php`) renders every page against the UiKit stub host for `none`, `bootstrap5` and `tailwind`.
-- TS/JS: **26.51%** lines (250/943), 15.45% branches, 20.85% functions (Vitest + `@vitest/coverage-v8` over `src/Resources/assets/src/`, `pnpm run test:coverage`, measured 2026-11-16 on `225fd02`). No threshold yet; Vitest runs in CI (`assets` job).
+- TS/JS: **96.10%** lines (1704/1773), 96.02% statements, 86.38% branches, 96.30% functions (Vitest + `@vitest/coverage-v8` over `src/Resources/assets/src/`, `pnpm run test:coverage`, measured 2026-11-17). The `assets` CI job fails below 95% lines / statements / functions and 85% branches (`vitest.config.ts`; REQ-TEST-003 asks for >= 90% lines); the frame relay, lockdown, node refusal and require guard are held at 100% lines.
 - Python: **N/A**
 
 PHP coverage is reported in CI and via `make test-coverage` (see README badge and release-check).

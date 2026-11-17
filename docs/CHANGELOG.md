@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Vitest tests for the remaining frontend modules (request console, workbench shell, body tools, endpoint documentation, script runtime, the sandbox frame, worker and server runner entries, utils): TS/JS line coverage goes from 57% to 96%, and the `assets` CI job now runs `test:coverage` with thresholds (95% lines / statements / functions, 85% branches; the frame relay, lockdown, node refusal and require guard stay at 100% lines) (REQ-TEST-003). Tests only; the sandbox runner, frame relay, lockdown and console are untouched.
+
 ### Changed
 
 - Demo: the shell is UiKit's admin layout (header menu with the active item, UiKit flashes, default theme unchanged); Bootstrap 5, Bootstrap Icons and the CDN assets are gone (REQ-DEMO-014).

@@ -167,7 +167,7 @@ assets: ensure-up
 test-ts: ensure-up
 	@$(COMPOSE) exec -T -e CI=true $(SERVICE_PHP) pnpm install
 	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run typecheck
-	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run test
+	@$(COMPOSE) exec -T $(SERVICE_PHP) pnpm run test:coverage
 	@echo "TypeScript check and Vitest OK."
 
 setup-hooks:
