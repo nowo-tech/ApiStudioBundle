@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Demo: the shell is UiKit's admin layout (header menu with the active item, UiKit flashes, default theme unchanged); Bootstrap 5, Bootstrap Icons and the CDN assets are gone (REQ-DEMO-014).
+
 ## [1.15.0] - 2026-11-17
 
 Target 1.15.0 (spec 003, sandboxed script runner), on top of 1.14.0:
