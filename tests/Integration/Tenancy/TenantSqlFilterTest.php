@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Tests\Integration\Tenancy;
 
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
@@ -16,6 +17,7 @@ use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
@@ -23,6 +25,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
+use Nowo\ApiStudioBundle\Tests\Support\InMemoryOrmTrait;
 use Nowo\ApiStudioBundle\Tests\Support\TenantOrmTrait;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -32,6 +35,8 @@ use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\RequestContextAwareInterface;
 
 /**
  * Defence in depth: with the filter on, every bundle entity of another tenant (or an invisible workspace) is out of
@@ -39,6 +44,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
  */
 final class TenantSqlFilterTest extends TestCase
 {
+    use InMemoryOrmTrait;
     use TenantOrmTrait;
 
     private const CLASSES = [
@@ -116,6 +122,40 @@ final class TenantSqlFilterTest extends TestCase
         $host = new TenantSqlFilterListener($registry, $authorization, true, null, new ApiStudioRoutes(['app_share' => 'studio.open']));
         $host->onKernelController(new ControllerEvent($kernel, $controller, new Request(attributes: ['_route' => 'app_share']), HttpKernelInterface::MAIN_REQUEST));
         self::assertTrue($em->getFilters()->isEnabled(TenantSqlFilter::NAME));
+    }
+
+    public function testListenerSkipsAManagerWithoutTheFilterAndHostRouteValuesThatAreNotScalar(): void
+    {
+        $em       = $this->createEntityManager();
+        $registry = $this->createStub(ManagerRegistry::class);
+        $registry->method('getManagerForClass')->willReturn($em);
+        $stack   = new RequestStack();
+        $request = new Request(attributes: ['_route' => 'nowo_api_studio_dashboard']);
+        $stack->push($request);
+        $listener = new TenantSqlFilterListener($registry, new ApiStudioAuthorization(null, null, null, $stack), true);
+        $listener->onKernelController(new ControllerEvent($this->createStub(HttpKernelInterface::class), static fn (): null => null, $request, HttpKernelInterface::MAIN_REQUEST));
+        self::assertFalse($em->getFilters()->isEnabled(TenantSqlFilter::NAME), 'the filter is not registered on that manager');
+
+        $context = new RequestContext();
+        $router  = new class($context) implements RequestContextAwareInterface {
+            public function __construct(private RequestContext $context)
+            {
+            }
+
+            public function setContext(RequestContext $context): void
+            {
+                $this->context = $context;
+            }
+
+            public function getContext(): RequestContext
+            {
+                return $this->context;
+            }
+        };
+        $scope   = new ApiStudioRouteScopeListener($router, ['org'], new ApiStudioRoutes(['app_share' => 'studio.open']));
+        $request = new Request(attributes: ['_route' => 'app_share', 'org' => ['not', 'scalar']]);
+        $scope->onKernelRequest(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        self::assertFalse($context->hasParameter('org'), 'a value that is not scalar is skipped');
     }
 
     public function testFilterIgnoresOtherEntities(): void
