@@ -136,7 +136,7 @@ final class WorkspaceSeedRaceTest extends TestCase
         $other     = $this->other();
         self::assertSame('OK', $other->execute($this->begin()));
         self::assertSame('OK', $other->execute(sprintf(
-            "INSERT INTO api_studio_service (workspace_id, name, slug, base_url, protocol, auth_type, auth_config, default_headers, enabled, created_at, updated_at) VALUES (%d, 'Other', 'mapfre', 'https://other.example.test', 'rest', 'none', '[]', '[]', %s, '%s', '%s')",
+            "INSERT INTO api_studio_service (id, workspace_id, name, slug, base_url, protocol, auth_type, auth_config, default_headers, enabled, created_at, updated_at) VALUES (900002, %d, 'Other', 'mapfre', 'https://other.example.test', 'rest', 'none', '[]', '[]', %s, '%s', '%s')",
             $workspace->workspaceId,
             $this->true(),
             self::NOW,
@@ -285,10 +285,13 @@ final class WorkspaceSeedRaceTest extends TestCase
         return $this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform ? 'true' : '1';
     }
 
+    /**
+     * Explicit ids: with DBAL 3 the ORM maps ids to a sequence on PostgreSQL (no column default).
+     */
     private function insertWorkspaceSql(string $name): string
     {
         return sprintf(
-            "INSERT INTO api_studio_workspace (name, slug, enabled, tenant_type, tenant_id, host_scope, created_at, updated_at) VALUES ('%s', 'insurers', %s, 'organization', 'acme', 'project:alpha', '%s', '%s')",
+            "INSERT INTO api_studio_workspace (id, name, slug, enabled, tenant_type, tenant_id, host_scope, created_at, updated_at) VALUES (900001, '%s', 'insurers', %s, 'organization', 'acme', 'project:alpha', '%s', '%s')",
             $name,
             $this->true(),
             self::NOW,
