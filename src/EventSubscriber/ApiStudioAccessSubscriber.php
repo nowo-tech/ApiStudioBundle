@@ -7,7 +7,10 @@ namespace Nowo\ApiStudioBundle\EventSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioFeatureGateInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioRouteActions;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,11 +27,13 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 use function in_array;
+use function is_object;
 use function is_string;
 use function sprintf;
 
 /**
- * Guards all Api Studio UI routes ({@code nowo_api_studio_*}).
+ * Guards all Api Studio UI routes ({@code nowo_api_studio_*} and the host's {@code security.host_routes}, see
+ * {@see ApiStudioRoutes}).
  *
  * - Bundle disabled ({@code nowo_api_studio.enabled: false}): every route answers 404.
  * - Requires at least one of {@code $requiredRoles}. An empty list denies (fail closed) unless
@@ -36,6 +41,8 @@ use function sprintf;
  *   authorization checker deny as well.
  * - Calls the configured {@see ApiStudioAccessCheckerInterface} ({@code security.access_checker}) with the current
  *   user; anonymous requests are denied unless {@code $allowUnauthenticated} is true.
+ * - Then `studio.open` (404), the host's {@see ApiStudioFeatureGateInterface} ({@code security.feature_gate}, 1.16:
+ *   false → 403, or 404 with {@code access_denied_response: 404}) and the route's tenant-level action.
  */
 final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterface
 {
@@ -63,6 +70,8 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
         private ?TokenStorageInterface $tokenStorage = null,
         private bool $allowUnauthenticated = false,
         private ?ApiStudioAuthorization $authorization = null,
+        private ?ApiStudioFeatureGateInterface $featureGate = null,
+        private ApiStudioRoutes $routes = new ApiStudioRoutes(),
     ) {
     }
 
@@ -87,7 +96,7 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
 
     public function onKernelRequest(RequestEvent $event): void
     {
-        if (!$this->enabled && self::isApiStudioRoute($event->getRequest())) {
+        if (!$this->enabled && $this->routes->isStudioRoute($event->getRequest()->attributes->get('_route'))) {
             throw new NotFoundHttpException('Api Studio is disabled.');
         }
     }
@@ -98,7 +107,7 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
      */
     public function onKernelResponse(ResponseEvent $event): void
     {
-        if (!self::isApiStudioRoute($event->getRequest())) {
+        if (!$this->routes->isStudioRoute($event->getRequest()->attributes->get('_route'))) {
             return;
         }
 
@@ -123,7 +132,9 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
 
     public function onKernelController(ControllerEvent $event): void
     {
-        if (!self::isApiStudioRoute($event->getRequest())) {
+        $request = $event->getRequest();
+        $route   = $request->attributes->get('_route');
+        if (!is_string($route) || !$this->routes->isStudioRoute($route)) {
             return;
         }
 
@@ -133,30 +144,56 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
 
         $this->checkRoles();
         $this->checkAccessChecker();
-        $this->checkRouteAction($event->getRequest());
+        $action = $this->checkStudioOpen($route);
+        $this->checkFeatureGate($request);
+        if ($action === ApiStudioAction::WorkspaceCreate) {
+            $this->authorization?->denyUnlessGranted(ApiStudioAction::WorkspaceCreate);
+        }
     }
 
     /**
-     * Deny by default: a bundle route without an entry in {@see ApiStudioRouteActions::MAP} answers 404. Every route
-     * needs `studio.open` (else 404) and the creation page `workspace.create` (else 403); workspace actions are checked
-     * by the controllers once the workspace is loaded.
+     * Deny by default: a route without an entry in {@see ApiStudioRouteActions::MAP} or `security.host_routes` answers
+     * 404. Every route needs `studio.open` (else 404); workspace actions are checked by the controllers once the
+     * workspace is loaded.
      */
-    private function checkRouteAction(Request $request): void
+    private function checkStudioOpen(string $route): ?ApiStudioAction
     {
         if (!$this->authorization instanceof ApiStudioAuthorization) {
-            return;
+            return null;
         }
 
-        $route  = (string) $request->attributes->get('_route');
-        $action = ApiStudioRouteActions::actionFor($route);
+        $action = $this->routes->actionFor($route);
         if (!$action instanceof ApiStudioAction) {
             throw new NotFoundHttpException(sprintf('Api Studio route "%s" has no action mapping.', $route));
         }
 
         $this->authorization->denyUnlessGranted(ApiStudioAction::StudioOpen);
-        if ($action === ApiStudioAction::WorkspaceCreate) {
-            $this->authorization->denyUnlessGranted(ApiStudioAction::WorkspaceCreate);
+
+        return $action;
+    }
+
+    /**
+     * 1.16: the host's plan / feature switch, after `studio.open` (someone who may not see the studio learns nothing
+     * about its plan) and before any controller. Deny by default: only `true` lets the request through.
+     */
+    private function checkFeatureGate(Request $request): void
+    {
+        if (!$this->featureGate instanceof ApiStudioFeatureGateInterface) {
+            return;
         }
+
+        $user   = $this->authorization?->user() ?? $this->tokenUser();
+        $tenant = $this->authorization?->tenant() ?? ApiStudioTenant::instance();
+        if (!$this->featureGate->isEnabled($user, $tenant, $request)) {
+            throw new AccessDeniedHttpException('Api Studio is not available.');
+        }
+    }
+
+    private function tokenUser(): ?object
+    {
+        $user = $this->tokenStorage?->getToken()?->getUser();
+
+        return is_object($user) ? $user : null;
     }
 
     private function checkRoles(): void

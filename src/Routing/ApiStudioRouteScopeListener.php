@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Routing;
 
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
@@ -14,9 +15,7 @@ use Symfony\Contracts\Service\ResetInterface;
 
 use function is_array;
 use function is_scalar;
-use function is_string;
 use function preg_match_all;
-use function str_starts_with;
 
 /**
  * `ui.path` placeholders (e.g. `/organizations/{organization}/api-studio`): on an Api Studio request the values of the
@@ -30,7 +29,6 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
     /** Route parameter names the bundle uses itself: not allowed as ui.path placeholders. */
     public const RESERVED_PARAMETERS = ['id', 'workspaceId', 'serviceId', 'endpointId', 'environmentId', 'exampleId', 'format', '_locale', '_format', '_controller', '_route'];
 
-    private const ROUTE_PREFIX       = 'nowo_api_studio_';
     private const PREVIOUS_ATTRIBUTE = '_nowo_api_studio_route_scope_previous';
 
     /**
@@ -39,6 +37,7 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
     public function __construct(
         private RequestContextAwareInterface $router,
         private array $placeholders = [],
+        private ApiStudioRoutes $routes = new ApiStudioRoutes(),
     ) {
     }
 
@@ -64,8 +63,7 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
     public function onKernelRequest(RequestEvent $event): void
     {
         $request = $event->getRequest();
-        $route   = $request->attributes->get('_route');
-        if ($this->placeholders === [] || !is_string($route) || !str_starts_with($route, self::ROUTE_PREFIX)) {
+        if ($this->placeholders === [] || !$this->routes->isStudioRoute($request->attributes->get('_route'))) {
             return;
         }
 

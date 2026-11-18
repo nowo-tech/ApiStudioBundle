@@ -19,6 +19,7 @@ use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Secret\RequestOrigin;
 use Nowo\ApiStudioBundle\Secret\SecretForms;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
@@ -71,6 +72,7 @@ final class ApiExecuteController extends AbstractController
     {
         return parent::getSubscribedServices() + [
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
+            ApiStudioAccessPolicy::class  => '?' . ApiStudioAccessPolicy::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
             HostSecretResolver::class     => '?' . HostSecretResolver::class,
             'logger'                      => '?' . LoggerInterface::class,
@@ -108,7 +110,8 @@ final class ApiExecuteController extends AbstractController
         } catch (NotFoundHttpException) {
             return new JsonResponse(['error' => 'Endpoint not found.'], Response::HTTP_NOT_FOUND);
         } catch (AccessDeniedHttpException) {
-            return new JsonResponse(['error' => 'forbidden'], Response::HTTP_FORBIDDEN);
+            // 1.16: 403, or under access_denied_response: 404 exactly the not-found answer above.
+            return $this->accessPolicy()->deniedJson('Endpoint not found.');
         }
 
         $payload = json_decode($request->getContent(), true);

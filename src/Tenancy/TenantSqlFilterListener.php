@@ -9,34 +9,34 @@ use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
-
-use function is_string;
-use function str_starts_with;
 
 /**
  * With `tenancy.enabled` and `tenancy.sql_filter` (default true): enables {@see TenantSqlFilter} with the request's
  * scope once the access checks passed (controller event, after the bundle's access subscriber), and disables it when
- * the request finishes (worker mode).
+ * the request finishes (worker mode). 1.16: also disabled when a main request starts, so a request that never finished
+ * (fatal path in a long-lived worker) cannot leave it on for the next one.
  */
 final readonly class TenantSqlFilterListener implements EventSubscriberInterface
 {
-    private const ROUTE_PREFIX = 'nowo_api_studio_';
-
     public function __construct(
         private ManagerRegistry $registry,
         private ApiStudioAuthorization $authorization,
         private bool $enabled = false,
         private ?string $entityManager = null,
+        private ApiStudioRoutes $routes = new ApiStudioRoutes(),
     ) {
     }
 
     public static function getSubscribedEvents(): array
     {
         return [
+            KernelEvents::REQUEST        => ['onKernelRequest', 31],
             KernelEvents::CONTROLLER     => ['onKernelController', -8],
             KernelEvents::FINISH_REQUEST => ['onKernelFinishRequest', 0],
         ];
@@ -44,8 +44,7 @@ final readonly class TenantSqlFilterListener implements EventSubscriberInterface
 
     public function onKernelController(ControllerEvent $event): void
     {
-        $route = $event->getRequest()->attributes->get('_route');
-        if (!$this->enabled || !$event->isMainRequest() || !is_string($route) || !str_starts_with($route, self::ROUTE_PREFIX)) {
+        if (!$this->enabled || !$event->isMainRequest() || !$this->routes->isStudioRoute($event->getRequest()->attributes->get('_route'))) {
             return;
         }
 
@@ -61,9 +60,23 @@ final readonly class TenantSqlFilterListener implements EventSubscriberInterface
         }
     }
 
+    public function onKernelRequest(RequestEvent $event): void
+    {
+        if ($event->isMainRequest()) {
+            $this->disable();
+        }
+    }
+
     public function onKernelFinishRequest(FinishRequestEvent $event): void
     {
-        if (!$this->enabled || !$event->isMainRequest()) {
+        if ($event->isMainRequest()) {
+            $this->disable();
+        }
+    }
+
+    private function disable(): void
+    {
+        if (!$this->enabled) {
             return;
         }
 

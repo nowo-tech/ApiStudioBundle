@@ -16,6 +16,8 @@ use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\FolderTree;
 use PHPUnit\Framework\TestCase;
@@ -87,6 +89,9 @@ final class ApiFolderControllerTest extends TestCase
         $csrf = $this->createStub(CsrfTokenManagerInterface::class);
         $csrf->method('isTokenValid')->willReturn(true);
         $container = new Container();
+        // 1.16 (SY-L2): the trait fails closed without them; the defaults grant everything and answer 403.
+        $container->set(ApiStudioAuthorization::class, new ApiStudioAuthorization());
+        $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
 
         $controller = new ApiFolderController($workspaces, $services, $folders, $endpoints, new FolderTree($em, $folders), new FolderAccess(), true);

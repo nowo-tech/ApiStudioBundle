@@ -7,7 +7,9 @@ namespace Nowo\ApiStudioBundle\DependencyInjection\Compiler;
 use Nowo\ApiStudioBundle\DependencyInjection\Configuration;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -40,6 +42,11 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
             $this->assertConfiguration($container, $allowUnauthenticated, $hasSecurity);
         }
 
+        // 1.16 (SY-I1): the firewall's trust resolver (decorated by 2FA bundles) decides "fully authenticated".
+        if ($container->hasDefinition(ApiStudioAccessPolicy::class) && $container->has('security.authentication.trust_resolver')) {
+            $container->getDefinition(ApiStudioAccessPolicy::class)->setArgument('$trustResolver', new Reference('security.authentication.trust_resolver'));
+        }
+
         if ($container->hasDefinition(ApiStudioAccessSubscriber::class)) {
             return;
         }
@@ -55,6 +62,19 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
             ->setArgument('$enabled', $enabled)
             ->setArgument('$allowUnauthenticated', $allowUnauthenticated)
             ->addTag('kernel.event_subscriber');
+
+        if ($container->hasDefinition(ApiStudioRoutes::class)) {
+            $definition->setArgument('$routes', new Reference(ApiStudioRoutes::class));
+        }
+
+        $featureGate = $container->hasParameter(Configuration::ALIAS . '.security.feature_gate')
+            ? $container->getParameter(Configuration::ALIAS . '.security.feature_gate')
+            : null;
+        if ($enabled && is_string($featureGate) && $featureGate !== '') {
+            $definition
+                ->setArgument('$featureGate', new Reference($featureGate))
+                ->setArgument('$tokenStorage', new Reference('security.token_storage', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+        }
 
         if ($enabled && $container->has(ApiStudioAuthorization::class)) {
             $definition->setArgument('$authorization', new Reference(ApiStudioAuthorization::class));

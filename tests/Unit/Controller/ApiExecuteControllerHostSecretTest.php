@@ -19,6 +19,7 @@ use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Secret\ApiStudioSecretRef;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
@@ -442,13 +443,13 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
         });
 
         $container = new Container();
+        $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
         if ($withResolver) {
             $container->set(HostSecretResolver::class, new HostSecretResolver($source, $logger));
         }
-        if ($authorization instanceof ApiStudioAuthorization) {
-            $container->set(ApiStudioAuthorization::class, $authorization);
-        }
+        // 1.16 (SY-L2): the trait fails closed; the default authorization grants everything.
+        $container->set(ApiStudioAuthorization::class, $authorization ?? new ApiStudioAuthorization());
         if ($dispatcher instanceof EventDispatcher) {
             $container->set('event_dispatcher', $dispatcher);
         }

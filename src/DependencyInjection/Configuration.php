@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
 use Nowo\ApiStudioBundle\EventListener\LocaleSubscriber;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Twig\ApiStudioExtension as ApiStudioTwigExtension;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
@@ -277,6 +278,24 @@ final class Configuration implements ConfigurationInterface
                         ->booleanNode('allow_unauthenticated')
                             ->defaultFalse()
                             ->info('DEV/DEMO ONLY. When true, the UI may load without SecurityBundle / without login. Production MUST keep false.')
+                        ->end()
+                        ->scalarNode('feature_gate')
+                            ->defaultNull()
+                            ->info('Service id implementing ApiStudioFeatureGateInterface (1.16): whether Api Studio is available for the tenant and user (e.g. a plan feature). Consulted on every Api Studio route after studio.open, before the controller; false answers access_denied_response. Null = no gate.')
+                        ->end()
+                        ->enumNode('access_denied_response')
+                            ->values(ApiStudioAccessPolicy::RESPONSES)
+                            ->defaultValue(ApiStudioAccessPolicy::FORBIDDEN)
+                            ->info('1.16: 403 (default) = refused actions answer 403; 404 = every refusal on an Api Studio route (permission checker, tenancy, feature gate, role / access checks of a signed-in user) answers the same 404 as a genuine not-found (no oracle). Literal value.')
+                        ->end()
+                        ->arrayNode('host_routes')
+                            ->info('1.16: host routes guarded like the bundle\'s own (enabled check, tenant, roles, access checker, studio.open, feature_gate, the 403 / 404 policy, no-store): route name => studio.open | workspace.create. Workspace actions stay in the host controller (ApiStudioAuthorization::requireWorkspace()).')
+                            ->useAttributeAsKey('route')
+                            // Route names are kept as written: "app-share" must not become "app_share" (SY-L1).
+                            ->normalizeKeys(false)
+                            ->scalarPrototype()->end()
+                            ->defaultValue([])
+                            ->example(['app_api_studio_share' => 'studio.open'])
                         ->end()
                     ->end()
                 ->end()

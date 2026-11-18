@@ -1304,6 +1304,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         folder_permission_checker?: scalar|Param|null, // Service id implementing ApiStudioFolderPermissionCheckerInterface (1.14, folders.enabled): folder-level sharing on top of the workspace decisions; it can only deny (hidden folders answer 404, read-only folders 403). Null = folders follow their workspace. // Default: null
  *         access_roles?: list<scalar|Param|null>,
  *         allow_unauthenticated?: bool|Param, // DEV/DEMO ONLY. When true, the UI may load without SecurityBundle / without login. Production MUST keep false. // Default: false
+ *         feature_gate?: scalar|Param|null, // Service id implementing ApiStudioFeatureGateInterface (1.16): whether Api Studio is available for the tenant and user (e.g. a plan feature). Consulted on every Api Studio route after studio.open, before the controller; false answers access_denied_response. Null = no gate. // Default: null
+ *         access_denied_response?: 403|404|Param, // 1.16: 403 (default) = refused actions answer 403; 404 = every refusal on an Api Studio route (permission checker, tenancy, feature gate, role / access checks of a signed-in user) answers the same 404 as a genuine not-found (no oracle). Literal value. // Default: 403
+ *         host_routes?: array<string, scalar|Param|null>,
  *     },
  * }
  * @psalm-type NowoUiKitConfig = array{

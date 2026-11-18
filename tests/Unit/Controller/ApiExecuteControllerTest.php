@@ -17,6 +17,8 @@ use Nowo\ApiStudioBundle\Enum\AuthType;
 use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\RequestExecutor;
@@ -399,6 +401,9 @@ final class ApiExecuteControllerTest extends TestCase
         $csrf->method('isTokenValid')->willReturn(true);
 
         $container = new Container();
+        // 1.16 (SY-L2): the trait fails closed without them; the defaults grant everything and answer 403.
+        $container->set(ApiStudioAuthorization::class, new ApiStudioAuthorization());
+        $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
 
         $controller = new ApiExecuteController(

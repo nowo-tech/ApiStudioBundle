@@ -12,6 +12,7 @@
 - [Folders (1.14)](#folders-114)
   - [Folder sharing hook](#folder-sharing-hook)
 - [Tenants and permissions](#tenants-and-permissions)
+  - [Plan gate, 404 policy and host routes (1.16)](#plan-gate-404-policy-and-host-routes-116)
 - [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
@@ -238,6 +239,62 @@ nowo_api_studio:
   --tenant-id=… [--dry-run]` strips `-2`, `-3`… suffixes when the base slug is free in the tenant.
 - **Slugs**: leave the slug empty to derive it from the name; new or edited slugs must match
   `^[a-z0-9]+(?:[-_][a-z0-9]+)*$` (≤ 128).
+
+### Plan gate, 404 policy and host routes (1.16)
+
+Three opt-in `security` options let a multi-tenant host drop its own route guard:
+
+```yaml
+nowo_api_studio:
+    ui:
+        path: '/organizations/{organization}/api-studio'
+    tenancy:
+        enabled: true
+        resolver: App\ApiStudio\OrganizationTenantResolver
+    security:
+        access_checker: App\ApiStudio\SignedInMemberChecker
+        permission_checker: App\ApiStudio\OrganizationPermissionChecker
+        feature_gate: App\ApiStudio\PlanFeatureGate
+        access_denied_response: 404
+        host_routes:
+            app_api_studio_share: studio.open
+```
+
+- **Feature gate** (`ApiStudioFeatureGateInterface`): is Api Studio available at all for this tenant and user (a plan,
+  a billing module, a feature flag)? Called on every Api Studio route after the role check, the access checker and
+  `studio.open` — so someone who may not open the studio never learns whether its plan includes it — and before the
+  controller. Return `true` only when the feature is on. `false` answers the policy below; a gate may also throw its
+  own `HttpException` (e.g. an upsell page) instead. No per-request state in the service (worker mode). The plan stays
+  hidden only if your permission checker denies `studio.open` to non-members of the tenant: otherwise anyone who passes
+  the role check reaches the gate and learns from its answer whether the tenant's plan includes Api Studio.
+
+```php
+final readonly class PlanFeatureGate implements ApiStudioFeatureGateInterface
+{
+    public function __construct(private Plans $plans) {}
+
+    public function isEnabled(?object $user, ApiStudioTenant $tenant, Request $request): bool
+    {
+        return $tenant->type === 'organization' && $this->plans->includes($tenant->id, 'api_studio');
+    }
+}
+```
+
+- **`access_denied_response`**: `403` (default) keeps the 1.15 answers (hidden or missing → 404, refused → 403).
+  `404` turns every refusal on an Api Studio route into the genuine not-found of that route: the permission checker's
+  403s, a closed feature gate, the role / access check of a signed-in user and the host's own 403s on its host routes.
+  The page is byte for byte the one a missing workspace gets (same body, `Cache-Control: no-store, private`, no
+  `Expires`); the console's JSON endpoints answer `{"error":"Endpoint not found."}` with a 404, as for an unknown
+  endpoint. Tenancy mismatches were already 404 and stay so under both values. Anonymous users refused by the role or
+  access check keep the firewall's answer (usually the login redirect, the same for every URL).
+- **`host_routes`**: route name => `studio.open` or `workspace.create`. The host page then goes through the same chain as
+  the bundle's routes: enabled check, tenant (no tenant → 404), roles, access checker, `studio.open`, feature gate, the
+  action, the policy, `no-store`, the tenant SQL filter and the `ui.path` placeholders as router defaults. Load the
+  workspace in the controller with the action it needs: `ApiStudioAuthorization::requireWorkspace($workspace,
+  ApiStudioAction::WorkspaceManage)` (404 when hidden, 403 / 404 when refused). A host route that is not listed is not
+  guarded by the bundle: keep a test that lists your studio routes.
+- `ApiStudioRoutes::isStudioRoute()` / `actionFor()` (service) say which routes are guarded and what they need; tests
+  can enumerate the router with it.
 
 ## Host secrets (1.13)
 
