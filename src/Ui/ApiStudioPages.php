@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Ui;
 
+use Nowo\ApiStudioBundle\Scope\ScopeContext;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\UiKitBundle\View\Label;
 use Throwable;
 use Twig\Environment;
@@ -40,10 +42,15 @@ final readonly class ApiStudioPages
     /**
      * @param string|null $layoutTemplate `ui.layout_template` (null = the UiKit admin layout)
      * @param Environment|null $twig Twig, to tell a pre-1.10 layout from a canonical one (null = never bridged)
+     * @param string|null $scopeLayoutTemplate 1.17 `scope.layout_template`: layout of the pages of a scoped request
+     *                                         (null = `ui.layout_template`)
+     * @param ScopeContext|null $scopeContext 1.17: the host scope of the request
      */
     public function __construct(
         private ?string $layoutTemplate = null,
         private ?Environment $twig = null,
+        private ?string $scopeLayoutTemplate = null,
+        private ?ScopeContext $scopeContext = null,
     ) {
     }
 
@@ -87,11 +94,18 @@ final readonly class ApiStudioPages
         return $vars + [
             'nowo_api_studio_legacy_layout' => $legacy,
             'nowo_api_studio_legacy_blocks' => $this->hostBlocks($legacy),
+            // 1.17: the host scope of the request (null at tenant level), e.g. for the host's project layout.
+            'nowo_api_studio_scope' => $this->scopeContext?->current(),
         ];
     }
 
     private function configuredLayout(): ?string
     {
+        // 1.17: a scoped request renders in the host's scope layout (e.g. the project page with its tabs).
+        if ($this->scopeLayoutTemplate !== null && $this->scopeLayoutTemplate !== '' && $this->scopeContext?->current() instanceof WorkspaceScope) {
+            return $this->scopeLayoutTemplate;
+        }
+
         if (in_array($this->layoutTemplate, [null, '', self::LEGACY_DEFAULT_LAYOUT], true)) {
             return null;
         }

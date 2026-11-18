@@ -9,8 +9,11 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioScope;
 
+use function array_filter;
+use function array_values;
 use function sprintf;
 
 /**
@@ -47,11 +50,26 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
             ->addOrderBy('x.sortOrder', 'ASC')->addOrderBy('x.name', 'ASC')->addOrderBy('x.id', 'ASC');
         if ($scope instanceof ApiStudioScope) {
             self::applyScope($query, $scope, 'w');
+            if ($scope->scopes) {
+                $query->addSelect('w.hostScope AS wscope');
+            }
         }
-        /** @var list<array{wid: int, wname: string, wslug: string, sid: int|null, sname: string|null, sprotocol: mixed, eid: int|null, ename: string|null, emethod: mixed, xid: int|null, xname: string|null}> $rows */
+        /** @var list<array{wid: int, wname: string, wslug: string, wscope?: string, sid: int|null, sname: string|null, sprotocol: mixed, eid: int|null, ename: string|null, emethod: mixed, xid: int|null, xname: string|null}> $rows */
         $rows = $query->getQuery()->getArrayResult();
+        if (!$scope instanceof ApiStudioScope || !$scope->scopes) {
+            return $rows;
+        }
 
-        return $rows;
+        // 1.17 exact-key rule: the scope filter of the query is re-checked byte-exact on every row.
+        $kept = [];
+        foreach ($rows as $row) {
+            if ($scope->containsScope((string) ($row['wscope'] ?? ''))) {
+                unset($row['wscope']);
+                $kept[] = $row;
+            }
+        }
+
+        return $kept;
     }
 
     /**
@@ -66,8 +84,12 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
 
         /** @var list<ApiWorkspace> $workspaces */
         $workspaces = $query->getQuery()->getResult();
+        if (!$scope->scopes) {
+            return $workspaces;
+        }
 
-        return $workspaces;
+        // 1.17 exact-key rule: the scope filter of the query is re-checked byte-exact on every row.
+        return array_values(array_filter($workspaces, static fn (ApiWorkspace $workspace): bool => $scope->containsScope($workspace->getScopeKey())));
     }
 
     public function countInScope(ApiStudioScope $scope): int
@@ -90,9 +112,36 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
                 ->setParameter('nowo_scope_tenant_id', $scope->tenant->id);
         }
 
+        if ($scope->scopes) {
+            self::applyHostScope($query, $scope, $alias);
+        }
+
         if ($scope->visibleIds !== null) {
             $query->andWhere(sprintf('%s.id IN (:nowo_scope_ids)', $alias))
                 ->setParameter('nowo_scope_ids', $scope->visibleIds === [] ? [0] : $scope->visibleIds, ArrayParameterType::INTEGER);
+        }
+    }
+
+    /**
+     * 1.17: the host scope part of {@see self::applyScope()} (`host_scope` is mapped only with `scope.enabled`).
+     */
+    private static function applyHostScope(QueryBuilder $query, ApiStudioScope $scope, string $alias): void
+    {
+        if ($scope->hostScope instanceof WorkspaceScope) {
+            $query->andWhere(sprintf('%s.hostScope = :nowo_scope_host', $alias))->setParameter('nowo_scope_host', $scope->hostScope->value);
+
+            return;
+        }
+
+        if (!$scope->tenantListAll || $scope->visibleScopes === []) {
+            $query->andWhere(sprintf("%s.hostScope = ''", $alias));
+
+            return;
+        }
+
+        if ($scope->visibleScopes !== null) {
+            $query->andWhere(sprintf("(%1\$s.hostScope = '' OR %1\$s.hostScope IN (:nowo_scope_visible))", $alias))
+                ->setParameter('nowo_scope_visible', $scope->visibleScopes, ArrayParameterType::STRING);
         }
     }
 }

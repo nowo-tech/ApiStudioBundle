@@ -1,0 +1,7 @@
+{# Host project layout of the scope tests (1.17 scope.layout_template): the UiKit admin layout plus a project tab bar. #}
+{% extends '@NowoUiKit/layout/admin.html.twig' %}
+
+{% block nowo_ui_flashes %}
+    <nav data-testid="project-tabs">Project {{ nowo_api_studio_scope.value ?? 'none' }}</nav>
+    {{ parent() }}
+{% endblock %}

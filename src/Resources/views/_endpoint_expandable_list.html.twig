@@ -15,7 +15,7 @@
                     <span class="as-tree-chevron" aria-hidden="true">▶</span>
                 </button>
                 <span class="as-method {{ api_studio_method_class(endpoint.method.value) }}">{{ endpoint.method.value }}</span>
-                <a href="{{ path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}) }}" class="as-endpoint-name">{{ endpoint.name }}</a>
+                <a href="{{ api_studio_path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id}) }}" class="as-endpoint-name">{{ endpoint.name }}</a>
                 <code class="as-endpoint-path">{{ endpoint.path }}</code>
                 {% if endpoint.requestExamples|length > 0 %}
                     <span class="as-endpoint-badge" title="{{ 'examples.use_cases'|trans({}, 'NowoApiStudioBundle') }}">{{ endpoint.requestExamples|length }}</span>
@@ -24,7 +24,7 @@
             <div class="as-endpoint-cases" hidden>
                 <p class="as-endpoint-cases-label">{{ 'examples.use_cases'|trans({}, 'NowoApiStudioBundle') }}</p>
                 {% for example in endpoint.requestExamples %}
-                    <a href="{{ path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id, request_example: example.id}) }}"
+                    <a href="{{ api_studio_path('nowo_api_studio_endpoint_show', {workspaceId: workspace.id, serviceId: service.id, id: endpoint.id, request_example: example.id}) }}"
                        class="as-use-case-row">
                         <span class="as-use-case-name">{{ example.name }}</span>
                         {% if example.requestBody %}

@@ -19,6 +19,10 @@
         <testsuite name="Functional">
             <directory>tests/Functional</directory>
         </testsuite>
+        <!-- 1.17 REQ-RUNTIME-003: real MySQL / MariaDB / PostgreSQL races; skipped unless AS_*_URL are set (CI job "Databases"). -->
+        <testsuite name="Database">
+            <directory>tests/Database</directory>
+        </testsuite>
     </testsuites>
 
     <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">

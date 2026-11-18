@@ -31,7 +31,7 @@ final class ApiStudioPagesTest extends TestCase
             $pages = new ApiStudioPages($layout, $this->twig());
 
             self::assertNull($pages->layout());
-            self::assertSame(['page' => 'x', 'nowo_api_studio_legacy_layout' => null, 'nowo_api_studio_legacy_blocks' => []], $pages->context(['page' => 'x']));
+            self::assertSame(['page' => 'x', 'nowo_api_studio_legacy_layout' => null, 'nowo_api_studio_legacy_blocks' => [], 'nowo_api_studio_scope' => null], $pages->context(['page' => 'x']));
         }
     }
 

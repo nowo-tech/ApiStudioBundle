@@ -17,9 +17,11 @@ use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiResponseExample;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioScope;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 
+use function implode;
 use function sprintf;
 use function str_ends_with;
 use function strlen;
@@ -31,6 +33,8 @@ use function substr;
  * history, folders), is narrowed to the request's tenant and visible workspaces. The explicit checks of the controllers stay
  * the control: SQL filters do not apply to entities already in the identity map, DBAL queries or DQL UPDATE / DELETE.
  * Enabled by {@see TenantSqlFilterListener}; off everywhere else.
+ *
+ * 1.17: also narrows by the host scope (`scope.enabled`), with or without tenancy.
  */
 final class TenantSqlFilter extends SQLFilter
 {
@@ -50,8 +54,21 @@ final class TenantSqlFilter extends SQLFilter
         ApiFolder::class              => 'folder',
     ];
 
+    /** 1.17 scope modes of the filter (`scope.enabled`). */
+    private const SCOPE_OFF      = 'off';
+    private const SCOPE_EXACT    = 'exact';
+    private const SCOPE_UNSCOPED = 'unscoped';
+    private const SCOPE_VISIBLE  = 'visible';
+    private const SCOPE_ALL      = 'all';
+
     public static function configure(self $filter, ApiStudioScope $scope): void
     {
+        // 1.17: the filter also runs with scopes and no tenancy (the tenant columns are then not mapped).
+        $filter->setParameter('tenancy', $scope->tenancy ? '1' : '0', Types::STRING);
+        $filter->setParameter('scope_mode', self::scopeMode($scope), Types::STRING);
+        $filter->setParameter('host_scope', $scope->hostScope instanceof WorkspaceScope ? $scope->hostScope->value : '', Types::STRING);
+        // An empty list would be invalid SQL: '' is the tenant level, already allowed in this mode.
+        $filter->setParameterList('scopes', $scope->visibleScopes === null || $scope->visibleScopes === [] ? [''] : $scope->visibleScopes, Types::STRING);
         $filter->setParameter('tenant_type', $scope->tenant->type, Types::STRING);
         $filter->setParameter('tenant_id', $scope->tenant->id, Types::STRING);
         $filter->setParameter('restrict_ids', $scope->visibleIds === null ? '0' : '1', Types::STRING);
@@ -89,13 +106,44 @@ final class TenantSqlFilter extends SQLFilter
         };
     }
 
-    private function workspaceCondition(string $alias): string
+    private static function scopeMode(ApiStudioScope $scope): string
     {
-        $condition = sprintf('%1$s.tenant_type = %2$s AND %1$s.tenant_id = %3$s', $alias, $this->getParameter('tenant_type'), $this->getParameter('tenant_id'));
-        if ($this->getParameter('restrict_ids') === "'1'") {
-            $condition .= sprintf(' AND %s.id IN (%s)', $alias, $this->getParameterList('ids'));
+        if (!$scope->scopes) {
+            return self::SCOPE_OFF;
         }
 
-        return '(' . $condition . ')';
+        if ($scope->hostScope instanceof WorkspaceScope) {
+            return self::SCOPE_EXACT;
+        }
+
+        if (!$scope->tenantListAll || $scope->visibleScopes === []) {
+            return self::SCOPE_UNSCOPED;
+        }
+
+        return $scope->visibleScopes === null ? self::SCOPE_ALL : self::SCOPE_VISIBLE;
+    }
+
+    private function workspaceCondition(string $alias): string
+    {
+        $conditions = [];
+        if ($this->getParameter('tenancy') === "'1'") {
+            $conditions[] = sprintf('%1$s.tenant_type = %2$s AND %1$s.tenant_id = %3$s', $alias, $this->getParameter('tenant_type'), $this->getParameter('tenant_id'));
+        }
+
+        $scope = match ($this->getParameter('scope_mode')) {
+            "'" . self::SCOPE_EXACT . "'"    => sprintf('%s.host_scope = %s', $alias, $this->getParameter('host_scope')),
+            "'" . self::SCOPE_UNSCOPED . "'" => sprintf("%s.host_scope = ''", $alias),
+            "'" . self::SCOPE_VISIBLE . "'"  => sprintf("(%1\$s.host_scope = '' OR %1\$s.host_scope IN (%2\$s))", $alias, $this->getParameterList('scopes')),
+            default                          => null,
+        };
+        if ($scope !== null) {
+            $conditions[] = $scope;
+        }
+
+        if ($this->getParameter('restrict_ids') === "'1'") {
+            $conditions[] = sprintf('%s.id IN (%s)', $alias, $this->getParameterList('ids'));
+        }
+
+        return '(' . ($conditions === [] ? '1 = 1' : implode(' AND ', $conditions)) . ')';
     }
 }

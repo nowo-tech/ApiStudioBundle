@@ -32,7 +32,7 @@
                     {% else %}
                         <div class="as-project-grid">
                             {% for workspace in workspaces %}
-                                <a href="{{ path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-project-card as-project-card--{{ loop.index0 % 5 }}">
+                                <a href="{{ api_studio_path('nowo_api_studio_workspace_show', {id: workspace.id}) }}" class="as-project-card as-project-card--{{ loop.index0 % 5 }}">
                                     <span class="as-project-icon" aria-hidden="true">⬡</span>
                                     <h3>{{ workspace.name }}</h3>
                                     <p>{{ workspace.slug }} · {{ workspace.services|length }} {{ 'section.services'|trans({}, 'NowoApiStudioBundle')|lower }}</p>
@@ -40,7 +40,7 @@
                             {% endfor %}
                         </div>
                         {% if workspaceCount > workspaces|length %}
-                            <p><a href="{{ path('nowo_api_studio_workspace_index') }}">{{ 'action.view_all'|trans({}, 'NowoApiStudioBundle') }}</a></p>
+                            <p><a href="{{ api_studio_path('nowo_api_studio_workspace_index') }}">{{ 'action.view_all'|trans({}, 'NowoApiStudioBundle') }}</a></p>
                         {% endif %}
                     {% endif %}
                 </div>

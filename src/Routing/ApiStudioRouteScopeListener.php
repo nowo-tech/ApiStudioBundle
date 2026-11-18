@@ -33,11 +33,13 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
 
     /**
      * @param list<string> $placeholders the placeholders of ui.path
+     * @param list<string> $scopedPlaceholders 1.17: the placeholders of scope.path (routes mounted there)
      */
     public function __construct(
         private RequestContextAwareInterface $router,
         private array $placeholders = [],
         private ApiStudioRoutes $routes = new ApiStudioRoutes(),
+        private array $scopedPlaceholders = [],
     ) {
     }
 
@@ -62,14 +64,16 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
 
     public function onKernelRequest(RequestEvent $event): void
     {
-        $request = $event->getRequest();
-        if ($this->placeholders === [] || !$this->routes->isStudioRoute($request->attributes->get('_route'))) {
+        $request      = $event->getRequest();
+        $route        = $request->attributes->get('_route');
+        $placeholders = ApiStudioRoutes::isScopedMount($route) ? $this->scopedPlaceholders : $this->placeholders;
+        if ($placeholders === [] || !$this->routes->isStudioRoute($route)) {
             return;
         }
 
         $context  = $this->router->getContext();
         $previous = [];
-        foreach ($this->placeholders as $name) {
+        foreach ($placeholders as $name) {
             $value = $request->attributes->get($name);
             if (!is_scalar($value)) {
                 continue;
@@ -93,13 +97,13 @@ final readonly class ApiStudioRouteScopeListener implements EventSubscriberInter
      */
     public function reset(): void
     {
-        if ($this->placeholders === []) {
+        if ($this->placeholders === [] && $this->scopedPlaceholders === []) {
             return;
         }
 
         $context    = $this->router->getContext();
         $parameters = $context->getParameters();
-        foreach ($this->placeholders as $name) {
+        foreach ([...$this->placeholders, ...$this->scopedPlaceholders] as $name) {
             unset($parameters[$name]);
         }
         // @igor-ignore - Clears the per-request router context values between worker requests.

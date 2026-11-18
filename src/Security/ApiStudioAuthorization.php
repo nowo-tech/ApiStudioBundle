@@ -6,6 +6,10 @@ namespace Nowo\ApiStudioBundle\Security;
 
 use LogicException;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Scope\ScopeAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Scope\ScopeAccessSubject;
+use Nowo\ApiStudioBundle\Scope\ScopeContext;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -28,6 +32,9 @@ use function sprintf;
  *   granted the action → 403.
  * - {@see self::can()}: what pages ask to hide actions.
  *
+ * 1.17 (`scope.enabled`): the host scope narrows {@see ApiStudioScope}, and every action in a scope (a scoped request,
+ * or a scoped workspace opened from the tenant level) also needs {@see ScopeAccessCheckerInterface} (deny by default).
+ *
  * Decisions and the scope are memoised on the main request (worker-safe: nothing is kept in the service).
  */
 final readonly class ApiStudioAuthorization
@@ -45,6 +52,9 @@ final readonly class ApiStudioAuthorization
         private ?ApiStudioTenantContext $tenantContext = null,
         private ?TokenStorageInterface $tokenStorage = null,
         private ?RequestStack $requestStack = null,
+        private ?ScopeContext $scopeContext = null,
+        private ?ScopeAccessCheckerInterface $scopeChecker = null,
+        private bool $tenantListAll = true,
     ) {
         $this->checker = $checker ?? new LegacyPermissionChecker();
     }
@@ -54,11 +64,20 @@ final readonly class ApiStudioAuthorization
         return $this->tenantContext?->current() ?? ApiStudioTenant::instance();
     }
 
+    /**
+     * 1.17: the host scope of the work being done (null: tenant level, or scopes off).
+     */
+    public function hostScope(): ?WorkspaceScope
+    {
+        return $this->scopeContext?->current();
+    }
+
     public function scope(): ApiStudioScope
     {
         $request = $this->requestStack?->getMainRequest();
         $cached  = $request?->attributes->get(self::SCOPE_ATTRIBUTE);
-        if ($cached instanceof ApiStudioScope) {
+        // A host scope switched by ScopeContext::runAs() inside the request is not served the memo of another scope.
+        if ($cached instanceof ApiStudioScope && WorkspaceScope::key($cached->hostScope) === WorkspaceScope::key($this->hostScope())) {
             return $cached;
         }
 
@@ -68,7 +87,18 @@ final readonly class ApiStudioAuthorization
             throw new LogicException(sprintf('Api Studio: visibleWorkspaceIds() returned more than %d ids; return null and let the tenant scope the lists.', self::MAX_VISIBLE_IDS));
         }
 
-        $scope = new ApiStudioScope($tenant, $this->tenantContext?->isEnabled() ?? false, $ids);
+        $scopes        = $this->scopeContext?->isEnabled() ?? false;
+        $hostScope     = $scopes ? $this->hostScope() : null;
+        $visibleScopes = null;
+        if ($scopes && !$hostScope instanceof WorkspaceScope && $this->tenantListAll) {
+            // Deny by default: without a scope checker no scoped workspace is listed at tenant level.
+            $visibleScopes = $this->scopeChecker instanceof ScopeAccessCheckerInterface ? $this->scopeChecker->visibleScopes($this->user(), $tenant) : [];
+            if (is_array($visibleScopes) && count($visibleScopes) > self::MAX_VISIBLE_IDS) {
+                throw new LogicException(sprintf('Api Studio: visibleScopes() returned more than %d scopes; return null and let the access checks decide.', self::MAX_VISIBLE_IDS));
+            }
+        }
+
+        $scope = new ApiStudioScope($tenant, $this->tenantContext?->isEnabled() ?? false, $ids, $hostScope, $scopes, $this->tenantListAll, $visibleScopes);
         // @igor-ignore - Memoised on the request itself (request-scoped, not service state).
         $request?->attributes->set(self::SCOPE_ATTRIBUTE, $scope);
 
@@ -89,15 +119,27 @@ final readonly class ApiStudioAuthorization
             return false;
         }
 
+        // 1.17: the scope the action applies to — the workspace's own, else the request's (tenant-level actions).
+        $actionScope = null;
+        if ($this->scopeContext?->isEnabled() === true) {
+            $actionScope = $workspace instanceof ApiWorkspace ? $workspace->getScope() : $this->hostScope();
+        }
+
         $request   = $this->requestStack?->getMainRequest();
-        $key       = $action->value . '#' . ($workspace instanceof ApiWorkspace ? ($workspace->getId() ?? 'new' . spl_object_id($workspace)) : '');
+        $key       = $action->value . '#' . ($workspace instanceof ApiWorkspace ? ($workspace->getId() ?? 'new' . spl_object_id($workspace)) : '') . '@' . WorkspaceScope::key($actionScope);
         $decisions = $request?->attributes->get(self::DECISIONS_ATTRIBUTE);
         $decisions = is_array($decisions) ? $decisions : [];
         if (is_bool($decisions[$key] ?? null)) {
             return $decisions[$key];
         }
 
-        $granted         = $this->checker->isGranted($this->user(), $action, new ApiStudioSubject($this->tenant(), $workspace));
+        $granted = true;
+        if ($actionScope instanceof WorkspaceScope) {
+            // Deny by default: a scoped action needs the host's scope checker to grant it, on top of the permission checker.
+            $granted = $this->scopeChecker instanceof ScopeAccessCheckerInterface
+                && $this->scopeChecker->isGranted($this->user(), $action, new ScopeAccessSubject($this->tenant(), $actionScope, $workspace?->getId()));
+        }
+        $granted         = $granted && $this->checker->isGranted($this->user(), $action, new ApiStudioSubject($this->tenant(), $workspace, $actionScope));
         $decisions[$key] = $granted;
         // @igor-ignore - Memoised on the request itself (request-scoped, not service state).
         $request?->attributes->set(self::DECISIONS_ATTRIBUTE, $decisions);

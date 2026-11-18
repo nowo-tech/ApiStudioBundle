@@ -52,7 +52,7 @@ final class ApiWorkspaceController extends AbstractController
         return $this->renderPage('@NowoApiStudioBundle/workspace/index.html.twig', [
             'page' => $this->pages()->workspaceIndex(
                 $workspaces,
-                new Pagination($page, $this->listPageSize, $total, $totalPages, 'nowo_api_studio_workspace_index'),
+                new Pagination($page, $this->listPageSize, $total, $totalPages, $this->studioRoute('nowo_api_studio_workspace_index')),
             ),
         ]);
     }
@@ -60,8 +60,9 @@ final class ApiWorkspaceController extends AbstractController
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
-        $tenant    = $this->authorization()->tenant();
-        $workspace = (new ApiWorkspace('New workspace', ''))->assignTenant($tenant);
+        $tenant = $this->authorization()->tenant();
+        // 1.17: the scope comes from the route only (none at tenant level); the form has no scope field.
+        $workspace = (new ApiWorkspace('New workspace', ''))->assignTenant($tenant)->assignScope($this->authorization()->hostScope());
         $form      = $this->createForm(ApiWorkspaceFormType::class, $workspace, ['scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $workspace)]);
         $form->handleRequest($request);
 
@@ -75,9 +76,9 @@ final class ApiWorkspaceController extends AbstractController
             try {
                 if ($this->flushUnlessSlugTaken($form)) {
                     $actorId = $this->currentActorId();
-                    $this->dispatchEvent(new ApiWorkspaceCreatedEvent($workspace, $tenant, $this->authorization()->user(), $actorId));
+                    $this->dispatchEvent(new ApiWorkspaceCreatedEvent($workspace, $tenant, $this->authorization()->user(), $actorId, $workspace->getScope()?->value));
                     $connection->commit();
-                    $this->dispatchEvent(new ApiWorkspaceCreatedCommittedEvent((int) $workspace->getId(), $workspace->getSlug(), $tenant, $actorId));
+                    $this->dispatchEvent(new ApiWorkspaceCreatedCommittedEvent((int) $workspace->getId(), $workspace->getSlug(), $tenant, $actorId, $workspace->getScope()?->value));
                     $this->flash('success', 'flash.created');
 
                     return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
@@ -152,9 +153,10 @@ final class ApiWorkspaceController extends AbstractController
 
         $workspaceId = (int) $workspace->getId();
         $tenant      = $workspace->getTenant();
+        $scope       = $workspace->getScope()?->value;
         $this->entityManager->remove($workspace);
         $this->entityManager->flush();
-        $this->dispatchEvent(new ApiWorkspaceDeletedEvent($workspaceId, $tenant));
+        $this->dispatchEvent(new ApiWorkspaceDeletedEvent($workspaceId, $tenant, $scope));
         $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspaceId, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
