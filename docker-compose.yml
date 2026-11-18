@@ -16,6 +16,46 @@ services:
     networks:
       - api-studio-bundle-network
 
+  # 1.17 REQ-RUNTIME-003: real databases of the race suite (make test-with-db; profile "db", passwordless).
+  mysql:
+    image: mysql:8.4
+    profiles: ["db"]
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: api_studio
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      retries: 30
+    networks:
+      - api-studio-bundle-network
+
+  mariadb:
+    image: mariadb:11.4
+    profiles: ["db"]
+    environment:
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: api_studio
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+    networks:
+      - api-studio-bundle-network
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["db"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: api_studio
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 30
+    networks:
+      - api-studio-bundle-network
+
 volumes:
   composer-cache:
     driver: local

@@ -1,4 +1,4 @@
-# CI: tests on PHP 8.2–8.5 × Symfony 7.4, 8.1; static analysis (PHPStan, Rector, Igor); coverage on PHP 8.4 + Symfony 7.4.
+# CI: tests on PHP 8.2–8.5 × Symfony 7.4, 8.1; real databases (MySQL, MariaDB, PostgreSQL; DBAL 3 and 4); static analysis (PHPStan, Rector, Igor); coverage on PHP 8.4 + Symfony 7.4.
 # Release (incl. latest) is created by release.yml on tag push (v*).
 name: CI
 
@@ -119,6 +119,71 @@ jobs:
       - name: Coverage gate (REQ-TEST-003, PHP lines >= 99%)
         if: matrix.php == '8.4' && matrix.symfony == '7.4'
         run: composer coverage-check
+
+  databases:
+    # 1.17 REQ-RUNTIME-003: two-connection races of the seed API / scope mover on real servers (required check).
+    name: Databases (MySQL 8.4, MariaDB 11.4, PostgreSQL 16) - ${{ matrix.deps }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - deps: 'DBAL 4'
+            dbal: '^4.0'
+          - deps: 'DBAL 3'
+            dbal: '^3.8.2'
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: api_studio
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=5s --health-timeout=5s --health-retries=30
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_DATABASE: api_studio
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=30
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: api_studio
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: json, soap, pdo_sqlite, pdo_mysql, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      - name: Pin the DBAL major
+        run: composer require "doctrine/dbal:${{ matrix.dbal }}" --no-update --no-interaction
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-progress --no-interaction --with-all-dependencies
+
+      - name: Real race / lock wait tests (none may be skipped)
+        env:
+          AS_MYSQL_URL: mysql://root@127.0.0.1:3306/api_studio?serverVersion=8.4.0
+          AS_MARIADB_URL: mysql://root@127.0.0.1:3307/api_studio?serverVersion=11.4.2-MariaDB
+          AS_POSTGRES_URL: pgsql://postgres@127.0.0.1:5432/api_studio?serverVersion=16
+        run: vendor/bin/phpunit --testsuite Database --no-coverage --fail-on-skipped
 
   static-analysis:
     name: Static analysis (PHPStan, Rector, Igor)
