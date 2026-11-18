@@ -96,6 +96,7 @@ final class SecretsStatusCommand extends Command
         $tenant = $this->tenantOption($input->getOption('tenant'));
         if ($tenant instanceof ApiStudioTenant) {
             $query->join('v.environment', 'e')->join('e.workspace', 'w')
+                ->addSelect('w.tenantType AS tenant_type', 'w.tenantId AS tenant_id')
                 ->andWhere('w.tenantType = :tenant_type AND w.tenantId = :tenant_id')
                 ->setParameter('tenant_type', $tenant->type)
                 ->setParameter('tenant_id', $tenant->id);
@@ -106,6 +107,10 @@ final class SecretsStatusCommand extends Command
         $encrypted  = 0;
         $unreadable = [];
         foreach ($rows as $row) {
+            // Exact-key rule (audit UA2-2): before the 1.17 collation migration MySQL / MariaDB match "ACME" for "acme".
+            if ($tenant instanceof ApiStudioTenant && (($row['tenant_type'] ?? null) !== $tenant->type || ($row['tenant_id'] ?? null) !== $tenant->id)) {
+                continue;
+            }
             $value = (string) $row['value'];
             if (!$this->cipher->isEncrypted($value)) {
                 ++$plain;

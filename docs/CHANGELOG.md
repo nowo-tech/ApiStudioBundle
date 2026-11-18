@@ -83,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Environment variable keys compare exactly** (audit UA-I3): `variable_key` gets a binary NO PAD collation on MySQL / MariaDB (`{{API_KEY}}` and `{{api_key}}` were already two variables for the console; the unique key now agrees).
 - Workspace slug validation is per (tenant, scope) with scopes on (audit UA-M1): no false "slug taken" at tenant level for a slug used only in a project, no oracle of another scope's slugs without the SQL filter.
 - A resolver that refuses a route value (`InvalidArgumentException`, e.g. an invalid `WorkspaceScope`) answers 404, not 500 (audit UA-L3).
-- The seeder and the scope mover re-read the locked workspace row even when the manager already held a copy, so a move committed meanwhile is never overwritten.
+- The seeder and the scope mover fill the workspace from the locking read itself (`refresh(…, PESSIMISTIC_WRITE)`), so a move committed meanwhile is never overwritten: neither when the manager already held a copy, nor when they run nested in a caller's transaction whose MySQL / MariaDB REPEATABLE READ snapshot predates the move (a plain refresh after the lock read that snapshot; audit UA2-1).
+- The tenant commands re-check the tenant exactly in PHP (audit UA2-2): before the collation migration, `nowo:api-studio:tenant:unsuffix-slugs --tenant-id=acme` also renamed the slugs of tenant `ACME`, `nowo:api-studio:secrets:status --tenant` counted its secrets and `nowo:api-studio:tenant:move` counted its slug as taken at the destination.
 
 ### Changed
 

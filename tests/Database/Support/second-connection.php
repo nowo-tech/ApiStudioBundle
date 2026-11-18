@@ -29,6 +29,8 @@ if ($url === '') {
 $parser     = new DsnParser(['mysql' => 'pdo_mysql', 'pgsql' => 'pdo_pgsql']);
 $connection = DriverManager::getConnection($parser->parse($url));
 $connection->fetchOne('SELECT 1');
+// Bounded waits: a blocked statement answers within seconds.
+$connection->executeStatement(str_starts_with($url, 'pgsql') ? "SET lock_timeout = '15s'" : 'SET SESSION innodb_lock_wait_timeout = 15');
 
 fwrite(\STDOUT, "READY\n");
 

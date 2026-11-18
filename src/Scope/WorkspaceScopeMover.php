@@ -48,12 +48,13 @@ final readonly class WorkspaceScopeMover
         try {
             $change = DoctrineTransactionRunner::forHostEntityManager($manager, $this->registry, $managers->managerName(), 1, $this->logger)
                 ->run(static function () use ($manager, $workspaceId, $to): ?array {
-                    $workspace = $manager->find(ApiWorkspace::class, $workspaceId, LockMode::PESSIMISTIC_WRITE);
+                    $workspace = $manager->find(ApiWorkspace::class, $workspaceId);
                     if (!$workspace instanceof ApiWorkspace) {
                         throw new InvalidArgumentException(sprintf('Api Studio: no workspace %d.', $workspaceId));
                     }
-                    // A copy the manager already held is not re-read by the locking find: read the locked row (audit UA).
-                    $manager->refresh($workspace);
+                    // The locking read fills the entity (audits UA, UA2-1): current row, never an earlier snapshot of an
+                    // enclosing REPEATABLE READ transaction nor a copy the manager already held.
+                    $manager->refresh($workspace, LockMode::PESSIMISTIC_WRITE);
 
                     $from = $workspace->getScope();
                     if (WorkspaceScope::key($from) === WorkspaceScope::key($to)) {

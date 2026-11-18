@@ -20,6 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
+use function array_filter;
 use function ctype_digit;
 use function is_string;
 use function sprintf;
@@ -75,16 +76,19 @@ final class TenantMoveCommand extends Command
             return Command::SUCCESS;
         }
 
-        $taken = (int) $manager->createQueryBuilder()
-            ->select('COUNT(w.id)')
+        /** @var list<array{type: string, id: string, slug: string}> $candidates */
+        $candidates = $manager->createQueryBuilder()
+            ->select('w.tenantType AS type', 'w.tenantId AS id', 'w.slug AS slug')
             ->from(ApiWorkspace::class, 'w')
             ->where('w.tenantType = :type AND w.tenantId = :id AND w.slug = :slug')
             ->setParameter('type', $to->type)
             ->setParameter('id', $to->id)
             ->setParameter('slug', $workspace->getSlug())
             ->getQuery()
-            ->getSingleScalarResult();
-        if ($taken > 0) {
+            ->getScalarResult();
+        // Exact-key rule (audit UA2-2): a look-alike tenant ("ACME" for "acme") is not the destination.
+        $taken = array_filter($candidates, static fn (array $row): bool => $row['type'] === $to->type && $row['id'] === $to->id && $row['slug'] === $workspace->getSlug());
+        if ($taken !== []) {
             $io->error(sprintf('The destination tenant already has a workspace with the slug "%s": rename one of them first.', $workspace->getSlug()));
 
             return Command::FAILURE;

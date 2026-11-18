@@ -112,7 +112,9 @@ composer update nowo-tech/api-studio-bundle
 - **Identifier columns** (audit UA-L1 / UA-I3, every MySQL / MariaDB host): `api_studio_environment_variable.variable_key`
   and, with tenancy, `api_studio_workspace.tenant_type` / `tenant_id` get a binary NO PAD collation. Generate the
   migration with `doctrine:migrations:diff` (with `serverVersion` set), or for reference on MySQL 8 (MariaDB:
-  `utf8mb4_nopad_bin`):
+  `utf8mb4_nopad_bin`; the SQL assumes the default `api_studio_` table prefix: adapt the table names to your
+  `table_prefix`). `MODIFY` rebuilds the table on MySQL / MariaDB (a copy of every row, writes blocked meanwhile):
+  plan a maintenance window for a large `environment_variable` table.
 
 ```sql
 ALTER TABLE api_studio_environment_variable MODIFY variable_key VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
@@ -131,7 +133,7 @@ ALTER TABLE api_studio_workspace
 `scope.resolver`, `scope.access_checker` (both mandatory) and optionally `scope.path`, then migrate. The column is
 `host_scope VARCHAR(128) NOT NULL DEFAULT ''` (existing workspaces stay at tenant level), the slug key becomes
 per (tenant,) scope. Generate the migration with `doctrine:migrations:diff` (or run `nowo:api-studio:sync-schema`);
-for reference, with tenancy on (default `api_studio_` prefix):
+for reference, with tenancy on and the default `api_studio_` table prefix (adapt the names to your `table_prefix`):
 
 ```sql
 -- MySQL 8 (MariaDB: COLLATE utf8mb4_nopad_bin)

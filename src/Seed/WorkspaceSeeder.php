@@ -182,10 +182,12 @@ final readonly class WorkspaceSeeder
      */
     private function lockedWorkspace(EntityManagerInterface $manager, WorkspaceSeed $seed, int $id): ?ApiWorkspace
     {
-        $workspace = $manager->find(ApiWorkspace::class, $id, LockMode::PESSIMISTIC_WRITE);
+        $workspace = $manager->find(ApiWorkspace::class, $id);
         if ($workspace instanceof ApiWorkspace) {
-            // A copy the manager already held is not re-read by the locking find: read the locked row (audit UA).
-            $manager->refresh($workspace);
+            // The locking read itself fills the entity (audits UA, UA2-1): a plain refresh() after the lock would read
+            // a REPEATABLE READ snapshot taken earlier in an enclosing transaction (MySQL / MariaDB), and a locking find
+            // does not re-read a copy the manager already held.
+            $manager->refresh($workspace, LockMode::PESSIMISTIC_WRITE);
         }
 
         return $workspace instanceof ApiWorkspace && $workspace->getSlug() === $seed->slug && $workspace->getTenant()->equals($seed->tenant) && $workspace->getScopeKey() === WorkspaceScope::key($seed->scope) ? $workspace : null;

@@ -10,6 +10,7 @@ use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Event\ApiWorkspaceScopeChangedEvent;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
@@ -30,6 +31,7 @@ use Nowo\TransactionDoctrine\TransientFailureKind;
 use Nowo\TransactionDoctrine\WriteUnit\ConcurrencyConflict;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -312,6 +314,52 @@ final class WorkspaceSeedRaceTest extends TestCase
         self::assertSame('project:alpha', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
     }
 
+    /**
+     * Audit UA2-1: nested in a caller's transaction that already read (MySQL / MariaDB REPEATABLE READ snapshot), the
+     * seed must still see a move committed afterwards: the locking read fills the entity, not a snapshot refresh.
+     */
+    #[DataProvider('servers')]
+    public function testANestedSeedSeesAMoveCommittedAfterTheCallersSnapshot(string $variable): void
+    {
+        $this->boot($variable);
+        $first = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Alpha insurers', $this->tenant(), $this->scope()));
+        $this->connection->beginTransaction();
+        self::assertSame('project:alpha', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
+        self::assertSame('OK', $this->other()->execute(sprintf("UPDATE api_studio_workspace SET host_scope = 'project:beta' WHERE id = %d", $first->workspaceId)));
+
+        $result = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Alpha insurers', $this->tenant(), $this->scope(), null, [
+            new ServiceSeed('alpha-only', 'Alpha only', 'https://api.example.test'),
+        ]));
+        $this->connection->commit();
+
+        self::assertNotSame($first->workspaceId, $result->workspaceId);
+        self::assertSame('project:beta', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
+        self::assertSame('project:alpha', $this->connection->fetchOne('SELECT w.host_scope FROM api_studio_service s JOIN api_studio_workspace w ON w.id = s.workspace_id'));
+        $this->assertUsable();
+    }
+
+    #[DataProvider('servers')]
+    public function testANestedMoveSeesAMoveCommittedAfterTheCallersSnapshot(string $variable): void
+    {
+        $this->boot($variable);
+        $first = $this->seeder()->seed(new WorkspaceSeed('insurers', 'W', $this->tenant(), $this->scope()));
+        $this->connection->beginTransaction();
+        self::assertSame('project:alpha', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
+        self::assertSame('OK', $this->other()->execute(sprintf("UPDATE api_studio_workspace SET host_scope = 'project:beta' WHERE id = %d", $first->workspaceId)));
+
+        $events     = [];
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(ApiWorkspaceScopeChangedEvent::class, static function (ApiWorkspaceScopeChangedEvent $event) use (&$events): void {
+            $events[] = $event;
+        });
+        // Already in project:beta: no change, no event with a stale "from".
+        (new WorkspaceScopeMover($this->registry, null, true, $dispatcher))->move($first->workspaceId, new WorkspaceScope('project:beta'));
+        $this->connection->commit();
+
+        self::assertSame([], $events);
+        self::assertSame('project:beta', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
+    }
+
     private function boot(string $variable): void
     {
         $url = getenv($variable);
@@ -324,6 +372,8 @@ final class WorkspaceSeedRaceTest extends TestCase
         $this->connection = DriverManager::getConnection($parser->parse($url), $this->scopeConfiguration());
         $this->registry   = new ScopeManagerRegistry($this->connection, fn (Connection $connection): EntityManagerInterface => $this->scopeManager($connection));
         $this->createScopeSchema($this->scopeEntityManager($this->registry));
+        // Bounded waits: a test that blocks fails within seconds instead of hanging the job.
+        $this->connection->executeStatement($this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform ? "SET lock_timeout = '15s'" : 'SET SESSION innodb_lock_wait_timeout = 15');
     }
 
     private function other(): SecondConnection

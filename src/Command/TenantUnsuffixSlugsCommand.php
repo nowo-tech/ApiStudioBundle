@@ -15,7 +15,9 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+use function array_filter;
 use function array_map;
+use function array_values;
 use function preg_match;
 
 /**
@@ -62,6 +64,8 @@ final class TenantUnsuffixSlugsCommand extends Command
             ->orderBy('w.id', 'ASC')
             ->getQuery()
             ->getResult();
+        // Exact-key rule (audit UA2-2): before the 1.17 collation migration MySQL / MariaDB match "ACME" for "acme".
+        $workspaces = array_values(array_filter($workspaces, static fn (ApiWorkspace $workspace): bool => $workspace->getTenant()->equals($tenant)));
 
         $taken = [];
         foreach ($workspaces as $workspace) {
