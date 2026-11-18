@@ -77,7 +77,10 @@ only when a failure closed it), and the seeder refuses to start over pending cha
   - a lock held past the lock wait timeout — `ConcurrencyConflict` after 3 attempts, its 409 + `CONFLICT_001` +
     `Retry-After` answer, nothing half-saved, the connection usable for the next seed;
   - scopes compared byte-exact on the server (`project:a`, `project:A`, `project:a.` are three scopes);
-  - a scope move into a taken slug — nothing changed, connection usable.
+  - a scope move into a taken slug — nothing changed, connection usable;
+  - a look-alike tenant (`ACME` vs `acme`) sees nothing and does not collide; variable keys that differ in case are two
+    variables;
+  - a seed after a concurrent move, and the mover with a stale copy in the manager, read the locked row.
 - `tests/Integration/Seed` (SQLite): idempotent re-run, update, additive, retry of a unique violation and of transient
   failures, a conflict from below passed on, nested transaction (one attempt), pending changes refused.
 - `tests/Unit/EventListener/ConcurrencyConflictSubscriberTest.php`: 409 / 503, `CONFLICT_001` / `CONFLICT_002`
@@ -101,5 +104,6 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 - Edit / delete pages of workspaces, services, endpoints and environments (*pre-1.17*) keep last-writer-wins on plain
   fields (no version column): two editors saving the same form at once keep the later save. No duplicates or
   half-saved rows (one flush, unique keys); to be revisited in the concurrency wave of the older paths.
-- On MySQL / MariaDB the 1.11 tenant columns have no binary collation (see [SECURITY](SECURITY.md#residual-risks-accepted-for-req-sec-004-pass-good--low)):
-  the unique key may treat tenant ids that differ only in case as one tenant and refuse the second write.
+- Hosts that skip the 1.17 column migration (binary tenant columns and variable keys on MySQL / MariaDB, see
+  [UPGRADING](UPGRADING.md#to-1170)) keep a case-insensitive unique key: a seed for a tenant id or a variable key that
+  differs only in case is refused after its retries instead of creating a second row.

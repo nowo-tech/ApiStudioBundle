@@ -109,6 +109,24 @@ composer update nowo-tech/api-studio-bundle
   without scopes). Overrides may keep `path()`; with a scoped mount switch them to `api_studio_path()` so links stay in
   the mount.
 
+- **Identifier columns** (audit UA-L1 / UA-I3, every MySQL / MariaDB host): `api_studio_environment_variable.variable_key`
+  and, with tenancy, `api_studio_workspace.tenant_type` / `tenant_id` get a binary NO PAD collation. Generate the
+  migration with `doctrine:migrations:diff` (with `serverVersion` set), or for reference on MySQL 8 (MariaDB:
+  `utf8mb4_nopad_bin`):
+
+```sql
+ALTER TABLE api_studio_environment_variable MODIFY variable_key VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
+-- with tenancy:
+ALTER TABLE api_studio_workspace
+    MODIFY tenant_type VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT '' NOT NULL,
+    MODIFY tenant_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT '' NOT NULL;
+```
+
+  Before migrating, check for keys or tenant ids that differ only in case or trailing spaces (they become distinct;
+  the unique keys then admit both). PostgreSQL and SQLite need nothing.
+- **Host secret sources** (with scopes): `ApiStudioSecretRef::$scope` is the workspace's scope; authorise references
+  against the tenant **and** the scope.
+
 **Turning scopes on** (see [USAGE — Workspace scopes](USAGE.md#workspace-scopes-117)): configure `scope.enabled`,
 `scope.resolver`, `scope.access_checker` (both mandatory) and optionally `scope.path`, then migrate. The column is
 `host_scope VARCHAR(128) NOT NULL DEFAULT ''` (existing workspaces stay at tenant level), the slug key becomes

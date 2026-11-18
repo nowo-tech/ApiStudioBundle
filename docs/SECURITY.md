@@ -246,6 +246,11 @@ relay and the server runner runs before the tag).
   checker).
 - **The scope comes from the route, never from the client**: the resolver is the host's (identify only, it must check
   that the route value belongs to the tenant); forms have no scope field.
+- **Host secrets per scope** (audit UA-M2): every `ApiStudioSecretRef` carries the workspace's `scope` (null at tenant
+  level). A host secret source must authorise `source/id` against the tenant **and** the scope: an editor can copy a
+  `{{secret:…}}` reference into a workspace of another project, and only the source can refuse to resolve it there.
+- **Slug validation per scope** (audit UA-M1): the "slug taken" check of the forms is narrowed to (tenant, scope), so it
+  neither refuses a slug used only in another scope nor reveals another scope's slugs (with or without the SQL filter).
 - **Seed API**: no secret value can be expressed (plain variables refuse `{{secret:…}}`, secrets are references only,
   refused without `secrets.source`; auth, headers, bodies and scripts are not seeded); the seeder logs ids, counts and
   attempts only, and its validation messages never carry a value. It is a PHP service, not an endpoint: the caller
@@ -297,11 +302,12 @@ relay and the server runner runs before the tag).
   where scripts are not needed.
 - 1.17 workspace scopes: host templates that override bundle templates and keep `path('nowo_api_studio_…')` link
   from a scoped page to the tenant-level studio (the link is still guarded there; switch to `api_studio_path()`).
-- 1.17: the tenant columns of 1.11 (`tenant_type`, `tenant_id`) have no binary collation; tenant ids compare exactly
-  in PHP (`ApiStudioTenant::equals()` in every lookup), but on MySQL / MariaDB the unique key treats `acme` and `ACME`
-  as the same tenant (a seed or a create for one may be refused for the other). Keep tenant ids canonical (e.g.
-  lower-case UUIDs) until the tenant columns get the binary collation.
-
+- 1.17 (audit UA-L1, fixed): before 1.17 the tenant columns of 1.11 (`tenant_type`, `tenant_id`) had no binary
+  collation, so on MySQL / MariaDB lists, counts and the sidebar of tenant `ACME` could include rows of tenant `acme`
+  (lookups by id were already exact in PHP), and the unique key made their slugs collide. Since 1.17 the columns get a
+  binary NO PAD collation (migration in [UPGRADING](UPGRADING.md#to-1170)), lists and the sidebar re-check the tenant
+  in PHP, and `ApiStudioTenant` refuses a trailing newline (`/D`). Hosts that skip the column migration keep exact
+  lists and lookups, but counts and the unique key stay case-insensitive until they migrate.
 ## AI security audit (REQ-SEC-004)
 
 | Field | Value |

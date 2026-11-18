@@ -77,9 +77,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lock conflicts answer 409** (REQ-RUNTIME-003, `concurrency.conflict_status: 409|503`, `concurrency.retry_after`): a deadlock, lock wait timeout or serialization failure on an Api Studio route answers `X-Conflict-Code: CONFLICT_001` + `Retry-After`, or `CONFLICT_002` without it when part of the request was committed (transaction-doctrine `ConflictCode::forRequest()`); console JSON routes get `{"error":"concurrency_conflict","code":…}`. Other database errors are not mapped.
 - `docs/CONCURRENCY.md` (write paths, conflict codes, host options), a real-database CI job "Databases" (MySQL 8.4, MariaDB 11.4, PostgreSQL 16; DBAL 3 and 4) with two-connection race tests, `make test-with-db`.
 
+### Fixed
+
+- **Look-alike tenants** (audit UA-L1, pre-existing since 1.11, Low): on MySQL / MariaDB the tenant columns compared case-insensitively, so the workspace list, dashboard counts and sidebar of tenant `ACME` could show workspaces of tenant `acme` (opening them was already refused), and their slugs collided on the unique key. `tenant_type` / `tenant_id` now get a binary NO PAD collation (migration), lists and the sidebar re-check the tenant byte-exact in PHP, and `ApiStudioTenant` refuses a trailing newline in the type or id.
+- **Environment variable keys compare exactly** (audit UA-I3): `variable_key` gets a binary NO PAD collation on MySQL / MariaDB (`{{API_KEY}}` and `{{api_key}}` were already two variables for the console; the unique key now agrees).
+- Workspace slug validation is per (tenant, scope) with scopes on (audit UA-M1): no false "slug taken" at tenant level for a slug used only in a project, no oracle of another scope's slugs without the SQL filter.
+- A resolver that refuses a route value (`InvalidArgumentException`, e.g. an invalid `WorkspaceScope`) answers 404, not 500 (audit UA-L3).
+- The seeder and the scope mover re-read the locked workspace row even when the manager already held a copy, so a move committed meanwhile is never overwritten.
+
 ### Changed
 
-- Requires `nowo-tech/transaction-doctrine ^1.6` and `nowo-tech/transaction-contract ^1.0`.
+- Requires `nowo-tech/transaction-doctrine ^1.6` and `nowo-tech/transaction-contract ^1.0` (hard dependencies, also with scopes off; registering `NowoTransactionDoctrineBundle` stays optional).
+- `ConcurrencyConflictSubscriber` is always on, also with `scope.enabled: false`: a lock conflict on any Api Studio route now answers 409 (or `concurrency.conflict_status: 503`) with `X-Conflict-Code` instead of a 500 (audit UA-I2).
+- `ApiStudioSecretRef` carries the workspace's `scope` (appended `?string $scope = null`): host secret sources must authorise `source/id` against the tenant **and** the scope (audit UA-M2).
 - The tenancy SQL filter (`tenancy.sql_filter`) also narrows by scope and runs with scopes on even without tenancy.
 - Bundle templates link with `api_studio_path()` (same URLs without a scoped mount).
 

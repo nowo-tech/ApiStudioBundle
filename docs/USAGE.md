@@ -426,6 +426,8 @@ $result = $seeder->seed(new WorkspaceSeed(
 // $result->workspaceId, ->workspaceCreated, ->attempts, ->created / ->updated counts
 ```
 
+- **Authorise references per scope**: your secret source receives `ApiStudioSecretRef::$scope` (the workspace's
+  scope) with `tenantType` / `tenantId`; resolve `source/id` only for the project it belongs to.
 - **No secret values**: a `VariableSeed` is always a plain variable (a `{{secret:…}}` value is refused there); secrets
   are only `SecretReferenceSeed(key, source, id)`, stored as the secret variable `{{secret:<source>/<id>}}` and
   resolved at execute time by your `secrets.source` ([Host secrets](#host-secrets-113)); refused without it.
