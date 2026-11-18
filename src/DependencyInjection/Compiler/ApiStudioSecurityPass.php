@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\DependencyInjection\Compiler;
 use Nowo\ApiStudioBundle\DependencyInjection\Configuration;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -39,6 +40,11 @@ final class ApiStudioSecurityPass implements CompilerPassInterface
 
         if ($enabled) {
             $this->assertConfiguration($container, $allowUnauthenticated, $hasSecurity);
+        }
+
+        // 1.16 (SY-I1): the firewall's trust resolver (decorated by 2FA bundles) decides "fully authenticated".
+        if ($container->hasDefinition(ApiStudioAccessPolicy::class) && $container->has('security.authentication.trust_resolver')) {
+            $container->getDefinition(ApiStudioAccessPolicy::class)->setArgument('$trustResolver', new Reference('security.authentication.trust_resolver'));
         }
 
         if ($container->hasDefinition(ApiStudioAccessSubscriber::class)) {

@@ -10,6 +10,8 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Script\ScriptRequestSender;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
@@ -55,6 +57,9 @@ final class ScriptSendRequestControllerTest extends TestCase
         $csrf = $this->createStub(CsrfTokenManagerInterface::class);
         $csrf->method('isTokenValid')->willReturn($validToken);
         $container = new Container();
+        // 1.16 (SY-L2): the trait fails closed without them; the defaults grant everything and answer 403.
+        $container->set(ApiStudioAuthorization::class, new ApiStudioAuthorization());
+        $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
         $controller = new ScriptSendRequestController($this->endpoints($endpoint), $this->sender(), null, 'sandbox');
         $controller->setContainer($container);

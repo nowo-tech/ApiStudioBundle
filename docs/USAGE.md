@@ -264,7 +264,9 @@ nowo_api_studio:
   a billing module, a feature flag)? Called on every Api Studio route after the role check, the access checker and
   `studio.open` — so someone who may not open the studio never learns whether its plan includes it — and before the
   controller. Return `true` only when the feature is on. `false` answers the policy below; a gate may also throw its
-  own `HttpException` (e.g. an upsell page) instead. No per-request state in the service (worker mode).
+  own `HttpException` (e.g. an upsell page) instead. No per-request state in the service (worker mode). The plan stays
+  hidden only if your permission checker denies `studio.open` to non-members of the tenant: otherwise anyone who passes
+  the role check reaches the gate and learns from its answer whether the tenant's plan includes Api Studio.
 
 ```php
 final readonly class PlanFeatureGate implements ApiStudioFeatureGateInterface

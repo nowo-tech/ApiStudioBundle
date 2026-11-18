@@ -16,6 +16,8 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Script\ScriptVariableStore;
+use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
@@ -71,6 +73,9 @@ final class ScriptVariablesControllerTest extends TestCase
         $csrf = $this->createStub(CsrfTokenManagerInterface::class);
         $csrf->method('isTokenValid')->willReturn(true);
         $container = new Container();
+        // 1.16 (SY-L2): the trait fails closed without them; the defaults grant everything and answer 403.
+        $container->set(ApiStudioAuthorization::class, new ApiStudioAuthorization());
+        $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
         $controller = new ScriptVariablesController($endpoints, new ScriptVariableStore($entityManager), null, 'sandbox');
         $controller->setContainer($container);

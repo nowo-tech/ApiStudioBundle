@@ -291,6 +291,8 @@ final class Configuration implements ConfigurationInterface
                         ->arrayNode('host_routes')
                             ->info('1.16: host routes guarded like the bundle\'s own (enabled check, tenant, roles, access checker, studio.open, feature_gate, the 403 / 404 policy, no-store): route name => studio.open | workspace.create. Workspace actions stay in the host controller (ApiStudioAuthorization::requireWorkspace()).')
                             ->useAttributeAsKey('route')
+                            // Route names are kept as written: "app-share" must not become "app_share" (SY-L1).
+                            ->normalizeKeys(false)
                             ->scalarPrototype()->end()
                             ->defaultValue([])
                             ->example(['app_api_studio_share' => 'studio.open'])

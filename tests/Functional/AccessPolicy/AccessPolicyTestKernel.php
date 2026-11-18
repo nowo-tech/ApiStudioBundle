@@ -35,7 +35,7 @@ final class AccessPolicyTestKernel extends Kernel
 {
     use MicroKernelTrait;
 
-    public const HOST_ROUTES = ['host_studio_share' => 'studio.open', 'host_studio_import' => 'workspace.create'];
+    public const HOST_ROUTES = ['host_studio_share' => 'studio.open', 'host-studio-import' => 'workspace.create'];
 
     public function registerBundles(): iterable
     {
@@ -114,7 +114,8 @@ final class AccessPolicyTestKernel extends Kernel
                 'permission_checker'     => TestPermissionChecker::class,
                 'feature_gate'           => TestFeatureGate::class,
                 'access_denied_response' => $this->environment === 'policy404' ? 404 : 403,
-                'host_routes'            => self::HOST_ROUTES,
+                // Environment "policy_typo": a declared host route the router does not have (the warm-up fails).
+                'host_routes' => $this->environment === 'policy_typo' ? [...self::HOST_ROUTES, 'host_studio_typo' => 'studio.open'] : self::HOST_ROUTES,
             ],
         ]);
 
@@ -133,7 +134,7 @@ final class AccessPolicyTestKernel extends Kernel
         $routes->add('host_studio_share', '/orgs/{org}/api-studio-share/{id}')
             ->controller(HostShareController::class)
             ->requirements(['org' => '[a-z]+', 'id' => '\d+']);
-        $routes->add('host_studio_import', '/orgs/{org}/api-studio-import')
+        $routes->add('host-studio-import', '/orgs/{org}/api-studio-import')
             ->controller([self::class, 'hostImport'])
             ->requirements(['org' => '[a-z]+']);
         // A host page that is not part of the studio: never touched by the gate or the policy.

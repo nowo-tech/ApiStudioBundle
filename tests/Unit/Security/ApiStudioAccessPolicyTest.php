@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use RuntimeException;
+use Scheb\TwoFactorBundle\Security\Authentication\Token\TwoFactorTokenInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -21,6 +22,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
+use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -134,6 +137,42 @@ final class ApiStudioAccessPolicyTest extends TestCase
         $event = $this->exceptionEvent('nowo_api_studio_dashboard', $denied);
         $policy->onKernelException($event);
         self::assertInstanceOf(NotFoundHttpException::class, $event->getThrowable());
+    }
+
+    public function testRememberMeAndTwoFactorInProgressKeepTheFirewallsRedirect(): void
+    {
+        require_once __DIR__ . '/../../Fixtures/Scheb/TwoFactorTokenInterface.php';
+        $user   = new InMemoryUser('alice', null, ['ROLE_USER']);
+        $tokens = new TokenStorage();
+        $policy = new ApiStudioAccessPolicy(404, tokenStorage: $tokens);
+        $denied = new AccessDeniedException();
+
+        $tokens->setToken(new RememberMeToken($user, 'main'));
+        $event = $this->exceptionEvent('nowo_api_studio_dashboard', $denied);
+        $policy->onKernelException($event);
+        self::assertSame($denied, $event->getThrowable(), 'remember-me: the firewall asks for a fresh login');
+
+        $tokens->setToken(new class($user) extends UsernamePasswordToken implements TwoFactorTokenInterface {
+            public function __construct(InMemoryUser $user)
+            {
+                parent::__construct($user, 'main', ['ROLE_USER']);
+            }
+        });
+        $event = $this->exceptionEvent('nowo_api_studio_dashboard', $denied);
+        $policy->onKernelException($event);
+        self::assertSame($denied, $event->getThrowable(), '2FA in progress: the code form');
+
+        // A host trust resolver (as 2FA bundles decorate it) that does not consider the token full-fledged wins.
+        $tokens->setToken(new UsernamePasswordToken($user, 'main', ['ROLE_USER']));
+        $resolver = $this->createStub(AuthenticationTrustResolverInterface::class);
+        $resolver->method('isFullFledged')->willReturn(false);
+        $event = $this->exceptionEvent('nowo_api_studio_dashboard', $denied);
+        (new ApiStudioAccessPolicy(404, tokenStorage: $tokens, trustResolver: $resolver))->onKernelException($event);
+        self::assertSame($denied, $event->getThrowable());
+
+        $event = $this->exceptionEvent('nowo_api_studio_dashboard', $denied);
+        $policy->onKernelException($event);
+        self::assertInstanceOf(NotFoundHttpException::class, $event->getThrowable(), 'fully authenticated: 404');
     }
 
     public function testNotFoundAnswersOfStudioRoutesShareTheirCacheHeaders(): void

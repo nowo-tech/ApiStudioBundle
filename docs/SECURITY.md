@@ -52,7 +52,7 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 
 - Configure Symfony Security (`security.yaml`) with firewall and `access_control` for the Api Studio path
 - Keep `security.allow_unauthenticated: false` in production (demo-only footgun): it must be a literal boolean, needs `kernel.debug` and is refused in the `prod` environment
-- List every host page of the studio in `security.host_routes` (an unlisted host route is not guarded by the bundle) and check its workspace action in the controller with `ApiStudioAuthorization::requireWorkspace()`; a feature gate returns `true` only when the feature is on and keeps no per-request state
+- List every host page of the studio in `security.host_routes` (an unlisted host route is not guarded by the bundle; a key that is not a route fails the cache warm-up) and check its workspace action in the controller with `ApiStudioAuthorization::requireWorkspace()`; a feature gate returns `true` only when the feature is on and keeps no per-request state
 - Set `nowo_api_studio.security.access_roles` appropriately (an empty list denies; both role lists empty fails compilation)
 - In production set `execution_url_allowlist_required: true` and a non-empty `execution_url_allowlist`
 - The Flex recipe (`when@prod`) forces `execution_url_allowlist_required: true` in production; keep a non-empty allowlist.
@@ -79,7 +79,8 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
   default: a route of a future version without an entry in `ApiStudioRouteActions::MAP` answers 404) → `studio.open`
   (404) → `security.feature_gate` (deny by default: only `true` passes) → `workspace.create` on the creation pages →
   the controller's workspace checks (`requireWorkspace()`: hidden 404, refused 403). The gate runs after `studio.open`
-  so a person who may not open a tenant's studio cannot probe its plan.
+  so a person who may not open a tenant's studio cannot probe its plan — which holds only if the permission checker
+  denies `studio.open` to non-members of the tenant.
 - **No oracle under `access_denied_response: 404`**: refusals are replaced on `kernel.exception` (priority 16, before
   the firewall at 1 and the error renderer) by one `NotFoundHttpException('Not Found')` without headers or previous
   exception; after every response listener a 404 of a studio route gets `Cache-Control: no-store, private` and no
@@ -87,7 +88,8 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
   session). The JSON console endpoints answer the same body as an unknown endpoint. The functional suite enumerates
   every route of the router and compares, byte for byte, the refusal with the genuine not-found of the same route
   (`tests/Functional/AccessPolicy`). Anonymous users refused by the role / access check keep the firewall's entry
-  point (identical for every URL).
+  point (identical for every URL), and so do remember-me users (asked to log in again) and logins waiting for a second
+  factor (scheb/2fa `TwoFactorTokenInterface`): only fully authenticated users get the 404.
 - **Not covered by the policy**: invalid CSRF tokens on the JSON endpoints keep `{"error":"Invalid CSRF token."}` 403
   (checked before any lookup, so they reveal nothing about a resource); 422 validation answers; debug error pages
   (`kernel.debug` shows the original exception — never run production with debug).

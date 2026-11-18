@@ -14,11 +14,14 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver;
+use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Throwable;
 
 use function in_array;
+use function is_a;
 use function is_object;
 use function sprintf;
 
@@ -36,8 +39,10 @@ use function sprintf;
  *   `Cache-Control: no-store, private` and no `Expires`, whichever layer answered. The JSON answers built by the
  *   console controllers use {@see self::deniedJson()}: the same body as their own not-found answer.
  *
- * An anonymous request refused by the role or access check keeps the firewall's answer (its entry point, e.g. the
- * login page): it is the same for every Api Studio URL and reveals nothing about a resource.
+ * A request refused by the role or access check keeps the firewall's answer (its entry point, e.g. the login page)
+ * unless the user is fully authenticated: anonymous, remember-me (the firewall asks for a fresh login) and a
+ * two-factor login in progress (scheb/2fa `TwoFactorTokenInterface`, redirected to the code form) are left alone. That
+ * answer is the same for every Api Studio URL and reveals nothing about a resource.
  *
  * Stateless (worker-safe): the status and the route list are configuration.
  */
@@ -50,11 +55,15 @@ final readonly class ApiStudioAccessPolicy implements EventSubscriberInterface
     /** The message of every 404 of an Api Studio route under the `404` policy. */
     public const NOT_FOUND_MESSAGE = 'Not Found';
 
+    /** scheb/2fa token of a login waiting for its second factor (compared by name: no dependency on the bundle). */
+    public const TWO_FACTOR_TOKEN_INTERFACE = 'Scheb\\TwoFactorBundle\\Security\\Authentication\\Token\\TwoFactorTokenInterface';
+
     public function __construct(
         private int $deniedStatus = self::FORBIDDEN,
         private ApiStudioRoutes $routes = new ApiStudioRoutes(),
         private ?TokenStorageInterface $tokenStorage = null,
         private ?LoggerInterface $logger = null,
+        private AuthenticationTrustResolverInterface $trustResolver = new AuthenticationTrustResolver(),
     ) {
         if (!in_array($deniedStatus, self::RESPONSES, true)) {
             throw new InvalidArgumentException(sprintf('Api Studio access_denied_response must be 403 or 404, %d given.', $deniedStatus));
@@ -122,6 +131,16 @@ final readonly class ApiStudioAccessPolicy implements EventSubscriberInterface
             return in_array($throwable->getStatusCode(), self::RESPONSES, true);
         }
 
-        return $throwable instanceof AccessDeniedException && is_object($this->tokenStorage?->getToken()?->getUser());
+        if (!$throwable instanceof AccessDeniedException) {
+            return false;
+        }
+
+        // Only a fully authenticated user (SY-I1): remember-me re-login and 2FA in progress keep the firewall's redirect.
+        $token = $this->tokenStorage?->getToken();
+
+        return $token !== null
+            && is_object($token->getUser())
+            && $this->trustResolver->isFullFledged($token)
+            && !is_a($token, self::TWO_FACTOR_TOKEN_INTERFACE);
     }
 }
