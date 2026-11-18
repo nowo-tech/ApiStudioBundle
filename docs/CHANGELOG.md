@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.16.0] - 2026-11-18](#1160---2026-11-18)
 - [[1.15.0] - 2026-11-17](#1150---2026-11-17)
 - [[1.14.0] - 2026-11-16](#1140---2026-11-16)
 - [[1.13.2] - 2026-11-16](#1132---2026-11-16)
@@ -65,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-18
+
 ### Added
 
 - **Plan / feature gate** (`security.feature_gate`): a host service implementing `ApiStudioFeatureGateInterface::isEnabled(?object $user, ApiStudioTenant $tenant, Request $request): bool` is consulted on every Api Studio route, after the role check, the access checker and `studio.open` (someone who may not open the studio never learns its plan) and before the controller. `false` refuses with the configured answer; deny by default (only `true` passes, an exception fails the request). Null (default) = no gate.
@@ -81,6 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - `pm.sendRequest` (`/scripts/send-request/{id}`) and persisted script variables (`/scripts/variables/{id}`), live only with `scripts.mode: sandbox` (1.15.0), did not subscribe to the request's `ApiStudioAuthorization` and fell back to the tenant-less, everything-granted default: the host permission checker (`workspace.run` / `workspace.edit`), the tenant scope and `visibleWorkspaceIds()` were not applied to the endpoint's workspace (with `tenancy.sql_filter` the endpoint lookup itself stayed scoped to the tenant and visible workspaces). Both controllers now use the request's authorization (403, or 404 under `access_denied_response: 404`). Hosts on `scripts.mode: inline` or `disabled` were not affected. The controllers' authorization and policy lookups now fail closed: a controller whose service locator lacks them throws a `LogicException` instead of using an everything-granted default, and a test checks that every controller subscribes what it calls.
+
+[1.16.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.16.0
 
 ## [1.15.0] - 2026-11-17
 

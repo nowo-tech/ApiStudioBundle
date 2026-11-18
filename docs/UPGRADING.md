@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.16.0](#to-1160)
 - [To 1.15.0](#to-1150)
 - [To 1.14.0](#to-1140)
 - [To 1.13.2](#to-1132)
@@ -84,6 +85,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.16.0
+
+From **1.15.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 From **1.15.0**: no breaking changes, nothing to do. Every new option is opt-in and the defaults keep the 1.15
 behaviour (`security.access_denied_response: 403`, no feature gate, no host routes).
