@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Support;
 
+use Doctrine\Common\EventManager;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\Configuration;
@@ -42,7 +43,9 @@ trait ScopeOrmTrait
     private function scopeManager(Connection $connection, bool $tenancy = true): EntityManagerInterface
     {
         $config = $this->scopeConfiguration();
-        $em     = new EntityManager($connection, $config);
+        // Own event manager: with DBAL 3 the connection's one is shared by every manager built on it (a reset would
+        // register the prefix listener twice).
+        $em = new EntityManager($connection, $config, new EventManager());
         $em->getEventManager()->addEventListener(Events::loadClassMetadata, new TablePrefixSubscriber('api_studio_', $tenancy, false, false, false, true));
 
         return $em;
