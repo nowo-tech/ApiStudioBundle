@@ -16,8 +16,8 @@ use function sprintf;
  */
 final readonly class ApiStudioTenant
 {
-    private const TYPE_PATTERN = '/^[a-z][a-z0-9_]{0,31}$/';
-    private const ID_PATTERN   = '/^[A-Za-z0-9._:-]{1,64}$/';
+    private const TYPE_PATTERN = '/^[a-z][a-z0-9_]{0,31}$/D';
+    private const ID_PATTERN   = '/^[A-Za-z0-9._:-]{1,64}$/D';
 
     public function __construct(
         public string $type,

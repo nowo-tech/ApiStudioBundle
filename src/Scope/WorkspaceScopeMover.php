@@ -52,6 +52,8 @@ final readonly class WorkspaceScopeMover
                     if (!$workspace instanceof ApiWorkspace) {
                         throw new InvalidArgumentException(sprintf('Api Studio: no workspace %d.', $workspaceId));
                     }
+                    // A copy the manager already held is not re-read by the locking find: read the locked row (audit UA).
+                    $manager->refresh($workspace);
 
                     $from = $workspace->getScope();
                     if (WorkspaceScope::key($from) === WorkspaceScope::key($to)) {

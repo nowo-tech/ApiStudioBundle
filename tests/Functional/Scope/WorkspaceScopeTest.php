@@ -175,11 +175,51 @@ final class WorkspaceScopeTest extends WebTestCase
         $this->client->request('GET', sprintf('/orgs/acme/projects/alpha/api-studio/workspaces/%d', $this->ids['other']));
     }
 
-    public function testTheScopeComparisonIsExact(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function lookAlikeProjects(): iterable
     {
-        // The resolver builds "project:Alpha" from {project}; the stored scope is "project:alpha".
+        yield 'other case' => ['Alpha'];
+        yield 'trailing dot' => ['alpha.'];
+        yield 'trailing space' => ['alpha%20'];
+        yield 'trailing newline' => ['alpha%0A'];
+        yield 'accented' => ['alph%C3%A1'];
+        yield 'dots' => ['..'];
+    }
+
+    /**
+     * With loose route requirements every value reaches the resolver: only the exact scope opens the workspace, and a
+     * value that makes no valid scope is a 404 too, never a 500 (audits UA-I1, UA-L3).
+     */
+    #[DataProvider('lookAlikeProjects')]
+    public function testTheScopeComparisonIsExact(string $project): void
+    {
+        $this->boot('loose');
+        $this->client->request('GET', sprintf('/orgs/acme/projects/alpha/api-studio/workspaces/%d', $this->ids['alpha']));
+        self::assertResponseIsSuccessful();
+
         $this->expectException(NotFoundHttpException::class);
-        $this->client->request('GET', sprintf('/orgs/acme/projects/Alpha/api-studio/workspaces/%d', $this->ids['alpha']));
+        $this->client->request('GET', sprintf('/orgs/acme/projects/%s/api-studio/workspaces/%d', $project, $this->ids['alpha']));
+    }
+
+    public function testASlugUsedOnlyInAProjectIsFreeAtTenantLevel(): void
+    {
+        // "tools" exists only in project:raw; the tenant-level list shows it (tenant_list: all), the validator must not.
+        $this->createWorkspace('/orgs/acme/api-studio', 'Org tools', 'tools');
+        self::assertResponseRedirects();
+    }
+
+    public function testWithoutTheSqlFilterSlugsOfOtherScopesAreNeitherTakenNorRevealed(): void
+    {
+        $this->boot('nofilter');
+        foreach ([['gamma', 'payments'], ['gamma', 'tools'], ['delta', 'payments']] as [$project, $slug]) {
+            $this->createWorkspace('/orgs/acme/projects/' . $project . '/api-studio', 'New ' . $project . ' ' . $slug, $slug);
+            self::assertResponseRedirects(null, null, $project . '/' . $slug);
+        }
+        // The same scope still refuses a taken slug.
+        $this->createWorkspace('/orgs/acme/projects/alpha/api-studio', 'Dup', 'payments');
+        self::assertResponseStatusCodeSame(422);
     }
 
     public function testAProjectWithoutAScopeAnswers404(): void

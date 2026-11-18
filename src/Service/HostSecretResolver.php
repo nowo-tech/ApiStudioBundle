@@ -103,7 +103,7 @@ final class HostSecretResolver
             $value = null;
             $error = null;
             try {
-                $ref   = new ApiStudioSecretRef($reference[0], $reference[1], $key, (int) $workspace->getId(), $environment->getId(), $tenant->type, $tenant->id, $actorId, $targetOrigin);
+                $ref   = new ApiStudioSecretRef($reference[0], $reference[1], $key, (int) $workspace->getId(), $environment->getId(), $tenant->type, $tenant->id, $actorId, $targetOrigin, $workspace->getScope()?->value);
                 $value = $this->source->resolve($ref)?->reveal();
             } catch (Throwable $e) {
                 // The message may carry the secret or the store's internals: only the class is kept.

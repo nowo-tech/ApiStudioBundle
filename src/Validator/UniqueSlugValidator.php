@@ -73,6 +73,12 @@ final class UniqueSlugValidator extends ConstraintValidator
                 ->setParameter('tenant_id', $tenant->id);
         }
 
+        // 1.17 (audit UA-M1): with scopes the workspace slug is unique per (tenant, scope): the lookup never crosses
+        // scopes either (no false "taken" at tenant level, no oracle of another scope's slugs without the SQL filter).
+        if ($value instanceof ApiWorkspace && $manager->getClassMetadata(ApiWorkspace::class)->hasField('hostScope')) {
+            $query->andWhere('e.hostScope = :host_scope')->setParameter('host_scope', $value->getScopeKey());
+        }
+
         /** @var list<object> $existingRows */
         $existingRows = $query->getQuery()->getResult();
         foreach ($existingRows as $existing) {

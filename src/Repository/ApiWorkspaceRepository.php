@@ -50,21 +50,25 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
             ->addOrderBy('x.sortOrder', 'ASC')->addOrderBy('x.name', 'ASC')->addOrderBy('x.id', 'ASC');
         if ($scope instanceof ApiStudioScope) {
             self::applyScope($query, $scope, 'w');
+            if ($scope->tenancy) {
+                $query->addSelect('w.tenantType AS wtenanttype', 'w.tenantId AS wtenantid');
+            }
             if ($scope->scopes) {
                 $query->addSelect('w.hostScope AS wscope');
             }
         }
-        /** @var list<array{wid: int, wname: string, wslug: string, wscope?: string, sid: int|null, sname: string|null, sprotocol: mixed, eid: int|null, ename: string|null, emethod: mixed, xid: int|null, xname: string|null}> $rows */
+        /** @var list<array{wid: int, wname: string, wslug: string, wtenanttype?: string, wtenantid?: string, wscope?: string, sid: int|null, sname: string|null, sprotocol: mixed, eid: int|null, ename: string|null, emethod: mixed, xid: int|null, xname: string|null}> $rows */
         $rows = $query->getQuery()->getArrayResult();
-        if (!$scope instanceof ApiStudioScope || !$scope->scopes) {
+        if (!$scope instanceof ApiStudioScope || (!$scope->tenancy && !$scope->scopes)) {
             return $rows;
         }
 
-        // 1.17 exact-key rule: the scope filter of the query is re-checked byte-exact on every row.
+        // Exact-key rule (1.17, audit UA-L1): the tenant and scope filters of the query are re-checked byte-exact.
         $kept = [];
         foreach ($rows as $row) {
-            if ($scope->containsScope((string) ($row['wscope'] ?? ''))) {
-                unset($row['wscope']);
+            $tenant = !$scope->tenancy || ((string) ($row['wtenanttype'] ?? '') === $scope->tenant->type && (string) ($row['wtenantid'] ?? '') === $scope->tenant->id);
+            if ($tenant && $scope->containsScope((string) ($row['wscope'] ?? ''))) {
+                unset($row['wscope'], $row['wtenanttype'], $row['wtenantid']);
                 $kept[] = $row;
             }
         }
@@ -84,12 +88,12 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
 
         /** @var list<ApiWorkspace> $workspaces */
         $workspaces = $query->getQuery()->getResult();
-        if (!$scope->scopes) {
+        if (!$scope->tenancy && !$scope->scopes) {
             return $workspaces;
         }
 
-        // 1.17 exact-key rule: the scope filter of the query is re-checked byte-exact on every row.
-        return array_values(array_filter($workspaces, static fn (ApiWorkspace $workspace): bool => $scope->containsScope($workspace->getScopeKey())));
+        // Exact-key rule (1.17, audit UA-L1): the tenant and scope filters of the query are re-checked byte-exact.
+        return array_values(array_filter($workspaces, static fn (ApiWorkspace $workspace): bool => $scope->contains($workspace)));
     }
 
     public function countInScope(ApiStudioScope $scope): int

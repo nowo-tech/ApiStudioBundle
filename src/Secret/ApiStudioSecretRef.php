@@ -44,6 +44,10 @@ final readonly class ApiStudioSecretRef
      *                                  each secret to the origins it may be sent to: an editor can retarget a service
      *                                  and wait for someone allowed to run it. The bundle refuses to send if the final
      *                                  origin differs from this one.
+     * @param string|null $scope 1.17: host scope of the workspace (`scope.enabled`, e.g. `project:<uuid>`); null at
+     *                           tenant level or with scopes off. A source must authorise `source/id` against the
+     *                           tenant **and** the scope: a reference copied into another project's workspace must
+     *                           not resolve there (audit UA-M2).
      */
     public function __construct(
         public string $source,
@@ -55,6 +59,7 @@ final readonly class ApiStudioSecretRef
         public string $tenantId,
         public ?string $actorId,
         public ?string $targetOrigin,
+        public ?string $scope = null,
     ) {
         if (preg_match(self::SOURCE_PATTERN, $source) !== 1 || preg_match(self::ID_PATTERN, $id) !== 1) {
             throw new InvalidArgumentException(sprintf('Invalid Api Studio secret reference: the source must match %s and the id %s.', self::SOURCE_PATTERN, self::ID_PATTERN));

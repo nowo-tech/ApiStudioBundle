@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Scope;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
 use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
 use Nowo\ApiStudioBundle\Scope\ScopeContext;
@@ -49,6 +50,23 @@ final class ScopeRequestListenersTest extends TestCase
     {
         $this->expectException(NotFoundHttpException::class);
         (new ScopeListener($this->resolver(null), true))->onKernelRequest($this->event($this->request('nowo_api_studio_scoped_dashboard')));
+    }
+
+    public function testARouteValueThatMakesNoValidScopeIs404NotA500(): void
+    {
+        $resolver = new class implements ScopeResolverInterface {
+            public function resolve(ScopeRouteContext $route, ApiStudioTenant $tenant): WorkspaceScope
+            {
+                return new WorkspaceScope('project:' . $route->parameter('project'));
+            }
+        };
+
+        try {
+            (new ScopeListener($resolver, true))->onKernelRequest($this->event($this->request('nowo_api_studio_scoped_dashboard', ['project' => "a\n"])));
+            self::fail('Expected a 404.');
+        } catch (NotFoundHttpException $e) {
+            self::assertInstanceOf(InvalidArgumentException::class, $e->getPrevious());
+        }
     }
 
     public function testATenantLevelRouteWithoutAScopeIsTenantLevel(): void

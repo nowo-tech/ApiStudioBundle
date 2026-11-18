@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Scope;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
@@ -18,7 +19,8 @@ use function is_string;
 /**
  * With `scope.enabled` (1.17), resolves the host scope of every Api Studio main request once, right after the tenant
  * ({@see ApiStudioTenantListener}, priority 29), and stores it on the request ({@see ScopeContext::REQUEST_ATTRIBUTE}).
- * A route mounted under `scope.path` without a scope answers 404 (deny by default). The attribute is always written
+ * A route mounted under `scope.path` without a scope answers 404 (deny by default), so does a resolver that refuses the
+ * route value with an `InvalidArgumentException` (e.g. an invalid `WorkspaceScope`), on any studio route. The attribute is always written
  * (null included), so nothing of an earlier request can be read back in a worker.
  */
 final readonly class ScopeListener implements EventSubscriberInterface
@@ -59,7 +61,13 @@ final readonly class ScopeListener implements EventSubscriberInterface
         }
 
         $tenant = $this->tenantContext?->current() ?? ApiStudioTenant::instance();
-        $scope  = $this->resolver?->resolve(ScopeRouteContext::fromAttributes($route, $request->attributes->all(), $scoped), $tenant);
+        try {
+            $scope = $this->resolver?->resolve(ScopeRouteContext::fromAttributes($route, $request->attributes->all(), $scoped), $tenant);
+        } catch (InvalidArgumentException $e) {
+            // A route value that makes no valid scope (`new WorkspaceScope()` refused it) is a missing scope, not a 500
+            // (audit UA-L3).
+            throw new NotFoundHttpException('Api Studio: no scope for this request.', $e);
+        }
         if ($scoped && !$scope instanceof WorkspaceScope) {
             throw new NotFoundHttpException('Api Studio: no scope for this request.');
         }

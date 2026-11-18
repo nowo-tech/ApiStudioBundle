@@ -92,9 +92,15 @@ final class ScopeTestKernel extends Kernel
                 'required_roles'    => [],
                 'locale_scope'      => 'routes',
             ],
-            'tenancy' => ['enabled' => true, 'resolver' => TestTenantResolver::class],
-            // Environment "unscoped": tenant-level pages list unscoped workspaces only.
-            'scope' => ($this->environment === 'unscoped' ? ['tenant_list' => 'unscoped'] : []) + [
+            'tenancy' => ['enabled' => true, 'resolver' => TestTenantResolver::class, 'sql_filter' => $this->environment !== 'nofilter'],
+            // Environment "unscoped": tenant-level pages list unscoped workspaces only; "loose": any {project} value
+            // reaches the resolver (exactness is then the bundle's, not the route requirement's); "nofilter": no SQL
+            // filter (the explicit checks alone).
+            'scope' => match ($this->environment) {
+                'unscoped' => ['tenant_list' => 'unscoped'],
+                'loose'    => ['path_requirements' => ['project' => '[^/]+']],
+                default    => [],
+            } + [
                 'enabled'           => true,
                 'resolver'          => TestScopeResolver::class,
                 'access_checker'    => TestScopeAccessChecker::class,

@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
@@ -136,14 +137,19 @@ final class ScopeQueriesTest extends TestCase
         $em->flush();
     }
 
-    public function testTheScopeColumnIsBinaryOnMysqlAndMariadb(): void
+    public function testIdentifierColumnsAreBinaryOnMysqlAndMariadb(): void
     {
         foreach (['8.4.0' => 'utf8mb4_0900_bin', '11.4.2-MariaDB' => 'utf8mb4_nopad_bin'] as $version => $collation) {
             $connection = DriverManager::getConnection(['driver' => 'pdo_mysql', 'serverVersion' => $version, 'host' => 'unused'], $this->scopeConfiguration());
-            $em         = $this->scopeManager($connection, false);
+            $em         = $this->scopeManager($connection, true);
             $mapping    = $em->getClassMetadata(ApiWorkspace::class)->getFieldMapping('hostScope');
             self::assertSame($collation, $mapping->options['collation'] ?? null);
             self::assertSame('host_scope', $mapping->columnName);
+            // Audit UA-L1 / UA-I3: tenant columns and variable keys compare exactly as well.
+            foreach (['tenantType', 'tenantId'] as $field) {
+                self::assertSame($collation, $em->getClassMetadata(ApiWorkspace::class)->getFieldMapping($field)->options['collation'] ?? null);
+            }
+            self::assertSame($collation, $em->getClassMetadata(ApiEnvironmentVariable::class)->getFieldMapping('variableKey')->options['collation'] ?? null);
         }
     }
 

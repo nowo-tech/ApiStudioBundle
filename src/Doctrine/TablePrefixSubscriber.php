@@ -14,6 +14,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiScriptVariable;
@@ -48,7 +49,7 @@ final class TablePrefixSubscriber
         }
 
         if ($this->tenancy && $metadata->getName() === ApiWorkspace::class) {
-            $this->mapTenant($metadata);
+            $this->mapTenant($metadata, $event->getObjectManager()->getConnection());
         }
         if ($this->scopes && $metadata->getName() === ApiWorkspace::class) {
             $this->mapScope($metadata, $event->getObjectManager()->getConnection());
@@ -82,6 +83,11 @@ final class TablePrefixSubscriber
         if ($this->scriptLevels && $metadata->getName() === ApiWorkspace::class) {
             $this->mapScripts($metadata);
         }
+        if ($metadata->getName() === ApiEnvironmentVariable::class) {
+            // 1.17 (audit UA-I3): `{{API_KEY}}` and `{{api_key}}` are two variables (VariableSyntax is case-sensitive),
+            // so the key compares exactly on MySQL / MariaDB too and the (environment, key) unique key agrees.
+            $this->mapBinaryCollation($metadata, 'variableKey', $event->getObjectManager()->getConnection());
+        }
         if ($this->folders && $metadata->getName() === ApiEndpoint::class) {
             $this->mapEndpointFolder($metadata);
         }
@@ -90,17 +96,20 @@ final class TablePrefixSubscriber
     }
 
     /**
-     * `nowo_api_studio.tenancy.enabled`: the workspace's tenant columns, and the slug unique per tenant instead of per
-     * instance. Without it the schema is exactly 1.10's.
+     * `nowo_api_studio.tenancy.enabled`: the workspace's tenant columns (1.17: binary NO PAD collation on MySQL /
+     * MariaDB), and the slug unique per tenant instead of per instance. Without it the schema is exactly 1.10's.
      *
      * @param ClassMetadata<object> $metadata
      */
-    private function mapTenant(ClassMetadata $metadata): void
+    private function mapTenant(ClassMetadata $metadata, Connection $connection): void
     {
         if (!$metadata->hasField('tenantType')) {
             $metadata->mapField(['fieldName' => 'tenantType', 'columnName' => 'tenant_type', 'type' => Types::STRING, 'length' => 32, 'options' => ['default' => '']]);
             $metadata->mapField(['fieldName' => 'tenantId', 'columnName' => 'tenant_id', 'type' => Types::STRING, 'length' => 64, 'options' => ['default' => '']]);
         }
+        // 1.17 (audit UA-L1): tenant ids compare exactly on MySQL / MariaDB too (`ACME` is not `acme`).
+        $this->mapBinaryCollation($metadata, 'tenantType', $connection);
+        $this->mapBinaryCollation($metadata, 'tenantId', $connection);
 
         /** @var array<string, mixed> $table */
         $table   = $metadata->table;

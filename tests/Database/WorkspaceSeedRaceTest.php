@@ -9,6 +9,7 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
@@ -227,6 +228,88 @@ final class WorkspaceSeedRaceTest extends TestCase
 
         self::assertSame('', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$tenantLevel->workspaceId]));
         $this->assertUsable();
+    }
+
+    /**
+     * Audit UA-L1: tenant ids compare exactly on the server too (binary NO PAD tenant columns since 1.17).
+     */
+    #[DataProvider('servers')]
+    public function testALookAlikeTenantSeesNothingAndDoesNotCollide(string $variable): void
+    {
+        $this->boot($variable);
+        $victim    = $this->seeder()->seed($this->seed());
+        $lookAlike = new ApiStudioTenant('organization', 'ACME');
+
+        $repository = new ApiWorkspaceRepository($this->registry);
+        foreach ([new ApiStudioScope($lookAlike, true, null, null, true, true, null), new ApiStudioScope($lookAlike, true, null, $this->scope(), true)] as $view) {
+            self::assertSame([], $repository->findInScope($view, 10));
+            self::assertSame([], $repository->navigationRows($view));
+            self::assertSame(0, $repository->countInScope($view));
+        }
+
+        // The same slug and scope for "ACME" is another workspace, not a unique-key collision with "acme".
+        $other = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Look-alike', $lookAlike, $this->scope()));
+        self::assertTrue($other->workspaceCreated);
+        self::assertNotSame($victim->workspaceId, $other->workspaceId);
+        self::assertSame('Insurers', $this->connection->fetchOne('SELECT name FROM api_studio_workspace WHERE id = ?', [$victim->workspaceId]));
+    }
+
+    /**
+     * Audit UA-I3: variable keys compare exactly (`API_KEY` and `api_key` are two variables), so a re-seed with
+     * another case is no unique-key collision.
+     */
+    #[DataProvider('servers')]
+    public function testVariableKeysCompareExactly(string $variable): void
+    {
+        $this->boot($variable);
+        $this->seeder()->seed($this->seed());
+        $result = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Insurers', $this->tenant(), $this->scope(), null, [], [
+            new EnvironmentSeed('prod', 'Production', true, [new VariableSeed('BASE_URL', 'https://upper.example.test')]),
+        ]));
+
+        self::assertSame(1, $result->attempts);
+        self::assertSame(['variable' => 1], $result->created);
+        self::assertSame(2, $this->rows('environment_variable'));
+    }
+
+    /**
+     * Audit UA: a seed whose manager already holds the workspace re-reads it after the lock, so a move committed
+     * meanwhile is seen (the seed then creates the workspace in its own scope instead of writing into the moved one).
+     */
+    #[DataProvider('servers')]
+    public function testASeedAfterAConcurrentMoveDoesNotWriteIntoTheMovedWorkspace(string $variable): void
+    {
+        $this->boot($variable);
+        $first = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Alpha insurers', $this->tenant(), $this->scope()));
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf("UPDATE api_studio_workspace SET host_scope = 'project:beta' WHERE id = %d", $first->workspaceId)));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        $result = $this->seeder()->seed(new WorkspaceSeed('insurers', 'Alpha insurers', $this->tenant(), $this->scope(), null, [
+            new ServiceSeed('alpha-only', 'Alpha only', 'https://api.example.test'),
+        ]));
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+
+        self::assertNotSame($first->workspaceId, $result->workspaceId);
+        self::assertSame('project:alpha', $this->connection->fetchOne('SELECT w.host_scope FROM api_studio_service s JOIN api_studio_workspace w ON w.id = s.workspace_id'));
+        $this->assertUsable();
+    }
+
+    #[DataProvider('servers')]
+    public function testTheMoverReadsTheLockedRowNotAStaleCopy(string $variable): void
+    {
+        $this->boot($variable);
+        $first = $this->seeder()->seed(new WorkspaceSeed('insurers', 'W', $this->tenant(), $this->scope()));
+        $em    = $this->scopeEntityManager($this->registry);
+        self::assertNotNull($em->find(ApiWorkspace::class, $first->workspaceId));
+        // Moved by another process; the manager still holds the project:alpha copy.
+        $this->connection->executeStatement("UPDATE api_studio_workspace SET host_scope = 'project:beta' WHERE id = ?", [$first->workspaceId]);
+
+        (new WorkspaceScopeMover($this->registry, null, true))->move($first->workspaceId, $this->scope());
+        self::assertSame('project:alpha', $this->connection->fetchOne('SELECT host_scope FROM api_studio_workspace WHERE id = ?', [$first->workspaceId]));
     }
 
     private function boot(string $variable): void
