@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Workspace scopes** (`scope.*`, off by default; SYMFONY-BEACON spec 243): an optional opaque host scope on each workspace one level below the tenant (`WorkspaceScope`, e.g. `project:<uuid>`, `^[A-Za-z0-9._:-]{1,128}$`, compared byte-exact), mapped as `host_scope` (binary NO PAD collation on MySQL / MariaDB) with the slug unique per (tenant,) scope. A host `ScopeResolverInterface` gives the scope of a request from its route (`ScopeRouteContext`: route name and scalar parameters, no HTTP type) and a mandatory `ScopeAccessCheckerInterface` decides every action per scope on top of the permission checker (deny by default: `studio.open` / `workspace.view` denied → 404, other actions → 403 or the 1.16 404 policy) and which scopes tenant-level lists show (`visibleScopes()`). Every workspace lookup (`ApiStudioScope::contains()`), list, count, the sidebar and the tenancy SQL filter are narrowed by the scope, so a workspace of another scope answers 404 under a scope's prefix (no IDOR). New workspaces get the request's scope; `ApiWorkspace::assignScope()` / `getScope()`.
+- **Scoped mount** (`scope.path`, `scope.path_requirements`): the same `routes.yaml` import also loads a twin of every Api Studio route under the host prefix (`nowo_api_studio_scoped_*`, e.g. `/organizations/{organization}/projects/{project}/api-studio/...`), with the same action map, JSON routes, 404 policy and headers; every bundle link stays in the mount (`ApiStudioUrlGenerator`, Twig `api_studio_path()`), and the mount's placeholders are router-context defaults for the request. Scoped pages extend `scope.layout_template` (the host's project layout) and get `nowo_api_studio_scope` (also Twig `nowo_api_studio_scope()`).
+- **Tenant-level list with scope badges** (`scope.tenant_list: all|unscoped`, `scope.label_provider` → `ScopeLabelProviderInterface`, one call per page).
+- **Seed API** `WorkspaceSeeder::seed(WorkspaceSeed): WorkspaceSeedResult`: creates or updates a workspace with services, endpoints, environments, plain variables and secret **references** by name (`SecretReferenceSeed` → `{{secret:<source>/<id>}}`, needs `secrets.source`), idempotent by natural keys (workspace by tenant + scope + slug), additive, never accepting or logging secret values. `ApiWorkspaceSeededEvent` after the commit.
+- **`WorkspaceScopeMover::move()`**: the host changes a workspace's scope (row lock, `WorkspaceSlugTakenException` on a slug collision, `ApiWorkspaceScopeChangedEvent` after the commit).
+- `scope` on `ApiWorkspaceCreatedEvent`, `ApiWorkspaceCreatedCommittedEvent`, `ApiWorkspaceDeletedEvent`; `scope` on `ApiStudioSubject`.
+- **Lock conflicts answer 409** (REQ-RUNTIME-003, `concurrency.conflict_status: 409|503`, `concurrency.retry_after`): a deadlock, lock wait timeout or serialization failure on an Api Studio route answers `X-Conflict-Code: CONFLICT_001` + `Retry-After`, or `CONFLICT_002` without it when part of the request was committed (transaction-doctrine `ConflictCode::forRequest()`); console JSON routes get `{"error":"concurrency_conflict","code":…}`. Other database errors are not mapped.
+- `docs/CONCURRENCY.md` (write paths, conflict codes, host options), a real-database CI job "Databases" (MySQL 8.4, MariaDB 11.4, PostgreSQL 16; DBAL 3 and 4) with two-connection race tests, `make test-with-db`.
+
+### Changed
+
+- Requires `nowo-tech/transaction-doctrine ^1.6` and `nowo-tech/transaction-contract ^1.0`.
+- The tenancy SQL filter (`tenancy.sql_filter`) also narrows by scope and runs with scopes on even without tenancy.
+- Bundle templates link with `api_studio_path()` (same URLs without a scoped mount).
+
 ## [1.16.0] - 2026-11-18
 
 ### Added

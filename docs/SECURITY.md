@@ -9,6 +9,7 @@
 - [Bundle responsibilities](#bundle-responsibilities)
 - [Browser scripts and CSP](#browser-scripts-and-csp)
 - [Feature gate and 404 policy (1.16)](#feature-gate-and-404-policy-116)
+- [Workspace scopes (1.17)](#workspace-scopes-117)
 - [Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)](#residual-risks-accepted-for-req-sec-004-pass-good--low)
 - [AI security audit (REQ-SEC-004)](#ai-security-audit-req-sec-004)
 - [Release security checklist (12.4.1)](#release-security-checklist-1241)
@@ -226,6 +227,33 @@ relay and the server runner runs before the tag).
   statement (the lock, taken before the wait), so the rules may be checked against stale rows. Keep the default
   isolation level for the Api Studio connection on PostgreSQL (RJ-D-L4).
 
+## Workspace scopes (1.17)
+
+- **Off by default.** Without `scope.enabled` no column is mapped, no twin route is loaded, and the resolver and the
+  checker are never called.
+- **The scope is part of every workspace lookup.** `ApiStudioAuthorization::requireWorkspace()` goes through
+  `ApiStudioScope::contains()`, which compares the workspace's scope with the request's byte-exact (`===`); lists,
+  counts and the sidebar filter `host_scope` in the query and re-check every row in PHP; the tenancy SQL filter narrows
+  by scope too (defence in depth). A workspace of project B opened under project A's prefix, a tenant-level workspace
+  under a project prefix, or the same scope value of another tenant answers the same 404 as a missing id (no IDOR, no
+  oracle).
+- **Exact matching** (REQ-SEC-006, LQ rule): `WorkspaceScope` refuses anything outside `^[A-Za-z0-9._:-]{1,128}$`
+  (no trimming or case folding), `host_scope` has a binary NO PAD collation on MySQL / MariaDB, PostgreSQL and SQLite
+  compare exactly; tested on all three servers.
+- **Deny by default.** `scope.access_checker` is mandatory (the build fails without it); every action in a scope needs
+  it **and** the permission checker; `studio.open` / `workspace.view` denied → 404; unknown actions must be denied; an
+  exception fails the request. Tenant-level lists show only the scopes `visibleScopes()` returns (none without a
+  checker).
+- **The scope comes from the route, never from the client**: the resolver is the host's (identify only, it must check
+  that the route value belongs to the tenant); forms have no scope field.
+- **Seed API**: no secret value can be expressed (plain variables refuse `{{secret:…}}`, secrets are references only,
+  refused without `secrets.source`; auth, headers, bodies and scripts are not seeded); the seeder logs ids, counts and
+  attempts only, and its validation messages never carry a value. It is a PHP service, not an endpoint: the caller
+  authorises and chooses the tenant and the scope.
+- Worker mode: the scope lives on the main request (always written, null included), decisions are memoised on the
+  request, `ScopeContext::runAs()` is restored in `finally` and by `reset()`, router-context placeholders are restored
+  at `kernel.finish_request` and by `reset()`.
+
 ## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 
 - **Request history** is sanitized on write (`HistorySanitizer`: sensitive headers → `[REDACTED]`; password/token/Bearer patterns in bodies). Host owns retention/TTL and unusual header names.
@@ -267,6 +295,12 @@ relay and the server runner runs before the tag).
   the confirmation relies on the user reading the code. Since 1.15 `scripts.mode: sandbox` runs every script in the
   opaque-origin frame instead (and `scripts.server_runner` outside the browser); use it, or `scripts.mode: disabled`
   where scripts are not needed.
+- 1.17 workspace scopes: host templates that override bundle templates and keep `path('nowo_api_studio_…')` link
+  from a scoped page to the tenant-level studio (the link is still guarded there; switch to `api_studio_path()`).
+- 1.17: the tenant columns of 1.11 (`tenant_type`, `tenant_id`) have no binary collation; tenant ids compare exactly
+  in PHP (`ApiStudioTenant::equals()` in every lookup), but on MySQL / MariaDB the unique key treats `acme` and `ACME`
+  as the same tenant (a seed or a create for one may be refused for the other). Keep tenant ids canonical (e.g.
+  lower-case UUIDs) until the tenant columns get the binary collation.
 
 ## AI security audit (REQ-SEC-004)
 
