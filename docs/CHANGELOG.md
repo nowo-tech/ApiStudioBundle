@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.17.0] - 2026-11-19](#1170---2026-11-19)
 - [[1.16.0] - 2026-11-18](#1160---2026-11-18)
 - [[1.15.0] - 2026-11-17](#1150---2026-11-17)
 - [[1.14.0] - 2026-11-16](#1140---2026-11-16)
@@ -66,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-19
+
 ### Added
 
 - **Workspace scopes** (`scope.*`, off by default; SYMFONY-BEACON spec 243): an optional opaque host scope on each workspace one level below the tenant (`WorkspaceScope`, e.g. `project:<uuid>`, `^[A-Za-z0-9._:-]{1,128}$`, compared byte-exact), mapped as `host_scope` (binary NO PAD collation on MySQL / MariaDB) with the slug unique per (tenant,) scope. A host `ScopeResolverInterface` gives the scope of a request from its route (`ScopeRouteContext`: route name and scalar parameters, no HTTP type) and a mandatory `ScopeAccessCheckerInterface` decides every action per scope on top of the permission checker (deny by default: `studio.open` / `workspace.view` denied → 404, other actions → 403 or the 1.16 404 policy) and which scopes tenant-level lists show (`visibleScopes()`). Every workspace lookup (`ApiStudioScope::contains()`), list, count, the sidebar and the tenancy SQL filter are narrowed by the scope, so a workspace of another scope answers 404 under a scope's prefix (no IDOR). New workspaces get the request's scope; `ApiWorkspace::assignScope()` / `getScope()`.
@@ -96,6 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ApiStudioSecretRef` carries the workspace's `scope` (appended `?string $scope = null`): host secret sources must authorise `source/id` against the tenant **and** the scope (audit UA-M2).
 - The tenancy SQL filter (`tenancy.sql_filter`) also narrows by scope and runs with scopes on even without tenancy.
 - Bundle templates link with `api_studio_path()` (same URLs without a scoped mount).
+
+[1.17.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.17.0
 
 ## [1.16.0] - 2026-11-18
 
