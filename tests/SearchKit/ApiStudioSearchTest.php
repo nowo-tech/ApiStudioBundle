@@ -19,6 +19,8 @@ use Nowo\SearchKitBundle\Model\SearchReference;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Routing\Exception\MissingMandatoryParametersException;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\Routing\RequestContext;
 
 use function array_map;
 use function sprintf;
@@ -140,12 +142,13 @@ final class ApiStudioSearchTest extends TestCase
         $group = $this->searchFor($this->searchProvider($this->registry, SearchKind::Workspace), 'payments', 10, '0b9c');
         self::assertInstanceOf(SearchGroup::class, $group);
         self::assertSame(['Payments project A'], $this->titles($group));
-        self::assertSame(sprintf('/p/proj-a/studio/workspaces/%d?flag=1', $this->searchIds['Payments project A']), $group->items[0]->url);
+        // Audit VG-1: the tenant-level show page (tenant_list: all), with the tenant-level search's link parameters.
+        self::assertSame(sprintf('/studio/workspaces/%d?project=proj-a&flag=1', $this->searchIds['Payments project A']), $group->items[0]->url);
         self::assertSame('/p/proj-a/studio/workspaces?flag=1', $group->moreUrl);
         self::assertNull($group->items[0]->badge, 'no badge inside the scope itself');
         self::assertSame('api_studio_workspaces', $group->key);
         // Once per group, viewer and scope id of the request, however often the provider asks.
-        self::assertSame([[SearchKind::Workspace, '0b9c', 'org:acme', '0b9c']], $seen);
+        self::assertSame([[SearchKind::Workspace, '0b9c', 'org:acme', '0b9c'], [SearchKind::Workspace, null, 'org:acme', null]], $seen);
 
         self::assertNull($this->searchFor($this->searchProvider($this->registry, SearchKind::Service), 'ledger'), 'excluded group');
     }
@@ -189,9 +192,10 @@ final class ApiStudioSearchTest extends TestCase
 
     public function testALinkTheRouterCannotBuildFailsTheGroup(): void
     {
-        // The scoped twin needs {project}; no listener gives it. SearchKit's engine logs and drops the group.
+        // tenant_list: unscoped links to the scoped twin, which needs {project}; no listener gives it. SearchKit's engine
+        // logs and drops the group.
         $this->expectException(MissingMandatoryParametersException::class);
-        $this->searchFor($this->searchProvider($this->registry, SearchKind::Workspace), 'payments', 10, 'project:a');
+        $this->searchFor($this->searchProvider($this->registry, SearchKind::Workspace, tenantList: 'unscoped'), 'payments', 10, 'project:a');
     }
 
     public function testRevalidatedRecents(): void
@@ -210,6 +214,26 @@ final class ApiStudioSearchTest extends TestCase
         }
         // The scoped twin of the route is the same page.
         self::assertNotNull($provider->resolve(new SearchReference($url, 'api_studio_workspaces', 'nowo_api_studio_scoped_workspace_show', ['id' => $id]), 'ann', null));
+
+        // Audit VG-1: a recent from a project-scoped search round-trips: the URL the search returned is the one resolve()
+        // rebuilds without a scope. The host gives {project} for the scoped search only (its "see all" is the twin).
+        $this->searchEvents->addListener(ApiStudioSearchContextEvent::class, static function (ApiStudioSearchContextEvent $event): void {
+            if ($event->searchScope !== null) {
+                $event->setRouteParameters(['project' => 'proj-a']);
+            }
+        });
+        foreach ([SearchKind::Workspace, SearchKind::Service, SearchKind::Endpoint] as $kind) {
+            $this->searchActAs(new ApiStudioTenant('org', 'acme'), 'ann');
+            $scoped = $this->searchProvider($this->registry, $kind);
+            $found  = $this->searchFor($scoped, $kind === SearchKind::Workspace ? 'payments' : 'ledger', 10, 'project:a');
+            self::assertInstanceOf(SearchGroup::class, $found);
+            $hit                  = $found->items[0];
+            [$route, $parameters] = $this->routeOf($hit->url);
+            $this->searchActAs(new ApiStudioTenant('org', 'acme'), 'ann');
+            $again = $this->searchProvider($this->registry, $kind)->resolve(new SearchReference($hit->url, $found->key, $route, $parameters), 'ann', null);
+            self::assertInstanceOf(SearchItem::class, $again, $kind->value);
+            self::assertSame($hit->url, $again->url);
+        }
 
         $services  = $this->searchProvider($this->registry, SearchKind::Service);
         $endpoints = $this->searchProvider($this->registry, SearchKind::Endpoint);
@@ -239,5 +263,19 @@ final class ApiStudioSearchTest extends TestCase
         self::assertNull($definition->seeAllUrl($query));
         self::assertSame('', $definition->toItem(['eid' => 1, 'wid' => 1, 'sid' => 1], $query)->subtitle);
         self::assertSame('', $definition->toItem(new RuntimeException(), $query)->title);
+    }
+
+    /**
+     * The route and parameters of a tenant-level test URL, as SearchKit's recents store them.
+     *
+     * @return array{string, array<string, string>}
+     */
+    private function routeOf(string $url): array
+    {
+        $parameters = (new UrlMatcher(self::searchRoutes(), new RequestContext()))->match($url);
+        $route      = (string) $parameters['_route'];
+        unset($parameters['_route']);
+
+        return [$route, array_map(static fn (mixed $value): string => (string) $value, $parameters)];
     }
 }

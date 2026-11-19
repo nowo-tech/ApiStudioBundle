@@ -77,6 +77,13 @@ final class SearchConfigTest extends TestCase
         self::assertEquals(new Reference('app.tenant_resolver'), $container->getDefinition(SearchContextResolver::class)->getArgument('$tenantResolver'));
         self::assertEquals(new Reference('app.scope_labels'), $container->getDefinition(SearchHitMapper::class)->getArgument('$scopeLabels'));
         self::assertTrue($container->getDefinition(SearchHitMapper::class)->getArgument('$scopedRoutes'));
+        self::assertTrue($container->getDefinition('nowo_api_studio.search_kit.workspaces')->getArgument('$tenantListAll'));
+
+        $unscoped = $this->load([[
+            'search_kit' => ['enabled' => true],
+            'scope'      => ['enabled' => true, 'resolver' => 'app.scope_resolver', 'access_checker' => 'app.scope_checker', 'tenant_list' => 'unscoped'],
+        ]]);
+        self::assertFalse($unscoped->getDefinition('nowo_api_studio.search_kit.endpoints')->getArgument('$tenantListAll'));
     }
 
     /**

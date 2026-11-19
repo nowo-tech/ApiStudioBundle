@@ -483,8 +483,14 @@ one call per search). With a search scope, only workspaces of that exact scope. 
 the workspace scope value itself (scopes on); anything else shows nothing.
 
 **Results.** Names, the service protocol, the endpoint method and its path cut at `?` / `#`. Never a base URL, header,
-auth value, body, script or variable. Links go to the show pages at tenant level, or to their `scope.path` twins in a
-scoped search. Recents revalidate (`idField()` / `referenceId()`), so titles are re-checked on every display.
+auth value, body, script or variable. The endpoint path is *matched* in full, query string included (a viewer of the
+endpoint can read it in the studio anyway); only what is *shown* is cut at `?` / `#`.
+
+**Links and recents.** Results link to the tenant-level show pages, also in a project-scoped search when
+`scope.tenant_list: all` (the tenant level opens scoped workspaces), with the link parameters the listener gives the
+tenant-level search. Recents revalidate (`idField()` / `referenceId()`) without a scope, so the stored URL is the one
+SearchKit rebuilds and titles are re-checked on every display. With `scope.tenant_list: unscoped` scoped results link
+to their `scope.path` twins instead, which a tenant-level revalidation cannot rebuild: their recents are dropped.
 
 **Host hook.** `Nowo\ApiStudioBundle\Event\ApiStudioSearchContextEvent`, dispatched once per group, viewer and scope
 id of a request, before anything is read. A listener can deny, exclude a group (e.g. the project feature is off), map

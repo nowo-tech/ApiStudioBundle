@@ -265,6 +265,8 @@ trait SearchFixtures
             new ApiEndpointRepository($registry),
             new SearchAccess($authorization, $workspaces, new ApiFolderRepository($registry), $folderAccess),
             new SearchHitMapper(self::searchRouter(), $labels, $scopedRoutes),
+            null,
+            $tenantList === 'all',
         );
     }
 
@@ -305,6 +307,11 @@ trait SearchFixtures
      */
     private static function searchRouter(): UrlGenerator
     {
+        return new UrlGenerator(self::searchRoutes(), new RequestContext());
+    }
+
+    private static function searchRoutes(): RouteCollection
+    {
         $routes = new RouteCollection();
         foreach (['' => '/studio', 'scoped_' => '/p/{project}/studio'] as $twin => $prefix) {
             $routes->add('nowo_api_studio_' . $twin . 'workspace_index', new Route($prefix . '/workspaces'));
@@ -313,7 +320,7 @@ trait SearchFixtures
             $routes->add('nowo_api_studio_' . $twin . 'endpoint_show', new Route($prefix . '/workspaces/{workspaceId}/services/{serviceId}/endpoints/{id}'));
         }
 
-        return new UrlGenerator($routes, new RequestContext());
+        return $routes;
     }
 
     private function searchWorkspace(EntityManagerInterface $em, string $name, string $tenant, ?string $scope): ApiWorkspace

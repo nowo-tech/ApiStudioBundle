@@ -66,6 +66,8 @@ final class ApiStudioSearchDefinition extends EntitySearchDefinition
         private readonly SearchAccess $access,
         private readonly SearchHitMapper $mapper,
         private readonly ?TranslatorInterface $translator = null,
+        /** `scope.tenant_list: all`: tenant-level pages open scoped workspaces. */
+        private readonly bool $tenantListAll = true,
     ) {
     }
 
@@ -190,14 +192,27 @@ final class ApiStudioSearchDefinition extends EntitySearchDefinition
 
     public function toItem(array|object $row, SearchQuery $query): SearchItem
     {
-        $context = $this->context($query);
-        $scope   = $this->contexts->scopes() ? $context?->workspaceScope() : null;
-        $hit     = $this->mapper->hit(
+        $context    = $this->context($query);
+        $scope      = $this->contexts->scopes() ? $context?->workspaceScope() : null;
+        $parameters = $context?->routeParameters() ?? [];
+        $scoped     = true;
+        // Audit VG-1: with `scope.tenant_list: all` a scoped result links to the tenant-level show page (which opens
+        // scoped workspaces), with the link parameters of the tenant-level search: SearchKit revalidates recents
+        // without a scope, so the stored URL is the one resolve() rebuilds.
+        if ($scope !== null && $this->tenantListAll) {
+            $tenantLevel = $this->contexts->resolve($this->kind, $query->userIdentifier, null);
+            if ($tenantLevel instanceof ApiStudioSearchContextEvent) {
+                $parameters = $tenantLevel->routeParameters();
+                $scoped     = false;
+            }
+        }
+        $hit = $this->mapper->hit(
             $this->kind,
             is_array($row) ? $row : [],
             $scope,
-            $context?->routeParameters() ?? [],
+            $parameters,
             $this->contexts->rememberedLabels($this->kind, $query->userIdentifier, $query->scope),
+            $scoped,
         );
 
         return new SearchItem(

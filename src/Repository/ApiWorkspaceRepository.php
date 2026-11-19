@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
@@ -102,9 +103,12 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
 
         /** @var list<ApiWorkspace> $workspaces */
         $workspaces = $this->createQueryBuilder('w')
-            ->where('w.id IN (:nowo_search_ids)')
-            ->setParameter('nowo_search_ids', $ids, ArrayParameterType::INTEGER)
-            ->getQuery()->getResult();
+            ->where('w.id IN (:nowo_api_studio_ids)')
+            ->setParameter('nowo_api_studio_ids', $ids, ArrayParameterType::INTEGER)
+            ->getQuery()
+            // Checked, never changed: not tracked by the unit of work (audit VG-4).
+            ->setHint(Query::HINT_READ_ONLY, true)
+            ->getResult();
 
         $byId = [];
         foreach ($workspaces as $workspace) {

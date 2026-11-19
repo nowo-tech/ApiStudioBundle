@@ -398,6 +398,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
                 ->setArgument('$access', new Reference(SearchAccess::class))
                 ->setArgument('$mapper', new Reference(SearchHitMapper::class))
                 ->setArgument('$translator', new Reference('translator', $nullable))
+                ->setArgument('$tenantListAll', $container->getParameter(Configuration::ALIAS . '.scope.tenant_list') === 'all')
                 ->addTag(EntitySearchDefinition::TAG);
         }
     }

@@ -59,10 +59,13 @@ final readonly class SearchHitMapper
      * @param array<string, mixed> $row a row of the kind's searchQuery()
      * @param array<string, string> $routeParameters the host's link parameters
      * @param array<string, string> $labels scope value => label ({@see self::labels()}); a missing one shows the raw value
+     * @param bool $scopedLinks false: the tenant-level show pages even in a scoped search (they open scoped workspaces
+     *                          with `scope.tenant_list: all`, and revalidated recents resolve to the same URL)
      */
-    public function hit(SearchKind $kind, array $row, ?WorkspaceScope $scope, array $routeParameters = [], array $labels = []): SearchHit
+    public function hit(SearchKind $kind, array $row, ?WorkspaceScope $scope, array $routeParameters = [], array $labels = [], bool $scopedLinks = true): SearchHit
     {
-        $stored = is_string($row['wscope'] ?? null) ? $row['wscope'] : '';
+        $linkScope = $scopedLinks ? $scope : null;
+        $stored    = is_string($row['wscope'] ?? null) ? $row['wscope'] : '';
         // Inside a scope every row has that scope: no badge.
         $label = $stored === '' || $scope instanceof WorkspaceScope ? null : ($labels[$stored] ?? $stored);
 
@@ -72,7 +75,7 @@ final readonly class SearchHitMapper
                 self::int($row['wid'] ?? null),
                 self::text($row['wname'] ?? null),
                 '',
-                $this->url('nowo_api_studio_workspace_show', ['id' => self::int($row['wid'] ?? null)], $scope, $routeParameters),
+                $this->url('nowo_api_studio_workspace_show', ['id' => self::int($row['wid'] ?? null)], $linkScope, $routeParameters),
                 self::ICONS[$kind->value],
                 $label,
                 self::date($row['wupdated'] ?? null),
@@ -82,7 +85,7 @@ final readonly class SearchHitMapper
                 self::int($row['sid'] ?? null),
                 self::text($row['sname'] ?? null),
                 self::join([self::text($row['wname'] ?? null), self::protocol($row['sprotocol'] ?? null)]),
-                $this->url('nowo_api_studio_service_show', ['workspaceId' => self::int($row['wid'] ?? null), 'id' => self::int($row['sid'] ?? null)], $scope, $routeParameters),
+                $this->url('nowo_api_studio_service_show', ['workspaceId' => self::int($row['wid'] ?? null), 'id' => self::int($row['sid'] ?? null)], $linkScope, $routeParameters),
                 self::ICONS[$kind->value],
                 $label,
                 self::date($row['supdated'] ?? null),
@@ -92,7 +95,7 @@ final readonly class SearchHitMapper
                 self::int($row['eid'] ?? null),
                 self::text($row['ename'] ?? null),
                 self::join([trim(self::method($row['emethod'] ?? null) . ' ' . self::path($row['epath'] ?? null)), self::text($row['sname'] ?? null)]),
-                $this->url('nowo_api_studio_endpoint_show', ['workspaceId' => self::int($row['wid'] ?? null), 'serviceId' => self::int($row['sid'] ?? null), 'id' => self::int($row['eid'] ?? null)], $scope, $routeParameters),
+                $this->url('nowo_api_studio_endpoint_show', ['workspaceId' => self::int($row['wid'] ?? null), 'serviceId' => self::int($row['sid'] ?? null), 'id' => self::int($row['eid'] ?? null)], $linkScope, $routeParameters),
                 self::ICONS[$kind->value],
                 $label,
                 self::date($row['eupdated'] ?? null),
