@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\SearchKit\Database;
 
 use Doctrine\DBAL\Tools\DsnParser;
+use Nowo\ApiStudioBundle\Tests\SearchKit\SkipsWithoutSearchKit;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeManagerRegistry;
 use Nowo\ApiStudioBundle\Tests\Support\SearchScenarios;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Nowo\ApiStudioBundle\Tests\SearchKit\SkipsWithoutSearchKit;
 use PHPUnit\Framework\TestCase;
 
 use function getenv;

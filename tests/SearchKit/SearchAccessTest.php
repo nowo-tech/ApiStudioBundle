@@ -19,8 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class SearchAccessTest extends TestCase
 {
-    use SkipsWithoutSearchKit;
     use SearchFixtures;
+    use SkipsWithoutSearchKit;
 
     protected function setUp(): void
     {

@@ -29,8 +29,8 @@ use function sprintf;
  */
 final class ApiStudioSearchTest extends TestCase
 {
-    use SkipsWithoutSearchKit;
     use SearchScenarios;
+    use SkipsWithoutSearchKit;
 
     private ScopeManagerRegistry $registry;
 
