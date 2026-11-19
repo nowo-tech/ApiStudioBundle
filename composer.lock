@@ -7210,12 +7210,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/nowo-tech/SearchKitBundle",
-                "reference": "276e9e04514f02af1b92f8e2d8484b0daf5fa178"
+                "reference": "bd844111df0f02841a16d6cc941816b0a779717e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nowo-tech/SearchKitBundle/zipball/276e9e04514f02af1b92f8e2d8484b0daf5fa178",
-                "reference": "276e9e04514f02af1b92f8e2d8484b0daf5fa178",
+                "url": "https://api.github.com/repos/nowo-tech/SearchKitBundle/zipball/bd844111df0f02841a16d6cc941816b0a779717e",
+                "reference": "bd844111df0f02841a16d6cc941816b0a779717e",
                 "shasum": ""
             },
             "require": {
@@ -7372,7 +7372,7 @@
                 "docs": "https://github.com/nowo-tech/SearchKitBundle/tree/main/docs",
                 "changelog": "https://github.com/nowo-tech/SearchKitBundle/blob/main/docs/CHANGELOG.md"
             },
-            "time": "2026-11-19T15:04:11+00:00"
+            "time": "2026-11-19T15:43:16+00:00"
         },
         {
             "name": "phar-io/manifest",
