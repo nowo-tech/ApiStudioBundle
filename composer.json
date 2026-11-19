@@ -150,6 +150,7 @@
     },
     "suggest": {
         "ext-soap": "Required for SOAP endpoint execution",
+        "nowo-tech/search-kit-bundle": "^1.9 (needs PHP >= 8.3) for the header search groups: workspaces, services, endpoints (nowo_api_studio.search_kit)",
         "symfony/flex": "For automatic recipe installation"
     }
 }

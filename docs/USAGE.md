@@ -16,6 +16,7 @@
 - [Workspace scopes (1.17)](#workspace-scopes-117)
   - [Seeding a workspace (1.17)](#seeding-a-workspace-117)
   - [Moving a workspace between scopes (1.17)](#moving-a-workspace-between-scopes-117)
+- [Global search](#global-search)
 - [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
@@ -448,6 +449,78 @@ $mover->move($workspaceId, new WorkspaceScope('project:' . $projectId));   // nu
 `WorkspaceScopeMover` locks the row, changes the scope and dispatches `ApiWorkspaceScopeChangedEvent` after the
 commit; a slug already used in the target scope throws `WorkspaceSlugTakenException` (nothing changed). No UI: call
 it from your own admin action after your own authorisation.
+
+## Global search
+
+With [SearchKit](https://github.com/nowo-tech/SearchKitBundle) `^1.9` installed (optional: `composer require
+nowo-tech/search-kit-bundle`, PHP >= 8.3) and `search_kit.enabled: true`, Api Studio adds three groups to the header
+search (palette and results page): **workspaces** and **services** by name, **endpoints** by name, path and HTTP
+method (`post charges` finds `POST /v1/charges`). Group keys: `api_studio_workspaces`, `api_studio_services`,
+`api_studio_endpoints` (SearchKit's `nowo_search_kit.groups.<key>` switches and priorities apply too).
+
+```yaml
+nowo_api_studio:
+    search_kit:
+        enabled: true
+        groups: { workspaces: true, services: true, endpoints: false }
+```
+
+Each group is a `Nowo\ApiStudioBundle\Bridge\SearchKit\ApiStudioSearchDefinition`: SearchKit runs the flow (escaped
+`LIKE`, at most 100 candidates, the host's `SearchKitEvents::ITEM_VISIBILITY` event, the visible total, `null` on any
+refusal).
+
+**Who sees what.** On a search request none of the studio's listeners has run, so each group runs the same chain
+itself: the tenant (`tenancy.resolver` / `provider`), then inside that tenant and scope the signed-in user (the
+search's viewer must be that user), roles, the access checker, `studio.open` (plus the scope checker's in a scope) and
+the feature gate; then the SQL filter (tenant, scope, `visibleWorkspaceIds()`), a byte-exact re-check of every row's
+tenant and scope (a look-alike tenant or scope that a case- or accent-insensitive collation matched is dropped),
+`workspace.view` per workspace and the folder checker per endpoint, in one batch. Two statements per search (three for
+endpoints in folders with a folder checker), whatever the number of rows.
+
+**Org and project scope.** Without a search scope the search runs at tenant level: unscoped workspaces plus those of
+the visible scopes (`scope.tenant_list: all`), each scoped row with its scope label as badge (`scope.label_provider`,
+one call per search). With a search scope, only workspaces of that exact scope. By default the search scope id must be
+the workspace scope value itself (scopes on); anything else shows nothing.
+
+**Results.** Names, the service protocol, the endpoint method and its path cut at `?` / `#`. Never a base URL, header,
+auth value, body, script or variable. The endpoint path is *matched* in full, query string included (a viewer of the
+endpoint can read it in the studio anyway); only what is *shown* is cut at `?` / `#`.
+
+**Links and recents.** Results link to the tenant-level show pages, also in a project-scoped search when
+`scope.tenant_list: all` (the tenant level opens scoped workspaces), with the link parameters the listener gives the
+tenant-level search. Recents revalidate (`idField()` / `referenceId()`) without a scope, so the stored URL is the one
+SearchKit rebuilds and titles are re-checked on every display. With `scope.tenant_list: unscoped` scoped results link
+to their `scope.path` twins instead, which a tenant-level revalidation cannot rebuild: their recents are dropped.
+
+**Host hook.** `Nowo\ApiStudioBundle\Event\ApiStudioSearchContextEvent`, dispatched once per group, viewer and scope
+id of a request, before anything is read. A listener can deny, exclude a group (e.g. the project feature is off), map
+the search scope to a workspace scope, set the tenant and give the path placeholders of the links. Mirror there what
+a host guard of the studio routes decides (it does not run on a search request):
+
+```php
+#[AsEventListener]
+public function __invoke(ApiStudioSearchContextEvent $event): void
+{
+    $organization = $this->organizations->current();
+    if ($organization === null || !$this->plan->hasApiStudio($organization)) {
+        $event->deny();
+
+        return;
+    }
+    if ($event->searchScope !== null) {                    // the search box sent a project id
+        $event->setWorkspaceScope(new WorkspaceScope('project:' . $event->searchScope));
+        $event->setRouteParameters(['organization' => $organization->id, 'project' => $event->searchScope]);
+
+        return;
+    }
+    $event->setRouteParameters(['organization' => $organization->id]);
+}
+```
+
+Per-row host rules (legal hold, sharing) go in SearchKit's own `ITEM_VISIBILITY` listener: subjects
+`api_studio.workspace`, `api_studio.service`, `api_studio.endpoint` with the record id. A link the router cannot build
+(a placeholder nobody gave) makes SearchKit log and drop the group. Everything is stateless (worker mode): per-request
+values live on the request.
 
 ## Host secrets (1.13)
 

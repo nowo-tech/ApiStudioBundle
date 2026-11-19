@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
@@ -14,6 +15,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioScope;
 
 use function array_filter;
 use function array_values;
+use function is_array;
 use function sprintf;
 
 /**
@@ -50,12 +52,7 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
             ->addOrderBy('x.sortOrder', 'ASC')->addOrderBy('x.name', 'ASC')->addOrderBy('x.id', 'ASC');
         if ($scope instanceof ApiStudioScope) {
             self::applyScope($query, $scope, 'w');
-            if ($scope->tenancy) {
-                $query->addSelect('w.tenantType AS wtenanttype', 'w.tenantId AS wtenantid');
-            }
-            if ($scope->scopes) {
-                $query->addSelect('w.hostScope AS wscope');
-            }
+            self::selectScopeColumns($query, $scope, 'w');
         }
         /** @var list<array{wid: int, wname: string, wslug: string, wtenanttype?: string, wtenantid?: string, wscope?: string, sid: int|null, sname: string|null, sprotocol: mixed, eid: int|null, ename: string|null, emethod: mixed, xid: int|null, xname: string|null}> $rows */
         $rows = $query->getQuery()->getArrayResult();
@@ -66,11 +63,109 @@ class ApiWorkspaceRepository extends ServiceEntityRepository
         // Exact-key rule (1.17, audit UA-L1): the tenant and scope filters of the query are re-checked byte-exact.
         $kept = [];
         foreach ($rows as $row) {
-            $tenant = !$scope->tenancy || ((string) ($row['wtenanttype'] ?? '') === $scope->tenant->type && (string) ($row['wtenantid'] ?? '') === $scope->tenant->id);
-            if ($tenant && $scope->containsScope((string) ($row['wscope'] ?? ''))) {
+            if (self::rowInScope($row, $scope)) {
                 unset($row['wscope'], $row['wtenanttype'], $row['wtenantid']);
                 $kept[] = $row;
             }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * 1.18 global search (SearchKit): the base query of the workspace group — the workspaces of the scope (tenant, host
+     * scope, visible ids), by name, as scalar rows (`wid`, `wname`, `wupdated`, plus the tenant and scope columns that
+     * {@see self::rowInScope()} re-checks byte-exact). SearchKit adds the escaped `LIKE` and the limit.
+     */
+    public function searchQuery(ApiStudioScope $scope): QueryBuilder
+    {
+        $query = $this->createQueryBuilder('w')
+            ->select('w.id AS wid', 'w.name AS wname', 'w.updatedAt AS wupdated')
+            ->orderBy('w.name', 'ASC')->addOrderBy('w.id', 'ASC');
+        self::applyScope($query, $scope, 'w');
+        self::selectScopeColumns($query, $scope, 'w');
+
+        return $query;
+    }
+
+    /**
+     * 1.18: the workspaces of $ids in one query (the search checks `workspace.view` on each).
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, ApiWorkspace> id => workspace
+     */
+    public function findByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<ApiWorkspace> $workspaces */
+        $workspaces = $this->createQueryBuilder('w')
+            ->where('w.id IN (:nowo_api_studio_ids)')
+            ->setParameter('nowo_api_studio_ids', $ids, ArrayParameterType::INTEGER)
+            ->getQuery()
+            // Checked, never changed: not tracked by the unit of work (audit VG-4).
+            ->setHint(Query::HINT_READ_ONLY, true)
+            ->getResult();
+
+        $byId = [];
+        foreach ($workspaces as $workspace) {
+            $byId[(int) $workspace->getId()] = $workspace;
+        }
+
+        return $byId;
+    }
+
+    /**
+     * Exact-key rule (1.17, audit UA-L1): whether a scalar row's workspace tenant (`wtenanttype`, `wtenantid`) and scope
+     * (`wscope`) are those of $scope, compared byte-exact (`===`) after the SQL filter.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function rowInScope(array $row, ApiStudioScope $scope): bool
+    {
+        $tenant = !$scope->tenancy || ((string) ($row['wtenanttype'] ?? '') === $scope->tenant->type && (string) ($row['wtenantid'] ?? '') === $scope->tenant->id);
+
+        return $tenant && $scope->containsScope((string) ($row['wscope'] ?? ''));
+    }
+
+    /**
+     * 1.18: the tenant and scope columns {@see self::rowInScope()} re-checks (mapped only with tenancy / scopes on).
+     */
+    public static function selectScopeColumns(QueryBuilder $query, ApiStudioScope $scope, string $alias): void
+    {
+        if ($scope->tenancy) {
+            $query->addSelect(sprintf('%1$s.tenantType AS wtenanttype', $alias), sprintf('%1$s.tenantId AS wtenantid', $alias));
+        }
+        if ($scope->scopes) {
+            $query->addSelect(sprintf('%s.hostScope AS wscope', $alias));
+        }
+    }
+
+    /**
+     * 1.18: the rows that pass {@see self::rowInScope()}, without the tenant columns, `wscope` always set (`''`: tenant
+     * level or scopes off).
+     *
+     * @param array<mixed> $rows scalar rows of a query
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function exactSearchRows(array $rows, ApiStudioScope $scope): array
+    {
+        $kept = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            /** @var array<string, mixed> $row */
+            if (!self::rowInScope($row, $scope)) {
+                continue;
+            }
+            $row['wscope'] = (string) ($row['wscope'] ?? '');
+            unset($row['wtenanttype'], $row['wtenantid']);
+            $kept[] = $row;
         }
 
         return $kept;

@@ -77,6 +77,10 @@ jobs:
       - name: Override Composer platform PHP (composer.json pins the minimum PHP for the lock)
         run: composer config platform.php "${{ matrix.php }}.99"
 
+      # 1.18: SearchKit (optional) needs PHP >= 8.3; not in composer.json / lock, added here on 8.3+ only.
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh --no-update
+
       - name: Install dependencies with Symfony ${{ matrix.symfony }}
         run: |
           composer require --no-interaction --no-update \
@@ -175,6 +179,9 @@ jobs:
       - name: Pin the DBAL major
         run: composer require "doctrine/dbal:${{ matrix.dbal }}" --no-update --no-interaction
 
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh --no-update
+
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress --no-interaction --with-all-dependencies
 
@@ -184,6 +191,15 @@ jobs:
           AS_MARIADB_URL: mysql://root@127.0.0.1:3307/api_studio?serverVersion=11.4.2-MariaDB
           AS_POSTGRES_URL: pgsql://postgres@127.0.0.1:5432/api_studio?serverVersion=16
         run: vendor/bin/phpunit --testsuite Database --no-coverage --fail-on-skipped
+
+      # 1.18: the SearchKit groups on the same servers (SearchKit's test kit needs DBAL 4).
+      - name: SearchKit groups on real databases (none may be skipped)
+        if: matrix.deps == 'DBAL 4'
+        env:
+          AS_MYSQL_URL: mysql://root@127.0.0.1:3306/api_studio?serverVersion=8.4.0
+          AS_MARIADB_URL: mysql://root@127.0.0.1:3307/api_studio?serverVersion=11.4.2-MariaDB
+          AS_POSTGRES_URL: pgsql://postgres@127.0.0.1:5432/api_studio?serverVersion=16
+        run: vendor/bin/phpunit --testsuite SearchKitDatabase --no-coverage --fail-on-skipped
 
   static-analysis:
     name: Static analysis (PHPStan, Rector, Igor)
@@ -203,6 +219,9 @@ jobs:
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh
 
       # REQ-CS-006: PHPStan errors fail the build (ignoreErrors: [], no baseline).
       - name: PHPStan

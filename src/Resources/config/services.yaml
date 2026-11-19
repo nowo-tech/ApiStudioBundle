@@ -23,6 +23,10 @@ services:
             # 1.15: server runner value objects (ScriptRunRequest, ScriptRunResult, ...).
             - '../../Script/Runner/Script*.php'
             - '../../Controller/'
+            # 1.18 global search: registered by the extension only when search.enabled (and value objects).
+            - '../../Search/'
+            - '../../Bridge/'
+            - '../../Event/ApiStudioSearchContextEvent.php'
             # 1.17 value objects and exceptions of the workspace scopes and the seed API.
             - '../../Scope/WorkspaceScope.php'
             - '../../Scope/ScopeRouteContext.php'

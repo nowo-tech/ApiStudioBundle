@@ -36,6 +36,7 @@ This bundle is **FrankenPHP worker mode friendly**, including worker mode with t
 - **Tenants and scopes** — workspaces per tenant (1.11) and per host sub-scope such as a project (1.17, a project tab mounted under the host prefix), plus an idempotent seed API with secret references only
 - **Import / Export** — OpenAPI 3 & Swagger 2, Postman collections, environment variables (JSON/YAML/.env)
 - **Browser scripts** — pre/post-request JavaScript in the console (`pm.environment.set`, `pm.response.json`, tests)
+- **Header search** — optional SearchKit groups for workspaces, services and endpoints, in org and project scope, showing only what the user may open (see [USAGE](docs/USAGE.md#global-search))
 
 ## Installation
 

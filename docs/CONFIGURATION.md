@@ -48,6 +48,12 @@ nowo_api_studio:
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
         # actor_resolver: App\ApiStudio\MyActorResolver
+    search_kit:                  # Unreleased: SearchKit groups (needs nowo-tech/search-kit-bundle ^1.9)
+        enabled: false           # literal boolean; opt-in
+        groups:
+            workspaces: true     # by name
+            services: true       # by name
+            endpoints: true      # by name, path and HTTP method
     folders:
         enabled: false           # 1.14: nested folders (migration)
         max_depth: 8
@@ -129,6 +135,8 @@ nowo_api_studio:
 | `scripts.limits.send_requests` | **1.15.** `pm.sendRequest` calls per phase, sandbox frame and server runner (0–100, default 10). |
 | `scripts.server_runner` | **1.15.** Server-side runner for unattended runs (collection runner, CLI, monitors): `ApiStudioScriptRunnerInterface`, implemented by `ProcessScriptRunner` (one sidecar process per run running the bundled `Resources/runner/api-script-runner.js`, spoken to over stdin / stdout; environment scrubbed to `PATH`, `HOME`, `TMPDIR`, `LANG`, `DENO_DIR`). The default command is Deno without any permission (no file system, network, environment or subprocess); with Node 25+, use `node --permission --max-old-space-size={memory_mb} {runner}`: the runner refuses every run under Node below 25 or without `--permission` (those do not block the network: SSRF, see SECURITY). Needs `proc_open` (no extra package). Disabled (default): `NullScriptRunner`, scripts reported as not run. A host can alias the interface to its own runner. `ScriptChainBuilder` gives the scripts of an endpoint in run order (workspace and folder levels only in sandbox mode). |
 | `scripts.confirm_stored` | **1.13.2.** `true` (default): with `inline`, before Send runs a stored service or endpoint script that this browser session has not approved, the console shows the code in a dialog: *Run with scripts* (the approval is kept in `sessionStorage` per SHA-256 of the code, so a changed script is asked again), *Send without scripts* (no script runs) or *Cancel*. Code typed by the user in an empty script field is not asked. Without Web Crypto (plain HTTP other than localhost) every send asks. `false`: stored scripts run without asking (1.13.1 behaviour). |
+| `search_kit.enabled` | **Unreleased.** Adds the Api Studio groups to SearchKit's header search when `nowo-tech/search-kit-bundle` `^1.9` is installed (default `false`: opt-in; ignored when `enabled: false`). A literal boolean (no `%env()%`). Turn it on once any host guard of the studio routes (organisation membership, a plan) is mirrored in an `ApiStudioSearchContextEvent` listener: that guard does not run on a search request. Results contain only what the user may open and never a base URL, header, auth value, body, script or variable. See [USAGE.md](USAGE.md#global-search). |
+| `search_kit.groups.workspaces` / `.services` / `.endpoints` | **Unreleased.** Each group on or off (default `true`). Workspaces and services match by name, endpoints by name, path and HTTP method. |
 | `folders.enabled` | **1.14.** Nested folders in each service: tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the `folder` table and `endpoint.folder_id` (a migration, see [UPGRADING](UPGRADING.md#to-1140)). Default `false`: the 1.13 schema, pages and importers. |
 | `folders.max_depth` | **1.14.** Deepest folder level (1–32, default `8`; a top-level folder has depth 1). Checked on create, move and import (deeper imported folders are merged into their deepest allowed parent). |
 | `security.folder_permission_checker` | **1.14.** Service id implementing `ApiStudioFolderPermissionCheckerInterface` (with `folders.enabled`): folder-level sharing on top of the workspace decisions. It can only deny: hidden folders and their endpoints answer 404 and are left out of the tree, lists and exports; denied actions inside a visible folder answer 403. Null = folders follow their workspace. |
