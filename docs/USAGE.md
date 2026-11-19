@@ -13,6 +13,9 @@
   - [Folder sharing hook](#folder-sharing-hook)
 - [Tenants and permissions](#tenants-and-permissions)
   - [Plan gate, 404 policy and host routes (1.16)](#plan-gate-404-policy-and-host-routes-116)
+- [Workspace scopes (1.17)](#workspace-scopes-117)
+  - [Seeding a workspace (1.17)](#seeding-a-workspace-117)
+  - [Moving a workspace between scopes (1.17)](#moving-a-workspace-between-scopes-117)
 - [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
@@ -296,6 +299,156 @@ final readonly class PlanFeatureGate implements ApiStudioFeatureGateInterface
 - `ApiStudioRoutes::isStudioRoute()` / `actionFor()` (service) say which routes are guarded and what they need; tests
   can enumerate the router with it.
 
+## Workspace scopes (1.17)
+
+Workspaces belong to a tenant (1.11). With `scope.enabled` they can also belong to an opaque **host scope** one level
+below, e.g. a project (`project:<uuid>`), and the studio can be mounted inside the host's project page. Off by
+default: no column, no route, 1.16 behaviour.
+
+```yaml
+nowo_api_studio:
+    ui:
+        path: '/organizations/{organization}/api-studio'          # the organisation studio (tenant level)
+    tenancy:
+        enabled: true
+        resolver: App\ApiStudio\OrganizationTenantResolver
+    scope:
+        enabled: true
+        resolver: App\ApiStudio\ProjectScopeResolver
+        access_checker: App\ApiStudio\ProjectScopeChecker
+        label_provider: App\ApiStudio\ProjectScopeLabels             # optional
+        path: '/organizations/{organization}/projects/{project}/api-studio'
+        path_requirements: { project: '[0-9a-f-]{36}' }
+        layout_template: 'project/layout.html.twig'                  # the project page with its tabs
+        tenant_list: all                                             # or unscoped
+```
+
+The existing `routes.yaml` import now also loads a twin of every studio route under `scope.path`
+(`nowo_api_studio_scoped_*`); nothing else to import. Lock the scoped prefix in `security.access_control` like the
+tenant one.
+
+**Resolver** — identify only (the access checker authorises), from the route, without HTTP types:
+
+```php
+use Nowo\ApiStudioBundle\Scope\ScopeResolverInterface;
+use Nowo\ApiStudioBundle\Scope\ScopeRouteContext;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+
+final class ProjectScopeResolver implements ScopeResolverInterface
+{
+    public function __construct(private readonly ProjectRepository $projects) {}
+
+    public function resolve(ScopeRouteContext $route, ApiStudioTenant $tenant): ?WorkspaceScope
+    {
+        $id = $route->parameter('project');
+        // Only a project of the request's organisation; null on a scoped route answers 404.
+        return $id !== null && $this->projects->belongsTo($id, $tenant->id) ? new WorkspaceScope('project:' . $id) : null;
+    }
+}
+```
+
+**Access checker** — mandatory, deny by default; asked on top of the permission checker for every action in a scope
+(tenant-level actions such as `studio.open` / `workspace.create` get `workspaceId: null`):
+
+```php
+use Nowo\ApiStudioBundle\Scope\ScopeAccessCheckerInterface;
+use Nowo\ApiStudioBundle\Scope\ScopeAccessSubject;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+
+final class ProjectScopeChecker implements ScopeAccessCheckerInterface
+{
+    public function isGranted(?object $user, ApiStudioAction $action, ScopeAccessSubject $subject): bool
+    {
+        $project = substr($subject->scope->value, strlen('project:'));
+
+        return match ($action) {
+            ApiStudioAction::StudioOpen, ApiStudioAction::WorkspaceView, ApiStudioAction::WorkspaceRun,
+            ApiStudioAction::WorkspaceExport => $this->members->isMember($user, $project),
+            ApiStudioAction::WorkspaceCreate, ApiStudioAction::WorkspaceEdit, ApiStudioAction::WorkspaceManage,
+            ApiStudioAction::WorkspaceImport => $this->members->isManager($user, $project),
+            default => false,                                   // unknown / sensitive actions: deny
+        };
+    }
+
+    public function visibleScopes(?object $user, ApiStudioTenant $tenant): ?array
+    {
+        // Scopes whose workspaces the organisation-level list may show (null = all, [] = none).
+        return array_map(static fn (string $id): string => 'project:' . $id, $this->members->projectsOf($user, $tenant->id));
+    }
+}
+```
+
+What the bundle enforces:
+
+- On `/organizations/{organization}/projects/{project}/api-studio/...` every lookup, list, count and the sidebar are
+  narrowed to that scope **in the query** (and by the SQL filter); a workspace of another project, another
+  organisation or the tenant level answers the same **404** as a missing id. Scopes compare byte-exact
+  (`project:A` is not `project:a`).
+- `studio.open` / `workspace.view` denied by the scope checker → 404; other actions → 403 (404 with
+  `security.access_denied_response: 404`), and their buttons are hidden.
+- A workspace created on the scoped mount gets that scope; one created at tenant level has none. The slug is unique
+  per (tenant, scope).
+- Tenant-level pages (`tenant_list: all`) list unscoped workspaces plus those of `visibleScopes()`, with a badge
+  (`label_provider`, else the raw value); opening one asks the scope checker for its scope. `tenant_list: unscoped`
+  keeps scoped workspaces out of the tenant level.
+- Scoped pages extend `scope.layout_template` and get `nowo_api_studio_scope` (`?WorkspaceScope`); the host layout
+  reads its own route attributes (the project) for the tabs.
+
+**Links in overridden templates** — the bundle's templates use `api_studio_path(name, params)`, which targets the twin
+route on a scoped request. A host template that overrides a bundle template and still calls `path('nowo_api_studio_…')`
+links to the tenant level; switch it to `api_studio_path()`. `nowo_api_studio_scope()` gives the current scope.
+
+### Seeding a workspace (1.17)
+
+`Nowo\ApiStudioBundle\Seed\WorkspaceSeeder` creates or updates one workspace from code — services, endpoints,
+environments, plain variables and **secret references by name** — idempotent by natural keys (workspace by
+tenant + scope + slug, the rest by slug / key). Additive: nothing the seed does not list is removed. The caller
+authorises: the seeder takes the tenant and the scope from the seed.
+
+```php
+use Nowo\ApiStudioBundle\Enum\HttpMethod;
+use Nowo\ApiStudioBundle\Seed\{EndpointSeed, EnvironmentSeed, SecretReferenceSeed, ServiceSeed, VariableSeed, WorkspaceSeed, WorkspaceSeeder};
+
+$result = $seeder->seed(new WorkspaceSeed(
+    slug: 'insurers',
+    name: 'Insurers',
+    tenant: new ApiStudioTenant('organization', $organizationId),
+    scope: new WorkspaceScope('project:' . $projectId),
+    services: [new ServiceSeed('mapfre', 'Mapfre', '{{base_url}}', endpoints: [
+        new EndpointSeed('quote', 'Quote', HttpMethod::Post, '/v1/quotes'),
+    ])],
+    environments: [new EnvironmentSeed('prod', 'Production', isDefault: true,
+        variables: [new VariableSeed('base_url', 'https://api.mapfre.example')],
+        secretReferences: [new SecretReferenceSeed('api_key', 'vault', 'core/mapfre/api-key')],
+    )],
+));
+// $result->workspaceId, ->workspaceCreated, ->attempts, ->created / ->updated counts
+```
+
+- **Authorise references per scope**: your secret source receives `ApiStudioSecretRef::$scope` (the workspace's
+  scope) with `tenantType` / `tenantId`; resolve `source/id` only for the project it belongs to.
+- **No secret values**: a `VariableSeed` is always a plain variable (a `{{secret:…}}` value is refused there); secrets
+  are only `SecretReferenceSeed(key, source, id)`, stored as the secret variable `{{secret:<source>/<id>}}` and
+  resolved at execute time by your `secrets.source` ([Host secrets](#host-secrets-113)); refused without it.
+  Auth settings, headers, bodies and scripts are not seeded. Nothing of the payload is logged (ids and counts only).
+- **Concurrency**: one transaction per attempt; seeds of one workspace run one after the other (row lock); two
+  writers creating the same workspace are decided by the unique key and the loser updates the winner's row; up to 3
+  attempts, then a `ConcurrencyConflict` (`CONFLICT_001`) for a lock conflict ([CONCURRENCY](CONCURRENCY.md)). Inside
+  a transaction of yours it runs once and propagates. It refuses to start when the Api Studio manager holds unflushed
+  changes.
+- `ApiWorkspaceSeededEvent` (ids only) after the commit.
+
+### Moving a workspace between scopes (1.17)
+
+```php
+$mover->move($workspaceId, new WorkspaceScope('project:' . $projectId));   // null = back to tenant level
+```
+
+`WorkspaceScopeMover` locks the row, changes the scope and dispatches `ApiWorkspaceScopeChangedEvent` after the
+commit; a slug already used in the target scope throws `WorkspaceSlugTakenException` (nothing changed). No UI: call
+it from your own admin action after your own authorisation.
+
 ## Host secrets (1.13)
 
 A secret environment variable can hold a **reference to a secret kept by the host** (a vault, a cloud secret manager,
@@ -399,10 +552,12 @@ Every event is dispatched through the Symfony event dispatcher (event name = cla
 
 | Event | When | Carries |
 |-------|------|---------|
-| `ApiWorkspaceCreatedEvent` | Workspace created from the studio, after its flush and **inside** the transaction (a listener exception rolls the workspace back) | `workspace` (entity), `tenant`, `user`; since 1.12 also `workspaceId`, `slug`, `actorId` |
-| `ApiWorkspaceCreatedCommittedEvent` (1.12) | The same workspace, **after the commit** | `workspaceId`, `slug`, `tenant`, `actorId` |
-| `ApiWorkspaceDeletedEvent` | After a workspace was deleted | `workspaceId`, `tenant` |
+| `ApiWorkspaceCreatedEvent` | Workspace created from the studio, after its flush and **inside** the transaction (a listener exception rolls the workspace back) | `workspace` (entity), `tenant`, `user`; since 1.12 also `workspaceId`, `slug`, `actorId`; 1.17 `scope` |
+| `ApiWorkspaceCreatedCommittedEvent` (1.12) | The same workspace, **after the commit** | `workspaceId`, `slug`, `tenant`, `actorId`; 1.17 `scope` |
+| `ApiWorkspaceDeletedEvent` | After a workspace was deleted | `workspaceId`, `tenant`; 1.17 `scope` |
 | `ApiWorkspaceMovedEvent` | `nowo:api-studio:tenant:move` moved a workspace | `workspaceId`, `from`, `to` |
+| `ApiWorkspaceSeededEvent` (1.17) | `WorkspaceSeeder` committed a seed | `workspaceId`, `tenant`, `scope`, `created` |
+| `ApiWorkspaceScopeChangedEvent` (1.17) | `WorkspaceScopeMover` committed a scope change | `workspaceId`, `tenant`, `from`, `to` (scope values, null = tenant level) |
 | `ApiStudioResourceChangedEvent` (1.12) | After a flushed create / update / delete / import of a workspace, service, endpoint (incl. its documentation), environment, the variables of an environment, or a request / response example | `resourceType`, `resourceId`, `workspaceId`, `action`, `actorId` |
 | `ApiRequestExecutedEvent` (1.12) | After the console executed a request and stored its history row | `endpointId`, `serviceId`, `workspaceId`, `environmentId`, `historyId`, `method`, `host`, `statusCode`, `durationMs`, `success`, `actorId` — never the path, query, headers, bodies or variable values |
 

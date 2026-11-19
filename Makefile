@@ -11,7 +11,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan igor update validate validate-translations check-no-cursor-coauthor check-open-prs check-no-raw-html-form strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
+.PHONY: test-with-db db-up db-down help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan igor update validate validate-translations check-no-cursor-coauthor check-open-prs check-no-raw-html-form strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
 
 help:
 	@echo "API Studio Bundle - Development Commands"
@@ -29,6 +29,7 @@ help:
 	@echo "  test          Run PHPUnit tests"
 	@echo "  test-coverage Run PHPUnit with code coverage"
 	@echo "  test-ts       TypeScript type check (tsc --noEmit) + Vitest"
+	@echo "  test-with-db  Real-database race suite (MySQL 8.4, MariaDB 11.4, PostgreSQL 16 containers; REQ-RUNTIME-003)"
 	@echo "  cs-check      Check code style"
 	@echo "  cs-fix        Fix code style"
 	@echo "  rector        Apply Rector refactoring"
@@ -86,6 +87,19 @@ ensure-up:
 
 test: ensure-up
 	$(COMPOSE) exec $(SERVICE_PHP) composer test
+
+# 1.17 REQ-RUNTIME-003: two-connection races on real MySQL 8.4 / MariaDB 11.4 / PostgreSQL 16 (none may be skipped).
+db-up: ensure-up
+	$(COMPOSE) --profile db up -d --wait mysql mariadb postgres
+
+test-with-db: db-up
+	$(COMPOSE) exec -e AS_MYSQL_URL='mysql://root@mysql:3306/api_studio?serverVersion=8.4.0' \
+		-e AS_MARIADB_URL='mysql://root@mariadb:3306/api_studio?serverVersion=11.4.2-MariaDB' \
+		-e AS_POSTGRES_URL='pgsql://postgres@postgres:5432/api_studio?serverVersion=16' \
+		$(SERVICE_PHP) vendor/bin/phpunit --testsuite Database --no-coverage --fail-on-skipped
+
+db-down:
+	$(COMPOSE) --profile db stop mysql mariadb postgres
 
 test-coverage: ensure-up
 	$(COMPOSE) exec $(SERVICE_PHP) composer test-coverage | tee coverage-php.txt

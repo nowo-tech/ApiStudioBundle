@@ -13,7 +13,7 @@
                     <span class="as-tree-chevron" aria-hidden="true">▶</span>
                 </button>
                 <span class="as-method as-method-default as-service-protocol">{{ service.protocol.value|upper }}</span>
-                <a href="{{ path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}"
+                <a href="{{ api_studio_path('nowo_api_studio_service_show', {workspaceId: workspace.id, id: service.id}) }}"
                    class="as-service-collection-name">{{ service.name }}</a>
                 <code class="as-service-collection-url">{{ service.baseUrl }}</code>
                 <span class="as-endpoint-badge" title="{{ 'section.endpoints'|trans({}, 'NowoApiStudioBundle') }}">{{ nowo_api_studio_visible_endpoints(service.endpoints)|length }}</span>

@@ -10,6 +10,8 @@ use function in_array;
 use function is_string;
 use function sprintf;
 use function str_starts_with;
+use function strlen;
+use function substr;
 
 /**
  * Which routes are Api Studio routes (1.16): the bundle's own (`nowo_api_studio_*`, actions in
@@ -23,6 +25,12 @@ use function str_starts_with;
 final readonly class ApiStudioRoutes
 {
     public const BUNDLE_PREFIX = 'nowo_api_studio_';
+
+    /**
+     * 1.17: name prefix of the twin routes mounted under `scope.path` (`nowo_api_studio_scoped_workspace_show` is the
+     * twin of `nowo_api_studio_workspace_show`). Every rule of a route applies to its twin ({@see self::canonical()}).
+     */
+    public const SCOPED_PREFIX = 'nowo_api_studio_scoped_';
 
     /** The actions a host route may declare (tenant-level). */
     public const HOST_ROUTE_ACTIONS = [ApiStudioAction::StudioOpen, ApiStudioAction::WorkspaceCreate];
@@ -60,6 +68,34 @@ final readonly class ApiStudioRoutes
     public function actionFor(string $route): ?ApiStudioAction
     {
         return ApiStudioRouteActions::actionFor($route) ?? $this->hostRoutes[$route] ?? null;
+    }
+
+    /**
+     * 1.17: true for a twin route mounted under `scope.path`.
+     */
+    public static function isScopedMount(mixed $route): bool
+    {
+        return is_string($route) && str_starts_with($route, self::SCOPED_PREFIX);
+    }
+
+    /**
+     * 1.17: the bundle route a twin stands for (`nowo_api_studio_scoped_x` → `nowo_api_studio_x`); any other name as is.
+     */
+    public static function canonical(string $route): string
+    {
+        return self::isScopedMount($route) ? self::BUNDLE_PREFIX . substr($route, strlen(self::SCOPED_PREFIX)) : $route;
+    }
+
+    /**
+     * 1.17: the twin of a bundle route (`nowo_api_studio_x` → `nowo_api_studio_scoped_x`); host routes and twins as is.
+     */
+    public static function scopedName(string $route): string
+    {
+        if (self::isScopedMount($route) || !str_starts_with($route, self::BUNDLE_PREFIX)) {
+            return $route;
+        }
+
+        return self::SCOPED_PREFIX . substr($route, strlen(self::BUNDLE_PREFIX));
     }
 
     /**

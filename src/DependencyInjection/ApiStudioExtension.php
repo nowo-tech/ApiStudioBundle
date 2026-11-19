@@ -6,13 +6,19 @@ namespace Nowo\ApiStudioBundle\DependencyInjection;
 
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
+use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
+use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
+use Nowo\ApiStudioBundle\Scope\ScopeContext;
+use Nowo\ApiStudioBundle\Scope\ScopeListener;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScopeMover;
 use Nowo\ApiStudioBundle\Script\Runner\ApiStudioScriptRunnerInterface;
 use Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner;
 use Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
@@ -20,11 +26,14 @@ use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
+use Nowo\ApiStudioBundle\Seed\WorkspaceSeeder;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
 use Nowo\ApiStudioBundle\Tenancy\TenantProviderResolver;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
+use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -44,6 +53,7 @@ use function is_array;
 use function is_bool;
 use function is_string;
 use function preg_match;
+use function rtrim;
 use function sprintf;
 use function str_starts_with;
 use function trigger_deprecation;
@@ -207,6 +217,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $flags    = [
             'enabled'                          => $config['enabled'],
             'tenancy.enabled'                  => $config['tenancy']['enabled'],
+            'scope.enabled'                    => $config['scope']['enabled'],
             'security.allow_unauthenticated'   => $security['allow_unauthenticated'],
             'execution_url_allowlist_required' => $config['execution_url_allowlist_required'],
         ];
@@ -308,7 +319,9 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->register(ExecutionUrlValidator::class)
             ->setArgument('$allowlist', $config['execution_url_allowlist']);
 
-        $this->registerTenancy($container, $config['tenancy']);
+        $this->registerTenancy($container, $config['tenancy'], $config['scope']['enabled']);
+        $this->registerScope($container, $config['scope'], $config['ui']['path'], $config['tenancy']['enabled'], is_string($config['secrets']['source'] ?? null) && $config['secrets']['source'] !== '');
+        $this->registerConcurrency($container, $config['concurrency']);
         $this->registerPermissions($container, $config['security'], $config['history']);
         $this->registerFolders($container, $config['folders'], $config['security']);
         $source = $config['secrets']['source'] ?? null;
@@ -355,7 +368,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
     /**
      * @param array{enabled: bool, resolver: ?string, provider: ?string, sql_filter: bool} $tenancy
      */
-    private function registerTenancy(ContainerBuilder $container, array $tenancy): void
+    private function registerTenancy(ContainerBuilder $container, array $tenancy, bool $scopes = false): void
     {
         $enabled = $tenancy['enabled'];
         $container->setParameter(Configuration::ALIAS . '.tenancy.enabled', $enabled);
@@ -379,10 +392,78 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         }
 
         $container->getDefinition(ApiStudioTenantContext::class)->setArgument('$enabled', $enabled);
-        $container->getDefinition(TenantSqlFilterListener::class)->setArgument('$enabled', $enabled && $tenancy['sql_filter']);
+        // 1.17: the filter also narrows by scope, so it runs with scopes on even without tenancy.
+        $container->getDefinition(TenantSqlFilterListener::class)->setArgument('$enabled', ($enabled || $scopes) && $tenancy['sql_filter']);
         $container->getDefinition(ApiStudioTenantListener::class)
             ->setArgument('$enabled', $enabled)
             ->setArgument('$resolver', $resolverReference);
+    }
+
+    /**
+     * 1.17 workspace scopes: the column, the resolver, the access checker (mandatory: deny by default), the scoped mount
+     * and its layout, the seeder and the mover.
+     *
+     * @param array{enabled: bool, resolver: ?string, access_checker: ?string, label_provider: ?string, path: ?string, path_requirements: array<string, string>, layout_template: ?string, tenant_list: string} $scope
+     */
+    private function registerScope(ContainerBuilder $container, array $scope, string $uiPath, bool $tenancy, bool $secretSource): void
+    {
+        $enabled  = $scope['enabled'];
+        $resolver = is_string($scope['resolver']) && $scope['resolver'] !== '' ? $scope['resolver'] : null;
+        $checker  = is_string($scope['access_checker']) && $scope['access_checker'] !== '' ? $scope['access_checker'] : null;
+        $labels   = is_string($scope['label_provider']) && $scope['label_provider'] !== '' ? $scope['label_provider'] : null;
+        $path     = is_string($scope['path']) && $scope['path'] !== '' ? $scope['path'] : null;
+        $layout   = is_string($scope['layout_template']) && $scope['layout_template'] !== '' ? $scope['layout_template'] : null;
+
+        if ($enabled && ($resolver === null || $checker === null)) {
+            throw new InvalidConfigurationException('nowo_api_studio.scope.enabled requires nowo_api_studio.scope.resolver (ScopeResolverInterface) and nowo_api_studio.scope.access_checker (ScopeAccessCheckerInterface): scoped access is denied by default.');
+        }
+        if (!$enabled && ($resolver !== null || $checker !== null || $labels !== null || $path !== null || $layout !== null || $scope['path_requirements'] !== [])) {
+            throw new InvalidConfigurationException('nowo_api_studio.scope: resolver, access_checker, label_provider, path, path_requirements and layout_template need scope.enabled: true.');
+        }
+
+        $placeholders = [];
+        if ($path !== null) {
+            if (!str_starts_with($path, '/') || rtrim($path, '/') === rtrim($uiPath, '/')) {
+                throw new InvalidConfigurationException('nowo_api_studio.scope.path must start with "/" and differ from nowo_api_studio.ui.path.');
+            }
+            $placeholders = $this->assertPlaceholders('scope.path', $path, $scope['path_requirements']);
+        }
+
+        $container->setParameter(Configuration::ALIAS . '.scope.enabled', $enabled);
+        $container->setParameter(Configuration::ALIAS . '.scope.path', $path);
+        $container->setParameter(Configuration::ALIAS . '.scope.path_placeholders', $placeholders);
+        $container->setParameter(Configuration::ALIAS . '.scope.path_requirements', $scope['path_requirements']);
+        $container->setParameter(Configuration::ALIAS . '.scope.layout_template', $layout);
+        $container->setParameter(Configuration::ALIAS . '.scope.tenant_list', $scope['tenant_list']);
+
+        $container->getDefinition(TablePrefixSubscriber::class)->setArgument('$scopes', $enabled);
+        $container->getDefinition(ScopeContext::class)->setArgument('$enabled', $enabled);
+        $container->getDefinition(ScopeListener::class)
+            ->setArgument('$enabled', $enabled)
+            ->setArgument('$resolver', $enabled ? new Reference((string) $resolver) : null);
+        $container->getDefinition(ApiStudioAuthorization::class)
+            ->setArgument('$scopeChecker', $enabled ? new Reference((string) $checker) : null)
+            ->setArgument('$tenantListAll', $scope['tenant_list'] === 'all');
+        $container->getDefinition(ApiStudioPageFactory::class)->setArgument('$scopeLabels', $labels !== null ? new Reference($labels) : null);
+        $container->getDefinition(ApiStudioUrlGenerator::class)->setArgument('$scopedRoutes', $path !== null);
+        $container->getDefinition(WorkspaceSeeder::class)
+            ->setArgument('$scopes', $enabled)
+            ->setArgument('$tenancy', $tenancy)
+            ->setArgument('$secretSource', $secretSource);
+        $container->getDefinition(WorkspaceScopeMover::class)->setArgument('$scopes', $enabled);
+    }
+
+    /**
+     * 1.17: the 409 / 503 answer of lock conflicts on Api Studio routes.
+     *
+     * @param array{conflict_status: int, retry_after: int} $concurrency
+     */
+    private function registerConcurrency(ContainerBuilder $container, array $concurrency): void
+    {
+        $container->register('nowo_api_studio.conflict_response_policy', ConflictResponsePolicy::class)
+            ->setArguments([$concurrency['conflict_status'], $concurrency['retry_after']]);
+        $container->getDefinition(ConcurrencyConflictSubscriber::class)
+            ->setArgument('$policy', new Reference('nowo_api_studio.conflict_response_policy'));
     }
 
     /**
@@ -450,20 +531,35 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
      */
     private function registerPathPlaceholders(ContainerBuilder $container, string $path, array $requirements): void
     {
+        $placeholders = $this->assertPlaceholders('ui.path', $path, $requirements);
+
+        $container->setParameter(Configuration::ALIAS . '.ui.path_placeholders', $placeholders);
+        $container->setParameter(Configuration::ALIAS . '.ui.path_requirements', $requirements);
+    }
+
+    /**
+     * Placeholders of a mount path (`ui.path`, 1.17 `scope.path`): lowercase names that do not reuse a route parameter
+     * of the bundle; every requirement must name one of them.
+     *
+     * @param array<string, string> $requirements
+     *
+     * @return list<string>
+     */
+    private function assertPlaceholders(string $option, string $path, array $requirements): array
+    {
         $placeholders = ApiStudioRouteScopeListener::placeholdersOf($path);
         foreach ($placeholders as $name) {
             if (preg_match('/^[a-z][a-z0-9_]*$/', $name) !== 1 || in_array($name, ApiStudioRouteScopeListener::RESERVED_PARAMETERS, true)) {
-                throw new InvalidConfigurationException(sprintf('nowo_api_studio.ui.path: the placeholder "{%s}" is not allowed (lowercase letters, digits and underscores; not one of %s).', $name, implode(', ', ApiStudioRouteScopeListener::RESERVED_PARAMETERS)));
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.%s: the placeholder "{%s}" is not allowed (lowercase letters, digits and underscores; not one of %s).', $option, $name, implode(', ', ApiStudioRouteScopeListener::RESERVED_PARAMETERS)));
             }
         }
         foreach (array_keys($requirements) as $name) {
             if (!in_array($name, $placeholders, true)) {
-                throw new InvalidConfigurationException(sprintf('nowo_api_studio.ui.path_requirements: "%s" is not a placeholder of ui.path.', $name));
+                throw new InvalidConfigurationException(sprintf('nowo_api_studio.%s_requirements: "%s" is not a placeholder of %s.', $option, $name, $option));
             }
         }
 
-        $container->setParameter(Configuration::ALIAS . '.ui.path_placeholders', $placeholders);
-        $container->setParameter(Configuration::ALIAS . '.ui.path_requirements', $requirements);
+        return $placeholders;
     }
 
     public function getAlias(): string

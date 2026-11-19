@@ -32,7 +32,19 @@ nowo_api_studio:
         enabled: false           # literal boolean; maps tenant_type / tenant_id on the workspace table
         # resolver: App\ApiStudio\MyTenantResolver               # required when enabled (or provider)
         # provider: App\ApiStudio\MyTenantProvider               # 1.12: request-free alternative to resolver
-        sql_filter: true         # defence-in-depth Doctrine filter during Api Studio requests
+        sql_filter: true         # defence-in-depth Doctrine filter during Api Studio requests (1.17: also narrows by scope)
+    scope:                       # 1.17: workspaces scoped to a host sub-scope (e.g. a project); off by default
+        enabled: false           # literal boolean; maps host_scope on the workspace table (migration)
+        # resolver: App\ApiStudio\ProjectScopeResolver            # required when enabled (ScopeResolverInterface)
+        # access_checker: App\ApiStudio\ProjectScopeChecker       # required when enabled (ScopeAccessCheckerInterface)
+        # label_provider: App\ApiStudio\ProjectScopeLabels        # optional badge on tenant-level lists
+        # path: '/organizations/{organization}/projects/{project}/api-studio'   # scoped mount (twin routes)
+        path_requirements: {}    # e.g. {project: '[0-9a-f-]{36}'}; default [^/]+
+        layout_template: null    # layout of scoped pages (null = ui.layout_template), e.g. the project page
+        tenant_list: all         # all | unscoped: what tenant-level pages list
+    concurrency:                 # 1.17 (REQ-RUNTIME-003)
+        conflict_status: 409     # 409 | 503 for lock conflicts on Api Studio routes
+        retry_after: 1           # Retry-After seconds of a CONFLICT_001 answer
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
         # actor_resolver: App\ApiStudio\MyActorResolver
@@ -97,7 +109,15 @@ nowo_api_studio:
 | `security.access_denied_response` | **1.16.** `403` (default, unchanged) or `404`: with `404` every refusal on an Api Studio route (permission checker, tenancy, feature gate, role / access checks of a signed-in user, host route denials) answers the same 404 as a genuine not-found (body and cache headers). Literal value (no `%env()%`). |
 | `security.host_routes` | **1.16.** Map of host route name => `studio.open` or `workspace.create`: host pages guarded like the bundle's routes (enabled check, tenant, roles, access checker, `studio.open`, feature gate, policy, `no-store`, SQL filter, `ui.path` placeholders). Workspace actions are checked in the host controller (`ApiStudioAuthorization::requireWorkspace()`). Routes starting with `nowo_api_studio_` are refused. |
 | `tenancy.enabled` | **1.11.** Workspaces belong to a tenant resolved per request; lists, counts, the sidebar and every lookup are scoped to it; the workspace slug is unique per tenant. Maps `tenant_type` / `tenant_id` (and swaps the slug index): a migration. Literal boolean. Default `false` (no schema change). |
-| `tenancy.sql_filter` | **1.11.** With tenancy (default `true`): the Doctrine filter `nowo_api_studio_tenant` narrows every bundle query of an Api Studio request to the tenant and the visible workspaces (defence in depth; the controllers' explicit checks stay the control). |
+| `tenancy.sql_filter` | **1.11.** With tenancy (default `true`): the Doctrine filter `nowo_api_studio_tenant` narrows every bundle query of an Api Studio request to the tenant and the visible workspaces (defence in depth; the controllers' explicit checks stay the control). **1.17:** with `scope.enabled` it also narrows by scope, and runs with scopes on even without tenancy. |
+| `scope.enabled` | **1.17.** Workspaces get an optional host scope below the tenant (e.g. `project:<uuid>`): every lookup, list, count, the sidebar and the SQL filter are narrowed by it (byte-exact), the slug becomes unique per (tenant,) scope, and every action in a scope also needs `scope.access_checker`. Maps `host_scope` (binary collation on MySQL / MariaDB) and swaps the slug index: a migration ([UPGRADING](UPGRADING.md#to-1170)). Literal boolean. Default `false` (no schema, route or query change). |
+| `scope.resolver` | **1.17.** Service id implementing `ScopeResolverInterface::resolve(ScopeRouteContext $route, ApiStudioTenant $tenant): ?WorkspaceScope` (required with scopes): the scope of an Api Studio request from its route. On a `scope.path` route null answers 404; on a tenant-level route null means "tenant level". |
+| `scope.access_checker` | **1.17.** Service id implementing `ScopeAccessCheckerInterface` (required with scopes; deny by default): `isGranted(?object $user, ApiStudioAction $action, ScopeAccessSubject $subject)` per scope and action, on top of `security.permission_checker`, and `visibleScopes()` for tenant-level lists. |
+| `scope.label_provider` | **1.17.** Optional `ScopeLabelProviderInterface`: the badge of scoped workspaces on tenant-level lists (one call per page). Null = the raw scope value. |
+| `scope.path` / `scope.path_requirements` | **1.17.** Scoped mount: every Api Studio route also gets a twin under this path, named `nowo_api_studio_scoped_<suffix>`, from the same `routes.yaml` import; the bundle's links stay in the mount. Placeholders follow the `ui.path` rules. Null (default) = no twin routes (a resolver may still return a scope on `ui.path`). |
+| `scope.layout_template` | **1.17.** Layout the pages of a scoped request extend (e.g. the host's project page with its tabs). Null = `ui.layout_template`. Pages get the variable `nowo_api_studio_scope`. |
+| `scope.tenant_list` | **1.17.** `all` (default): tenant-level pages list unscoped workspaces plus those of `visibleScopes()`, with a badge; `unscoped`: only workspaces without a scope (scoped ones answer 404 there). |
+| `concurrency.conflict_status` / `concurrency.retry_after` | **1.17.** Answer of a lock conflict (deadlock, lock wait timeout, serialization failure) on an Api Studio route: `409` (default) or `503`, with `X-Conflict-Code: CONFLICT_001` + `Retry-After` (seconds, default 1), or `CONFLICT_002` without `Retry-After` when part was committed. See [CONCURRENCY](CONCURRENCY.md). |
 | `tenancy.resolver` | **1.11.** Service id implementing `ApiStudioTenantResolverInterface` (required with tenancy). A null tenant answers 404. |
 | `tenancy.provider` | **1.12.** Service id implementing `ApiStudioTenantProviderInterface::current(): ?ApiStudioTenant` — a request-free alternative to `tenancy.resolver` for hosts whose application layer already knows the tenant. Set one of the two (both fails the build). |
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |

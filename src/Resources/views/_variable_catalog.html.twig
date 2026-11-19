@@ -30,7 +30,7 @@
     <p class="{{ nowo_ui_class('muted', bundle) }}">
         {{ 'variables.manage'|trans({}, 'NowoApiStudioBundle') }}
         {% for environment in environments %}
-            <a href="{{ path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>{% if not loop.last %}, {% endif %}
+            <a href="{{ api_studio_path('nowo_api_studio_environment_show', {workspaceId: workspace.id, id: environment.id}) }}">{{ environment.name }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
     </p>
 {% endif %}

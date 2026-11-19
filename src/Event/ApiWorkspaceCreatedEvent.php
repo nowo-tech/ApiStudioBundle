@@ -30,6 +30,8 @@ final readonly class ApiWorkspaceCreatedEvent
         public ?object $user = null,
         /** Opaque actor id of the creator (`history.actor_resolver`, else `u:` + user identifier); null when anonymous. */
         public ?string $actorId = null,
+        /** 1.17: scope value of the workspace (`scope.enabled`); null at tenant level. */
+        public ?string $scope = null,
     ) {
         $this->workspaceId = $workspace->getId();
         $this->slug        = $workspace->getSlug();

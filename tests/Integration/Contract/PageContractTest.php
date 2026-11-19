@@ -8,6 +8,7 @@ use Nowo\ApiStudioBundle\Tests\Support\ApiStudioPageFixtures;
 use Nowo\ApiStudioBundle\Twig\ApiStudioExtension;
 use Nowo\ApiStudioBundle\Twig\ApiStudioFormsExtension;
 use Nowo\FormKitBundle\Twig\LocaleTabsTwigExtension;
+use Nowo\UiKitBundle\Test\ContractStubExtension;
 use Nowo\UiKitBundle\Test\PageContractTestCase;
 use Nowo\UiKitBundle\Test\PageFixture;
 use Symfony\Component\HttpFoundation\Request;
@@ -161,6 +162,9 @@ final class PageContractTest extends PageContractTestCase
         $twig->addFunction(new TwigFunction('nowo_api_studio_scripts_send_budget', static fn (): int => 10));
         $twig->addFunction(new TwigFunction('nowo_api_studio_can', static fn (): bool => true));
         $twig->addFunction(new TwigFunction('nowo_api_studio_folders_enabled', static fn (): bool => true));
+        // 1.17: the scope-aware path() of the bundle templates (the stub path() of the contract kit).
+        $twig->addFunction(new TwigFunction('api_studio_path', static fn (string $name, array $parameters = []): string => ContractStubExtension::path($name, $parameters)));
+        $twig->addFunction(new TwigFunction('nowo_api_studio_scope', static fn (): null => null));
         $twig->addFunction(new TwigFunction('nowo_api_studio_visible_endpoints', static fn (iterable $endpoints): array => [...$endpoints]));
         $twig->addGlobal('nowo_api_studio_locales', ['es', 'en']);
         $twig->addGlobal(ApiStudioExtension::GLOBAL_LAYOUT_TEMPLATE, null);

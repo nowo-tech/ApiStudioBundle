@@ -14,6 +14,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
+use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Nowo\ApiStudioBundle\Entity\ApiScriptVariable;
@@ -36,6 +37,7 @@ final class TablePrefixSubscriber
         private readonly bool $historyActor = false,
         private readonly bool $folders = false,
         private readonly bool $scriptLevels = false,
+        private readonly bool $scopes = false,
     ) {
     }
 
@@ -47,7 +49,10 @@ final class TablePrefixSubscriber
         }
 
         if ($this->tenancy && $metadata->getName() === ApiWorkspace::class) {
-            $this->mapTenant($metadata);
+            $this->mapTenant($metadata, $event->getObjectManager()->getConnection());
+        }
+        if ($this->scopes && $metadata->getName() === ApiWorkspace::class) {
+            $this->mapScope($metadata, $event->getObjectManager()->getConnection());
         }
         if ($this->historyActor && $metadata->getName() === ApiRequestHistory::class) {
             $this->mapHistoryActor($metadata);
@@ -78,6 +83,11 @@ final class TablePrefixSubscriber
         if ($this->scriptLevels && $metadata->getName() === ApiWorkspace::class) {
             $this->mapScripts($metadata);
         }
+        if ($metadata->getName() === ApiEnvironmentVariable::class) {
+            // 1.17 (audit UA-I3): `{{API_KEY}}` and `{{api_key}}` are two variables (VariableSyntax is case-sensitive),
+            // so the key compares exactly on MySQL / MariaDB too and the (environment, key) unique key agrees.
+            $this->mapBinaryCollation($metadata, 'variableKey', $event->getObjectManager()->getConnection());
+        }
         if ($this->folders && $metadata->getName() === ApiEndpoint::class) {
             $this->mapEndpointFolder($metadata);
         }
@@ -86,17 +96,20 @@ final class TablePrefixSubscriber
     }
 
     /**
-     * `nowo_api_studio.tenancy.enabled`: the workspace's tenant columns, and the slug unique per tenant instead of per
-     * instance. Without it the schema is exactly 1.10's.
+     * `nowo_api_studio.tenancy.enabled`: the workspace's tenant columns (1.17: binary NO PAD collation on MySQL /
+     * MariaDB), and the slug unique per tenant instead of per instance. Without it the schema is exactly 1.10's.
      *
      * @param ClassMetadata<object> $metadata
      */
-    private function mapTenant(ClassMetadata $metadata): void
+    private function mapTenant(ClassMetadata $metadata, Connection $connection): void
     {
         if (!$metadata->hasField('tenantType')) {
             $metadata->mapField(['fieldName' => 'tenantType', 'columnName' => 'tenant_type', 'type' => Types::STRING, 'length' => 32, 'options' => ['default' => '']]);
             $metadata->mapField(['fieldName' => 'tenantId', 'columnName' => 'tenant_id', 'type' => Types::STRING, 'length' => 64, 'options' => ['default' => '']]);
         }
+        // 1.17 (audit UA-L1): tenant ids compare exactly on MySQL / MariaDB too (`ACME` is not `acme`).
+        $this->mapBinaryCollation($metadata, 'tenantType', $connection);
+        $this->mapBinaryCollation($metadata, 'tenantId', $connection);
 
         /** @var array<string, mixed> $table */
         $table   = $metadata->table;
@@ -107,6 +120,37 @@ final class TablePrefixSubscriber
         $indexes['idx_workspace_tenant']       = ['columns' => ['tenant_type', 'tenant_id']];
         $table['uniqueConstraints']            = $uniques;
         $table['indexes']                      = $indexes;
+        $metadata->setPrimaryTable($table);
+    }
+
+    /**
+     * `nowo_api_studio.scope.enabled` (1.17): the workspace's host scope (`host_scope`, `''` = tenant level, binary
+     * NO PAD collation on MySQL / MariaDB: compared byte-exact), and the slug unique per (tenant,) scope instead of per
+     * tenant / instance. Without it the schema is exactly 1.16's.
+     *
+     * @param ClassMetadata<object> $metadata
+     */
+    private function mapScope(ClassMetadata $metadata, Connection $connection): void
+    {
+        if (!$metadata->hasField('hostScope')) {
+            $metadata->mapField(['fieldName' => 'hostScope', 'columnName' => 'host_scope', 'type' => Types::STRING, 'length' => 128, 'options' => ['default' => '']]);
+        }
+        $this->mapBinaryCollation($metadata, 'hostScope', $connection);
+
+        /** @var array<string, mixed> $table */
+        $table   = $metadata->table;
+        $uniques = is_array($table['uniqueConstraints'] ?? null) ? $table['uniqueConstraints'] : [];
+        $indexes = is_array($table['indexes'] ?? null) ? $table['indexes'] : [];
+        unset($uniques['uniq_workspace_slug'], $uniques['uniq_workspace_tenant_slug']);
+        if ($this->tenancy) {
+            $uniques['uniq_workspace_tenant_scope_slug'] = ['columns' => ['tenant_type', 'tenant_id', 'host_scope', 'slug']];
+            $indexes['idx_workspace_tenant_scope']       = ['columns' => ['tenant_type', 'tenant_id', 'host_scope']];
+        } else {
+            $uniques['uniq_workspace_scope_slug'] = ['columns' => ['host_scope', 'slug']];
+            $indexes['idx_workspace_scope']       = ['columns' => ['host_scope']];
+        }
+        $table['uniqueConstraints'] = $uniques;
+        $table['indexes']           = $indexes;
         $metadata->setPrimaryTable($table);
     }
 

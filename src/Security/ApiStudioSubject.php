@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Security;
 
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 
 /**
@@ -22,6 +23,8 @@ final readonly class ApiStudioSubject
     public function __construct(
         public ApiStudioTenant $tenant,
         public ?ApiWorkspace $workspace = null,
+        /** 1.17: the host scope the action applies to (the workspace's, else the request's); null at tenant level. */
+        public ?WorkspaceScope $scope = null,
     ) {
         $this->workspaceId = $workspace?->getId();
     }

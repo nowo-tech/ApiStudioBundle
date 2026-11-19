@@ -1,7 +1,7 @@
 {#
   Workspaces (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
   ApiStudioPageFactory::workspaceIndex(): header page.workspaces with New workspace; columns name, slug; rows
-  {id, name, slug, href, edit}; row actions Open / Edit; Pagination (ui.list_page_size); EmptyState).
+  {id, name, slug, scope (1.17: badge of a scoped workspace on a tenant-level list, else null), href, edit}; row actions Open / Edit; Pagination (ui.list_page_size); EmptyState).
   Blocks filled: nowo_ui_styles, nowo_ui_list_row (the name links to the workspace, slug in the code slot).
 #}
 {% extends '@NowoUiKit/page/list.html.twig' %}
@@ -14,6 +14,6 @@
 
 {% block nowo_ui_list_row %}
     {% set _cell = nowo_ui_class('table_cell', page.bundle) %}
-    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1"><a href="{{ row.href }}">{{ row.name }}</a></td>
+    <td class="{{ _cell }}" data-label="{{ 'field.name'|trans }}" data-required="1"><a href="{{ row.href }}">{{ row.name }}</a>{% if row.scope ?? null %} <span class="{{ nowo_ui_class('badge', page.bundle) }}" data-testid="api-studio-workspace-scope">{{ row.scope }}</span>{% endif %}</td>
     <td class="{{ _cell }}" data-label="{{ 'field.slug'|trans }}" data-nowo-ui-priority="2"><code class="{{ nowo_ui_class('code', page.bundle) }}">{{ row.slug }}</code></td>
 {% endblock %}

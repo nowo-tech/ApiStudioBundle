@@ -123,7 +123,7 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
     {
         $exception = $event->getThrowable();
         $route     = $event->getRequest()->attributes->get('_route');
-        if (!in_array($route, self::JSON_ROUTES, true) || (!$exception instanceof AccessDeniedHttpException && !$exception instanceof AccessDeniedException)) {
+        if (!is_string($route) || !in_array(ApiStudioRoutes::canonical($route), self::JSON_ROUTES, true) || (!$exception instanceof AccessDeniedHttpException && !$exception instanceof AccessDeniedException)) {
             return;
         }
 

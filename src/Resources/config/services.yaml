@@ -23,6 +23,12 @@ services:
             # 1.15: server runner value objects (ScriptRunRequest, ScriptRunResult, ...).
             - '../../Script/Runner/Script*.php'
             - '../../Controller/'
+            # 1.17 value objects and exceptions of the workspace scopes and the seed API.
+            - '../../Scope/WorkspaceScope.php'
+            - '../../Scope/ScopeRouteContext.php'
+            - '../../Scope/ScopeAccessSubject.php'
+            - '../../Scope/WorkspaceSlugTakenException.php'
+            - '../../Seed/{EndpointSeed,EnvironmentSeed,SecretReferenceSeed,SeedStats,SeedValidation,ServiceSeed,VariableSeed,WorkspaceSeed,WorkspaceSeedResult}.php'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
     # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without
@@ -78,12 +84,53 @@ services:
             $placeholders: '%nowo_api_studio.ui.path_placeholders%'
             $requirements: '%nowo_api_studio.ui.path_requirements%'
             $env: '%kernel.environment%'
+            $scopedPath: '%nowo_api_studio.scope.path%'
+            $scopedPlaceholders: '%nowo_api_studio.scope.path_placeholders%'
+            $scopedRequirements: '%nowo_api_studio.scope.path_requirements%'
         tags: ['routing.loader']
 
     Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener:
         arguments:
             $router: '@router'
             $placeholders: '%nowo_api_studio.ui.path_placeholders%'
+            $scopedPlaceholders: '%nowo_api_studio.scope.path_placeholders%'
+
+    # 1.17: bundle links stay inside a scope.path mount ($scopedRoutes set by the extension).
+    Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator:
+        public: true
+        arguments:
+            $router: '@router'
+            $requestStack: '@?request_stack'
+            $scopedRoutes: false
+
+    # 1.17 workspace scopes ($enabled / $resolver set by the extension).
+    Nowo\ApiStudioBundle\Scope\ScopeContext:
+        arguments:
+            $requestStack: '@?request_stack'
+            $enabled: false
+
+    Nowo\ApiStudioBundle\Scope\ScopeListener:
+        arguments:
+            $resolver: null
+            $enabled: false
+
+    Nowo\ApiStudioBundle\Seed\WorkspaceSeeder:
+        public: true
+        arguments:
+            $managerName: '%nowo_api_studio.entity_manager%'
+            $dispatcher: '@?event_dispatcher'
+            $logger: '@?logger'
+
+    Nowo\ApiStudioBundle\Scope\WorkspaceScopeMover:
+        public: true
+        arguments:
+            $managerName: '%nowo_api_studio.entity_manager%'
+            $dispatcher: '@?event_dispatcher'
+            $logger: '@?logger'
+
+    Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber:
+        arguments:
+            $logger: '@?logger'
 
     Nowo\ApiStudioBundle\EventListener\LocaleSubscriber:
         arguments:
@@ -186,14 +233,18 @@ services:
         arguments:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $twig: '@twig'
+            $scopeLayoutTemplate: '%nowo_api_studio.scope.layout_template%'
 
     # 1.14 folders: depth limit; the folder checker is set by the extension (null without folders / checker).
     Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory:
         arguments:
+            $urlGenerator: '@Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator'
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
+            $scopeLabels: null
 
     Nowo\ApiStudioBundle\Service\StudioNavigationProvider:
         arguments:
+            $urlGenerator: '@Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator'
             $foldersEnabled: '%nowo_api_studio.folders.enabled%'
 
     # 1.14: the importers recreate folders (Postman item groups, OpenAPI tags / x-api-studio-folder) only with folders on.

@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+  - [To 1.17.0](#to-1170)
 - [To 1.16.0](#to-1160)
 - [To 1.15.0](#to-1150)
 - [To 1.14.0](#to-1140)
@@ -85,6 +86,71 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+### To 1.17.0
+
+From **1.16.0**: no breaking changes. Workspace scopes are off by default (`scope.enabled: false`: no column, no
+route, no query change); the only change every host gets is the lock-conflict answer on Api Studio routes (below).
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- **New dependencies**: `nowo-tech/transaction-doctrine ^1.6` and `nowo-tech/transaction-contract ^1.0` (plain
+  libraries; registering `NowoTransactionDoctrineBundle` stays optional).
+- **Lock conflicts** (deadlock, lock wait timeout, serialization failure) on an Api Studio route now answer **409** +
+  `Retry-After` + `X-Conflict-Code: CONFLICT_001` (or `CONFLICT_002` without `Retry-After` when part was committed)
+  instead of a 500. `concurrency.conflict_status: 503` keeps a 503. Unique violations and other database errors are
+  unchanged. See [CONCURRENCY](CONCURRENCY.md).
+- **Events**: `ApiWorkspaceCreatedEvent`, `ApiWorkspaceCreatedCommittedEvent` and `ApiWorkspaceDeletedEvent` gain an
+  appended `?string $scope` (null at tenant level); `ApiStudioSubject` gains `?WorkspaceScope $scope`; `ApiStudioScope`
+  gains appended constructor arguments. Code that builds them with positional arguments keeps working.
+- **Overridden templates**: the bundle templates now link with `api_studio_path()` instead of `path()` (same output
+  without scopes). Overrides may keep `path()`; with a scoped mount switch them to `api_studio_path()` so links stay in
+  the mount.
+
+- **Identifier columns** (audit UA-L1 / UA-I3, every MySQL / MariaDB host): `api_studio_environment_variable.variable_key`
+  and, with tenancy, `api_studio_workspace.tenant_type` / `tenant_id` get a binary NO PAD collation. Generate the
+  migration with `doctrine:migrations:diff` (with `serverVersion` set), or for reference on MySQL 8 (MariaDB:
+  `utf8mb4_nopad_bin`; the SQL assumes the default `api_studio_` table prefix: adapt the table names to your
+  `table_prefix`). `MODIFY` rebuilds the table on MySQL / MariaDB (a copy of every row, writes blocked meanwhile):
+  plan a maintenance window for a large `environment_variable` table.
+
+```sql
+ALTER TABLE api_studio_environment_variable MODIFY variable_key VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
+-- with tenancy:
+ALTER TABLE api_studio_workspace
+    MODIFY tenant_type VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT '' NOT NULL,
+    MODIFY tenant_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT '' NOT NULL;
+```
+
+  Before migrating, check for keys or tenant ids that differ only in case or trailing spaces (they become distinct;
+  the unique keys then admit both). PostgreSQL and SQLite need nothing.
+- **Host secret sources** (with scopes): `ApiStudioSecretRef::$scope` is the workspace's scope; authorise references
+  against the tenant **and** the scope.
+
+**Turning scopes on** (see [USAGE — Workspace scopes](USAGE.md#workspace-scopes-117)): configure `scope.enabled`,
+`scope.resolver`, `scope.access_checker` (both mandatory) and optionally `scope.path`, then migrate. The column is
+`host_scope VARCHAR(128) NOT NULL DEFAULT ''` (existing workspaces stay at tenant level), the slug key becomes
+per (tenant,) scope. Generate the migration with `doctrine:migrations:diff` (or run `nowo:api-studio:sync-schema`);
+for reference, with tenancy on and the default `api_studio_` table prefix (adapt the names to your `table_prefix`):
+
+```sql
+-- MySQL 8 (MariaDB: COLLATE utf8mb4_nopad_bin)
+ALTER TABLE api_studio_workspace ADD host_scope VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT '' NOT NULL;
+DROP INDEX api_studio_uniq_workspace_tenant_slug ON api_studio_workspace;
+CREATE UNIQUE INDEX api_studio_uniq_workspace_tenant_scope_slug ON api_studio_workspace (tenant_type, tenant_id, host_scope, slug);
+CREATE INDEX api_studio_idx_workspace_tenant_scope ON api_studio_workspace (tenant_type, tenant_id, host_scope);
+
+-- PostgreSQL
+ALTER TABLE api_studio_workspace ADD host_scope VARCHAR(128) DEFAULT '' NOT NULL;
+DROP INDEX api_studio_uniq_workspace_tenant_slug;
+CREATE UNIQUE INDEX api_studio_uniq_workspace_tenant_scope_slug ON api_studio_workspace (tenant_type, tenant_id, host_scope, slug);
+CREATE INDEX api_studio_idx_workspace_tenant_scope ON api_studio_workspace (tenant_type, tenant_id, host_scope);
+```
+
+Without tenancy the old key is `api_studio_uniq_workspace_slug` and the new ones are
+`api_studio_uniq_workspace_scope_slug (host_scope, slug)` and `api_studio_idx_workspace_scope (host_scope)`.
 
 ## To 1.16.0
 

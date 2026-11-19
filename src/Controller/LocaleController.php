@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
 use Nowo\ApiStudioBundle\Service\LocaleManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,7 @@ final class LocaleController extends AbstractController
 {
     public function __construct(
         private readonly LocaleManager $localeManager,
+        private readonly ?ApiStudioUrlGenerator $urls = null,
     ) {
     }
 
@@ -35,7 +37,8 @@ final class LocaleController extends AbstractController
             return $this->redirect($referer);
         }
 
-        return $this->redirectToRoute('nowo_api_studio_dashboard');
+        // 1.17: back to the dashboard of the same mount (tenant level or scope).
+        return $this->redirect($this->urls?->generate('nowo_api_studio_dashboard') ?? $this->generateUrl('nowo_api_studio_dashboard'));
     }
 
     /**

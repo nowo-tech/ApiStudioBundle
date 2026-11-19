@@ -9,8 +9,8 @@ RUN apk add --no-cache \
     nodejs \
     npm
 
-RUN apk add --no-cache libxml2-dev \
-    && docker-php-ext-install -j$(nproc) zip soap
+RUN apk add --no-cache libxml2-dev postgresql-dev \
+    && docker-php-ext-install -j$(nproc) zip soap pdo_mysql pdo_pgsql
 
 RUN apk add --no-cache $PHPIZE_DEPS \
     && pecl install pcov \

@@ -9,6 +9,8 @@ use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Scope\ScopeLabelProviderInterface;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioRouteActions;
@@ -32,7 +34,9 @@ use Symfony\Component\Form\FormView;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 use function array_filter;
+use function array_keys;
 use function array_values;
+use function is_string;
 use function strtoupper;
 
 /**
@@ -48,6 +52,7 @@ final readonly class ApiStudioPageFactory
         private ApiStudioPages $pages = new ApiStudioPages(),
         private ?ApiStudioAuthorization $authorization = null,
         private bool $foldersEnabled = false,
+        private ?ScopeLabelProviderInterface $scopeLabels = null,
     ) {
     }
 
@@ -87,14 +92,17 @@ final readonly class ApiStudioPageFactory
      */
     public function workspaceIndex(iterable $workspaces, Pagination $pagination): ListPage
     {
-        $rows = [];
+        $workspaces = array_values([...$workspaces]);
+        $badges     = $this->scopeBadges($workspaces);
+        $rows       = [];
         foreach ($workspaces as $workspace) {
             $rows[] = [
-                'id'   => $workspace->getId(),
-                'name' => $workspace->getName(),
-                'slug' => $workspace->getSlug(),
-                'href' => $this->url('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]),
-                'edit' => $this->permitted('nowo_api_studio_workspace_edit', $workspace) ? $this->url('nowo_api_studio_workspace_edit', ['id' => $workspace->getId()]) : null,
+                'id'    => $workspace->getId(),
+                'name'  => $workspace->getName(),
+                'slug'  => $workspace->getSlug(),
+                'scope' => $badges[$workspace->getScopeKey()] ?? null,
+                'href'  => $this->url('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]),
+                'edit'  => $this->permitted('nowo_api_studio_workspace_edit', $workspace) ? $this->url('nowo_api_studio_workspace_edit', ['id' => $workspace->getId()]) : null,
             ];
         }
 
@@ -692,6 +700,46 @@ final readonly class ApiStudioPageFactory
      * Whether the current user may use $route ({@see ApiStudioRouteActions}) on $workspace: forbidden actions are not
      * rendered (the controllers enforce them anyway). Without an authorization service every action is shown.
      */
+    /**
+     * 1.17: badges of the scoped workspaces of a tenant-level list (scope value => label), one label-provider call per
+     * page. Empty on a scoped request (every row is of that scope) and with scopes off.
+     *
+     * @param list<ApiWorkspace> $workspaces
+     *
+     * @return array<string, string>
+     */
+    private function scopeBadges(array $workspaces): array
+    {
+        if (!$this->authorization instanceof ApiStudioAuthorization) {
+            return [];
+        }
+
+        $scope = $this->authorization->scope();
+        if (!$scope->scopes || $scope->hostScope instanceof WorkspaceScope) {
+            return [];
+        }
+
+        $scopes = [];
+        foreach ($workspaces as $workspace) {
+            $value = $workspace->getScope();
+            if ($value instanceof WorkspaceScope) {
+                $scopes[$value->value] = $value;
+            }
+        }
+        if ($scopes === []) {
+            return [];
+        }
+
+        $labels = $this->scopeLabels?->labels(array_values($scopes), $scope->tenant) ?? [];
+        $badges = [];
+        foreach (array_keys($scopes) as $value) {
+            $label          = $labels[$value] ?? null;
+            $badges[$value] = is_string($label) && $label !== '' ? $label : $value;
+        }
+
+        return $badges;
+    }
+
     private function permitted(string $route, ?ApiWorkspace $workspace): bool
     {
         if (!$this->authorization instanceof ApiStudioAuthorization) {

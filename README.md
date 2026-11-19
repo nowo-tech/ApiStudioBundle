@@ -33,6 +33,7 @@ This bundle is **FrankenPHP worker mode friendly**, including worker mode with t
 - **Request/response examples** — document sample payloads
 - **Request console** — execute and inspect live responses from the UI
 - **History** — last executions persisted per endpoint
+- **Tenants and scopes** — workspaces per tenant (1.11) and per host sub-scope such as a project (1.17, a project tab mounted under the host prefix), plus an idempotent seed API with secret references only
 - **Import / Export** — OpenAPI 3 & Swagger 2, Postman collections, environment variables (JSON/YAML/.env)
 - **Browser scripts** — pre/post-request JavaScript in the console (`pm.environment.set`, `pm.response.json`, tests)
 
@@ -169,6 +170,7 @@ Optional FrankenPHP mode via `FRANKENPHP_MODE=worker|classic` in `demo/symfony8/
 - [Installation](docs/INSTALLATION.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Usage](docs/USAGE.md)
+- [Concurrency (REQ-RUNTIME-003)](docs/CONCURRENCY.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Changelog](docs/CHANGELOG.md)
@@ -192,7 +194,8 @@ make test
 make test-coverage
 ```
 
-- PHP: **99.93%** lines (4413/4416) of the whole `src/` tree (`phpunit.xml.dist` excludes only `src/Resources`, measured 2026-10-30). CI and `make test-coverage` fail below **99%** (`composer coverage-check`, `scripts/check-coverage.php`, REQ-TEST-003). The 3 uncovered lines are defensive branches that cannot be reached in-process: `RequestExecutor` without ext-soap (the test image ships it) and the `GuardedWsdlLoader` temp-file failures (`tempnam()` / `file_put_contents()` returning `false`).
+- PHP: **99.36%** lines (7989/8040) of the whole `src/` tree (`phpunit.xml.dist` excludes only `src/Resources`, measured 2026-11-18; the 1.17 scope, seed and conflict code is at 100%). CI and `make test-coverage` fail below **99%** (`composer coverage-check`, `scripts/check-coverage.php`, REQ-TEST-003).
+- Real databases: `make test-with-db` / CI job *Databases* run the two-connection race suite (`tests/Database`) on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16 ([CONCURRENCY](docs/CONCURRENCY.md)).
 - UI: the page contract test (`tests/Integration/Contract/PageContractTest.php`) renders every page against the UiKit stub host for `none`, `bootstrap5` and `tailwind`.
 - TS/JS: **96.10%** lines (1704/1773), 96.02% statements, 86.38% branches, 96.30% functions (Vitest + `@vitest/coverage-v8` over `src/Resources/assets/src/`, `pnpm run test:coverage`, measured 2026-11-17). The `assets` CI job fails below 95% lines / statements / functions and 85% branches (`vitest.config.ts`; REQ-TEST-003 asks for >= 90% lines); the frame relay, lockdown, node refusal and require guard are held at 100% lines.
 - Python: **N/A**

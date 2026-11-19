@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Tests\Support;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -17,6 +18,7 @@ use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 
 use function dirname;
 use function extension_loaded;
+use function is_array;
 use function sys_get_temp_dir;
 use function ucfirst;
 
@@ -28,7 +30,11 @@ use const PHP_VERSION_ID;
  */
 trait TenantOrmTrait
 {
-    private function createTenantEntityManager(): EntityManager
+    /**
+     * @param bool $caseInsensitiveTenants tenant columns with SQLite's NOCASE collation: a stand-in for MySQL / MariaDB
+     *                                     before the 1.17 binary collation migration (`ACME` matches `acme`)
+     */
+    private function createTenantEntityManager(bool $caseInsensitiveTenants = false): EntityManager
     {
         if (!extension_loaded('pdo_sqlite')) {
             self::markTestSkipped('pdo_sqlite is required.');
@@ -42,6 +48,21 @@ trait TenantOrmTrait
 
         $em = new EntityManager(DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config), $config);
         $em->getEventManager()->addEventListener(Events::loadClassMetadata, new TablePrefixSubscriber('api_studio_', true, true));
+        if ($caseInsensitiveTenants) {
+            $em->getEventManager()->addEventListener(Events::loadClassMetadata, new class {
+                public function loadClassMetadata(LoadClassMetadataEventArgs $event): void
+                {
+                    $metadata = $event->getClassMetadata();
+                    if ($metadata->getName() !== ApiWorkspace::class) {
+                        return;
+                    }
+                    foreach (['tenantType', 'tenantId'] as $field) {
+                        $mapping          = $metadata->getFieldMapping($field);
+                        $mapping->options = ['collation' => 'NOCASE'] + (is_array($mapping->options) ? $mapping->options : []);
+                    }
+                }
+            });
+        }
         (new SchemaTool($em))->createSchema($em->getMetadataFactory()->getAllMetadata());
 
         return $em;

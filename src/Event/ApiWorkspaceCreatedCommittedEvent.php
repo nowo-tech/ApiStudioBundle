@@ -19,6 +19,8 @@ final readonly class ApiWorkspaceCreatedCommittedEvent
         public ApiStudioTenant $tenant,
         /** Opaque actor id of the creator; null when anonymous. */
         public ?string $actorId = null,
+        /** 1.17: scope value of the workspace (`scope.enabled`); null at tenant level. */
+        public ?string $scope = null,
     ) {
     }
 }

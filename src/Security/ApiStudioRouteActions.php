@@ -67,6 +67,7 @@ final class ApiStudioRouteActions
 
     public static function actionFor(string $route): ?ApiStudioAction
     {
-        return self::MAP[$route] ?? null;
+        // 1.17: a twin under `scope.path` needs the action of its canonical route.
+        return self::MAP[ApiStudioRoutes::canonical($route)] ?? null;
     }
 }

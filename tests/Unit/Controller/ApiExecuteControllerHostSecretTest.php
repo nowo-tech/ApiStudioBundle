@@ -367,9 +367,10 @@ final class ApiExecuteControllerHostSecretTest extends TestCase
 
                 return new MockResponse('{"echo":"' . self::REFERENCE . '"}', ['http_code' => 200]);
             });
-            $persisted        = null;
-            $response         = $this->controller($endpoint, $env, $client, null, null, $persisted, null, $withResolver)->execute($this->request(), 1);
-            $responses[$case] = (string) $response->getContent();
+            $persisted = null;
+            $response  = $this->controller($endpoint, $env, $client, null, null, $persisted, null, $withResolver)->execute($this->request(), 1);
+            // The measured duration is the only field that may differ (wall clock; a loaded machine shows it).
+            $responses[$case] = (string) preg_replace('/"duration_ms":\d+/', '"duration_ms":0', (string) $response->getContent());
         }
 
         self::assertSame($responses['no resolver service'], $responses['resolver without a source']);

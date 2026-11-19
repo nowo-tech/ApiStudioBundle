@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Nowo\ApiStudioBundle\Form\CsrfOnlyType;
+use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
@@ -13,6 +14,7 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\Attribute\SubscribedService;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -37,7 +39,39 @@ trait ApiStudioPageTrait
             'event_dispatcher'            => '?' . EventDispatcherInterface::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
             'translator'                  => '?' . TranslatorInterface::class,
+            ApiStudioUrlGenerator::class  => '?' . ApiStudioUrlGenerator::class,
         ];
+    }
+
+    /**
+     * 1.17: bundle links of a request mounted under `scope.path` target the twin routes ({@see ApiStudioUrlGenerator});
+     * `redirectToRoute()` goes through here too.
+     *
+     * @param array<string, mixed> $parameters
+     */
+    protected function generateUrl(string $route, array $parameters = [], int $referenceType = UrlGeneratorInterface::ABSOLUTE_PATH): string
+    {
+        return $this->studioUrls()?->generate($route, $parameters, $referenceType) ?? parent::generateUrl($route, $parameters, $referenceType);
+    }
+
+    /**
+     * 1.17: the route to link to for `$route` on this request (a twin on a scoped mount), e.g. for UiKit pagination.
+     */
+    private function studioRoute(string $route): string
+    {
+        return $this->studioUrls()?->routeName($route) ?? $route;
+    }
+
+    private function studioUrls(): ?ApiStudioUrlGenerator
+    {
+        if (!$this->container->has(ApiStudioUrlGenerator::class)) {
+            return null;
+        }
+
+        /** @var ApiStudioUrlGenerator $urls */
+        $urls = $this->container->get(ApiStudioUrlGenerator::class);
+
+        return $urls;
     }
 
     private function pages(): ApiStudioPageFactory

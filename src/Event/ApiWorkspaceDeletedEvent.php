@@ -15,6 +15,8 @@ final readonly class ApiWorkspaceDeletedEvent
     public function __construct(
         public int $workspaceId,
         public ApiStudioTenant $tenant,
+        /** 1.17: scope value the workspace had (`scope.enabled`); null at tenant level. */
+        public ?string $scope = null,
     ) {
     }
 }

@@ -12,6 +12,8 @@ use Doctrine\ORM\Mapping as ORM;
 use LogicException;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
+use Nowo\ApiStudioBundle\Scope\WorkspaceScopeMover;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Validator\SlugFormat;
 use Nowo\ApiStudioBundle\Validator\UniqueSlug;
@@ -73,6 +75,12 @@ class ApiWorkspace
     /** Tenant id, mapped (`tenant_id`) only with tenancy on. */
     private string $tenantId = '';
 
+    /**
+     * Host scope (1.17), mapped (`host_scope`) only with `nowo_api_studio.scope.enabled`
+     * ({@see TablePrefixSubscriber}). '' = tenant level.
+     */
+    private string $hostScope = '';
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private DateTimeImmutable $createdAt;
 
@@ -124,6 +132,34 @@ class ApiWorkspace
         $this->tenantId = $tenant->id;
 
         return $this;
+    }
+
+    /**
+     * 1.17: the host scope (e.g. a project), null at tenant level.
+     */
+    public function getScope(): ?WorkspaceScope
+    {
+        return WorkspaceScope::fromStored($this->hostScope);
+    }
+
+    /**
+     * 1.17: stored form of the scope (`''` = tenant level), for exact comparisons.
+     */
+    public function getScopeKey(): string
+    {
+        return $this->hostScope;
+    }
+
+    /**
+     * 1.17: sets the scope. Unlike the tenant, the host may move a saved workspace to another scope
+     * ({@see WorkspaceScopeMover}); the studio UI never does.
+     */
+    public function assignScope(?WorkspaceScope $scope): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->hostScope = WorkspaceScope::key($scope);
+
+        return $this->touch();
     }
 
     public function getName(): string
