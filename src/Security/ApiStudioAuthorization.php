@@ -76,8 +76,9 @@ final readonly class ApiStudioAuthorization
     {
         $request = $this->requestStack?->getMainRequest();
         $cached  = $request?->attributes->get(self::SCOPE_ATTRIBUTE);
-        // A host scope switched by ScopeContext::runAs() inside the request is not served the memo of another scope.
-        if ($cached instanceof ApiStudioScope && WorkspaceScope::key($cached->hostScope) === WorkspaceScope::key($this->hostScope())) {
+        // A host scope or tenant switched by runAs() inside the request (1.18: the global search) is not served the memo
+        // of another scope or tenant.
+        if ($cached instanceof ApiStudioScope && WorkspaceScope::key($cached->hostScope) === WorkspaceScope::key($this->hostScope()) && $cached->tenant->equals($this->tenant())) {
             return $cached;
         }
 
@@ -126,7 +127,7 @@ final readonly class ApiStudioAuthorization
         }
 
         $request   = $this->requestStack?->getMainRequest();
-        $key       = $action->value . '#' . ($workspace instanceof ApiWorkspace ? ($workspace->getId() ?? 'new' . spl_object_id($workspace)) : '') . '@' . WorkspaceScope::key($actionScope);
+        $key       = $this->tenant()->key() . '|' . $action->value . '#' . ($workspace instanceof ApiWorkspace ? ($workspace->getId() ?? 'new' . spl_object_id($workspace)) : '') . '@' . WorkspaceScope::key($actionScope);
         $decisions = $request?->attributes->get(self::DECISIONS_ATTRIBUTE);
         $decisions = is_array($decisions) ? $decisions : [];
         if (is_bool($decisions[$key] ?? null)) {

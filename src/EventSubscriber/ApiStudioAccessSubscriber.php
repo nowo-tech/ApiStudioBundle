@@ -152,6 +152,32 @@ final readonly class ApiStudioAccessSubscriber implements EventSubscriberInterfa
     }
 
     /**
+     * 1.18 global search (not an Api Studio route): the same entry chain as {@see self::onKernelController()} — bundle
+     * enabled, roles, access checker, `studio.open` (with the scope checker's in a scope), the feature gate — as a
+     * boolean. Any refusal is false (the search shows nothing: no 403, no hint). Without the authorization service it
+     * is false (deny by default).
+     */
+    public function admitsSearch(Request $request): bool
+    {
+        if (!$this->enabled || !$this->authorization instanceof ApiStudioAuthorization) {
+            return false;
+        }
+
+        try {
+            $this->checkRoles();
+            $this->checkAccessChecker();
+            if (!$this->authorization->can(ApiStudioAction::StudioOpen)) {
+                return false;
+            }
+            $this->checkFeatureGate($request);
+        } catch (AccessDeniedException|AccessDeniedHttpException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Deny by default: a route without an entry in {@see ApiStudioRouteActions::MAP} or `security.host_routes` answers
      * 404. Every route needs `studio.open` (else 404); workspace actions are checked by the controllers once the
      * workspace is loaded.

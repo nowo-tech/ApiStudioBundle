@@ -68,6 +68,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SearchKit groups** (opt-in `search_kit.enabled`, `search_kit.groups.*`; needs `nowo-tech/search-kit-bundle` `^1.9`, suggested): workspaces and services by name, endpoints by name, path and HTTP method in the header search, in org (tenant) and project (workspace scope) scope. Each group (`Bridge\SearchKit\ApiStudioSearchDefinition`) runs the studio's entry chain (signed-in viewer, roles, access checker, `studio.open` with the scope checker in a scope, feature gate), filters in SQL (tenant, scope, visible ids), re-checks every row's tenant and scope byte-exact, then checks `workspace.view` per workspace and the folder checker per endpoint in one batch (two statements per search, three with folder rows). Any refusal returns null (no count, no hint); totals count visible rows only; recents revalidate. Results carry names, the protocol, the method and the path without its query string: never a base URL, header, auth value, body, script or variable. New host hook `ApiStudioSearchContextEvent` (deny, exclude a group, map the search scope, tenant, link parameters); per-row rules go in SearchKit's `ITEM_VISIBILITY` event. See USAGE "Global search".
+- `ApiStudioAccessSubscriber::admitsSearch()`: the studio entry chain as a boolean for requests that are not studio routes.
+
+### Changed
+
+- Authorization memos (`ApiStudioAuthorization::scope()`, decisions) are also keyed by the tenant, so a tenant switched with `ApiStudioTenantContext::runAs()` inside a request is never served another tenant's memo.
+- Development: the lock and the dev image use PHP 8.3+ / 8.4 (SearchKit in `require-dev` needs PHP 8.3); the package still supports PHP 8.2, where CI runs without SearchKit.
+
 ## [1.17.1] - 2026-11-19
 
 ### Fixed

@@ -283,3 +283,6 @@ api_workspace_form.pre_request_script.label: 'Script avant la requête (sandbox)
 api_workspace_form.post_request_script.label: 'Script après la réponse (sandbox)'
 api_folder_form.pre_request_script.label: 'Script avant la requête (sandbox)'
 api_folder_form.post_request_script.label: 'Script après la réponse (sandbox)'
+search.group.workspaces: 'Espaces de travail API'
+search.group.services: 'Services API'
+search.group.endpoints: 'Points de terminaison API'

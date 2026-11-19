@@ -1,5 +1,5 @@
-# PHP 8.2 Alpine + Node/pnpm for Vite asset builds
-FROM php:8.2-cli-alpine
+# PHP 8.4 Alpine (the dev lock needs >= 8.3: SearchKit in require-dev) + Node/pnpm for Vite asset builds
+FROM php:8.4-cli-alpine
 
 RUN apk add --no-cache \
     git \

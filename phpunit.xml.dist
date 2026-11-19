@@ -19,6 +19,14 @@
         <testsuite name="Functional">
             <directory>tests/Functional</directory>
         </testsuite>
+        <!-- 1.18: the SearchKit groups (needs nowo-tech/search-kit-bundle ^1.9, PHP >= 8.3, DBAL 4); real databases in SearchKitDatabase. -->
+        <testsuite name="SearchKit">
+            <directory>tests/SearchKit</directory>
+            <exclude>tests/SearchKit/Database</exclude>
+        </testsuite>
+        <testsuite name="SearchKitDatabase">
+            <directory>tests/SearchKit/Database</directory>
+        </testsuite>
         <!-- 1.17 REQ-RUNTIME-003: real MySQL / MariaDB / PostgreSQL races; skipped unless AS_*_URL are set (CI job "Databases"). -->
         <testsuite name="Database">
             <directory>tests/Database</directory>

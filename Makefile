@@ -96,7 +96,7 @@ test-with-db: db-up
 	$(COMPOSE) exec -e AS_MYSQL_URL='mysql://root@mysql:3306/api_studio?serverVersion=8.4.0' \
 		-e AS_MARIADB_URL='mysql://root@mariadb:3306/api_studio?serverVersion=11.4.2-MariaDB' \
 		-e AS_POSTGRES_URL='pgsql://postgres@postgres:5432/api_studio?serverVersion=16' \
-		$(SERVICE_PHP) vendor/bin/phpunit --testsuite Database --no-coverage --fail-on-skipped
+		$(SERVICE_PHP) vendor/bin/phpunit --testsuite Database,SearchKitDatabase --no-coverage --fail-on-skipped
 
 db-down:
 	$(COMPOSE) --profile db stop mysql mariadb postgres

@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
+use Nowo\ApiStudioBundle\Bridge\SearchKit\ApiStudioSearchDefinition;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
+use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
+use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
+use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
+use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
+use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Routing\ApiStudioRouteScopeListener;
 use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
 use Nowo\ApiStudioBundle\Scope\ScopeContext;
@@ -15,6 +21,10 @@ use Nowo\ApiStudioBundle\Scope\WorkspaceScopeMover;
 use Nowo\ApiStudioBundle\Script\Runner\ApiStudioScriptRunnerInterface;
 use Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner;
 use Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner;
+use Nowo\ApiStudioBundle\Search\SearchAccess;
+use Nowo\ApiStudioBundle\Search\SearchContextResolver;
+use Nowo\ApiStudioBundle\Search\SearchHitMapper;
+use Nowo\ApiStudioBundle\Search\SearchKind;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
@@ -33,6 +43,7 @@ use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
 use Nowo\ApiStudioBundle\Tenancy\TenantProviderResolver;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
+use Nowo\SearchKitBundle\Provider\Entity\EntitySearchDefinition;
 use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
@@ -46,6 +57,7 @@ use Symfony\Component\DependencyInjection\Reference;
 
 use function array_key_exists;
 use function array_keys;
+use function class_exists;
 use function dirname;
 use function implode;
 use function in_array;
@@ -218,6 +230,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             'enabled'                          => $config['enabled'],
             'tenancy.enabled'                  => $config['tenancy']['enabled'],
             'scope.enabled'                    => $config['scope']['enabled'],
+            'search_kit.enabled'               => $config['search_kit']['enabled'],
             'security.allow_unauthenticated'   => $security['allow_unauthenticated'],
             'execution_url_allowlist_required' => $config['execution_url_allowlist_required'],
         ];
@@ -331,6 +344,62 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 
         $this->registerAccessChecker($container, $config['security'], $config['ui']['required_roles']);
         $this->registerAccessPolicy($container, $config['security']);
+        $this->registerSearch($container, $config['search_kit'], $config['enabled']);
+    }
+
+    /**
+     * 1.18: the SearchKit groups (workspaces, services, endpoints), registered only when SearchKit (^1.9) is installed
+     * and `search_kit.enabled`: one {@see ApiStudioSearchDefinition} per enabled group, tagged for SearchKit's
+     * EntitySearchProvider. The tenant resolver, the scope labels and the scoped mount are those of the studio routes.
+     *
+     * @param array{enabled: mixed, groups: array<string, bool>} $search
+     */
+    private function registerSearch(ContainerBuilder $container, array $search, bool $bundleEnabled): void
+    {
+        $enabled = $bundleEnabled && $search['enabled'] === true && class_exists(EntitySearchDefinition::class);
+        $groups  = [];
+        foreach (SearchKind::cases() as $kind) {
+            if ($search['groups'][$kind->value] ?? false) {
+                $groups[] = $kind->value;
+            }
+        }
+        $container->setParameter(Configuration::ALIAS . '.search_kit.enabled', $enabled);
+        $container->setParameter(Configuration::ALIAS . '.search_kit.groups', $groups);
+        if (!$enabled) {
+            return;
+        }
+
+        $nullable = ContainerInterface::NULL_ON_INVALID_REFERENCE;
+        $container->register(SearchContextResolver::class, SearchContextResolver::class)
+            ->setArgument('$requestStack', new Reference('request_stack', $nullable))
+            ->setArgument('$tenantContext', new Reference(ApiStudioTenantContext::class))
+            ->setArgument('$tenantResolver', $container->getDefinition(ApiStudioTenantListener::class)->getArguments()['$resolver'] ?? null)
+            ->setArgument('$scopeContext', new Reference(ScopeContext::class))
+            ->setArgument('$dispatcher', new Reference('event_dispatcher', $nullable));
+        $container->register(SearchAccess::class, SearchAccess::class)
+            ->setArgument('$authorization', new Reference(ApiStudioAuthorization::class))
+            ->setArgument('$workspaces', new Reference(ApiWorkspaceRepository::class))
+            ->setArgument('$folders', new Reference(ApiFolderRepository::class))
+            ->setArgument('$folderAccess', new Reference(FolderAccess::class));
+        $container->register(SearchHitMapper::class, SearchHitMapper::class)
+            ->setArgument('$router', new Reference('router'))
+            ->setArgument('$scopeLabels', $container->getDefinition(ApiStudioPageFactory::class)->getArguments()['$scopeLabels'] ?? null)
+            ->setArgument('$scopedRoutes', $container->getDefinition(ApiStudioUrlGenerator::class)->getArguments()['$scopedRoutes'] ?? false);
+        foreach ($groups as $group) {
+            $container->register('nowo_api_studio.search_kit.' . $group, ApiStudioSearchDefinition::class)
+                ->setArgument('$kind', SearchKind::from($group))
+                ->setArgument('$contexts', new Reference(SearchContextResolver::class))
+                ->setArgument('$authorization', new Reference(ApiStudioAuthorization::class))
+                // Registered by ApiStudioSecurityPass; missing = every search is refused (deny by default).
+                ->setArgument('$entry', new Reference(ApiStudioAccessSubscriber::class, $nullable))
+                ->setArgument('$workspaces', new Reference(ApiWorkspaceRepository::class))
+                ->setArgument('$services', new Reference(ApiServiceRepository::class))
+                ->setArgument('$endpoints', new Reference(ApiEndpointRepository::class))
+                ->setArgument('$access', new Reference(SearchAccess::class))
+                ->setArgument('$mapper', new Reference(SearchHitMapper::class))
+                ->setArgument('$translator', new Reference('translator', $nullable))
+                ->addTag(EntitySearchDefinition::TAG);
+        }
     }
 
     /**

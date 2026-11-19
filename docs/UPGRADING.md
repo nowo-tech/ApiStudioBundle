@@ -89,6 +89,12 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+- **SearchKit groups** (`nowo_api_studio.search_kit.enabled`, opt-in; `composer require nowo-tech/search-kit-bundle:^1.9`):
+  nothing changes until you turn it on. Before you do, if a host guard of the studio routes decides more than the
+  bundle's checks (organisation membership, a plan), mirror it in a listener of `ApiStudioSearchContextEvent` (deny,
+  tenant, link parameters): that guard does not run on a search request. Give the `ui.path` / `scope.path`
+  placeholders there too (`setRouteParameters()`), or the group is dropped.
+
 ## To 1.17.1
 
 From **1.17.0**:
