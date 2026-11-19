@@ -16,11 +16,7 @@ fi
 # composer.json pins the lock's platform to PHP 8.2: resolve for the PHP that runs (as the test matrix does).
 composer config platform.php "$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION . ".99";')"
 
-# Until SearchKit 1.9.0 is tagged: the provider-base branch (SEARCH_KIT_CONSTRAINT overrides it).
-constraint="${SEARCH_KIT_CONSTRAINT:-dev-feat/provider-base-1.9 as 1.9.0}"
-case "$constraint" in
-    dev-*) composer config repositories.search-kit '{"type": "vcs", "url": "https://github.com/nowo-tech/SearchKitBundle", "no-api": true}' ;;
-esac
+constraint="^1.9"
 
 if [ "${1:-}" = "--no-update" ]; then
     composer require --dev --no-interaction --no-update "nowo-tech/search-kit-bundle:$constraint"
