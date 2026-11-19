@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.18.0] - 2026-11-19](#1180---2026-11-19)
 - [[1.17.1] - 2026-11-19](#1171---2026-11-19)
 - [[1.17.0] - 2026-11-19](#1170---2026-11-19)
 - [[1.16.0] - 2026-11-18](#1160---2026-11-18)
@@ -68,6 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-19
+
 ### Added
 
 - **SearchKit groups** (opt-in `search_kit.enabled`, `search_kit.groups.*`; needs `nowo-tech/search-kit-bundle` `^1.9`, suggested): workspaces and services by name, endpoints by name, path and HTTP method in the header search, in org (tenant) and project (workspace scope) scope. Each group (`Bridge\SearchKit\ApiStudioSearchDefinition`) runs the studio's entry chain (signed-in viewer, roles, access checker, `studio.open` with the scope checker in a scope, feature gate), filters in SQL (tenant, scope, visible ids), re-checks every row's tenant and scope byte-exact, then checks `workspace.view` per workspace and the folder checker per endpoint in one batch (two statements per search, three with folder rows). Any refusal returns null (no count, no hint); totals count visible rows only. Results link to the tenant-level show pages (also from a project-scoped search with `scope.tenant_list: all`), so recents revalidate. Results carry names, the protocol, the method and the path without its query string (the path is matched in full): never a base URL, header, auth value, body, script or variable. New host hook `ApiStudioSearchContextEvent` (deny, exclude a group, map the search scope, tenant, link parameters); per-row rules go in SearchKit's `ITEM_VISIBILITY` event. See USAGE "Global search".
@@ -77,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Authorization memos (`ApiStudioAuthorization::scope()`, decisions) are also keyed by the tenant, so a tenant switched with `ApiStudioTenantContext::runAs()` inside a request is never served another tenant's memo.
 - CI installs SearchKit (optional, PHP >= 8.3) with `.github/ci/search-kit.sh` on PHP 8.3+ only; it is not in `composer.json` or the lock, so PHP 8.2 keeps installing from the lock and the SearchKit tests are skipped there.
+
+[1.18.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.18.0
 
 ## [1.17.1] - 2026-11-19
 

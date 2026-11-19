@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.18.0](#to-1180)
 - [To 1.17.1](#to-1171)
 - [To 1.17.0](#to-1170)
   - [To 1.17.0](#to-1170-1)
@@ -88,6 +89,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.18.0
+
+From **1.17.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 - **SearchKit groups** (`nowo_api_studio.search_kit.enabled`, opt-in; `composer require nowo-tech/search-kit-bundle:^1.9`):
   nothing changes until you turn it on. Before you do, if a host guard of the studio routes decides more than the
