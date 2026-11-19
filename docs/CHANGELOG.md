@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Lock conflicts inside Messenger wrappers answer 409** (audit UA2-5, REQ-RUNTIME-003 rule 6): `ConcurrencyConflictSubscriber` walked only `getPrevious()`, so a deadlock in the second wrapped exception of a synchronous Messenger `HandlerFailedException` answered 500. Detection now uses transaction-doctrine's bounded walk (`TransientFailureClassifier::findConflict()`: `getPrevious()` plus `getWrappedExceptions()`, each throwable once, at most 256). `CONFLICT_001` vs `CONFLICT_002` still comes from `ConflictCode::forRequest()` (a `HandlerFailedException` with a `HandledStamp` answers `CONFLICT_002`); unique violations and lost connections are still not conflicts; host routes are never answered. A lost savepoint of unknown outcome now also answers `CONFLICT_002` instead of 500. Requires `nowo-tech/transaction-doctrine` `^1.7.1`.
+
 ## [1.17.0] - 2026-11-19
 
 ### Added

@@ -88,6 +88,18 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+```bash
+composer update nowo-tech/api-studio-bundle nowo-tech/transaction-doctrine
+```
+
+- **Dependency floor**: `nowo-tech/transaction-doctrine` is now `^1.7.1` (was `^1.6`), for the bounded walk over Messenger
+  wrapped exceptions (audit UA2-5). A host pinned below 1.7.1 must update it with the bundle.
+- `ConcurrencyConflictSubscriber` no longer takes a `$classifier` constructor argument (it was optional and not wired
+  by the bundle's services); a host that constructed the subscriber itself with `classifier:` drops that argument.
+- Behaviour: a deadlock / lock wait timeout / serialization failure inside a synchronous Messenger
+  `HandlerFailedException` on an Api Studio route now answers 409 (`CONFLICT_002` when a handler already succeeded)
+  instead of 500.
+
 ## To 1.17.0
 
 From **1.16.0**:

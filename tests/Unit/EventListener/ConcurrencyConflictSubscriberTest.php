@@ -11,6 +11,7 @@ use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
 use Nowo\TransactionContract\TransientStorageFailure;
 use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\TransactionDoctrine\ThrowableWalk;
 use Nowo\TransactionDoctrine\TransientFailureKind;
 use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use Nowo\TransactionDoctrine\WriteUnit\CommitMark;
@@ -18,12 +19,18 @@ use Nowo\TransactionDoctrine\WriteUnit\ConcurrencyConflict;
 use PDOException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use stdClass;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Throwable;
+
+use function array_slice;
 
 /**
  * 1.17 (REQ-RUNTIME-003 rule 6): lock conflicts on Api Studio routes answer 409 / 503 with X-Conflict-Code,
@@ -105,6 +112,87 @@ final class ConcurrencyConflictSubscriberTest extends TestCase
         $exception = $event->getThrowable();
         self::assertInstanceOf(HttpException::class, $exception);
         self::assertSame('7', $exception->getHeaders()['Retry-After']);
+    }
+
+    /** UA2-5: a deadlock in the second handler of a synchronous HandlerFailedException answers the conflict status. */
+    public function testADeadlockAsTheSecondWrappedExceptionAnswers409(): void
+    {
+        $failure = new HandlerFailedException(new Envelope(new stdClass()), [new RuntimeException('first handler'), $this->deadlock()]);
+        self::assertTrue((new ConcurrencyConflictSubscriber())->isConflict($failure));
+
+        $event = $this->event('nowo_api_studio_workspace_new', $failure);
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+
+        $exception = $event->getThrowable();
+        self::assertInstanceOf(HttpException::class, $exception);
+        self::assertSame(409, $exception->getStatusCode());
+        self::assertSame('CONFLICT_001', $exception->getHeaders()['X-Conflict-Code']);
+        self::assertSame($failure, $exception->getPrevious());
+    }
+
+    /** A handler already succeeded (HandledStamp): part of the message was handled, so CONFLICT_002 without Retry-After. */
+    public function testAWrappedDeadlockAfterAHandledStampAnswersConflict002(): void
+    {
+        $envelope = new Envelope(new stdClass(), [new HandledStamp('ok', 'App\\FirstHandler::__invoke')]);
+        $event    = $this->event('nowo_api_studio_scoped_execute', new HandlerFailedException($envelope, [$this->deadlock()]));
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('CONFLICT_002', $response->headers->get('X-Conflict-Code'));
+        self::assertFalse($response->headers->has('Retry-After'));
+    }
+
+    /** The retry hint of a TransientStorageFailure found inside a wrapper is kept. */
+    public function testAWrappedTransientStorageFailureKeepsItsRetryHint(): void
+    {
+        $failure = new HandlerFailedException(new Envelope(new stdClass()), [new RuntimeException('first'), new TransientStorageFailure(4)]);
+        $event   = $this->event('nowo_api_studio_workspace_new', $failure);
+        (new ConcurrencyConflictSubscriber(new ConflictResponsePolicy(409, 9)))->onKernelException($event);
+
+        $exception = $event->getThrowable();
+        self::assertInstanceOf(HttpException::class, $exception);
+        self::assertSame(['X-Conflict-Code' => 'CONFLICT_001', 'Retry-After' => '4'], $exception->getHeaders());
+    }
+
+    /** A unique violation (or a lost connection) wrapped the same way is never a conflict: the 500 stays. */
+    public function testAUniqueViolationAsTheSecondWrappedExceptionIsNotAConflict(): void
+    {
+        $unique  = new UniqueConstraintViolationException(PdoDriverException::new(new PDOException('dup')), null);
+        $failure = new HandlerFailedException(new Envelope(new stdClass()), [new RuntimeException('first handler'), $unique]);
+        $event   = $this->event('nowo_api_studio_workspace_new', $failure);
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+
+        self::assertSame($failure, $event->getThrowable());
+        self::assertNull($event->getResponse());
+        self::assertFalse((new ConcurrencyConflictSubscriber())->isConflict($failure));
+
+        // Host routes are never answered, even with a wrapped deadlock.
+        $hostFailure = new HandlerFailedException(new Envelope(new stdClass()), [new RuntimeException('first'), $this->deadlock()]);
+        $event       = $this->event('app_checkout', $hostFailure);
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+        self::assertSame($hostFailure, $event->getThrowable());
+        self::assertNull($event->getResponse());
+    }
+
+    /** The walk is bounded: a deadlock beyond ThrowableWalk::MAX_NODES is not reached, one within it is. */
+    public function testTheWalkIsBounded(): void
+    {
+        $subscriber = new ConcurrencyConflictSubscriber();
+
+        $padding = [];
+        for ($i = 1; $i < ThrowableWalk::MAX_NODES; ++$i) {
+            $padding[] = new RuntimeException('handler ' . $i);
+        }
+
+        // The wrapper plus MAX_NODES - 1 handlers fill the cap: the deadlock after them is never reached (no 409).
+        $beyond = new HandlerFailedException(new Envelope(new stdClass()), [...$padding, $this->deadlock()]);
+        self::assertFalse($subscriber->isConflict($beyond));
+
+        // One handler less: the deadlock is the last throwable the walk visits.
+        $within = new HandlerFailedException(new Envelope(new stdClass()), [...array_slice($padding, 1), $this->deadlock()]);
+        self::assertTrue($subscriber->isConflict($within));
     }
 
     private function deadlock(): Throwable

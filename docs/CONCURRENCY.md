@@ -18,7 +18,10 @@ that release and are listed with their current control.
 Since 1.17 every Api Studio route (`nowo_api_studio_*`, the scoped twins `nowo_api_studio_scoped_*` and
 `security.host_routes`) answers a **lock conflict** — a deadlock (MySQL / MariaDB 1213, PostgreSQL 40P01), a lock wait
 timeout (1205, 55P03), a serialization failure (40001, MariaDB 1020), a transaction-contract `TransientStorageFailure`
-or a transaction-doctrine `ConcurrencyConflict` anywhere in the failure chain — with
+or a transaction-doctrine `ConcurrencyConflict` anywhere in the failure (its `getPrevious()` chain and, since the
+UA2-5 fix, the exceptions a Messenger wrapper such as a synchronous `HandlerFailedException` carries, through
+transaction-doctrine's bounded walk `TransientFailureClassifier::findConflict()`, at most 256 throwables; a
+`HandlerFailedException` with a `HandledStamp` means `CONFLICT_002`) — with
 (`EventListener\ConcurrencyConflictSubscriber`, through transaction-doctrine's `ConflictCode` and
 `ConflictResponsePolicy`):
 
