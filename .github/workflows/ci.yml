@@ -77,10 +77,9 @@ jobs:
       - name: Override Composer platform PHP (composer.json pins the minimum PHP for the lock)
         run: composer config platform.php "${{ matrix.php }}.99"
 
-      # 1.18: SearchKit (optional, require-dev) needs PHP >= 8.3; on PHP 8.2 the bundle runs without it.
-      - name: Drop SearchKit on PHP 8.2
-        if: matrix.php == '8.2'
-        run: composer remove --dev --no-update --no-interaction nowo-tech/search-kit-bundle
+      # 1.18: SearchKit (optional) needs PHP >= 8.3; not in composer.json / lock, added here on 8.3+ only.
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh --no-update
 
       - name: Install dependencies with Symfony ${{ matrix.symfony }}
         run: |
@@ -111,16 +110,9 @@ jobs:
 
 
       - name: Run tests
-        if: matrix.php != '8.2'
         env:
           SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
         run: composer test
-
-      - name: Run tests without SearchKit (PHP 8.2)
-        if: matrix.php == '8.2'
-        env:
-          SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
-        run: vendor/bin/phpunit --colors=always --exclude-testsuite SearchKit,SearchKitDatabase
 
       - name: Run tests with coverage (PHP 8.4 + Symfony 7.4 only)
         if: matrix.php == '8.4' && matrix.symfony == '7.4'
@@ -187,6 +179,9 @@ jobs:
       - name: Pin the DBAL major
         run: composer require "doctrine/dbal:${{ matrix.dbal }}" --no-update --no-interaction
 
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh --no-update
+
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress --no-interaction --with-all-dependencies
 
@@ -224,6 +219,9 @@ jobs:
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: SearchKit (PHP >= 8.3)
+        run: .github/ci/search-kit.sh
 
       # REQ-CS-006: PHPStan errors fail the build (ignoreErrors: [], no baseline).
       - name: PHPStan

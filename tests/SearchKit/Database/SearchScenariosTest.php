@@ -8,6 +8,7 @@ use Doctrine\DBAL\Tools\DsnParser;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeManagerRegistry;
 use Nowo\ApiStudioBundle\Tests\Support\SearchScenarios;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Nowo\ApiStudioBundle\Tests\SearchKit\SkipsWithoutSearchKit;
 use PHPUnit\Framework\TestCase;
 
 use function getenv;
@@ -23,6 +24,7 @@ use function sprintf;
 final class SearchScenariosTest extends TestCase
 {
     use SearchScenarios;
+    use SkipsWithoutSearchKit;
 
     private ?ScopeManagerRegistry $registry = null;
 
@@ -58,6 +60,7 @@ final class SearchScenariosTest extends TestCase
     #[DataProvider('cases')]
     public function testScenario(string $variable, string $scenario): void
     {
+        $this->skipWithoutSearchKit();
         $url = getenv($variable);
         if (!is_string($url) || $url === '') {
             self::markTestSkipped(sprintf('%s is not set.', $variable));

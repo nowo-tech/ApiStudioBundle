@@ -9,10 +9,10 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Search\SearchContextResolver;
 use Nowo\ApiStudioBundle\Search\SearchKind;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeManagerRegistry;
+use Nowo\ApiStudioBundle\Tests\SearchKit\SkipsWithoutSearchKit;
 use Nowo\ApiStudioBundle\Tests\Support\SearchFixtures;
 use Nowo\SearchKitBundle\Model\SearchReference;
 use Nowo\SearchKitBundle\Provider\Entity\EntitySearchDefinition;
-use Nowo\SearchKitBundle\Test\EntitySearchProviderTestCase;
 use Nowo\SearchKitBundle\Test\QueryCounter;
 
 use function bin2hex;
@@ -22,9 +22,10 @@ use function random_bytes;
  * SearchKit's provider contract (1.9 test kit) for one Api Studio group on one database: tenants `org:acme` and
  * `org:other` (tenancy, scopes and folders on), the studio's checks with test doubles, a new request per viewer.
  */
-abstract class ApiStudioContractCase extends EntitySearchProviderTestCase
+abstract class ApiStudioContractCase extends SearchKitContractBase
 {
     use SearchFixtures;
+    use SkipsWithoutSearchKit;
 
     private ScopeManagerRegistry $registry;
 
@@ -42,6 +43,7 @@ abstract class ApiStudioContractCase extends EntitySearchProviderTestCase
 
     protected function setUp(): void
     {
+        $this->skipWithoutSearchKit();
         $this->registry = $this->searchRegistry($this->connection());
         // Rows of `project:archived` are filtered in SQL (seedArchived()).
         $this->searchScopes->visible = ['project:visible'];
@@ -49,7 +51,10 @@ abstract class ApiStudioContractCase extends EntitySearchProviderTestCase
 
     protected function tearDown(): void
     {
-        $this->dropSearchSchema($this->registry);
+        // Not set when connection() skipped the test (no database URL).
+        if (isset($this->registry)) {
+            $this->dropSearchSchema($this->registry);
+        }
     }
 
     protected function definition(): EntitySearchDefinition

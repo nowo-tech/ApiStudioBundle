@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Authorization memos (`ApiStudioAuthorization::scope()`, decisions) are also keyed by the tenant, so a tenant switched with `ApiStudioTenantContext::runAs()` inside a request is never served another tenant's memo.
-- Development: the lock and the dev image use PHP 8.3+ / 8.4 (SearchKit in `require-dev` needs PHP 8.3); the package still supports PHP 8.2, where CI runs without SearchKit.
+- CI installs SearchKit (optional, PHP >= 8.3) with `.github/ci/search-kit.sh` on PHP 8.3+ only; it is not in `composer.json` or the lock, so PHP 8.2 keeps installing from the lock and the SearchKit tests are skipped there.
 
 ## [1.17.1] - 2026-11-19
 

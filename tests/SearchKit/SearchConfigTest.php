@@ -21,6 +21,13 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class SearchConfigTest extends TestCase
 {
+    use SkipsWithoutSearchKit;
+
+    protected function setUp(): void
+    {
+        $this->skipWithoutSearchKit();
+    }
+
     public function testOptInWithEveryGroup(): void
     {
         self::assertFalse($this->load([])->hasDefinition('nowo_api_studio.search_kit.workspaces'));

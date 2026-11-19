@@ -19,7 +19,13 @@ use PHPUnit\Framework\TestCase;
  */
 final class SearchAccessTest extends TestCase
 {
+    use SkipsWithoutSearchKit;
     use SearchFixtures;
+
+    protected function setUp(): void
+    {
+        $this->skipWithoutSearchKit();
+    }
 
     public function testFailsClosedOnUnknownFolders(): void
     {

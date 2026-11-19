@@ -29,12 +29,14 @@ use function sprintf;
  */
 final class ApiStudioSearchTest extends TestCase
 {
+    use SkipsWithoutSearchKit;
     use SearchScenarios;
 
     private ScopeManagerRegistry $registry;
 
     protected function setUp(): void
     {
+        $this->skipWithoutSearchKit();
         $this->registry = $this->sqliteSearchRegistry();
         $this->seedSearchData($this->registry);
     }
