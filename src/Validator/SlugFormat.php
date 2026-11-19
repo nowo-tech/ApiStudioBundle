@@ -17,7 +17,7 @@ use Symfony\Component\Validator\Constraint;
 final class SlugFormat extends Constraint
 {
     public const INVALID_ERROR = '9b4e2c61-7d3a-4f0b-8e15-3a6c9d2f7e48';
-    public const PATTERN       = '/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/';
+    public const PATTERN       = '/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/D';
     public const MAX_LENGTH    = 128;
 
     protected const ERROR_NAMES = [

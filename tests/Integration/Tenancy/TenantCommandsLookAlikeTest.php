@@ -57,6 +57,18 @@ final class TenantCommandsLookAlikeTest extends TestCase
         self::assertStringContainsString('Dry run', $tester->getDisplay());
     }
 
+    public function testMoveOntoALookAlikeTenantsSlugFailsFriendlyWhenTheKeyRefuses(): void
+    {
+        $em = $this->createTenantEntityManager(true);
+        $this->tenantWorkspace($em, 'ACME', 'payments');
+        $lost   = $this->tenantWorkspace($em, '', 'payments');
+        $tester = new CommandTester(new TenantMoveCommand($this->tenantRegistry($em), new ApiStudioTenantContext(null, true), new EventDispatcher()));
+
+        // The exact check passes, then the case-insensitive unique key refuses the UPDATE (audit UA3-2).
+        self::assertSame(Command::FAILURE, $tester->execute(['workspace' => (string) $lost->getId(), '--to-type' => 'org', '--to-id' => 'acme']));
+        self::assertStringContainsString('rename one of them first', $tester->getDisplay());
+    }
+
     public function testSecretsStatusCountsOnlyTheExactTenant(): void
     {
         $em     = $this->createTenantEntityManager(true);

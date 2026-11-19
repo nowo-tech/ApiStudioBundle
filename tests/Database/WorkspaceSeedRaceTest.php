@@ -38,7 +38,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 use function getenv;
-use function in_array;
 use function is_string;
 use function sprintf;
 
@@ -152,7 +151,8 @@ final class WorkspaceSeedRaceTest extends TestCase
         self::assertSame('OK', $other->await());
         self::assertSame('OK', $other->await());
 
-        self::assertTrue(in_array($result->attempts, [1, 2], true));
+        // The workspace lock is the first read, so the seed reads the committed child row: one attempt (audit UA3-1).
+        self::assertSame(1, $result->attempts);
         self::assertSame(1, $this->rows('service'));
         self::assertSame('https://api.example.test', $this->connection->fetchOne('SELECT base_url FROM api_studio_service'));
         $this->assertUsable();

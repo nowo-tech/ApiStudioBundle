@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Command;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\Persistence\ManagerRegistry;
 use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
@@ -102,16 +103,23 @@ final class TenantMoveCommand extends Command
         }
 
         // DQL UPDATE: an entity refuses to change tenant (ApiWorkspace::assignTenant()).
-        $manager->createQueryBuilder()
-            ->update(ApiWorkspace::class, 'w')
-            ->set('w.tenantType', ':type')
-            ->set('w.tenantId', ':id')
-            ->where('w.id = :workspace')
-            ->setParameter('type', $to->type)
-            ->setParameter('id', $to->id)
-            ->setParameter('workspace', (int) $workspace->getId())
-            ->getQuery()
-            ->execute();
+        try {
+            $manager->createQueryBuilder()
+                ->update(ApiWorkspace::class, 'w')
+                ->set('w.tenantType', ':type')
+                ->set('w.tenantId', ':id')
+                ->where('w.id = :workspace')
+                ->setParameter('type', $to->type)
+                ->setParameter('id', $to->id)
+                ->setParameter('workspace', (int) $workspace->getId())
+                ->getQuery()
+                ->execute();
+        } catch (UniqueConstraintViolationException) {
+            // The database's own key is the last word (audit UA3-2): a look-alike tenant it compares equal already has the slug.
+            $io->error(sprintf('The destination tenant already has a workspace with the slug "%s": rename one of them first.', $workspace->getSlug()));
+
+            return Command::FAILURE;
+        }
         $manager->refresh($workspace);
 
         $this->eventDispatcher?->dispatch(new ApiWorkspaceMovedEvent((int) $workspace->getId(), $from, $to));

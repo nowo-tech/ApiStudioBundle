@@ -32,7 +32,7 @@ final class SlugFormatValidatorTest extends TestCase
         foreach (['payments', 'pay-ments', 'v2_api', 'a1'] as $valid) {
             self::assertCount(0, $this->validate(new ApiWorkspace('W', $valid)), $valid);
         }
-        foreach (['', 'Payments', 'pay ments', '-pay', 'pay--ments', 'pay_', str_repeat('a', 129)] as $invalid) {
+        foreach (['', 'Payments', 'pay ments', '-pay', 'pay--ments', 'pay_', "payments\n", str_repeat('a', 129)] as $invalid) {
             $violations = $this->validate(new ApiWorkspace('W', $invalid));
             self::assertCount(1, $violations, $invalid);
             self::assertSame('slug', $violations->get(0)->getPropertyPath());

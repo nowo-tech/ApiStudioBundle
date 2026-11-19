@@ -107,3 +107,5 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 - Hosts that skip the 1.17 column migration (binary tenant columns and variable keys on MySQL / MariaDB, see
   [UPGRADING](UPGRADING.md#to-1170)) keep a case-insensitive unique key: a seed for a tenant id or a variable key that
   differs only in case is refused after its retries instead of creating a second row.
+- A nested seed (inside the caller's transaction) reads child rows from the caller's snapshot; the unique keys cover that
+  (a row it did not see is refused on insert, not duplicated).

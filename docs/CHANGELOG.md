@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A resolver that refuses a route value (`InvalidArgumentException`, e.g. an invalid `WorkspaceScope`) answers 404, not 500 (audit UA-L3).
 - The seeder and the scope mover fill the workspace from the locking read itself (`refresh(…, PESSIMISTIC_WRITE)`), so a move committed meanwhile is never overwritten: neither when the manager already held a copy, nor when they run nested in a caller's transaction whose MySQL / MariaDB REPEATABLE READ snapshot predates the move (a plain refresh after the lock read that snapshot; audit UA2-1).
 - The tenant commands re-check the tenant exactly in PHP (audit UA2-2): before the collation migration, `nowo:api-studio:tenant:unsuffix-slugs --tenant-id=acme` also renamed the slugs of tenant `ACME`, `nowo:api-studio:secrets:status --tenant` counted its secrets and `nowo:api-studio:tenant:move` counted its slug as taken at the destination.
+- The seeder and the scope mover take the workspace row lock with the first read (`find(…, PESSIMISTIC_WRITE)`, audit UA3-1), so no consistent read of an enclosing REPEATABLE READ transaction happens before the lock.
+- `nowo:api-studio:tenant:move` answers the friendly "rename one of them first" error (exit 1) when the database's own unique key refuses the UPDATE for a look-alike tenant (audit UA3-2), instead of a raw exception.
+- `SlugFormat` pattern uses the `/D` modifier (audit UA3-3): a slug with a trailing newline is no longer accepted.
 
 ### Changed
 
