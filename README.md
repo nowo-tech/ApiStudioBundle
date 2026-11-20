@@ -4,7 +4,7 @@
 
 > ⭐ **Found this useful?** Install from [Packagist](https://packagist.org/packages/nowo-tech/api-studio-bundle) and give the repo a star on GitHub.
 
-Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboard — your own Postman / Apidog inside Symfony.
+Manage, document, and test REST, SOAP, and GraphQL APIs from a built-in dashboard — an API workbench that lives inside your Symfony application.
 
 ![FrankenPHP Friendly Worker Mode](docs/images/frankenphp-friendly.png)
 
