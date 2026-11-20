@@ -1,36 +1,22 @@
-{#- REQ-DEMO-014: the demo shell is UiKit's admin layout with UiKit's default theme (nowo-ui.css from the bundle's own
-    asset package, no CSS framework, no CDN, no token overrides). It is also the host layout of every API Studio page
-    (nowo_ui_kit.layouts.admin, REQ-UI-003). The header menu lists the demo pages with the active item. -#}
-{% extends '@NowoUiKit/layout/admin.html.twig' %}
+{#- REQ-DEMO-014: the demo runs inside UiKit's shared demo platform shell (@NowoUiKit/demo_platform/layout.html.twig):
+    the same top bar, aside, content width, theme and footer as every other nowo-tech bundle demo. This file only
+    declares the demo (nowo_ui_demo_platform); every API Studio page renders through it too (nowo_ui_kit.layouts). -#}
+{% extends '@NowoUiKit/demo_platform/layout.html.twig' %}
+{% set _locales = [] %}
+{% for locale in nowo_api_studio_locales %}
+    {% set _locales = _locales|merge([{code: locale, label: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle'), href: path('nowo_api_studio_locale_switch', {_locale: locale})}]) %}
+{% endfor %}
+{% set nowo_ui_demo_platform = {
+    bundle: 'API Studio',
+    home_route: 'demo_home',
+    repository: 'https://github.com/nowo-tech/ApiStudioBundle',
+    translation_domain: 'demo',
+    locales: _locales|length > 1 ? _locales : [],
+    nav: [
+        {label: 'nav.home', route: 'demo_home'},
+        {label: 'nav.dashboard', route: 'nowo_api_studio_dashboard'},
+        {label: 'nav.workspaces', route: 'nowo_api_studio_workspace_index', active: ['nowo_api_studio_workspace*']},
+    ],
+} %}
 
-{% block nowo_ui_document_title %}{% block title %}{{ 'title'|trans({}, 'demo') }}{% endblock %}{% endblock %}
-
-{% block nowo_ui_navigation %}
-    {% set _route = app.request.attributes.get('_route')|default('') %}
-    <header class="nowo-ui-header" data-testid="demo-masthead">
-        <a class="nowo-ui-brand" href="{{ path('demo_home') }}">{{ 'brand'|trans({}, 'demo') }}</a>
-        <nav class="nowo-ui-menu" aria-label="Demo">
-            <a class="nowo-ui-link" href="{{ path('demo_home') }}"{% if _route == 'demo_home' %} aria-current="page"{% endif %}>{{ 'nav.home'|trans({}, 'demo') }}</a>
-            <a class="nowo-ui-link" href="{{ path('nowo_api_studio_dashboard') }}"{% if _route == 'nowo_api_studio_dashboard' %} aria-current="page"{% endif %}>{{ 'nav.dashboard'|trans({}, 'demo') }}</a>
-            <a class="nowo-ui-link" href="{{ path('nowo_api_studio_workspace_index') }}"{% if _route starts with 'nowo_api_studio_workspace' %} aria-current="page"{% endif %}>{{ 'nav.workspaces'|trans({}, 'demo') }}</a>
-        </nav>
-        {% if nowo_api_studio_locales|length > 1 %}
-            {% set demo_locales = [] %}
-            {% for locale in nowo_api_studio_locales %}
-                {% set demo_locales = demo_locales|merge([{
-                    code: locale,
-                    label: ('locale.' ~ locale)|trans({}, 'NowoApiStudioBundle'),
-                    href: path('nowo_api_studio_locale_switch', {_locale: locale}),
-                    current: app.request.locale == locale
-                }]) %}
-            {% endfor %}
-            {% include '@NowoUiKitBundle/partials/_locale_switcher.html.twig' with {
-                compact: true,
-                current: app.request.locale,
-                locales: demo_locales
-            } %}
-        {% endif %}
-    </header>
-{% endblock %}
-
-{% block nowo_ui_content %}{% block body %}{% endblock %}{% endblock %}
+{% block nowo_ui_document_title %}{% block title %}{{ 'title'|trans({}, 'demo') }}{% endblock %} — Symfony 8{% endblock %}

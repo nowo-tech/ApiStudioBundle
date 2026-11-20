@@ -16,8 +16,8 @@ export async function openCreatePostConsole(page: Page): Promise<void> {
   await expect(page.locator('#tester-send')).toBeVisible();
 }
 
-/** Waits for the Symfony WebProfiler toolbar so it is part of the capture. */
+/** The Symfony WebProfiler toolbar is not part of the demo platform: hide it so it never appears in a capture. */
 export async function waitForToolbar(page: Page): Promise<void> {
-  await expect(page.locator('.sf-toolbar .sf-toolbarreset').first()).toBeVisible({ timeout: 15_000 });
+  await page.addStyleTag({ content: '.sf-toolbar,.sf-minitoolbar,[id^="sfwdt"]{display:none!important}' });
   await page.waitForTimeout(300);
 }

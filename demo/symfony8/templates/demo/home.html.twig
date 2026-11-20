@@ -1,56 +1,32 @@
+{#- Demo home, in the demo platform layout grammar: page header (title, lead, the one primary action), then one
+    section card per topic (demo_platform/_section.html.twig). -#}
 {% extends 'base.html.twig' %}
 
 {% block title %}API Studio Demo{% endblock %}
 
+{% block nowo_ui_page_header %}
+    {% set _toolbar %}<a class="nowo-ui-btn nowo-ui-btn--primary" href="{{ path('nowo_api_studio_dashboard') }}">Abrir API Studio</a>{% endset %}
+    {{ include(nowo_ui_partial('page_header'), {title: 'API Studio Bundle — Demo', intro: 'Catálogo interno tipo Postman / Apidog para documentar y probar APIs REST, SOAP y GraphQL.', toolbar: _toolbar}) }}
+{% endblock %}
+
 {% block body %}
-<div>
-    <h1>API Studio Bundle — Demo</h1>
-    <p>Catálogo interno tipo Postman / Apidog para documentar y probar APIs REST, SOAP y GraphQL.</p>
-
-    <div>
-        <a class="nowo-ui-btn nowo-ui-btn--primary" href="{{ path('nowo_api_studio_dashboard') }}">Abrir API Studio</a>
-    </div>
-
-    <h2>APIs de referencia incluidas en el seed</h2>
-    <div>
-        <div class="nowo-ui-card">
-                <div class="nowo-ui-card__body">
-                    <h3>JSONPlaceholder <span class="nowo-ui-badge nowo-ui-badge--success">ejecutable</span></h3>
-                    <p class="nowo-ui-muted">REST público sin credenciales. Ideal para probar el request console en vivo.</p>
-                </div>
-        </div>
-        <div class="nowo-ui-card">
-                <div class="nowo-ui-card__body">
-                    <h3>LinkedIn API v2</h3>
-                    <p class="nowo-ui-muted">Perfil, publicaciones UGC y búsqueda de organizaciones. OAuth Bearer + ejemplos 200/401.</p>
-                </div>
-        </div>
-        <div class="nowo-ui-card">
-                <div class="nowo-ui-card__body">
-                    <h3>Google Cloud Translation</h3>
-                    <p class="nowo-ui-muted">Traducir, detectar idioma y listar idiomas soportados. API key en entorno.</p>
-                </div>
-        </div>
-        <div class="nowo-ui-card">
-                <div class="nowo-ui-card__body">
-                    <h3>Catastro (España) <span class="nowo-ui-badge nowo-ui-badge--info">SOAP</span></h3>
-                    <p class="nowo-ui-muted">Sede Electrónica del Catastro: Consulta_CPMRC y Consulta_DNPRC con envelopes XML y respuestas de ejemplo.</p>
-                </div>
-        </div>
-        <div class="nowo-ui-card">
-                <div class="nowo-ui-card__body">
-                    <h3>Catastro — consulta HTTP</h3>
-                    <p class="nowo-ui-muted">Variantes GET documentadas por referencia catastral y coordenadas (administración pública).</p>
-                </div>
-        </div>
-    </div>
-
-    <hr>
-
-    <p class="nowo-ui-muted">Primera vez en este entorno:</p>
-    <pre><code class="nowo-ui-code">php bin/console nowo:api-studio:sync-schema
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'APIs de referencia incluidas en el seed', kind: 'list'} %}
+        {% block section_body %}
+            <ul class="nowo-ui-list">
+                <li class="nowo-ui-list-item"><strong>JSONPlaceholder</strong> <span class="nowo-ui-badge nowo-ui-badge--success">ejecutable</span><br><span class="nowo-ui-muted">REST público sin credenciales. Ideal para probar el request console en vivo.</span></li>
+                <li class="nowo-ui-list-item"><strong>LinkedIn API v2</strong><br><span class="nowo-ui-muted">Perfil, publicaciones UGC y búsqueda de organizaciones. OAuth Bearer + ejemplos 200/401.</span></li>
+                <li class="nowo-ui-list-item"><strong>Google Cloud Translation</strong><br><span class="nowo-ui-muted">Traducir, detectar idioma y listar idiomas soportados. API key en entorno.</span></li>
+                <li class="nowo-ui-list-item"><strong>Catastro (España)</strong> <span class="nowo-ui-badge nowo-ui-badge--info">SOAP</span><br><span class="nowo-ui-muted">Sede Electrónica del Catastro: Consulta_CPMRC y Consulta_DNPRC con envelopes XML y respuestas de ejemplo.</span></li>
+                <li class="nowo-ui-list-item"><strong>Catastro — consulta HTTP</strong><br><span class="nowo-ui-muted">Variantes GET documentadas por referencia catastral y coordenadas (administración pública).</span></li>
+            </ul>
+        {% endblock %}
+    {% endembed %}
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Primera vez en este entorno', kind: 'content'} %}
+        {% block section_body %}
+            <pre><code class="nowo-ui-code">php bin/console nowo:api-studio:sync-schema
 php bin/console nowo:api-studio:seed-demo
 php bin/console nowo:api-studio:seed-demo --fresh
 php bin/console assets:install</code></pre>
-</div>
+        {% endblock %}
+    {% endembed %}
 {% endblock %}
