@@ -1276,6 +1276,20 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         provider?: scalar|Param|null, // Service id implementing ApiStudioTenantProviderInterface (1.12): a request-free alternative to tenancy.resolver for hosts that already know the current tenant (DDD application context). Set one of resolver or provider. // Default: null
  *         sql_filter?: bool|Param, // With tenancy: also narrow every bundle query of an Api Studio request with a Doctrine SQL filter (defence in depth; the explicit checks stay the control). // Default: true
  *     },
+ *     scope?: array{ // Workspace scopes (1.17): an optional host sub-scope on each workspace below the tenant (e.g. a project), a scoped mount of the studio under scope.path, per-scope access decided by the host. Off by default: no column, no route, 1.16 behaviour.
+ *         enabled?: bool|Param, // Maps the host_scope column on the workspace table (migration) and narrows every lookup, list and count by scope. Literal boolean. // Default: false
+ *         resolver?: scalar|Param|null, // Service id implementing ScopeResolverInterface (required when enabled): the scope of an Api Studio request from its route; null on a scope.path route = 404. // Default: null
+ *         access_checker?: scalar|Param|null, // Service id implementing ScopeAccessCheckerInterface (required when enabled, deny by default): per-scope, per-action decisions on top of security.permission_checker, and the scopes listed at tenant level. // Default: null
+ *         label_provider?: scalar|Param|null, // Service id implementing ScopeLabelProviderInterface (optional): the badge of scoped workspaces on tenant-level lists. Null = the raw scope value. // Default: null
+ *         path?: scalar|Param|null, // Scoped mount, e.g. /organizations/{organization}/projects/{project}/api-studio: every Api Studio route also gets a twin there (nowo_api_studio_scoped_*), from the same routes.yaml import. Null = no scoped mount (a resolver may still return a scope on ui.path). // Default: null
+ *         path_requirements?: array<string, scalar|Param|null>,
+ *         layout_template?: scalar|Param|null, // Layout of the pages of a scoped request (e.g. the host project page with its tabs). Null = ui.layout_template. // Default: null
+ *         tenant_list?: "all"|"unscoped"|Param, // Tenant-level pages: all (default) = unscoped workspaces plus those of the scopes the access checker lists (visibleScopes), with a badge; unscoped = only workspaces without a scope. // Default: "all"
+ *     },
+ *     concurrency?: array{ // Lock conflicts on Api Studio routes (1.17, REQ-RUNTIME-003): a deadlock, lock wait timeout or serialization failure answers this status with X-Conflict-Code (CONFLICT_001 + Retry-After, or CONFLICT_002 when part was committed).
+ *         conflict_status?: 409|503|Param, // Default: 409
+ *         retry_after?: int|Param, // Retry-After seconds of a CONFLICT_001 answer. // Default: 1
+ *     },
  *     history?: array{
  *         scope?: "endpoint"|"user"|Param, // endpoint (default) = one shared history per endpoint; user = rows record who executed them (maps executed_by, migration) and users see only their own unless granted history.view_all. // Default: "endpoint"
  *         actor_resolver?: scalar|Param|null, // Service id implementing ApiStudioActorResolverInterface (history.scope: user). Default: the user identifier (hashed beyond 64 characters). // Default: null
@@ -1283,6 +1297,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     folders?: array{
  *         enabled?: bool|Param, // Nested folders in each service (1.14): tree with drag & drop, auth and headers inherited from the folders, folder-aware Postman / OpenAPI import and OpenAPI export. Maps the folder table and the endpoint folder_id column (migration). false (default) = the 1.13 schema and pages. // Default: false
  *         max_depth?: int|Param, // Deepest folder level allowed (a top-level folder has depth 1). Checked on create, move and import. // Default: 8
+ *     },
+ *     search_kit?: array{ // 1.18 SearchKit groups (nowo-tech/search-kit-bundle ^1.9, optional): workspaces, services and endpoints in the header search. Only what the user may open; secrets, headers, auth, bodies and scripts never appear in results.
+ *         enabled?: bool|Param, // Register the groups when SearchKit is installed (literal boolean, no %env()%). Opt-in: a host guard of the studio routes does not run on a search request (mirror it in ApiStudioSearchContextEvent first). // Default: false
+ *         groups?: array{ // Each group on or off.
+ *             workspaces?: bool|Param, // Workspaces by name. // Default: true
+ *             services?: bool|Param, // Services by name. // Default: true
+ *             endpoints?: bool|Param, // Endpoints by name, path and HTTP method. // Default: true
+ *         },
  *     },
  *     scripts?: array{
  *         mode?: "inline"|"sandbox"|"disabled"|Param, // Pre/post request scripts of the console. inline (default; deprecated since 1.15, sandbox becomes the default in 2.0) = run in the page, unsandboxed, with the session of whoever sends the request (needs script-src 'unsafe-eval'); sandbox (1.15) = run in an opaque-origin iframe with its own CSP (no network, no access to the page or the session; the page needs frame-src 'self' and no 'unsafe-eval'); disabled = no script tab, no script code sent to the browser (stored scripts are kept). // Default: "inline"
@@ -1422,10 +1444,18 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         tokens_dark?: array<string, mixed>,
  *         confirm_message_in_header?: bool|Param, // Confirm dialogs and the full-page confirm render the message inside the header, under the title (hosts whose dialog header is title + message). View\Confirm::messageInHeader wins when set. // Default: false
  *         popover_menus?: bool|Param, // 2.4: menu / kebab / row-action menus render their panel as a native [popover] (browser top layer: never clipped by table scrollers or cards; nowo-ui-popover.js places it). The partial option `popover` wins. // Default: false
+ *         context_menus?: bool|Param, // 2.54: kebab / row-action menus also open as the context menu of the row or card around them (right-click, the ContextMenu key, Shift+F10, long press on touch), with the same items. Loads the opt-in context-menu runtime through the scripts partial. The partial option `context_menu` wins; data-nowo-ui-context-menu="off" opts a row out. // Default: false
  *         form_errors_after_widget?: bool|Param, // 2.10: the UiKit form theme (form/nowo_ui_layout.html.twig) prints a field's errors after its widget (and before the help), instead of Symfony's order (label, errors, widget, help). // Default: false
  *         menu_semantics?: null|"menu"|"disclosure"|Param, // 2.28: ARIA of popover menus with items. null (default) = as 2.27; menu = APG menu button (role="menu" / menuitem, arrow keys in nowo-ui-popover.js); disclosure = no aria-haspopup. The menu partial option `menu_semantics` wins. // Default: null
  *         dialog?: array{ // 2.31: kit dialog options (docs/THEMING.md#dialog-sizes-229).
  *             height?: "content"|"size"|Param, // 2.31: content (default, dialog rule v2) = a dialog is as tall as its content, capped at min(the size's height token, 100dvh - 2rem), only the body scrolls; size = every dialog with a field, list, table or fold has the size's height (2.29 / 2.30), printed as --nowo-ui-dialog-fill: 1 by nowo_ui_theme_css(). // Default: "content"
+ *         },
+ *         focus_mode?: array{ // 2.55: shell focus mode — [data-nowo-ui-focus-mode] toggles hide the shell regions (level 1) and optionally enter the browser fullscreen (level 2); js/nowo-ui-focus-mode.js. See docs/USAGE.md#shell-focus-mode-255.
+ *             enabled?: bool|Param, // false (default): no shell attributes, no focus bar, the focus_mode_toggle partial renders nothing and the scripts partial does not load the runtime. // Default: false
+ *             regions?: list<scalar|Param|null>,
+ *             keep?: list<scalar|Param|null>,
+ *             shortcut?: scalar|Param|null, // Key that toggles level 1 on pages with a toggle (never while typing, with a modifier pressed or with a dialog / menu open); e.g. F or Alt+Shift+F. null or false: no shortcut. // Default: "F"
+ *             fullscreen?: bool|Param, // Offer level 2 (the browser fullscreen on the shell, from the focus bar or a fullscreen toggle). Unsupported or refused by the browser: level 1 stays. // Default: true
  *         },
  *         bundles?: array<string, array{ // Default: []
  *             framework_defaults?: bool|Param, // Override of theme.framework_defaults for this bundle (unset = inherit).
