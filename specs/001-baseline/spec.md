@@ -98,6 +98,14 @@ Areas introduced by releases after the baseline review; each requirement names t
 - **FR-TENANCY-001** `src/Tenancy/`: Opaque owner of a workspace: a `(type, id)` pair chosen by the host (e.g. `('organization', <public uuid>)`).
 - **FR-VALIDATOR-001** `src/Validator/`: Slug format (1.11): lowercase letters and digits, single `-` or `_` between them, at most 128 characters.
 
+### Requirements added by the inventory sweep (2026-11-22)
+
+- **FR-SEED-001** `src/Seed/`: `WorkspaceSeeder` creates or updates one workspace from a `WorkspaceSeed` (idempotent by natural keys; secret variables only as host secret references, never values) and dispatches `ApiWorkspaceSeededEvent` once committed (1.17).
+- **FR-SCOPE-001** `src/Scope/`: host sub-scopes of a workspace (`WorkspaceScope`, `ScopeContext`, resolver / access-checker / label-provider contracts); `WorkspaceScopeMover` changes the scope and dispatches `ApiWorkspaceScopeChangedEvent` once committed (1.17).
+- **FR-SEARCH-001** `src/Search/`, `src/Bridge/SearchKit/`: the global search groups (workspaces and services by name, endpoints by name, path and method), per-result access checks and the `ApiStudioSearchContextEvent` host hook (1.18).
+- **FR-QUERY-001** `src/Query/`: scalar read port for listing and counting workspaces without DQL over the bundle tables (`ApiWorkspaceQueryInterface`, 1.19).
+- **FR-CONCUR-001** `ConcurrencyConflictSubscriber`: lock conflicts on Api Studio routes answer with the CONFLICT codes (1.17, REQ-RUNTIME-003).
+
 ### Requirements added in 1.20 (row versions of the edit forms)
 
 - **FR-CONCUR-002** Row versions (REQ-RUNTIME-003 rule 4): the workspace, service, endpoint and environment carry a
@@ -110,7 +118,7 @@ Areas introduced by releases after the baseline review; each requirement names t
 
 ## Success Criteria
 
-- **SC-001**: **138/138** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).
+- **SC-001**: **278/278** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-11-22; `find src -type f ! -name '*.test.ts' | wc -l`).
 - **SC-002**: Config matches `Configuration.php` and [`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md).
 - **SC-003**: PHPUnit + PHPStan pass; PHP line coverage ≥ 99% of every `src/` class (CI gate, REQ-TEST-003); page contract test green; Playwright happy path in the demo.
 

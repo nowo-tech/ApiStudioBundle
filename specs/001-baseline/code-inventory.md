@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-16 (sweep: 2026-10-30 baseline + later sources)
+**Last audited**: 2026-11-22 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -348,6 +348,58 @@ These 53 `src/` files were added by releases after the last review. Each row map
 | `Validator/UniqueSlug.php` | The entity's slug is unique within its scope: the instance for a workspace, the workspace for a service or an environ... | FR-VALIDATOR-001 |
 | `Validator/UniqueSlugValidator.php` | Looks the slug up in the entity's scope (UniqueSlug::$scope) and reports a duplicate on the `slug` field. | FR-VALIDATOR-001 |
 
+## Sources added in 1.17–1.19 (sweep 2026-11-22)
+
+These 45 `src/` files (workspace seeding, scopes, global search, workspace query port, conflict subscriber, URL generator) were added after the 2026-11-16 sweep. Each row names the area requirement in `spec.md`; the description comes from the class docblock.
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Bridge/SearchKit/ApiStudioSearchDefinition.php` | One SearchKit group of Api Studio (1.18): workspaces or services by name, endpoints by name, path and HTTP method. | FR-SEARCH-001 |
+| `Event/ApiStudioSearchContextEvent.php` | Host hook of the global search (1.18), dispatched once per group before anything is read: where the search runs and what it may return. | FR-SEARCH-001 |
+| `Event/ApiWorkspaceScopeChangedEvent.php` | Dispatched by `WorkspaceScopeMover` once a workspace's scope change is **committed** (1.17): ids only. | FR-SCOPE-001 |
+| `Event/ApiWorkspaceSeededEvent.php` | Dispatched by `WorkspaceSeeder` once a seed is **committed** (1.17): ids only, never a variable value. | FR-SEED-001 |
+| `EventListener/ConcurrencyConflictSubscriber.php` | Lock conflicts on Api Studio routes (1.17, REQ-RUNTIME-003 rule 6): a deadlock, lock wait timeout or serialization failure anywhere in the failure (or a `Transi | FR-CONCUR-001 |
+| `Query/ApiWorkspaceCriteria.php` | 1.19 (DDD-host checklist B7): what `ApiWorkspaceQueryInterface` lists or counts. | FR-QUERY-001 |
+| `Query/ApiWorkspacePage.php` | 1.19 (DDD-host checklist B7): one page of `ApiWorkspaceQueryInterface::find()` and the total of the criteria. | FR-QUERY-001 |
+| `Query/ApiWorkspaceQueryInterface.php` | 1.19 (DDD-host checklist B1/B7): what a host lists or counts of Api Studio workspaces, without DQL over the bundle's tables and without loading an entity (scala | FR-QUERY-001 |
+| `Query/ApiWorkspaceSort.php` | 1.19 (DDD-host checklist B7): the order of `ApiWorkspaceQueryInterface::find()`. | FR-QUERY-001 |
+| `Query/ApiWorkspaceView.php` | 1.19 (DDD-host checklist B7): a workspace as scalars, never the entity. | FR-QUERY-001 |
+| `Query/DoctrineApiWorkspaceQuery.php` | 1.19 (DDD-host checklist B7): `ApiWorkspaceQueryInterface` on the bundle's entity manager. | FR-QUERY-001 |
+| `Resources/assets/src/types/vite-env.d.ts` | Vite client type reference for the TypeScript sources | FR-UI-001 |
+| `Routing/ApiStudioUrlGenerator.php` | The URL generator of the bundle's own links (1.17): on a request mounted under `scope.path` a bundle route (`nowo_api_studio_*`) becomes its twin (`nowo_api_stu | FR-ROUTING-001 |
+| `Routing/HostRoutesCacheWarmer.php` | 1.16 (audit SY-L1): every `security.host_routes` key must name a route of the router. | FR-ROUTING-001 |
+| `Scope/ScopeAccessCheckerInterface.php` | Host contract (`nowo_api_studio.scope.access_checker`, 1.17, mandatory with scopes on): who may do what in a scope. | FR-SCOPE-001 |
+| `Scope/ScopeAccessSubject.php` | What a scope decision applies to (1.17): the tenant, the scope and — for workspace actions — the workspace id. | FR-SCOPE-001 |
+| `Scope/ScopeContext.php` | The host scope of the work being done (1.17): the one `ScopeListener` resolved for the current main request, else the one set by `self::runAs()` (comm | FR-SCOPE-001 |
+| `Scope/ScopeLabelProviderInterface.php` | Host contract (`nowo_api_studio.scope.label_provider`, 1.17, optional): the badge of scoped workspaces on tenant-level lists (e.g. | FR-SCOPE-001 |
+| `Scope/ScopeListener.php` | With `scope.enabled` (1.17), resolves the host scope of every Api Studio main request once, right after the tenant, and stores it on the request; a `scope.path` route without a scope answers 404. | FR-SCOPE-001 |
+| `Scope/ScopeResolverInterface.php` | Host contract (`nowo_api_studio.scope.resolver`, 1.17): the scope of an Api Studio request, from its route (e.g. | FR-SCOPE-001 |
+| `Scope/ScopeRouteContext.php` | The matched route of an Api Studio request, as `ScopeResolverInterface` sees it (1.17): no HTTP type in the port (REQ-ARCH-001 rule 3). | FR-SCOPE-001 |
+| `Scope/WorkspaceScope.php` | Opaque host sub-scope of a workspace (1.17, `nowo_api_studio.scope`), e.g. | FR-SCOPE-001 |
+| `Scope/WorkspaceScopeMover.php` | The host changes the scope of a workspace (1.17), e.g. | FR-SCOPE-001 |
+| `Scope/WorkspaceSlugTakenException.php` | The target (tenant, scope) of `WorkspaceScopeMover::move()` already has a workspace with that slug (1.17). | FR-SCOPE-001 |
+| `Search/SearchAccess.php` | Batched per-result checks of the global search (1.18), after the SQL filter: `workspace.view` through `ApiStudioAuthorization::can()` (the tenant and scope | FR-SEARCH-001 |
+| `Search/SearchContextResolver.php` | Where a global search runs (1.18): the tenant (`tenancy.resolver` / `provider`), the workspace scope of the search scope id, then the host's {@see ApiStudioSear | FR-SEARCH-001 |
+| `Search/SearchHit.php` | One result of the global search (1.18), as plain text: names, the method and the path without its query string, the workspace's scope label. | FR-SEARCH-001 |
+| `Search/SearchHitMapper.php` | Turns the scalar rows of the search queries into `SearchHit`s (1.18): workspace / service / endpoint names, the service protocol, the endpoint method and p | FR-SEARCH-001 |
+| `Search/SearchKind.php` | The three groups of the global search (1.18): workspaces and services by name, endpoints by name, path and HTTP method. | FR-SEARCH-001 |
+| `Security/ApiStudioAccessPolicy.php` | `security.access_denied_response` (1.16): how a refused Api Studio request answers. | FR-SEC-001 |
+| `Security/ApiStudioFeatureGateInterface.php` | Host contract (`nowo_api_studio.security.feature_gate`, 1.16): whether Api Studio is available at all for this tenant and user — typically a plan / billing feat | FR-SEC-001 |
+| `Security/ApiStudioRoutes.php` | Which routes are Api Studio routes (1.16): the bundle's own (`nowo_api_studio_*`, actions in `ApiStudioRouteActions`) plus the host pages declared in `secu | FR-SEC-001 |
+| `Security/ApiWorkspaceAccess.php` | 1.19 (DDD-host checklist B1/B8): `ApiWorkspaceAccessInterface` on `ApiWorkspaceQueryInterface` and the host's checkers. | FR-SEC-001 |
+| `Security/ApiWorkspaceAccessInterface.php` | 1.19 (DDD-host checklist B1/B8): whether a user may do a workspace action, asked by ids. | FR-SEC-001 |
+| `Seed/EndpointSeed.php` | An endpoint of a `ServiceSeed` (1.17), matched by slug within its service. | FR-SEED-001 |
+| `Seed/EnvironmentSeed.php` | An environment of a `WorkspaceSeed` (1.17), matched by slug within the workspace. | FR-SEED-001 |
+| `Seed/SecretReferenceSeed.php` | A secret environment variable of an `EnvironmentSeed` (1.17) that holds a host secret **reference** by name, never a value: stored as `{{secret:<source>/<i | FR-SEED-001 |
+| `Seed/SeedStats.php` | Counters of one seed attempt (created / updated rows per kind). | FR-SEED-001 |
+| `Seed/SeedValidation.php` | Shared checks of the seed value objects (1.17). | FR-SEED-001 |
+| `Seed/ServiceSeed.php` | A service of a `WorkspaceSeed` (1.17), matched by slug within the workspace. | FR-SEED-001 |
+| `Seed/VariableSeed.php` | A plain (non-secret) environment variable of an `EnvironmentSeed` (1.17), matched by key. | FR-SEED-001 |
+| `Seed/WorkspaceSeed.php` | What `WorkspaceSeeder` creates or updates (1.17): one workspace, matched by (tenant, scope, slug), with its services, endpoints, environments, plain variab | FR-SEED-001 |
+| `Seed/WorkspaceSeedResult.php` | Outcome of `WorkspaceSeeder::seed()` (1.17): ids and counts only, never a value. | FR-SEED-001 |
+| `Seed/WorkspaceSeeder.php` | Creates or updates one workspace from a `WorkspaceSeed` (1.17): idempotent by natural keys — workspace by (tenant, scope, slug), service and environment by | FR-SEED-001 |
+| `Twig/ApiStudioRoutingExtension.php` | 1.17 Twig functions of the workspace scopes: - `api_studio_path(name, params)`: `path()` for bundle routes that stays inside a `scope.path` mount (the bundle's  | FR-TWIG-001 |
+
 ## Sources added in 1.20 (row versions of the edit forms)
 
 | Source file | Spec section | Requirement IDs |
@@ -386,8 +438,10 @@ These 53 `src/` files were added by releases after the last review. Each row map
 | TypeScript source | 7 | 7 |
 | Public assets — built | 6 | 6 |
 | Twig views | 27 | 27 |
-| **Total production sources** | **191** | **191** |
+| Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 140 | 140 |
+| Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
+| **Total production sources** | **286** | **286** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `git ls-files src | wc -l` → **138** (2026-10-30).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **286** (2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
