@@ -44,10 +44,13 @@ saved on a row version that is no longer current, `Concurrency\StaleEditExceptio
 | Stale edit (nothing written, retrying can never succeed) | **409**, always | `X-Error-Code: API_STUDIO_STALE_EDIT`; no `X-Conflict-Code`, no `Retry-After` | `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}` |
 
 The status is 409 even with `concurrency.conflict_status: 503`, which configures the lock-conflict answer only. Until
-1.20 a stale edit answered `CONFLICT_001` + `Retry-After` (the transaction contract's retryable code): a client
-following that contract retried a refused save for ever and could overwrite the other writer's change on a later
-attempt. The house convention is `X-Error-Code: <THING>_STALE_EDIT`, no `X-Conflict-Code`; the client re-reads the
-stored row and decides.
+1.20 a stale edit answered `CONFLICT_001` + `Retry-After` (the transaction contract's retryable code), and on a host
+that chose 503 it answered 503 + `Retry-After`. Both are wrong for a refusal that is **permanent**: `row_version` only
+grows, so the submitted version can never match again and every repeat of that request is refused in the same way
+(nothing of it is ever written). A client obeying the contract therefore retried for ever instead of re-reading the
+row, and a 503 + `Retry-After` reads to proxies and monitoring as an outage. The house convention is
+`X-Error-Code: <THING>_STALE_EDIT`, no `X-Conflict-Code`, no `Retry-After`; the client re-reads the stored row and
+decides. Cross-origin browser clients need `X-Error-Code` in the host's `Access-Control-Expose-Headers`.
 
 ## Write paths
 
@@ -167,6 +170,10 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After`, the message, the stored data
   unchanged, the new form saves); two tabs; malformed and missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a
   documentation save refusing an older endpoint form; a row deleted meanwhile (404).
+- `tests/Functional/TransactionDoctrineHostConflictTest.php` (1.21): a host registering `NowoTransactionDoctrineBundle`
+  (its responder at priority 64) with `conflict_status: 503` — a stale edit, bare and wrapped, still answers the plain
+  409 + `X-Error-Code` with no `X-Conflict-Code` and no `Retry-After`, while a real deadlock keeps `CONFLICT_001` +
+  `Retry-After` (`tests/Functional/App/TransactionDoctrineTestKernel.php`, `App/ConflictProbeController.php`).
 - `tests/Integration/Doctrine/RowVersionTest.php` (SQLite): claim, stale claim, bump of a deleted row, child writes,
   ignored entities, the domain stale answer (`API_STUDIO_STALE_EDIT`, and no lock conflict for the classifier).
 - CI job **Databases** (DBAL 3 and DBAL 4) runs the race suite with `--fail-on-skipped`; locally `make test-with-db`.

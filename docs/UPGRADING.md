@@ -112,10 +112,22 @@ composer update nowo-tech/api-studio-bundle
   get `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}`. The page answer is unchanged otherwise: the form again
   with the stored data and the message `conflict.stale_edit`, nothing written.
 - **Action — any client that retried on `CONFLICT_001`:** a stale edit must now be handled as `409` +
-  `X-Error-Code: API_STUDIO_STALE_EDIT` and **must not be retried**. Repeating the same save can never succeed (its
-  row version is already behind) and, if your client refreshed the version in between, a later attempt would silently
-  overwrite the other writer's change. Read the stored row again and let the user decide. Clients keying only on the
-  409 status, and browsers using the pages, need no change.
+  `X-Error-Code: API_STUDIO_STALE_EDIT` and **must not be retried**. The refusal is permanent: the row version only
+  ever grows, so the submitted version can never match again and every repeat of that request is refused in the same
+  way (the stored row is never touched by it). A client obeying the old `Retry-After` therefore retried for ever
+  instead of stopping. Read the stored row again and let the user decide. Clients keying only on the 409 status, and
+  browsers using the pages, need no change.
+- **Hosts with `concurrency.conflict_status: 503`:** a stale edit is no longer answered with that status. A permanent
+  domain refusal used to leave the bundle as **503 + `Retry-After`**, which proxies, load balancers and monitoring
+  read as an outage of the application (and which an intermediary may replay); it is now always a plain 409. The 503
+  setting still applies to real lock conflicts.
+- **Cross-origin browser clients** must be allowed to read the new header: add `X-Error-Code` to
+  `Access-Control-Expose-Headers` on the host's CORS configuration, otherwise the browser hides it and only the 409
+  status is visible.
+- **Hosts shaping the answer through transaction-doctrine** — a `ConflictExceptionMapperInterface` or a
+  `ConflictResponseFormatterInterface` that matched the stale edit — **no longer shape it**: it is not a lock conflict
+  any more, so those services never see it. Shape it on `StaleEditException` (or on the 409 + `X-Error-Code` answer)
+  instead.
 - **`Concurrency\StaleEditException` no longer implements** transaction-doctrine's
   `WriteUnit\LockConflictExceptionInterface`: host code that catches that interface (or registers
   `NowoTransactionDoctrineBundle`, whose responder answered it with `CONFLICT_001` before the bundle's own subscriber
@@ -156,6 +168,8 @@ ALTER TABLE api_studio_environment ADD row_version INT DEFAULT 1 NOT NULL;
   documentation save, a folder move or a variable change in between) is no longer last-writer-wins: it answers **409**
   (`concurrency.conflict_status`) with `X-Conflict-Code: CONFLICT_001` + `Retry-After`, shows the stored data and the
   message `conflict.stale_edit`, and writes nothing. See [CONCURRENCY](CONCURRENCY.md#row-versions-of-the-edit-forms-120).
+  **Since 1.21 that answer is different** — always 409 with `X-Error-Code: API_STUDIO_STALE_EDIT`, no
+  `X-Conflict-Code` and no `Retry-After`: read [To 1.21.0](#to-1210) too when you come from 1.19 or earlier.
 - **Overridden templates** of the four edit forms: keep rendering the hidden `rowVersion` field (the UiKit scaffold's
   child loop does). A form posted without it falls back to the version the request loaded (last writer wins between two
   page loads only).
