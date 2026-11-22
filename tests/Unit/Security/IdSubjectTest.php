@@ -16,8 +16,10 @@ use Nowo\ApiStudioBundle\Security\ApiStudioSubject;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tests\Support\IdOnlyPermissionChecker;
 use Nowo\ApiStudioBundle\Tests\Support\IdOnlyScopeChecker;
+use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
@@ -110,6 +112,27 @@ final class IdSubjectTest extends TestCase
         self::assertNull($authorization->actorId());
         self::assertFalse($authorization->can(ApiStudioAction::WorkspaceView, $this->workspace(7)), 'an id-only checker denies without an actor id');
         self::assertNull((new ApiStudioAuthorization($permissions))->actorId(), 'anonymous');
+    }
+
+    public function testAThrowingActorResolverIsLoggedByClassAndLeavesTheActorIdEmpty(): void
+    {
+        $resolver = new class implements ApiStudioActorResolverInterface {
+            public function actorId(object $user): string
+            {
+                throw new RuntimeException('secret detail of the host');
+            }
+        };
+        $tokens = new TokenStorage();
+        $tokens->setToken(new UsernamePasswordToken(new InMemoryUser('alice', null), 'main'));
+        $logger = new InMemoryLogger();
+
+        $authorization = new ApiStudioAuthorization(new IdOnlyPermissionChecker(), null, $tokens, actors: new ApiStudioHistoryScope('user', $resolver), logger: $logger);
+
+        self::assertNull($authorization->actorId());
+        self::assertCount(1, $logger->records);
+        self::assertSame(RuntimeException::class, $logger->records[0]['context']['exception']);
+        self::assertStringNotContainsString('secret detail', $logger->text());
+        self::assertFalse($authorization->can(ApiStudioAction::WorkspaceView, $this->workspace(7)), 'an id-only checker denies without an actor id');
     }
 
     private function workspace(int $id): ApiWorkspace

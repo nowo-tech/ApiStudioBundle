@@ -26,6 +26,9 @@ use function sprintf;
  * 1.19 (DDD-host checklist B1/B8): {@see ApiWorkspaceAccessInterface} on {@see ApiWorkspaceQueryInterface} and the
  * host's checkers. Stateless: the workspace is read and the checkers are asked at every call (worker mode).
  *
+ * Fails closed when no `security.permission_checker` is configured (the default {@see LegacyPermissionChecker} grants
+ * everything): every call is refused, without reading the store, and logs a warning.
+ *
  * @internal Hosts depend on the interface
  */
 final readonly class ApiWorkspaceAccess implements ApiWorkspaceAccessInterface
@@ -61,6 +64,14 @@ final readonly class ApiWorkspaceAccess implements ApiWorkspaceAccessInterface
      */
     private function reachable(object|string|null $user, ApiStudioAction $action, ApiStudioTenant $tenant, int $workspaceId): ?ApiWorkspaceView
     {
+        // Fail closed without `security.permission_checker`: the default checker grants everything (the studio's
+        // routes keep their request-level gates; this port has none). Same answer for every id: no store read.
+        if ($this->checker instanceof LegacyPermissionChecker) {
+            $this->logger->warning('Api Studio workspace access by ids needs security.permission_checker; refused.', ['bundle' => 'api_studio', 'action' => $action->value]);
+
+            return null;
+        }
+
         if (!$action->needsWorkspace() || $workspaceId < 1) {
             return null;
         }

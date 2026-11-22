@@ -85,7 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   null. The workspace is read by exact id and tenant, then the studio's checks run: `visibleWorkspaceIds()` (user
   objects), the scope checker for a scoped workspace (deny by default), and the permission checker for `workspace.view`
   then the action. Unknown ids, other or look-alike tenants, unusable actor ids, refusals and failures (logged with the
-  exception class only) all give the same `false` / `null`. Nothing is kept between calls (worker mode).
+  exception class only) all give the same `false` / `null`. Nothing is kept between calls (worker mode). It requires
+  `security.permission_checker`: without one (default checker, everything granted) every call is refused, without
+  reading the store, and a warning is logged (fail closed). `find()` pages can be shorter than the limit on a folding
+  collation (limit in SQL, exact re-check in PHP); the total is exact.
 - `ApiStudioSubject::forWorkspaceId(tenant, id, scope, actorId)` and `ApiStudioSubject::forTenant()`; the subject and
   `ScopeAccessSubject` carry `actorId` (the opaque id history rows and events record), set by the studio's own checks
   too, so a host checker can decide on ids alone. `ApiStudioAuthorization::actorId()`.
@@ -104,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Demo: runs in UiKit's demo platform shell (`nowo-tech/ui-kit-bundle` ^2.60; shared top bar, aside, page header and section cards; no demo stylesheet or `<style>`). Demo only, no bundle change.
 - Requires `nowo-tech/transaction-doctrine` ^1.8.1 (fixes GHSA-9wh3-m3m5-jffx and GHSA-65w2-9r4h-848g).
+- `ApiStudioAuthorization::actorId()` answers null (and logs the exception class) when the host's
+  `history.actor_resolver` throws anything, not only `UnexpectedValueException`; a new optional trailing `$logger`
+  constructor argument (autowired).
 - The studio's permission checks resolve the actor id (`history.actor_resolver`, else `u:` + the user identifier) for
   `ApiStudioSubject::$actorId`: a host resolver is now called on permission checks too. A resolver that answers another
   shape leaves `actorId` null there (an id-only checker then denies; a checker that reads the user object is

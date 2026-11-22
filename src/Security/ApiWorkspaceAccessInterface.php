@@ -34,6 +34,9 @@ use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
  * `security.feature_gate`, `studio.open`), which need the request and the firewall. Tenant-level actions
  * (`studio.open`, `workspace.create`) are always refused here.
  *
+ * **Requires `security.permission_checker`**: without it (default checker: everything granted in the studio, behind
+ * its route gates) every call answers `false` / `null`, for every user and id, and logs a warning.
+ *
  * **No oracle**: an unknown id, a workspace of another tenant, a look-alike tenant, an unusable actor id, a refusal and
  * a failure of the store, of the actor resolver or of a host checker (logged with its class only) all give the same
  * `false` / `null`.

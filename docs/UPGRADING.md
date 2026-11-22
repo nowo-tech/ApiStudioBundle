@@ -101,6 +101,8 @@ composer update nowo-tech/api-studio-bundle
     concrete repositories), and `workspaceIdOfService()` / `workspaceIdOfEndpoint()` (instead of loading
     `ApiEndpoint` / `ApiService` in a route guard).
   - `Security\ApiWorkspaceAccessInterface` to check a workspace action by ids (e.g. a host route guard or an API).
+    It requires `security.permission_checker`: without one it refuses every call (and logs a warning), since the
+    default checker grants everything.
 - **DDD hosts** moving off DQL over the bundle's tables, an entity listener on `ApiWorkspace` or an SQL filter on its
   tables: turn the bundle's tenancy on (`tenancy.enabled`, your tenant as `ApiStudioTenantProviderInterface`), record
   ownership from `ApiWorkspaceCreatedCommittedEvent` (ids, after the commit) in your own table keyed by workspace id,

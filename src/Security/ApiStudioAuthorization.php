@@ -12,11 +12,13 @@ use Nowo\ApiStudioBundle\Scope\ScopeContext;
 use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use UnexpectedValueException;
+use Throwable;
 
 use function count;
 use function is_array;
@@ -58,6 +60,7 @@ final readonly class ApiStudioAuthorization
         private bool $tenantListAll = true,
         /** 1.19: resolves the opaque actor id of {@see ApiStudioSubject::$actorId} (default: `u:` + the user identifier). */
         private ApiStudioHistoryScope $actors = new ApiStudioHistoryScope(),
+        private LoggerInterface $logger = new NullLogger(),
     ) {
         $this->checker = $checker ?? new LegacyPermissionChecker();
     }
@@ -187,14 +190,17 @@ final readonly class ApiStudioAuthorization
 
     /**
      * 1.19: opaque actor id of the signed-in user ({@see ApiStudioSubject::$actorId}), the id history rows and events
-     * record. Null for an anonymous user, and when the host's `history.actor_resolver` answers another shape:
-     * a checker that decides on the actor id then denies, one that decides on the user object is unaffected.
+     * record. Null for an anonymous user, and when the host's `history.actor_resolver` answers another shape or fails
+     * (logged with the exception class only): a checker that decides on the actor id then denies, one that decides on
+     * the user object is unaffected.
      */
     public function actorId(): ?string
     {
         try {
             return $this->actors->actorId($this->user());
-        } catch (UnexpectedValueException) {
+        } catch (Throwable $exception) {
+            $this->logger->warning('Api Studio actor id could not be resolved; checked without one.', ['bundle' => 'api_studio', 'exception' => $exception::class]);
+
             return null;
         }
     }

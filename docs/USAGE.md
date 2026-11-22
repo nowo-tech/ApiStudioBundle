@@ -735,8 +735,13 @@ $allowed = $workspaceId !== null && $access->isGranted('u:' . $userIdentifier, A
   With an actor id string the checkers receive `$user = null`: decide on `$subject->actorId`. The request-level gates of
   the studio routes (roles, `access_checker`, `feature_gate`, `studio.open`) are not part of it; tenant-level actions
   are refused.
+- **Requires `security.permission_checker`**: without one (the default checker grants everything in the studio, behind
+  its route gates) `ApiWorkspaceAccessInterface` refuses every call, for every user and id, and logs a warning.
 - **No oracle**: an unknown id, another tenant, a look-alike, an unusable actor id, a refusal and a failure (logged
   with its class only) give the same `false` / `null`.
+- **Short pages**: on a case- or accent-folding collation, `find()` applies the limit in SQL before the exact PHP
+  re-check, so a page can hold fewer items than the limit while later pages still have matches; `total` is exact.
+  Page on until `pages()`.
 - **A snapshot** (REQ-RUNTIME-003): an answer holds as of the call. The studio's controllers check again on every
   request, so a grant you revoke applies to the next request.
 - Inside an Api Studio request the tenant SQL filter is on too: it can only narrow the answers to that request's tenant.

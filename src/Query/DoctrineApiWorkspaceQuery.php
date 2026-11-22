@@ -39,6 +39,11 @@ final readonly class DoctrineApiWorkspaceQuery implements ApiWorkspaceQueryInter
     ) {
     }
 
+    /**
+     * LIMIT / OFFSET run in SQL, before the exact PHP re-check of tenant and scope: on a folding collation, look-alike
+     * rows take room in the page and are then dropped, so a page can be shorter than the limit (never wrong, never
+     * another tenant's row). The total is exact.
+     */
     public function find(ApiWorkspaceCriteria $criteria): ApiWorkspacePage
     {
         $manager            = $this->managers->entityManager();

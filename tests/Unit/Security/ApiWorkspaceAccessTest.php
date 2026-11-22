@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Security;
 
+use ArrayObject;
 use DateTimeImmutable;
 use Nowo\ApiStudioBundle\Query\ApiWorkspaceCriteria;
 use Nowo\ApiStudioBundle\Query\ApiWorkspacePage;
@@ -14,6 +15,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioActorResolverInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiWorkspaceAccess;
+use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tests\Support\IdOnlyPermissionChecker;
 use Nowo\ApiStudioBundle\Tests\Support\IdOnlyScopeChecker;
@@ -234,13 +236,38 @@ final class ApiWorkspaceAccessTest extends TestCase
         self::assertStringNotContainsString('secret detail', $this->logger->text());
     }
 
-    public function testTheDefaultCheckerGrantsInTheTenantOnly(): void
+    /**
+     * @return iterable<string, array{object|string|null}>
+     */
+    public static function anyUser(): iterable
     {
-        $access = new ApiWorkspaceAccess($this->store());
+        yield 'anonymous' => [null];
+        yield 'actor id' => ['u:anyone'];
+        yield 'user object' => [new InMemoryUser('alice', null)];
+    }
 
-        self::assertTrue($access->isGranted('u:anyone', ApiStudioAction::WorkspaceManage, self::acme(), 7));
-        self::assertFalse($access->isGranted('u:anyone', ApiStudioAction::WorkspaceManage, new ApiStudioTenant('org', 'globex'), 7));
-        self::assertFalse($access->isGranted('u:anyone', ApiStudioAction::WorkspaceView, self::acme(), 11), 'scoped: deny by default');
+    #[DataProvider('anyUser')]
+    public function testWithoutAPermissionCheckerEveryCallIsRefused(object|string|null $user): void
+    {
+        foreach ([null, new LegacyPermissionChecker()] as $checker) {
+            $logger = new InMemoryLogger();
+            /** @var ArrayObject<int, int> $reads */
+            $reads  = new ArrayObject();
+            $access = new ApiWorkspaceAccess($this->store($reads), $checker, $this->scopes, logger: $logger);
+
+            foreach ([7, 9, 404] as $id) {
+                foreach ([ApiStudioAction::WorkspaceView, ApiStudioAction::WorkspaceManage] as $action) {
+                    self::assertFalse($access->isGranted($user, $action, self::acme(), $id));
+                }
+                self::assertNull($access->viewableWorkspace($user, self::acme(), $id));
+                self::assertFalse($access->isGranted($user, ApiStudioAction::WorkspaceView, new ApiStudioTenant('org', 'globex'), $id));
+            }
+
+            self::assertCount(0, $reads, 'fail closed before the store: the same answer for every id');
+            self::assertCount(12, $logger->records, 'one warning per call');
+            self::assertSame('warning', $logger->records[0]['level']);
+            self::assertStringContainsString('security.permission_checker', $logger->records[0]['message']);
+        }
     }
 
     public static function view(int $id, ApiStudioTenant $tenant, ?string $scope = null): ApiWorkspaceView
@@ -261,11 +288,20 @@ final class ApiWorkspaceAccessTest extends TestCase
     }
 
     /**
-     * Workspaces 7 and 9 (tenant level) and 11 (`project:1`) of org:acme; exact keys.
+     * Workspaces 7 and 9 (tenant level) and 11 (`project:1`) of org:acme; exact keys. `get()` records the ids read.
+     *
+     * @param ArrayObject<int, int> $reads
      */
-    private function store(): ApiWorkspaceQueryInterface
+    private function store(ArrayObject $reads = new ArrayObject()): ApiWorkspaceQueryInterface
     {
-        return new class implements ApiWorkspaceQueryInterface {
+        return new class($reads) implements ApiWorkspaceQueryInterface {
+            /**
+             * @param ArrayObject<int, int> $reads
+             */
+            public function __construct(private readonly ArrayObject $reads)
+            {
+            }
+
             public function find(ApiWorkspaceCriteria $criteria): ApiWorkspacePage
             {
                 return new ApiWorkspacePage([], 0, 1, 1);
@@ -278,6 +314,7 @@ final class ApiWorkspaceAccessTest extends TestCase
 
             public function get(ApiStudioTenant $tenant, int $workspaceId): ?ApiWorkspaceView
             {
+                $this->reads->append($workspaceId);
                 if (!$tenant->equals(new ApiStudioTenant('org', 'acme'))) {
                     return null;
                 }

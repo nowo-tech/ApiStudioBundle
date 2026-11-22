@@ -28,6 +28,10 @@ interface ApiWorkspaceQueryInterface
 {
     /**
      * One page of the workspaces matching $criteria, with the total.
+     *
+     * On a case- or accent-folding (or padding) collation the page may hold fewer items than the limit even when more
+     * match: SQL applies the limit before the exact PHP re-check drops look-alike rows. The total counts exact matches
+     * only. Page on with `onPage()` until `pages()` rather than stopping at the first short page.
      */
     public function find(ApiWorkspaceCriteria $criteria): ApiWorkspacePage;
 
