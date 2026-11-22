@@ -350,7 +350,7 @@ These 53 `src/` files were added by releases after the last review. Each row map
 
 ## Sources added in 1.17–1.19 (sweep 2026-11-22)
 
-These 44 `src/` files (workspace seeding, scopes, global search, workspace query port, conflict subscriber, URL generator) were added after the 2026-11-16 sweep. Each row names the area requirement in `spec.md`; the description comes from the class docblock.
+These 45 `src/` files (workspace seeding, scopes, global search, workspace query port, conflict subscriber, URL generator) were added after the 2026-11-16 sweep. Each row names the area requirement in `spec.md`; the description comes from the class docblock.
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
@@ -372,6 +372,7 @@ These 44 `src/` files (workspace seeding, scopes, global search, workspace query
 | `Scope/ScopeAccessSubject.php` | What a scope decision applies to (1.17): the tenant, the scope and — for workspace actions — the workspace id. | FR-SCOPE-001 |
 | `Scope/ScopeContext.php` | The host scope of the work being done (1.17): the one `ScopeListener` resolved for the current main request, else the one set by `self::runAs()` (comm | FR-SCOPE-001 |
 | `Scope/ScopeLabelProviderInterface.php` | Host contract (`nowo_api_studio.scope.label_provider`, 1.17, optional): the badge of scoped workspaces on tenant-level lists (e.g. | FR-SCOPE-001 |
+| `Scope/ScopeListener.php` | With `scope.enabled` (1.17), resolves the host scope of every Api Studio main request once, right after the tenant, and stores it on the request; a `scope.path` route without a scope answers 404. | FR-SCOPE-001 |
 | `Scope/ScopeResolverInterface.php` | Host contract (`nowo_api_studio.scope.resolver`, 1.17): the scope of an Api Studio request, from its route (e.g. | FR-SCOPE-001 |
 | `Scope/ScopeRouteContext.php` | The matched route of an Api Studio request, as `ScopeResolverInterface` sees it (1.17): no HTTP type in the port (REQ-ARCH-001 rule 3). | FR-SCOPE-001 |
 | `Scope/WorkspaceScope.php` | Opaque host sub-scope of a workspace (1.17, `nowo_api_studio.scope`), e.g. | FR-SCOPE-001 |
@@ -399,6 +400,19 @@ These 44 `src/` files (workspace seeding, scopes, global search, workspace query
 | `Seed/WorkspaceSeeder.php` | Creates or updates one workspace from a `WorkspaceSeed` (1.17): idempotent by natural keys — workspace by (tenant, scope, slug), service and environment by | FR-SEED-001 |
 | `Twig/ApiStudioRoutingExtension.php` | 1.17 Twig functions of the workspace scopes: - `api_studio_path(name, params)`: `path()` for bundle routes that stays inside a `scope.path` mount (the bundle's  | FR-TWIG-001 |
 
+## Sources added in 1.20 (row versions of the edit forms)
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Entity/RowVersionedInterface.php` | A row whose edit form is guarded by its `row_version` (workspace, service, endpoint, environment) | FR-CONCUR-002 |
+| `Entity/RowVersionTrait.php` | The `row_version` column (`INTEGER NOT NULL DEFAULT 1`, additive) and its accessors | FR-CONCUR-002 |
+| `Concurrency/StaleEditException.php` | An edit saved on a version that is no longer current; a transaction-doctrine lock conflict | FR-CONCUR-002 |
+| `Doctrine/RowVersionGuard.php` | Guarded claim (`row_version = row_version + 1 … AND row_version = ?`) and atomic bump of the version | FR-CONCUR-002 |
+| `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
+| `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
+| `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
+| `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, conflict status and headers) | FR-CONCUR-002, FR-CTRL-001 |
+
 ## Coverage summary
 
 | Category | Files | Mapped |
@@ -424,9 +438,10 @@ These 44 `src/` files (workspace seeding, scopes, global search, workspace query
 | TypeScript source | 7 | 7 |
 | Public assets — built | 6 | 6 |
 | Twig views | 27 | 27 |
-| Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 137 | 137 |
-| **Total production sources** | **278** | **278** |
+| Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 140 | 140 |
+| Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
+| **Total production sources** | **286** | **286** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **278** (2026-11-22; was 138 on 2026-10-30 and 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **286** (2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).

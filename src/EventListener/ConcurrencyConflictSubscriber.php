@@ -13,6 +13,7 @@ use Nowo\TransactionDoctrine\TransientFailureClassifier;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Throwable;
@@ -88,6 +89,28 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
         }
 
         $event->setThrowable($this->policy->httpExceptionFor($code, self::MESSAGE, $failure, $hint));
+    }
+
+    /**
+     * Status and headers of the conflict answer for a failure a page answers itself (1.20: the edit forms on a stale
+     * row version show the form again): the same policy as the exception answer — the configured status (409 or 503),
+     * `X-Conflict-Code: CONFLICT_001` + `Retry-After` when nothing was committed, `CONFLICT_002` without `Retry-After`
+     * when the failure or the request's commit watermark says part was committed.
+     *
+     * @return array{int, array<string, string>}
+     */
+    public function answerFor(Request $request, Throwable $failure): array
+    {
+        $code     = ConflictCode::forRequest($request, $failure);
+        $conflict = TransientFailureClassifier::findConflict($failure);
+        $route    = $request->attributes->get('_route');
+        $this->logger?->info('Api Studio: an edit met a newer version of the row; answered the conflict status.', [
+            'route'  => is_string($route) ? $route : null,
+            'status' => $this->policy->status,
+            'code'   => $code->value,
+        ]);
+
+        return [$this->policy->status, $this->policy->headersFor($code, $conflict instanceof Throwable ? $this->hint($conflict) : null)];
     }
 
     /**

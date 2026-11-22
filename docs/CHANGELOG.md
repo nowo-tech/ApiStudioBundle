@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.20.0] - 2026-11-22](#1200---2026-11-22)
 - [[1.19.1] - 2026-11-22](#1191---2026-11-22)
 - [[1.19.0] - 2026-11-22](#1190---2026-11-22)
 - [[1.18.0] - 2026-11-19](#1180---2026-11-19)
@@ -70,6 +71,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-07-16](#100---2026-07-16)
 
 ## [Unreleased]
+
+## [1.20.0] - 2026-11-22
+
+### Added
+
+- **Row versions on the edit forms** (REQ-RUNTIME-003 rule 4, closes the *pre-1.17* last-writer-wins residual): the
+  workspace, service, endpoint and environment get a `row_version` column (`INTEGER NOT NULL DEFAULT 1`, additive:
+  generate the migration, see [UPGRADING](UPGRADING.md#to-1200)). Their edit forms carry it in a hidden `rowVersion`
+  field and save only on that version: the save claims the row with a guarded atomic
+  `UPDATE … SET row_version = row_version + 1 WHERE id = ? AND row_version = ?` and flushes in the same transaction.
+  A form saved after another save (or after the seed API, a documentation save, a folder move or a variable change of
+  that row) answers **409** (or the configured `concurrency.conflict_status`) with `X-Conflict-Code: CONFLICT_001` +
+  `Retry-After` (`CONFLICT_002` without `Retry-After` when the request committed earlier work), shows the stored data
+  with the message `conflict.stale_edit` (every shipped locale), and writes nothing. Two editors racing on the same
+  version: exactly one saves. A row deleted meanwhile answers 404.
+- `Doctrine\RowVersionListener` (Doctrine listener, all managers): every other ORM write of those rows, and of endpoint
+  translations and environment variables, moves the parent's version atomically, so an older form is refused instead
+  of overwriting that change.
+- `Doctrine\RowVersionGuard`, `Concurrency\StaleEditException` (a transaction-doctrine lock conflict: answered 409 by
+  the conflict subscriber anywhere it escapes), `Entity\RowVersionedInterface`, `Form\RowVersionField` (option
+  `row_version` on `ApiWorkspaceFormType`, `ApiServiceFormType`, `ApiEndpointFormType`, `ApiEnvironmentFormType`), and
+  `ConcurrencyConflictSubscriber::answerFor()` (the status and headers for a page that answers a conflict itself).
+- Real-database race tests (`tests/Database/RowVersionRaceTest.php`, MySQL 8.4, MariaDB 11.4, PostgreSQL 16): two
+  editors on the same version, the first editor holding the lock, a lock wait timeout on the claim (409 +
+  `CONFLICT_001`, connection usable), writers without a version moving it atomically, child rows moving their parent,
+  a deadlock in the edit's flush, two edits making different environments the default.
+
+### Fixed
+
+- Pre-tag audit ZH-M1: a MySQL / MariaDB deadlock inside an edit's flush (the flush runs in a savepoint of the edit's
+  transaction) no longer leaves the connection at a wrong nesting level nor answers 500. The save rolls back the levels
+  it opened, closes the connection when that rollback fails (the savepoint is gone after the server's rollback, 1305),
+  and rethrows the original failure: 409 + `CONFLICT_001`. Lock order (ZH-I2): edits lock the parent row before its
+  children, writers without a version the other way round; a resulting deadlock answers 409 + `CONFLICT_001`.
+- Audit ZH-L1 (pre-existing): two concurrent environment edits that each set their environment as the default could
+  leave two defaults. Such an edit now locks the workspace row first and clears the other defaults with one statement
+  (their row versions move), so one default remains.
+
+[1.20.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.20.0
 
 ## [1.19.1] - 2026-11-22
 

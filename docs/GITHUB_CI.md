@@ -256,7 +256,8 @@ with a repository variable of the same name (`gh variable set NOWO_CI_PR_MODE -R
 The other matrix cells still start and report success after one echo step: a matrix job skipped with a job-level
 `if:` reports its un-expanded name (`PHP ${{ matrix.php }} - …`), so the required contexts `PHP x - Symfony y` would
 never appear and the PR would stay blocked. Matrix jobs with service containers also pass an empty service `image` in
-light mode, so no database container is pulled. Non-matrix jobs (coverage, databases, demo smoke, …) are skipped with
+light mode, so no database container is pulled; the Databases job (one leg per DBAL major, required checks) works this
+way too. Non-matrix jobs (coverage, demo smoke, …) are skipped with
 a job-level `if:`: a skipped job reports its own name with a successful conclusion for branch protection. Workflows
 without any required check may use `paths-ignore` with the same list plus a job-level
 `if: ${{ github.event_name != 'pull_request' || vars.NOWO_CI_PR_MODE != 'light' }}` instead (never on a workflow

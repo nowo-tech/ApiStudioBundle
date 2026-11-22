@@ -106,6 +106,16 @@ Areas introduced by releases after the baseline review; each requirement names t
 - **FR-QUERY-001** `src/Query/`: scalar read port for listing and counting workspaces without DQL over the bundle tables (`ApiWorkspaceQueryInterface`, 1.19).
 - **FR-CONCUR-001** `ConcurrencyConflictSubscriber`: lock conflicts on Api Studio routes answer with the CONFLICT codes (1.17, REQ-RUNTIME-003).
 
+### Requirements added in 1.20 (row versions of the edit forms)
+
+- **FR-CONCUR-002** Row versions (REQ-RUNTIME-003 rule 4): the workspace, service, endpoint and environment carry a
+  `row_version` column (`INTEGER NOT NULL DEFAULT 1`). Their edit forms render it in a hidden field and save only on
+  that version (`RowVersionGuard::claim()`: a guarded atomic `UPDATE` in the save's transaction); a stale save answers
+  the conflict status with `X-Conflict-Code` (`CONFLICT_001`, or `CONFLICT_002` when the request committed earlier
+  work), shows the stored data and the message `conflict.stale_edit`, and writes nothing. Every other ORM write of
+  those rows, and of endpoint translations and environment variables, moves the version atomically
+  (`RowVersionListener`).
+
 ## Success Criteria
 
 - **SC-001**: **278/278** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-11-22; `find src -type f ! -name '*.test.ts' | wc -l`).

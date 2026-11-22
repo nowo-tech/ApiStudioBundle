@@ -24,8 +24,10 @@ use SortDirection;
 #[ORM\UniqueConstraint(name: 'uniq_endpoint_service_slug', columns: ['service_id', 'slug'])]
 #[UniqueSlug(scope: 'service')]
 #[SlugFormat]
-class ApiEndpoint
+class ApiEndpoint implements RowVersionedInterface
 {
+    use RowVersionTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]

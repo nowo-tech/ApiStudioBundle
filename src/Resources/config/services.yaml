@@ -35,6 +35,10 @@ services:
             - '../../Seed/{EndpointSeed,EnvironmentSeed,SecretReferenceSeed,SeedStats,SeedValidation,ServiceSeed,VariableSeed,WorkspaceSeed,WorkspaceSeedResult}.php'
             # 1.19 value objects of the workspace query port.
             - '../../Query/{ApiWorkspaceCriteria,ApiWorkspacePage,ApiWorkspaceSort,ApiWorkspaceView}.php'
+            # 1.20 row versions: the stale-edit exception and the static guard (the listener stays a service).
+            - '../../Concurrency/'
+            - '../../Doctrine/RowVersionGuard.php'
+            - '../../Doctrine/DefaultEnvironmentSwitch.php'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
     # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without

@@ -5,6 +5,8 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.20.0](#to-1200)
+  - [To 1.20.0](#to-1200-1)
 - [To 1.19.1](#to-1191)
 - [To 1.19.0](#to-1190)
 - [To 1.18.0](#to-1180)
@@ -91,6 +93,47 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.20.0
+
+From **1.19.1**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+### To 1.20.0
+
+From **1.19.1** (minor, no BC break; **one additive column per table**):
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- **Schema** (every host): `row_version INTEGER NOT NULL DEFAULT 1` on the workspace, service, endpoint and environment
+  tables. Existing rows start at 1; nothing is rebuilt. Generate the migration with `doctrine:migrations:diff` (or run
+  `nowo:api-studio:sync-schema`); for reference, with the default `api_studio_` table prefix (adapt the names to your
+  `table_prefix`):
+
+```sql
+-- MySQL / MariaDB / PostgreSQL / SQLite
+ALTER TABLE api_studio_workspace ADD row_version INT DEFAULT 1 NOT NULL;
+ALTER TABLE api_studio_service ADD row_version INT DEFAULT 1 NOT NULL;
+ALTER TABLE api_studio_endpoint ADD row_version INT DEFAULT 1 NOT NULL;
+ALTER TABLE api_studio_environment ADD row_version INT DEFAULT 1 NOT NULL;
+```
+
+  Deploy the migration with the code: the mapping reads and writes the column, so without it those pages fail.
+- **Behaviour**: an edit form saved after another save of the same row (two tabs, two editors, or the seed API, a
+  documentation save, a folder move or a variable change in between) is no longer last-writer-wins: it answers **409**
+  (`concurrency.conflict_status`) with `X-Conflict-Code: CONFLICT_001` + `Retry-After`, shows the stored data and the
+  message `conflict.stale_edit`, and writes nothing. See [CONCURRENCY](CONCURRENCY.md#row-versions-of-the-edit-forms-120).
+- **Overridden templates** of the four edit forms: keep rendering the hidden `rowVersion` field (the UiKit scaffold's
+  child loop does). A form posted without it falls back to the version the request loaded (last writer wins between two
+  page loads only).
+- **Host SQL writes** to those rows (DBAL, raw SQL) that should refuse older forms: add `row_version = row_version + 1`
+  to the `UPDATE`. ORM writes do it on their own (`RowVersionListener`).
+- **Host code** that builds the four form types itself: nothing to do (option `row_version` defaults to null: no field).
 
 ## To 1.19.1
 
