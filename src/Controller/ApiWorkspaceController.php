@@ -130,9 +130,9 @@ final class ApiWorkspaceController extends AbstractController
 
                     return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $id]);
                 }
-            } catch (StaleEditException $e) {
+            } catch (StaleEditException) {
                 // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
-                [$status, $headers] = $this->answerStaleEdit($request, $e, $workspace);
+                [$status, $headers] = $this->answerStaleEdit($request, $workspace);
                 $form               = $this->createForm(ApiWorkspaceFormType::class, $workspace, $options + [RowVersionField::OPTION => $workspace->getRowVersion()]);
                 $this->flash('error', StaleEditException::MESSAGE_KEY);
             }

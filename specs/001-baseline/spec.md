@@ -111,8 +111,9 @@ Areas introduced by releases after the baseline review; each requirement names t
 - **FR-CONCUR-002** Row versions (REQ-RUNTIME-003 rule 4): the workspace, service, endpoint and environment carry a
   `row_version` column (`INTEGER NOT NULL DEFAULT 1`). Their edit forms render it in a hidden field and save only on
   that version (`RowVersionGuard::claim()`: a guarded atomic `UPDATE` in the save's transaction); a stale save answers
-  the conflict status with `X-Conflict-Code` (`CONFLICT_001`, or `CONFLICT_002` when the request committed earlier
-  work), shows the stored data and the message `conflict.stale_edit`, and writes nothing. Every other ORM write of
+  the **domain** stale-edit answer — 409 with `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no
+  `Retry-After` (1.21; until 1.20 it answered the retryable `CONFLICT_001`) — shows the stored data and the message
+  `conflict.stale_edit`, and writes nothing. Every other ORM write of
   those rows, and of endpoint translations and environment variables, moves the version atomically
   (`RowVersionListener`).
 

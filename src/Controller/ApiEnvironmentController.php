@@ -117,9 +117,9 @@ final class ApiEnvironmentController extends AbstractController
                         'id'          => $id,
                     ]);
                 }
-            } catch (StaleEditException $e) {
+            } catch (StaleEditException) {
                 // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
-                [$status, $headers] = $this->answerStaleEdit($request, $e, $environment, ...$written);
+                [$status, $headers] = $this->answerStaleEdit($request, $environment, ...$written);
                 $form               = $this->createForm(ApiEnvironmentFormType::class, $environment, [RowVersionField::OPTION => $environment->getRowVersion()]);
                 $this->flash('error', StaleEditException::MESSAGE_KEY);
             }

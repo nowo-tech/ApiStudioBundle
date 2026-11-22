@@ -106,9 +106,9 @@ final class RowVersionEditTraitTest extends TestCase
         $request = new Request();
         $request->attributes->set('_route', 'nowo_api_studio_environment_edit');
 
-        [$status, $headers] = $this->probe()->answer($request, new StaleEditException(), $environment, $variable);
+        [$status, $headers] = $this->probe()->answer($request, $environment, $variable);
         self::assertSame(409, $status);
-        self::assertSame('CONFLICT_001', $headers['X-Conflict-Code']);
+        self::assertSame(['X-Error-Code' => 'API_STUDIO_STALE_EDIT'], $headers, 'the domain answer, without X-Conflict-Code or Retry-After');
 
         self::assertSame('Prod', $environment->getName());
         self::assertSame('stored', $variable->getValue());
@@ -126,7 +126,7 @@ final class RowVersionEditTraitTest extends TestCase
         $this->manager->getConnection()->executeStatement('DELETE FROM api_studio_workspace');
 
         $this->expectException(NotFoundHttpException::class);
-        $this->probe()->answer(new Request(), new StaleEditException(), $workspace);
+        $this->probe()->answer(new Request(), $workspace);
     }
 
     /**

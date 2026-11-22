@@ -406,12 +406,12 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | --- | --- | --- |
 | `Entity/RowVersionedInterface.php` | A row whose edit form is guarded by its `row_version` (workspace, service, endpoint, environment) | FR-CONCUR-002 |
 | `Entity/RowVersionTrait.php` | The `row_version` column (`INTEGER NOT NULL DEFAULT 1`, additive) and its accessors | FR-CONCUR-002 |
-| `Concurrency/StaleEditException.php` | An edit saved on a version that is no longer current; a transaction-doctrine lock conflict | FR-CONCUR-002 |
+| `Concurrency/StaleEditException.php` | An edit saved on a version that is no longer current; a domain conflict (409 + `X-Error-Code: API_STUDIO_STALE_EDIT`), not a lock conflict | FR-CONCUR-002 |
 | `Doctrine/RowVersionGuard.php` | Guarded claim (`row_version = row_version + 1 … AND row_version = ?`) and atomic bump of the version | FR-CONCUR-002 |
 | `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
 | `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
 | `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
-| `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, conflict status and headers) | FR-CONCUR-002, FR-CTRL-001 |
+| `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, domain 409 + `X-Error-Code`) | FR-CONCUR-002, FR-CTRL-001 |
 
 ## Coverage summary
 

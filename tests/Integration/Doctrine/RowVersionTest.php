@@ -21,16 +21,13 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeOrmTrait;
-use Nowo\TransactionDoctrine\TransientFailureKind;
-use Nowo\TransactionDoctrine\WriteUnit\ConcurrencyConflict;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * 1.20 row versions on SQLite: the claim, the atomic bump of writers without a version, the listener's choices
- * (claimed, new, deleted and foreign rows), and the conflict answer of a stale edit.
+ * (claimed, new, deleted and foreign rows), and the domain answer of a stale edit.
  */
 final class RowVersionTest extends TestCase
 {
@@ -69,8 +66,8 @@ final class RowVersionTest extends TestCase
             RowVersionGuard::claim($this->manager, $workspace, 1);
             self::fail('Expected a stale edit.');
         } catch (StaleEditException $e) {
-            // A lock conflict for transaction-doctrine: answered 409 anywhere it escapes.
-            self::assertTrue((new ConcurrencyConflictSubscriber())->isConflict($e));
+            // 1.21: a domain conflict, not a lock conflict (nothing to retry); the subscriber answers it on its own.
+            self::assertFalse((new ConcurrencyConflictSubscriber())->isConflict($e));
         }
         self::assertSame(2, $this->stored($workspace));
     }
@@ -163,20 +160,19 @@ final class RowVersionTest extends TestCase
         self::assertSame([RowVersionField::OPTION => 4], $resolver->resolve([RowVersionField::OPTION => 4]));
     }
 
-    public function testTheConflictAnswerOfAStaleEdit(): void
+    public function testTheDomainAnswerOfAStaleEdit(): void
     {
         $request = new Request();
         $request->attributes->set('_route', 'nowo_api_studio_workspace_edit');
-        [$status, $headers] = (new ConcurrencyConflictSubscriber())->answerFor($request, new StaleEditException());
+        [$status, $headers] = (new ConcurrencyConflictSubscriber())->answerForStaleEdit($request);
         self::assertSame(409, $status);
-        self::assertSame('CONFLICT_001', $headers['X-Conflict-Code']);
-        self::assertArrayHasKey('Retry-After', $headers);
+        self::assertSame(['X-Error-Code' => 'API_STUDIO_STALE_EDIT'], $headers);
+        self::assertArrayNotHasKey('X-Conflict-Code', $headers, 'a stale edit is not the retryable transaction conflict');
+        self::assertArrayNotHasKey('Retry-After', $headers);
 
-        // Work committed earlier in the request: read again, do not repeat (no Retry-After).
-        $committed          = new ConcurrencyConflict(1, TransientFailureKind::Deadlock, 1, new RuntimeException('x'), true);
-        [$status, $headers] = (new ConcurrencyConflictSubscriber())->answerFor(new Request(), new StaleEditException($committed));
-        self::assertSame(409, $status);
-        self::assertSame(['X-Conflict-Code' => 'CONFLICT_002'], $headers);
+        // Without a route (a console write) the answer is the same: the stale edit alone decides it.
+        self::assertSame([409, ['X-Error-Code' => 'API_STUDIO_STALE_EDIT']], (new ConcurrencyConflictSubscriber())->answerForStaleEdit(new Request()));
+        self::assertFalse((new ConcurrencyConflictSubscriber())->isConflict(new StaleEditException()));
     }
 
     /**

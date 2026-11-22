@@ -23,10 +23,10 @@ use function preg_match;
  *
  * - {@see saveEdit()}: one transaction — claim the row at the version the form was rendered from, then flush.
  * - {@see answerStaleEdit()}: on {@see StaleEditException}, drops the refused changes from the manager (refresh of the
- *   rows the form wrote) and returns the conflict answer of {@see ConcurrencyConflictSubscriber} (409 or 503,
- *   `X-Conflict-Code: CONFLICT_001` + `Retry-After`, or `CONFLICT_002` when the request committed earlier work); the page
- *   then shows the form again with the stored data and the house conflict message (error flash
- *   `conflict.stale_edit`).
+ *   rows the form wrote) and returns the domain stale-edit answer of {@see ConcurrencyConflictSubscriber} (1.21: 409 +
+ *   `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After` — nothing was written and the same
+ *   save can only be refused again); the page then shows the form again with the stored data and the house conflict
+ *   message (error flash `conflict.stale_edit`).
  */
 trait RowVersionEditTrait
 {
@@ -102,11 +102,11 @@ trait RowVersionEditTrait
      * After a stale edit: re-reads the rows the refused form changed (the main row first, then the managed rows it
      * wrote, as they were before the form was submitted:
      * translations, variables, other environments) so nothing refused stays pending in the manager, and
-     * returns the conflict status and headers. A row deleted meanwhile answers 404.
+     * returns the stale-edit status and headers (409 + `X-Error-Code`). A row deleted meanwhile answers 404.
      *
      * @return array{int, array<string, string>}
      */
-    private function answerStaleEdit(Request $request, StaleEditException $stale, RowVersionedInterface $row, object ...$written): array
+    private function answerStaleEdit(Request $request, RowVersionedInterface $row, object ...$written): array
     {
         $uow = $this->entityManager->getUnitOfWork();
         foreach ($written as $entity) {
@@ -125,6 +125,6 @@ trait RowVersionEditTrait
         /** @var ConcurrencyConflictSubscriber $conflicts */
         $conflicts = $this->container->get(ConcurrencyConflictSubscriber::class);
 
-        return $conflicts->answerFor($request, $stale);
+        return $conflicts->answerForStaleEdit($request);
     }
 }

@@ -277,6 +277,9 @@ final class RowVersionRaceTest extends TestCase
         }
         if ($failure !== null) {
             // The edit lost: 409 + CONFLICT_001 (nothing committed), nothing of it stored, the other writer's work kept.
+            // A real lock conflict, not a stale edit (the other writer never committed before the claim): it keeps the
+            // retryable transaction code, unlike the domain stale-edit answer.
+            self::assertNotInstanceOf(StaleEditException::class, $failure);
             $request = new Request();
             $request->attributes->set('_route', 'nowo_api_studio_endpoint_edit');
             $subscriber = new ConcurrencyConflictSubscriber();

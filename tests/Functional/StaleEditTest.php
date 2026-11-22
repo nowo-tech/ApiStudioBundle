@@ -20,8 +20,9 @@ use function sprintf;
 
 /**
  * 1.20 (REQ-RUNTIME-003 rule 4): the workspace, service, endpoint and environment edit forms save only on the row
- * version they were rendered from. A form saved after another save answers 409 + `X-Conflict-Code: CONFLICT_001` +
- * `Retry-After`, shows the house conflict message and the stored data, and writes nothing; saving that new form works.
+ * version they were rendered from. A form saved after another save answers the domain stale-edit answer (1.21: 409 +
+ * `X-Error-Code: API_STUDIO_STALE_EDIT`, never `X-Conflict-Code` and never `Retry-After` — the same save can only be
+ * refused again), shows the house conflict message and the stored data, and writes nothing; saving that new form works.
  */
 final class StaleEditTest extends StudioWebTestCase
 {
@@ -52,9 +53,7 @@ final class StaleEditTest extends StudioWebTestCase
         $this->field($form, $name . '[name]')->setValue('Mine');
         $crawler = $this->client->submit($form);
 
-        self::assertResponseStatusCodeSame(409);
-        self::assertResponseHeaderSame('X-Conflict-Code', 'CONFLICT_001');
-        self::assertResponseHasHeader('Retry-After');
+        $this->assertStaleEditAnswer();
         self::assertStringContainsString('Someone else saved this item after you opened the form.', (string) $this->client->getResponse()->getContent());
         self::assertSame('Saved by the other editor', $this->storedName($class, $page));
         $this->assertStoredVersion($class, $page, $version + 1);
@@ -78,7 +77,7 @@ final class StaleEditTest extends StudioWebTestCase
         $this->client->submit($first);
         self::assertResponseRedirects();
         $this->client->submit($second);
-        self::assertResponseStatusCodeSame(409);
+        $this->assertStaleEditAnswer();
         $this->assertStoredVersion(ApiService::class, 'service', 2);
     }
 
@@ -87,7 +86,7 @@ final class StaleEditTest extends StudioWebTestCase
         $form = $this->editForm('workspace', 'api_workspace_form');
         $this->rowVersionField($form, 'api_workspace_form')->setValue('1 OR 1=1');
         $this->client->submit($form);
-        self::assertResponseStatusCodeSame(409);
+        $this->assertStaleEditAnswer();
         $this->assertStoredVersion(ApiWorkspace::class, 'workspace', 1);
 
         // A template override that drops the hidden field: the version this request loaded (last writer wins).
@@ -119,7 +118,7 @@ final class StaleEditTest extends StudioWebTestCase
         self::assertInstanceOf(ChoiceFormField::class, $isDefault);
         $isDefault->tick();
         $this->client->submit($form);
-        self::assertResponseStatusCodeSame(409);
+        $this->assertStaleEditAnswer();
 
         self::assertSame($before, $this->defaultFlags(), 'the refused save changed no default flag');
     }
@@ -146,7 +145,7 @@ final class StaleEditTest extends StudioWebTestCase
         $this->assertStoredVersion(ApiEndpoint::class, 'endpoint', $version + 1);
 
         $this->client->submit($form);
-        self::assertResponseStatusCodeSame(409);
+        $this->assertStaleEditAnswer();
     }
 
     public function testARowDeletedMeanwhileAnswers404(): void
@@ -156,6 +155,18 @@ final class StaleEditTest extends StudioWebTestCase
 
         $this->expectException(NotFoundHttpException::class);
         $this->client->submit($form);
+    }
+
+    /**
+     * The whole contract of a domain stale edit (1.21): 409, the `X-Error-Code` value, and neither the transaction
+     * contract's `X-Conflict-Code` nor a `Retry-After` inviting a retry.
+     */
+    private function assertStaleEditAnswer(): void
+    {
+        self::assertResponseStatusCodeSame(409);
+        self::assertResponseHeaderSame('X-Error-Code', 'API_STUDIO_STALE_EDIT');
+        self::assertResponseNotHasHeader('X-Conflict-Code');
+        self::assertResponseNotHasHeader('Retry-After');
     }
 
     private function editForm(string $page, string $name): Form
