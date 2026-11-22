@@ -85,12 +85,26 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   flushes. One row changed: the save owns the row (its lock is held until the commit). No row: someone saved it (or
   deleted it) after the form was rendered: `StaleEditException`, the transaction is rolled back (only the level the
   save opened), nothing is written.
+- **Failure repair** (audit ZH-M1): any failure inside the save rolls back the levels it opened, savepoint-aware. After a
+  MySQL / MariaDB deadlock in the flush the server has already rolled the whole transaction back and the flush's
+  savepoint is gone (1305 on DBAL 4): the save then closes the connection (its nesting level goes back to 0, the next
+  statement reconnects) and rethrows the **original** failure, so the deadlock stays in the chain and answers 409 +
+  `CONFLICT_001`. The worker's connection is never left at a wrong nesting level.
+- **Lock order** (audit ZH-I2): an edit locks the parent row first (the claim), then its children (the flush). Writers
+  without a version lock the child first, then the parent (the listener's bump runs after the child statement): the
+  documentation save, variable sync, the seed API. Under contention on the same endpoint or environment the two orders
+  can deadlock; the loser answers 409 + `CONFLICT_001` (retry is safe) and nothing of it is stored.
+- **Default environment** (audit ZH-L1): an edit that makes its environment the default first locks the workspace row,
+  then clears the other defaults with one `UPDATE … SET is_default = false, row_version = row_version + 1` and only then
+  claims its own row (`Doctrine\DefaultEnvironmentSwitch`): two such edits run one after the other and the second clears
+  the first, so a workspace keeps one default. (Creating an environment as the default still clears the others in
+  memory, without the workspace lock.)
 - **Two editors on the same version**: the second one's `UPDATE` waits for the first one's row lock, then matches no
   row (MySQL / MariaDB read the latest committed row for an `UPDATE`; PostgreSQL READ COMMITTED re-checks the condition
   on the new row version; under REPEATABLE READ / SERIALIZABLE PostgreSQL raises a serialization failure, which is a
   409 `CONFLICT_001` too). Exactly one saves.
 - **Stale answer** (HTML): the page re-reads the rows the refused form changed (the main row, its translations or
-  variables, the other environments of the workspace; orphan removals of the form are cancelled), shows the form again
+  variables; orphan removals of the form are cancelled), shows the form again
   with the stored data and the error flash `conflict.stale_edit`, with the status and headers of
   `ConcurrencyConflictSubscriber::answerFor()`: 409 (or `conflict_status`) + `X-Conflict-Code: CONFLICT_001` +
   `Retry-After`, or `CONFLICT_002` without `Retry-After` when the request's commit watermark saw earlier work committed.
@@ -128,7 +142,11 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   editors on the same version (the second waits for the lock, then writes nothing); the first editor holding the lock
   while the second's guarded `UPDATE` waits (no lost update); a lock wait timeout on the claim (409 + `CONFLICT_001` +
   `Retry-After`, nothing written, connection usable); a writer without a version after a concurrent bump (atomic: 3,
-  never a second 2; a form at the old version is refused); translation and variable writes moving their parent.
+  never a second 2; a form at the old version is refused); translation and variable writes moving their parent; a
+  deadlock in the edit's flush (a second session holds the child, then bumps the parent: on MySQL / MariaDB the edit
+  loses with 409 + `CONFLICT_001`, nesting level 0, nothing half-saved, the next save works; PostgreSQL is the control
+  where either side may lose); two edits making different environments the default (one default left). The tests go
+  through the pages' own save (`RowVersionEditTrait::saveEdit()`).
 - `tests/Functional/StaleEditTest.php` (SQLite kernel): each of the four edit pages saved after another save (409,
   `X-Conflict-Code`, `Retry-After`, the message, the stored data unchanged, the new form saves); two tabs; malformed and
   missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a

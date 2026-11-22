@@ -92,7 +92,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ConcurrencyConflictSubscriber::answerFor()` (the status and headers for a page that answers a conflict itself).
 - Real-database race tests (`tests/Database/RowVersionRaceTest.php`, MySQL 8.4, MariaDB 11.4, PostgreSQL 16): two
   editors on the same version, the first editor holding the lock, a lock wait timeout on the claim (409 +
-  `CONFLICT_001`, connection usable), writers without a version moving it atomically, child rows moving their parent.
+  `CONFLICT_001`, connection usable), writers without a version moving it atomically, child rows moving their parent,
+  a deadlock in the edit's flush, two edits making different environments the default.
+
+### Fixed
+
+- Pre-tag audit ZH-M1: a MySQL / MariaDB deadlock inside an edit's flush (the flush runs in a savepoint of the edit's
+  transaction) no longer leaves the connection at a wrong nesting level nor answers 500. The save rolls back the levels
+  it opened, closes the connection when that rollback fails (the savepoint is gone after the server's rollback, 1305),
+  and rethrows the original failure: 409 + `CONFLICT_001`. Lock order (ZH-I2): edits lock the parent row before its
+  children, writers without a version the other way round; a resulting deadlock answers 409 + `CONFLICT_001`.
+- Audit ZH-L1 (pre-existing): two concurrent environment edits that each set their environment as the default could
+  leave two defaults. Such an edit now locks the workspace row first and clears the other defaults with one statement
+  (their row versions move), so one default remains.
 
 ## [1.19.1] - 2026-11-22
 

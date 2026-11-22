@@ -38,6 +38,7 @@ services:
             # 1.20 row versions: the stale-edit exception and the static guard (the listener stays a service).
             - '../../Concurrency/'
             - '../../Doctrine/RowVersionGuard.php'
+            - '../../Doctrine/DefaultEnvironmentSwitch.php'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
     # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without

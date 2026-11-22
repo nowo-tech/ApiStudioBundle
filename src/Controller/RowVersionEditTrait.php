@@ -35,16 +35,21 @@ trait RowVersionEditTrait
      * error on `slug`, rolled back).
      *
      * @param FormInterface<mixed> $form
+     * @param (callable(): void)|null $beforeClaim Runs first inside the transaction (parent locks)
      *
      * @throws StaleEditException when the row changed (or was deleted) after the form was rendered; nothing written
      */
-    private function saveEdit(FormInterface $form, RowVersionedInterface $row): bool
+    private function saveEdit(FormInterface $form, RowVersionedInterface $row, ?callable $beforeClaim = null): bool
     {
         $expected   = $this->submittedRowVersion($form, $row);
         $connection = $this->entityManager->getConnection();
         $level      = $connection->getTransactionNestingLevel();
         $connection->beginTransaction();
         try {
+            // Locks a parent row first when the save writes more than its own row (the default environment flag).
+            if ($beforeClaim !== null) {
+                $beforeClaim();
+            }
             RowVersionGuard::claim($this->entityManager, $row, $expected);
             if ($this->flushUnlessSlugTaken($form)) {
                 $connection->commit();
@@ -53,11 +58,20 @@ trait RowVersionEditTrait
             }
             $connection->rollBack();
         } catch (Throwable $e) {
-            // Only the level this save opened: a caller's transaction stays the caller's to end.
-            while ($connection->getTransactionNestingLevel() > $level) {
-                $connection->rollBack();
+            // Audit ZH-M1: repair the nesting level, savepoint-aware, then rethrow the original failure.
+            try {
+                // Only the levels this save opened: a caller's transaction stays the caller's to end.
+                while ($connection->getTransactionNestingLevel() > $level) {
+                    $connection->rollBack();
+                }
+            } catch (Throwable) {
+                // MySQL / MariaDB after a deadlock in the flush: the server rolled the whole transaction back and the
+                // flush's savepoint is gone (1305), so the level cannot be unwound. Closing resets it to 0 (the next
+                // statement reconnects); a caller's transaction was lost with the server rollback anyway.
+                $connection->close();
             }
 
+            // The original failure keeps the deadlock in its chain: the conflict subscriber answers 409 + CONFLICT_001.
             throw $e;
         }
 
@@ -80,7 +94,8 @@ trait RowVersionEditTrait
             return $row->getRowVersion();
         }
 
-        return is_string($value) && preg_match('/^[0-9]{1,9}$/', $value) === 1 ? (int) $value : -1;
+        // Audit ZH-I4: any stored INT value (up to 2147483647); anything else never matches.
+        return is_string($value) && preg_match('/^[0-9]{1,10}$/', $value) === 1 && (int) $value <= 2147483647 ? (int) $value : -1;
     }
 
     /**

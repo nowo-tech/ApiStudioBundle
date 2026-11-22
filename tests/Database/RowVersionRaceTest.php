@@ -11,6 +11,7 @@ use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
+use Nowo\ApiStudioBundle\Doctrine\DefaultEnvironmentSwitch;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionGuard;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionListener;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
@@ -19,14 +20,22 @@ use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
+use Nowo\ApiStudioBundle\Entity\RowVersionedInterface;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
+use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Tests\Database\Support\SecondConnection;
+use Nowo\ApiStudioBundle\Tests\Support\RowVersionEditProbe;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeOrmTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
+use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\Forms;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 
+use function array_map;
 use function getenv;
 use function is_string;
 use function sprintf;
@@ -222,6 +231,116 @@ final class RowVersionRaceTest extends TestCase
         $this->assertUsable();
     }
 
+    /**
+     * Audit ZH-M1: the edit locks the parent (claim) then a child (its flush); another writer holds the child and then
+     * bumps the parent. InnoDB rolls back the lighter transaction (the edit) and, on DBAL 4, the flush's savepoint is
+     * gone (1305): the save repairs the nesting level, rethrows the deadlock (409 + CONFLICT_001), leaves nothing
+     * half-saved, and the next save on the connection works. PostgreSQL is the control: either side may lose there.
+     */
+    #[DataProvider('servers')]
+    public function testADeadlockInTheEditFlushIsARetrySafeConflict(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace, $service, $endpoint] = $this->graph();
+        $translation                      = $endpoint->getTranslation('en');
+        self::assertInstanceOf(ApiEndpointTranslation::class, $translation);
+        $mysql = !$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform;
+
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        // The child row first, plus two more rows so InnoDB picks the edit (one row) as the victim.
+        self::assertSame('OK', $other->execute(sprintf("UPDATE api_studio_endpoint_translation SET title = 'Other writer' WHERE id = %d", $translation->getId())));
+        self::assertSame('OK', $other->execute(sprintf("UPDATE api_studio_workspace SET name = 'Other writer' WHERE id = %d", $workspace->getId())));
+        self::assertSame('OK', $other->execute(sprintf("UPDATE api_studio_service SET name = 'Other writer' WHERE id = %d", $service->getId())));
+        $other->sleep(1000);
+        // Then the parent, while the edit waits for the child: the lock cycle.
+        $other->send(sprintf('UPDATE api_studio_endpoint SET row_version = row_version + 1 WHERE id = %d', $endpoint->getId()));
+
+        $endpoint->setName('Edited');
+        $translation->setTitle('Edited');
+        $failure = null;
+        try {
+            self::assertTrue($this->save($endpoint, 1));
+        } catch (Throwable $e) {
+            $failure = $e;
+        }
+        self::assertSame('OK', $other->await());
+        $otherAnswer = $other->await();
+        self::assertSame('OK', $other->execute($otherAnswer === 'OK' ? 'COMMIT' : 'ROLLBACK'));
+
+        // Whatever happened, the connection is back at level 0 and usable.
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT 1'));
+
+        if ($mysql) {
+            self::assertNotNull($failure, 'InnoDB rolls back the lighter transaction: the edit.');
+        }
+        if ($failure !== null) {
+            // The edit lost: 409 + CONFLICT_001 (nothing committed), nothing of it stored, the other writer's work kept.
+            $request = new Request();
+            $request->attributes->set('_route', 'nowo_api_studio_endpoint_edit');
+            $subscriber = new ConcurrencyConflictSubscriber();
+            self::assertTrue($subscriber->isConflict($failure), $failure::class . ': ' . $failure->getMessage());
+            [$status, $headers] = $subscriber->answerFor($request, $failure);
+            self::assertSame(409, $status);
+            self::assertSame('CONFLICT_001', $headers['X-Conflict-Code']);
+            self::assertSame('OK', $otherAnswer);
+            self::assertSame('Other writer', $this->connection->fetchOne('SELECT title FROM api_studio_endpoint_translation WHERE id = ?', [$translation->getId()]));
+            self::assertNotSame('Edited', $this->connection->fetchOne('SELECT name FROM api_studio_endpoint WHERE id = ?', [$endpoint->getId()]));
+            self::assertSame(2, (int) $this->connection->fetchOne('SELECT row_version FROM api_studio_endpoint WHERE id = ?', [$endpoint->getId()]));
+        } else {
+            // PostgreSQL may abort the other writer instead: the edit is stored whole.
+            self::assertNotSame('OK', $otherAnswer);
+            self::assertSame('Edited', $this->connection->fetchOne('SELECT title FROM api_studio_endpoint_translation WHERE id = ?', [$translation->getId()]));
+            self::assertSame('Edited', $this->connection->fetchOne('SELECT name FROM api_studio_endpoint WHERE id = ?', [$endpoint->getId()]));
+        }
+
+        // The next save on the same connection works (a fresh manager: a failed flush closes the ORM's one).
+        $manager = $this->freshManager();
+        $stored  = $manager->find(ApiEndpoint::class, $endpoint->getId());
+        self::assertInstanceOf(ApiEndpoint::class, $stored);
+        $stored->setName('Next save');
+        self::assertTrue($this->save($stored, $stored->getRowVersion(), manager: $manager));
+        self::assertSame('Next save', $this->connection->fetchOne('SELECT name FROM api_studio_endpoint WHERE id = ?', [$endpoint->getId()]));
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+    }
+
+    /**
+     * Audit ZH-L1: two edits that each make their environment the default run one after the other (the workspace row
+     * is locked first) and the second clears the first: one default, never two.
+     */
+    #[DataProvider('servers')]
+    public function testTwoNewDefaultsLeaveOneDefault(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $first  = (new ApiEnvironment('First', 'first'))->setWorkspace($workspace);
+        $second = (new ApiEnvironment('Second', 'second'))->setWorkspace($workspace);
+        $this->manager->persist($first);
+        $this->manager->persist($second);
+        $this->manager->flush();
+
+        // Edit A (second session) makes "first" the default with the same protocol and holds the locks for a while.
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_workspace SET name = name WHERE id = %d', $workspace->getId())));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET is_default = %s, row_version = row_version + 1 WHERE workspace_id = %d AND id <> %d AND is_default = %s', $this->bool(false), $workspace->getId(), $first->getId(), $this->bool(true))));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET is_default = %s, row_version = row_version + 1 WHERE id = %d', $this->bool(true), $first->getId())));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        // Edit B makes "second" the default: it waits for the workspace lock, then clears "first".
+        $second->setIsDefault(true);
+        self::assertTrue($this->save($second, $second->getRowVersion(), fn () => DefaultEnvironmentSwitch::makeDefault($this->manager, $second)));
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+
+        $defaults = $this->connection->fetchFirstColumn(sprintf('SELECT id FROM api_studio_environment WHERE workspace_id = %d AND is_default = %s', $workspace->getId(), $this->bool(true)));
+        self::assertSame([(int) $second->getId()], array_map('intval', $defaults));
+        $this->assertUsable();
+    }
+
     private function boot(string $variable): void
     {
         $url = getenv($variable);
@@ -232,8 +351,7 @@ final class RowVersionRaceTest extends TestCase
         $this->url        = $url;
         $parser           = new DsnParser(['mysql' => 'pdo_mysql', 'pgsql' => 'pdo_pgsql']);
         $this->connection = DriverManager::getConnection($parser->parse($url), $this->scopeConfiguration());
-        $this->manager    = $this->scopeManager($this->connection);
-        $this->manager->getEventManager()->addEventListener([Events::postUpdate, Events::postPersist, Events::postRemove], new RowVersionListener());
+        $this->manager    = $this->freshManager();
         $this->createScopeSchema($this->manager);
         // Bounded waits: a test that blocks fails within seconds instead of hanging the job.
         $this->connection->executeStatement($this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform ? "SET lock_timeout = '15s'" : 'SET SESSION innodb_lock_wait_timeout = 15');
@@ -262,18 +380,53 @@ final class RowVersionRaceTest extends TestCase
     /**
      * What the edit pages do (RowVersionEditTrait::saveEdit()): one transaction, claim at the form's version, flush.
      */
-    private function save(ApiWorkspace|ApiService|ApiEndpoint|ApiEnvironment $row, int $expected): void
+    private function save(RowVersionedInterface $row, int $expected, ?callable $beforeClaim = null, ?EntityManagerInterface $manager = null): bool
     {
-        $this->connection->beginTransaction();
-        try {
-            RowVersionGuard::claim($this->manager, $row, $expected);
-            $this->manager->flush();
-            $this->connection->commit();
-        } catch (Throwable $e) {
-            $this->connection->rollBack();
+        return $this->probe($manager ?? $this->manager)->save($this->form($row, $expected), $row, $beforeClaim);
+    }
 
-            throw $e;
+    /**
+     * The edit form as the pages build it: the hidden version, submitted with the version the form was rendered from.
+     *
+     * @return FormInterface<mixed>
+     */
+    private function form(RowVersionedInterface $row, int $expected): FormInterface
+    {
+        $builder = Forms::createFormFactory()->createBuilder(FormType::class, $row, ['data_class' => $row::class]);
+        RowVersionField::add($builder, [RowVersionField::OPTION => $expected]);
+        $form = $builder->getForm();
+        $form->submit([RowVersionField::NAME => (string) $expected]);
+
+        return $form;
+    }
+
+    /**
+     * The edit pages' save (RowVersionEditTrait::saveEdit()) on a minimal controller.
+     */
+    private function probe(EntityManagerInterface $manager): RowVersionEditProbe
+    {
+        $container = $this->createStub(ContainerInterface::class);
+        $container->method('has')->willReturn(false);
+        $container->method('get')->willReturn(new ConcurrencyConflictSubscriber());
+
+        return new RowVersionEditProbe($manager, $container);
+    }
+
+    private function freshManager(): EntityManagerInterface
+    {
+        $manager = $this->scopeManager($this->connection);
+        $manager->getEventManager()->addEventListener([Events::postUpdate, Events::postPersist, Events::postRemove], new RowVersionListener());
+
+        return $manager;
+    }
+
+    private function bool(bool $value): string
+    {
+        if ($this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform) {
+            return $value ? 'true' : 'false';
         }
+
+        return $value ? '1' : '0';
     }
 
     private function other(): SecondConnection

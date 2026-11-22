@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use LogicException;
 use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
+use Nowo\ApiStudioBundle\Doctrine\DefaultEnvironmentSwitch;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionGuard;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionListener;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
@@ -115,6 +116,30 @@ final class RowVersionTest extends TestCase
         $this->manager->remove($workspace);
         $this->manager->flush();
         self::assertSame(0, (int) $this->manager->getConnection()->fetchOne('SELECT COUNT(*) FROM api_studio_workspace'));
+    }
+
+    public function testANewDefaultClearsTheOtherDefaultsAndMovesTheirVersions(): void
+    {
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $next = (new ApiEnvironment('Next', 'next'))->setWorkspace($workspace);
+        $this->manager->persist($next);
+        $this->manager->flush();
+        $before = (int) $this->stored($current);
+
+        $this->manager->getConnection()->beginTransaction();
+        DefaultEnvironmentSwitch::makeDefault($this->manager, $next);
+        $this->manager->getConnection()->commit();
+
+        self::assertFalse((bool) $this->manager->getConnection()->fetchOne('SELECT is_default FROM api_studio_environment WHERE id = ?', [$current->getId()]));
+        self::assertSame($before + 1, $this->stored($current));
+        self::assertSame(1, $this->stored($next));
+    }
+
+    public function testANewDefaultNeedsStoredRows(): void
+    {
+        $this->expectException(LogicException::class);
+        DefaultEnvironmentSwitch::makeDefault($this->manager, new ApiEnvironment('New', 'new'));
     }
 
     public function testOtherEntitiesAreIgnored(): void

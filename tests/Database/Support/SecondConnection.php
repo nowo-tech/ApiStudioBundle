@@ -76,6 +76,7 @@ final class SecondConnection
         fwrite($this->pipes[0], 'SLEEP ' . $milliseconds . "\n");
     }
 
+    /** @phpstan-impure */
     public function await(): string
     {
         return $this->readLine();

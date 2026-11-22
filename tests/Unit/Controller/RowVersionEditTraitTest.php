@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Controller;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
-use Nowo\ApiStudioBundle\Controller\RowVersionEditTrait;
-use Nowo\ApiStudioBundle\Controller\SlugConflictTrait;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironmentVariable;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Form\RowVersionField;
+use Nowo\ApiStudioBundle\Tests\Support\RowVersionEditProbe;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeOrmTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use RuntimeException;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\Forms;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Throwable;
 
 /**
  * 1.20 edit saves on SQLite, outside a kernel: a refused unique key keeps the row's version, the stale answer drops the
@@ -53,6 +53,40 @@ final class RowVersionEditTraitTest extends TestCase
         self::assertSame(1, $workspace->getRowVersion());
         self::assertSame(0, $this->manager->getConnection()->getTransactionNestingLevel());
         self::assertSame(1, (int) $this->manager->getConnection()->fetchOne("SELECT row_version FROM api_studio_workspace WHERE slug = 'mine'"));
+    }
+
+    public function testAFailedRollbackClosesTheConnectionAndRethrowsTheOriginalFailure(): void
+    {
+        // Audit ZH-M1: after a MySQL / MariaDB deadlock the flush's savepoint is gone and rollBack() throws (1305).
+        $connection = $this->createMock(Connection::class);
+        $connection->method('getTransactionNestingLevel')->willReturnOnConsecutiveCalls(0, 1);
+        $connection->expects(self::once())->method('beginTransaction');
+        $connection->method('rollBack')->willThrowException(new RuntimeException('SAVEPOINT DOCTRINE_2 does not exist'));
+        $connection->expects(self::once())->method('close');
+        $manager = $this->createStub(EntityManagerInterface::class);
+        $manager->method('getConnection')->willReturn($connection);
+        $container = $this->createStub(ContainerInterface::class);
+        $workspace = new ApiWorkspace('W', 'w');
+        $original  = new RuntimeException('Deadlock found when trying to get lock');
+
+        try {
+            (new RowVersionEditProbe($manager, $container))->save($this->form($workspace, ['slug' => 'w', RowVersionField::NAME => '1']), $workspace, static function () use ($original): void {
+                throw $original;
+            });
+            self::fail('Expected the original failure.');
+        } catch (RuntimeException $e) {
+            self::assertSame($original, $e);
+        }
+    }
+
+    public function testAVersionBeyondTheIntegerRangeNeverMatches(): void
+    {
+        $workspace = new ApiWorkspace('W', 'w');
+        $this->manager->persist($workspace);
+        $this->manager->flush();
+
+        $this->expectException(StaleEditException::class);
+        $this->probe()->save($this->form($workspace, ['slug' => 'w', RowVersionField::NAME => '2147483648']), $workspace);
     }
 
     public function testTheStaleAnswerDropsTheRefusedChanges(): void
@@ -118,37 +152,5 @@ final class RowVersionEditTraitTest extends TestCase
         $container->method('get')->willReturn(new ConcurrencyConflictSubscriber());
 
         return new RowVersionEditProbe($this->manager, $container);
-    }
-}
-
-/**
- * The trait on a minimal controller (the manager and the service locator it needs).
- */
-final class RowVersionEditProbe
-{
-    use RowVersionEditTrait;
-    use SlugConflictTrait;
-
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-        private readonly ContainerInterface $container,
-    ) {
-    }
-
-    /** @param FormInterface<mixed> $form */
-    public function save(FormInterface $form, ApiWorkspace $row): bool
-    {
-        return $this->saveEdit($form, $row);
-    }
-
-    /** @return array{int, array<string, string>} */
-    public function answer(Request $request, StaleEditException $stale, ApiWorkspace|ApiEnvironment $row, object ...$written): array
-    {
-        return $this->answerStaleEdit($request, $stale, $row, ...$written);
-    }
-
-    public function createNotFoundException(string $message = 'Not Found', ?Throwable $previous = null): NotFoundHttpException
-    {
-        return new NotFoundHttpException($message, $previous);
     }
 }

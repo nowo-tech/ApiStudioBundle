@@ -6,6 +6,7 @@ namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
+use Nowo\ApiStudioBundle\Doctrine\DefaultEnvironmentSwitch;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
@@ -96,19 +97,18 @@ final class ApiEnvironmentController extends AbstractController
         $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $environment = $this->requireEnvironment($id, $workspace);
         // 1.20: the rows this form may write, as loaded (a stale save re-reads them).
-        $written = $request->isMethod(Request::METHOD_POST) ? [...$environment->getVariables()->toArray(), ...$workspace->getEnvironments()->toArray()] : [];
+        $written = $request->isMethod(Request::METHOD_POST) ? $environment->getVariables()->toArray() : [];
         $form    = $this->createForm(ApiEnvironmentFormType::class, $environment, [RowVersionField::OPTION => $environment->getRowVersion()]);
         $form->handleRequest($request);
         $status  = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
         $headers = [];
 
         if ($form->isSubmitted() && $form->isValid()) {
-            if ($environment->isDefault()) {
-                $this->clearDefaultFlag($workspace, $environment);
-            }
+            // Audit ZH-L1: a new default locks the workspace row, then clears the other defaults in one statement.
+            $makeDefault = $environment->isDefault() ? fn () => DefaultEnvironmentSwitch::makeDefault($this->entityManager, $environment) : null;
 
             try {
-                if ($this->saveEdit($form, $environment)) {
+                if ($this->saveEdit($form, $environment, $makeDefault)) {
                     $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
                     $this->flash('success', 'flash.updated');
 

@@ -358,6 +358,7 @@ These 53 `src/` files were added by releases after the last review. Each row map
 | `Doctrine/RowVersionGuard.php` | Guarded claim (`row_version = row_version + 1 … AND row_version = ?`) and atomic bump of the version | FR-CONCUR-002 |
 | `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
 | `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
+| `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
 | `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, conflict status and headers) | FR-CONCUR-002, FR-CTRL-001 |
 
 ## Coverage summary
