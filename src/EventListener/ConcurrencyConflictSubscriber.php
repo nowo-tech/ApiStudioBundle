@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\EventListener;
 
+use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
+use Nowo\ApiStudioBundle\Controller\RowVersionEditTrait;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Nowo\TransactionContract\TransientStorageFailure;
@@ -15,6 +17,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Throwable;
 
@@ -33,6 +36,12 @@ use function is_string;
  * same status and headers, rendered by the host's error page. Other database errors (unique violations, lost
  * connections) are not mapped.
  *
+ * A **domain** stale edit ({@see StaleEditException}, an edit form saved on a row version that is no longer current) is
+ * none of that and is answered first (1.21, house convention): always **409** with
+ * `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After`, because nothing was written and
+ * repeating the request can never succeed. Until 1.20 it answered `CONFLICT_001` + `Retry-After`, which invited an
+ * endless retry. {@see answerForStaleEdit()} is the answer the edit pages use themselves.
+ *
  * Detection uses transaction-doctrine's bounded walk (`TransientFailureClassifier::findConflict()`, >= 1.7.1, audit
  * UA2-5): the `getPrevious()` chain and the exceptions a Messenger wrapper carries (a deadlock in the second handler of
  * a synchronous `HandlerFailedException`), each throwable once, at most `ThrowableWalk::MAX_NODES`. A
@@ -44,6 +53,12 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
     public const ERROR = 'concurrency_conflict';
 
     public const MESSAGE = 'The change met a conflict with another change. Try again.';
+
+    /** Message of a stale-edit answer: never "try again" — the same request can only be refused again. */
+    public const STALE_EDIT_MESSAGE = 'The item was saved by someone else after the form was rendered. Open it again before saving.';
+
+    /** Most throwables walked when looking for a stale edit (a long chain can never hang a worker). */
+    private const MAX_DEPTH = 256;
 
     public function __construct(
         private ConflictResponsePolicy $policy = new ConflictResponsePolicy(),
@@ -66,7 +81,15 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
             return;
         }
 
-        $failure  = $event->getThrowable();
+        $failure = $event->getThrowable();
+
+        // A domain stale edit that no page answered itself: 409 + X-Error-Code, never a retryable CONFLICT_00x.
+        if (self::findStaleEdit($failure) instanceof StaleEditException) {
+            $this->answerStaleEdit($event, $route, $failure);
+
+            return;
+        }
+
         $conflict = TransientFailureClassifier::findConflict($failure);
         if (!$conflict instanceof Throwable) {
             return;
@@ -92,8 +115,57 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
     }
 
     /**
-     * Status and headers of the conflict answer for a failure a page answers itself (1.20: the edit forms on a stale
-     * row version show the form again): the same policy as the exception answer — the configured status (409 or 503),
+     * Status and headers of a domain stale edit (1.21): always 409 with `X-Error-Code: API_STUDIO_STALE_EDIT`, no
+     * `X-Conflict-Code` and no `Retry-After`. The answer the edit forms use when they show the form again with the
+     * stored data ({@see RowVersionEditTrait::answerStaleEdit()}).
+     *
+     * @return array{int, array<string, string>}
+     */
+    public function answerForStaleEdit(Request $request): array
+    {
+        $route = $request->attributes->get('_route');
+        $this->logger?->info('Api Studio: an edit met a newer version of the row; answered the stale-edit status.', [
+            'route'  => is_string($route) ? $route : null,
+            'status' => StaleEditException::STATUS,
+            'code'   => StaleEditException::ERROR_CODE,
+        ]);
+
+        return [StaleEditException::STATUS, [StaleEditException::HEADER => StaleEditException::ERROR_CODE]];
+    }
+
+    /** The stale edit the failure carries, walking a bounded `getPrevious()` chain (null when it carries none). */
+    private static function findStaleEdit(Throwable $failure): ?StaleEditException
+    {
+        for ($current = $failure, $seen = 0; $current instanceof Throwable && $seen < self::MAX_DEPTH; $current = $current->getPrevious(), ++$seen) {
+            if ($current instanceof StaleEditException) {
+                return $current;
+            }
+        }
+
+        return null;
+    }
+
+    /** The answer of a stale edit that reached the kernel: the JSON shape of the console routes, a 409 page elsewhere. */
+    private function answerStaleEdit(ExceptionEvent $event, string $route, Throwable $failure): void
+    {
+        [$status, $headers] = $this->answerForStaleEdit($event->getRequest());
+
+        if (in_array(ApiStudioRoutes::canonical($route), ApiStudioAccessSubscriber::JSON_ROUTES, true)) {
+            $event->setResponse(new JsonResponse(
+                ['error' => StaleEditException::ERROR, 'code' => StaleEditException::ERROR_CODE],
+                $status,
+                $headers + ['Cache-Control' => 'no-store, private'],
+            ));
+
+            return;
+        }
+
+        $event->setThrowable(new ConflictHttpException(self::STALE_EDIT_MESSAGE, $failure, 0, $headers));
+    }
+
+    /**
+     * Status and headers of the lock-conflict answer for a failure a page answers itself (a domain stale edit uses
+     * {@see answerForStaleEdit()} instead): the same policy as the exception answer — the configured status (409 or 503),
      * `X-Conflict-Code: CONFLICT_001` + `Retry-After` when nothing was committed, `CONFLICT_002` without `Retry-After`
      * when the failure or the request's commit watermark says part was committed.
      *
@@ -104,7 +176,7 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
         $code     = ConflictCode::forRequest($request, $failure);
         $conflict = TransientFailureClassifier::findConflict($failure);
         $route    = $request->attributes->get('_route');
-        $this->logger?->info('Api Studio: an edit met a newer version of the row; answered the conflict status.', [
+        $this->logger?->info('Api Studio: a write met a lock conflict a page answers itself; answered the conflict status.', [
             'route'  => is_string($route) ? $route : null,
             'status' => $this->policy->status,
             'code'   => $code->value,

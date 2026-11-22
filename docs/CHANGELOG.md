@@ -72,6 +72,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A stale edit answers the house domain conflict, not a retryable lock conflict** (REQ-RUNTIME-003, convention
+  accepted 2026-11-22): an edit form of a workspace, service, endpoint or environment saved on a row version that is no
+  longer current now answers **409** (always, also with `concurrency.conflict_status: 503`) with
+  `X-Error-Code: API_STUDIO_STALE_EDIT`, **no `X-Conflict-Code`** and **no `Retry-After`**; JSON console routes get
+  `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}`. The page answer is otherwise unchanged (the form again with
+  the stored data, the message `conflict.stale_edit`, nothing written). `Concurrency\StaleEditException` is no longer a
+  transaction-doctrine `LockConflictExceptionInterface`, so no conflict responder — the bundle's own or the one
+  `NowoTransactionDoctrineBundle` registers at priority 64 — turns it into a `CONFLICT_00x` any more; a stale edit that
+  reaches the kernel is answered by `ConcurrencyConflictSubscriber` with the same domain answer.
+  **Behaviour change for clients that retried on `CONFLICT_001`**: see
+  [UPGRADING](UPGRADING.md#to-1210). Genuine lock conflicts (deadlock, lock wait timeout, serialization failure, a
+  `ConcurrencyConflict` or a `TransientStorageFailure`) are untouched: they keep `X-Conflict-Code`,
+  `CONFLICT_001` / `CONFLICT_002` and `Retry-After`, as do the retryable 409s of the folder tree, the imports and the
+  script variable saves (their own body codes).
+
+### Fixed
+
+- **A stale edit invited an endless retry** (1.20 only): the stale answer used the *transaction-level* concurrency
+  contract (`ConflictCode::forRequest()`, `X-Conflict-Code: CONFLICT_001` + `Retry-After`), which tells the client that
+  nothing was committed and repeating the request is safe. A stale edit is not retryable — the submitted row version is
+  already behind — so a client following that contract retried a refused save for ever, and could silently overwrite
+  the other writer's change on an attempt made with a refreshed version. It is now a domain 409 with
+  `X-Error-Code: API_STUDIO_STALE_EDIT` and no retry hint.
+
 ## [1.20.0] - 2026-11-22
 
 ### Added

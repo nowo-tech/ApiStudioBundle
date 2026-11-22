@@ -305,9 +305,9 @@ final class ApiEndpointController extends AbstractController
                         'id'          => $id,
                     ]);
                 }
-            } catch (StaleEditException $e) {
+            } catch (StaleEditException) {
                 // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
-                [$status, $headers] = $this->answerStaleEdit($request, $e, $endpoint, ...$translations);
+                [$status, $headers] = $this->answerStaleEdit($request, $endpoint, ...$translations);
                 $this->ensureTranslationLocales($endpoint);
                 $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']) + [RowVersionField::OPTION => $endpoint->getRowVersion()]);
                 $this->flash('error', StaleEditException::MESSAGE_KEY);

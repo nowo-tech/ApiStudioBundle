@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.21.0](#to-1210)
 - [To 1.20.0](#to-1200)
   - [To 1.20.0](#to-1200-1)
 - [To 1.19.1](#to-1191)
@@ -93,6 +94,33 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.21.0
+
+From **1.20.0** (minor, no schema change; **behaviour change of the stale-edit answer**):
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- **A stale edit is no longer a retryable lock conflict.** An edit form of a workspace, service, endpoint or
+  environment saved on a row version that is no longer current answered, in 1.20, **409** with
+  `X-Conflict-Code: CONFLICT_001` and `Retry-After`. That is the transaction contract's code for a deadlock or a
+  serialization failure, which invites the client to repeat the request. From 1.21 it answers the house domain
+  conflict instead: **409** (always, also with `concurrency.conflict_status: 503`) with
+  **`X-Error-Code: API_STUDIO_STALE_EDIT`**, **no `X-Conflict-Code`** and **no `Retry-After`**. JSON console routes
+  get `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}`. The page answer is unchanged otherwise: the form again
+  with the stored data and the message `conflict.stale_edit`, nothing written.
+- **Action — any client that retried on `CONFLICT_001`:** a stale edit must now be handled as `409` +
+  `X-Error-Code: API_STUDIO_STALE_EDIT` and **must not be retried**. Repeating the same save can never succeed (its
+  row version is already behind) and, if your client refreshed the version in between, a later attempt would silently
+  overwrite the other writer's change. Read the stored row again and let the user decide. Clients keying only on the
+  409 status, and browsers using the pages, need no change.
+- **`Concurrency\StaleEditException` no longer implements** transaction-doctrine's
+  `WriteUnit\LockConflictExceptionInterface`: host code that catches that interface (or registers
+  `NowoTransactionDoctrineBundle`, whose responder answered it with `CONFLICT_001` before the bundle's own subscriber
+  could) no longer sees a stale edit as a lock conflict. Catch `Nowo\ApiStudioBundle\Concurrency\StaleEditException`
+  instead; nothing about retries of real deadlocks, lock wait timeouts or serialization failures changed.
 
 ## To 1.20.0
 

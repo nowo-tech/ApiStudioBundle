@@ -118,7 +118,8 @@ final class DedicatedEntityManagerTest extends TestCase
 
     /**
      * 1.20 row versions on a DDD host's dedicated manager: a save moves the version, an older form of the same row is
-     * refused (409 + CONFLICT_001), and an ORM write without a version (the listener, registered on every manager)
+     * refused (409 + `X-Error-Code: API_STUDIO_STALE_EDIT`), and an ORM write without a version (the listener,
+     * registered on every manager)
      * moves it too. The host manager is never flushed.
      */
     public function testRowVersionsOnADedicatedManager(): void
@@ -138,7 +139,9 @@ final class DedicatedEntityManagerTest extends TestCase
         self::assertSame(302, $client->getResponse()->getStatusCode());
         $client->submit($second, ['api_workspace_form[name]' => 'Second']);
         self::assertSame(409, $client->getResponse()->getStatusCode());
-        self::assertSame('CONFLICT_001', $client->getResponse()->headers->get('X-Conflict-Code'));
+        self::assertSame('API_STUDIO_STALE_EDIT', $client->getResponse()->headers->get('X-Error-Code'));
+        self::assertFalse($client->getResponse()->headers->has('X-Conflict-Code'), 'a stale edit is not a retryable conflict');
+        self::assertFalse($client->getResponse()->headers->has('Retry-After'));
         self::assertSame('First', $studio->getConnection()->fetchOne('SELECT name FROM api_studio_workspace WHERE id = ?', [$id]));
         self::assertSame(2, (int) $studio->getConnection()->fetchOne('SELECT row_version FROM api_studio_workspace WHERE id = ?', [$id]));
 

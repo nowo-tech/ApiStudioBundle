@@ -7,6 +7,7 @@ namespace Nowo\ApiStudioBundle\Tests\Unit\EventListener;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\DeadlockException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
 use Nowo\TransactionContract\TransientStorageFailure;
@@ -35,6 +36,9 @@ use function array_slice;
 /**
  * 1.17 (REQ-RUNTIME-003 rule 6): lock conflicts on Api Studio routes answer 409 / 503 with X-Conflict-Code,
  * CONFLICT_001 + Retry-After or CONFLICT_002 without it; anything else is left alone.
+ *
+ * 1.21: a domain stale edit is not one of them — always 409 with `X-Error-Code: API_STUDIO_STALE_EDIT`, never
+ * `X-Conflict-Code` and never `Retry-After`.
  */
 final class ConcurrencyConflictSubscriberTest extends TestCase
 {
@@ -193,6 +197,63 @@ final class ConcurrencyConflictSubscriberTest extends TestCase
         // One handler less: the deadlock is the last throwable the walk visits.
         $within = new HandlerFailedException(new Envelope(new stdClass()), [...array_slice($padding, 1), $this->deadlock()]);
         self::assertTrue($subscriber->isConflict($within));
+    }
+
+    public function testAStaleEditOnAPageIsADomain409WithoutAConflictCode(): void
+    {
+        $logger = new InMemoryLogger();
+        $stale  = new StaleEditException();
+        $event  = $this->event('nowo_api_studio_workspace_edit', $stale);
+        (new ConcurrencyConflictSubscriber(new ConflictResponsePolicy(503, 5), logger: $logger))->onKernelException($event);
+
+        $exception = $event->getThrowable();
+        self::assertInstanceOf(HttpException::class, $exception);
+        // 409 even with conflict_status 503: that status is the lock-conflict answer, not this one.
+        self::assertSame(409, $exception->getStatusCode());
+        self::assertSame(['X-Error-Code' => 'API_STUDIO_STALE_EDIT'], $exception->getHeaders());
+        self::assertArrayNotHasKey('X-Conflict-Code', $exception->getHeaders());
+        self::assertArrayNotHasKey('Retry-After', $exception->getHeaders());
+        self::assertSame(ConcurrencyConflictSubscriber::STALE_EDIT_MESSAGE, $exception->getMessage());
+        self::assertSame($stale, $exception->getPrevious());
+        self::assertStringContainsString('API_STUDIO_STALE_EDIT', $logger->text());
+        self::assertStringNotContainsString('CONFLICT_001', $logger->text());
+    }
+
+    public function testAStaleEditOnAJsonRouteGetsTheDomainJsonShape(): void
+    {
+        $event = $this->event('nowo_api_studio_endpoint_save_documentation', new StaleEditException());
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}', $response->getContent());
+        self::assertSame('API_STUDIO_STALE_EDIT', $response->headers->get('X-Error-Code'));
+        self::assertFalse($response->headers->has('X-Conflict-Code'));
+        self::assertFalse($response->headers->has('Retry-After'));
+        self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+    }
+
+    /** A stale edit wrapped by Messenger, and the lock conflict it does not become. */
+    public function testAWrappedStaleEditKeepsTheDomainAnswerAndIsNoConflict(): void
+    {
+        $wrapped = new RuntimeException('save', 0, new StaleEditException());
+        $event   = $this->event('nowo_api_studio_service_edit', $wrapped);
+        (new ConcurrencyConflictSubscriber())->onKernelException($event);
+
+        $exception = $event->getThrowable();
+        self::assertInstanceOf(HttpException::class, $exception);
+        self::assertSame(409, $exception->getStatusCode());
+        self::assertSame(['X-Error-Code' => 'API_STUDIO_STALE_EDIT'], $exception->getHeaders());
+
+        // Not a lock conflict for transaction-doctrine either (no LockConflictExceptionInterface since 1.21).
+        self::assertFalse((new ConcurrencyConflictSubscriber())->isConflict(new StaleEditException()));
+
+        // A host route keeps the stale edit untouched.
+        $hostEvent = $this->event('app_checkout', new StaleEditException());
+        (new ConcurrencyConflictSubscriber())->onKernelException($hostEvent);
+        self::assertInstanceOf(StaleEditException::class, $hostEvent->getThrowable());
+        self::assertNull($hostEvent->getResponse());
     }
 
     private function deadlock(): Throwable

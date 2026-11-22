@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\Support;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\Controller\RowVersionEditTrait;
 use Nowo\ApiStudioBundle\Controller\SlugConflictTrait;
 use Nowo\ApiStudioBundle\Entity\RowVersionedInterface;
@@ -36,9 +35,9 @@ final class RowVersionEditProbe
     }
 
     /** @return array{int, array<string, string>} */
-    public function answer(Request $request, StaleEditException $stale, RowVersionedInterface $row, object ...$written): array
+    public function answer(Request $request, RowVersionedInterface $row, object ...$written): array
     {
-        return $this->answerStaleEdit($request, $stale, $row, ...$written);
+        return $this->answerStaleEdit($request, $row, ...$written);
     }
 
     public function createNotFoundException(string $message = 'Not Found', ?Throwable $previous = null): NotFoundHttpException

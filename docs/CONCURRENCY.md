@@ -36,6 +36,19 @@ lost connections and other database errors are **not** mapped (the slug forms an
 registers `NowoTransactionDoctrineBundle`, its responder (priority 64) answers first; the bundle's subscriber
 (priority 32) is the fallback. Clients key on `code` or `X-Conflict-Code`, never on `error`.
 
+A **domain** conflict is not one of these and never carries a `CONFLICT_00x`. Since 1.21 a stale edit — an edit form
+saved on a row version that is no longer current, `Concurrency\StaleEditException` — answers:
+
+| Case | Status | Headers | Body (console JSON routes) |
+| --- | --- | --- | --- |
+| Stale edit (nothing written, retrying can never succeed) | **409**, always | `X-Error-Code: API_STUDIO_STALE_EDIT`; no `X-Conflict-Code`, no `Retry-After` | `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}` |
+
+The status is 409 even with `concurrency.conflict_status: 503`, which configures the lock-conflict answer only. Until
+1.20 a stale edit answered `CONFLICT_001` + `Retry-After` (the transaction contract's retryable code): a client
+following that contract retried a refused save for ever and could overwrite the other writer's change on a later
+attempt. The house convention is `X-Error-Code: <THING>_STALE_EDIT`, no `X-Conflict-Code`; the client re-reads the
+stored row and decides.
+
 ## Write paths
 
 | Path | Transaction | Control | Conflict answer |
@@ -43,7 +56,7 @@ registers `NowoTransactionDoctrineBundle`, its responder (priority 64) answers f
 | `WorkspaceSeeder::seed()` (1.17) | One per attempt, transaction-doctrine `forHostEntityManager()` runner | Workspace row `FOR UPDATE` (lookup before the transaction, no gap lock); unique (tenant, scope, slug) + catch for a new workspace; unique (workspace, slug) / (environment, key) for children; up to 3 attempts from a fresh read (outermost only) | `ConcurrencyConflict` (`CONFLICT_001`) after the last lock conflict; the last unique violation is rethrown |
 | `WorkspaceScopeMover::move()` (1.17) | One, transaction-doctrine runner | Row `FOR UPDATE`; unique (tenant, scope, slug) decides a collision | `WorkspaceSlugTakenException` (domain, nothing changed); a lock conflict propagates as `TransientStorageFailure` (one attempt) |
 | Workspace create (UI, also on a scoped mount) | Explicit transaction (created event inside, committed event after) | Unique (tenant, scope, slug) + catch → 422 on the slug field | 409 on lock conflicts (1.17) |
-| Workspace / service / environment / endpoint edit (UI, *1.20*) | Explicit transaction: claim, then flush | Row version: guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?` (the row lock until the commit); unique slug keys + catch → 422 | Stale version → 409 + `CONFLICT_001` (form again with the stored data); 409 on lock conflicts |
+| Workspace / service / environment / endpoint edit (UI, *1.20*) | Explicit transaction: claim, then flush | Row version: guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?` (the row lock until the commit); unique slug keys + catch → 422 | Stale version → domain 409 + `X-Error-Code: API_STUDIO_STALE_EDIT` (*1.21*; form again with the stored data); 409 + `CONFLICT_00x` on lock conflicts |
 | Workspace / service / environment / endpoint delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Type-to-confirm (workspace, service); the delete wins over a concurrent edit (that edit then answers 404) | 409 on lock conflicts (1.17) |
 | Folder tree moves, folder deletes, imports into a service (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
 | `pm.globals` / `pm.collectionVariables` saves (*1.15*) | Explicit transaction, DBAL statements | Workspace row lock, caps checked under it | 409 + `Retry-After` (audit RW-D-I1) |
@@ -102,14 +115,16 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
 - **Two editors on the same version**: the second one's `UPDATE` waits for the first one's row lock, then matches no
   row (MySQL / MariaDB read the latest committed row for an `UPDATE`; PostgreSQL READ COMMITTED re-checks the condition
   on the new row version; under REPEATABLE READ / SERIALIZABLE PostgreSQL raises a serialization failure, which is a
-  409 `CONFLICT_001` too). Exactly one saves.
+  409 `CONFLICT_001` — a real lock conflict, retryable, unlike the stale edit). Exactly one saves.
 - **Stale answer** (HTML): the page re-reads the rows the refused form changed (the main row, its translations or
   variables; orphan removals of the form are cancelled), shows the form again
   with the stored data and the error flash `conflict.stale_edit`, with the status and headers of
-  `ConcurrencyConflictSubscriber::answerFor()`: 409 (or `conflict_status`) + `X-Conflict-Code: CONFLICT_001` +
-  `Retry-After`, or `CONFLICT_002` without `Retry-After` when the request's commit watermark saw earlier work committed.
-  A row deleted meanwhile answers 404. Anywhere else the exception escapes, it is a transaction-doctrine
-  `LockConflictExceptionInterface` and the conflict subscriber answers it.
+  `ConcurrencyConflictSubscriber::answerForStaleEdit()`: 409 + `X-Error-Code: API_STUDIO_STALE_EDIT`, no
+  `X-Conflict-Code` and no `Retry-After` (1.21; until 1.20 it was `CONFLICT_001` + `Retry-After`).
+  A row deleted meanwhile answers 404. Anywhere else the exception escapes, the conflict subscriber answers it the same
+  way (a JSON console route gets `{"error":"stale_edit","code":"API_STUDIO_STALE_EDIT"}`); it is deliberately **not** a
+  transaction-doctrine `LockConflictExceptionInterface` any more, so no conflict responder turns it into a retryable
+  `CONFLICT_001`.
 - **Other writers** (`Doctrine\RowVersionListener`, `postUpdate` / `postPersist` / `postRemove`, every manager): an ORM
   update of a versioned row that does not set `rowVersion` itself, and any write of an endpoint translation or an
   environment variable, runs `UPDATE … SET row_version = row_version + 1 WHERE id = ?` in the flush's transaction and
@@ -118,7 +133,7 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
 - **Worker mode**: the guard is static and the listener stateless; the version lives on the entity (one row per
   request) and in the database, never on a service.
 - **Template overrides** that drop the hidden field: the save uses the version this request loaded (last writer wins
-  only between two page loads). A malformed value never matches (409).
+  only between two page loads). A malformed value never matches (409 + `X-Error-Code: API_STUDIO_STALE_EDIT`).
 
 ## Tests
 
@@ -137,7 +152,8 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
 - `tests/Integration/Seed` (SQLite): idempotent re-run, update, additive, retry of a unique violation and of transient
   failures, a conflict from below passed on, nested transaction (one attempt), pending changes refused.
 - `tests/Unit/EventListener/ConcurrencyConflictSubscriberTest.php`: 409 / 503, `CONFLICT_001` / `CONFLICT_002`
-  (committed flag and request watermark), JSON routes, unmapped failures.
+  (committed flag and request watermark), JSON routes, unmapped failures; and the domain stale edit (page and JSON
+  route: 409 with `X-Error-Code`, no `X-Conflict-Code`, no `Retry-After`, also with `conflict_status: 503`).
 - `tests/Database/RowVersionRaceTest.php` (testsuite `Database`, the same three servers and second session): two
   editors on the same version (the second waits for the lock, then writes nothing); the first editor holding the lock
   while the second's guarded `UPDATE` waits (no lost update); a lock wait timeout on the claim (409 + `CONFLICT_001` +
@@ -148,11 +164,11 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   where either side may lose); two edits making different environments the default (one default left). The tests go
   through the pages' own save (`RowVersionEditTrait::saveEdit()`).
 - `tests/Functional/StaleEditTest.php` (SQLite kernel): each of the four edit pages saved after another save (409,
-  `X-Conflict-Code`, `Retry-After`, the message, the stored data unchanged, the new form saves); two tabs; malformed and
-  missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a
+  `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After`, the message, the stored data
+  unchanged, the new form saves); two tabs; malformed and missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a
   documentation save refusing an older endpoint form; a row deleted meanwhile (404).
 - `tests/Integration/Doctrine/RowVersionTest.php` (SQLite): claim, stale claim, bump of a deleted row, child writes,
-  ignored entities, the stale conflict answer (`CONFLICT_001`, and `CONFLICT_002` when work was committed).
+  ignored entities, the domain stale answer (`API_STUDIO_STALE_EDIT`, and no lock conflict for the classifier).
 - CI job **Databases** (DBAL 3 and DBAL 4) runs the race suite with `--fail-on-skipped`; locally `make test-with-db`.
 
 ## Host options
@@ -161,7 +177,7 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
 nowo_api_studio:
     concurrency:
         conflict_status: 409   # or 503
-        retry_after: 1         # seconds, CONFLICT_001 only
+        retry_after: 1         # seconds, CONFLICT_001 only (never on a stale edit)
 ```
 
 With transaction-doctrine's bundle registered and `commit_detection` on, the request commit watermark lets the

@@ -152,9 +152,9 @@ final class ApiServiceController extends AbstractController
                         'id'          => $id,
                     ]);
                 }
-            } catch (StaleEditException $e) {
+            } catch (StaleEditException) {
                 // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
-                [$status, $headers] = $this->answerStaleEdit($request, $e, $service);
+                [$status, $headers] = $this->answerStaleEdit($request, $service);
                 $form               = $this->createForm(ApiServiceFormType::class, $service, $options + [RowVersionField::OPTION => $service->getRowVersion()]);
                 $this->flash('error', StaleEditException::MESSAGE_KEY);
             }
