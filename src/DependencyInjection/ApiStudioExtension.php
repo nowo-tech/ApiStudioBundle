@@ -32,6 +32,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Security\ApiStudioPermissionCheckerInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
+use Nowo\ApiStudioBundle\Security\ApiWorkspaceAccess;
 use Nowo\ApiStudioBundle\Security\ConfigurableApiStudioAccessChecker;
 use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
@@ -514,6 +515,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->getDefinition(ApiStudioAuthorization::class)
             ->setArgument('$scopeChecker', $enabled ? new Reference((string) $checker) : null)
             ->setArgument('$tenantListAll', $scope['tenant_list'] === 'all');
+        $container->getDefinition(ApiWorkspaceAccess::class)->setArgument('$scopeChecker', $enabled ? new Reference((string) $checker) : null);
         $container->getDefinition(ApiStudioPageFactory::class)->setArgument('$scopeLabels', $labels !== null ? new Reference($labels) : null);
         $container->getDefinition(ApiStudioUrlGenerator::class)->setArgument('$scopedRoutes', $path !== null);
         $container->getDefinition(WorkspaceSeeder::class)

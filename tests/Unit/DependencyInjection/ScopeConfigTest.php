@@ -12,6 +12,7 @@ use Nowo\ApiStudioBundle\Scope\ScopeContext;
 use Nowo\ApiStudioBundle\Scope\ScopeListener;
 use Nowo\ApiStudioBundle\Scope\WorkspaceScopeMover;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
+use Nowo\ApiStudioBundle\Security\ApiWorkspaceAccess;
 use Nowo\ApiStudioBundle\Seed\WorkspaceSeeder;
 use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
@@ -36,6 +37,7 @@ final class ScopeConfigTest extends TestCase
         self::assertFalse($container->getDefinition(ScopeContext::class)->getArgument('$enabled'));
         self::assertNull($container->getDefinition(ScopeListener::class)->getArgument('$resolver'));
         self::assertNull($container->getDefinition(ApiStudioAuthorization::class)->getArgument('$scopeChecker'));
+        self::assertNull($container->getDefinition(ApiWorkspaceAccess::class)->getArgument('$scopeChecker'));
         self::assertFalse($container->getDefinition(ApiStudioUrlGenerator::class)->getArgument('$scopedRoutes'));
         self::assertFalse($container->getDefinition(WorkspaceSeeder::class)->getArgument('$scopes'));
         self::assertFalse($container->getDefinition(TenantSqlFilterListener::class)->getArgument('$enabled'));
@@ -69,6 +71,7 @@ final class ScopeConfigTest extends TestCase
         self::assertTrue($container->getDefinition(TablePrefixSubscriber::class)->getArgument('$scopes'));
         self::assertSame('app.scope_resolver', (string) $container->getDefinition(ScopeListener::class)->getArgument('$resolver'));
         self::assertSame('app.scope_checker', (string) $container->getDefinition(ApiStudioAuthorization::class)->getArgument('$scopeChecker'));
+        self::assertSame('app.scope_checker', (string) $container->getDefinition(ApiWorkspaceAccess::class)->getArgument('$scopeChecker'));
         self::assertFalse($container->getDefinition(ApiStudioAuthorization::class)->getArgument('$tenantListAll'));
         self::assertSame('app.scope_labels', (string) $container->getDefinition(ApiStudioPageFactory::class)->getArgument('$scopeLabels'));
         self::assertTrue($container->getDefinition(ApiStudioUrlGenerator::class)->getArgument('$scopedRoutes'));

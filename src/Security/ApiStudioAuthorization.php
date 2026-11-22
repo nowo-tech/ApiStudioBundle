@@ -12,10 +12,13 @@ use Nowo\ApiStudioBundle\Scope\ScopeContext;
 use Nowo\ApiStudioBundle\Scope\WorkspaceScope;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Throwable;
 
 use function count;
 use function is_array;
@@ -55,6 +58,9 @@ final readonly class ApiStudioAuthorization
         private ?ScopeContext $scopeContext = null,
         private ?ScopeAccessCheckerInterface $scopeChecker = null,
         private bool $tenantListAll = true,
+        /** 1.19: resolves the opaque actor id of {@see ApiStudioSubject::$actorId} (default: `u:` + the user identifier). */
+        private ApiStudioHistoryScope $actors = new ApiStudioHistoryScope(),
+        private LoggerInterface $logger = new NullLogger(),
     ) {
         $this->checker = $checker ?? new LegacyPermissionChecker();
     }
@@ -135,12 +141,13 @@ final readonly class ApiStudioAuthorization
         }
 
         $granted = true;
+        $actorId = $this->actorId();
         if ($actionScope instanceof WorkspaceScope) {
             // Deny by default: a scoped action needs the host's scope checker to grant it, on top of the permission checker.
             $granted = $this->scopeChecker instanceof ScopeAccessCheckerInterface
-                && $this->scopeChecker->isGranted($this->user(), $action, new ScopeAccessSubject($this->tenant(), $actionScope, $workspace?->getId()));
+                && $this->scopeChecker->isGranted($this->user(), $action, new ScopeAccessSubject($this->tenant(), $actionScope, $workspace?->getId(), $actorId));
         }
-        $granted         = $granted && $this->checker->isGranted($this->user(), $action, new ApiStudioSubject($this->tenant(), $workspace, $actionScope));
+        $granted         = $granted && $this->checker->isGranted($this->user(), $action, new ApiStudioSubject($this->tenant(), $workspace, $actionScope, actorId: $actorId));
         $decisions[$key] = $granted;
         // @igor-ignore - Memoised on the request itself (request-scoped, not service state).
         $request?->attributes->set(self::DECISIONS_ATTRIBUTE, $decisions);
@@ -179,6 +186,23 @@ final readonly class ApiStudioAuthorization
         }
 
         throw new AccessDeniedHttpException(sprintf('Api Studio: "%s" is not allowed.', $action->value));
+    }
+
+    /**
+     * 1.19: opaque actor id of the signed-in user ({@see ApiStudioSubject::$actorId}), the id history rows and events
+     * record. Null for an anonymous user, and when the host's `history.actor_resolver` answers another shape or fails
+     * (logged with the exception class only): a checker that decides on the actor id then denies, one that decides on
+     * the user object is unaffected.
+     */
+    public function actorId(): ?string
+    {
+        try {
+            return $this->actors->actorId($this->user());
+        } catch (Throwable $exception) {
+            $this->logger->warning('Api Studio actor id could not be resolved; checked without one.', ['bundle' => 'api_studio', 'exception' => $exception::class]);
+
+            return null;
+        }
     }
 
     /**

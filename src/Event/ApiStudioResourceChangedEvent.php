@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Event;
 
+use DateTimeImmutable;
+
 /**
  * Dispatched after the studio created, updated, deleted or imported a resource and the change was flushed (1.12,
  * architecture bar rules 4 and 7): ids and scalars only, never the entity or a secret value. Listen to it for audit
@@ -40,6 +42,8 @@ final readonly class ApiStudioResourceChangedEvent
         public string $action,
         /** Opaque actor id (`history.actor_resolver`, else `u:` + user identifier); null when anonymous. */
         public ?string $actorId = null,
+        /** 1.19 (DDD-host checklist B4): when the bundle built the event, right before dispatching it. */
+        public DateTimeImmutable $occurredAt = new DateTimeImmutable(),
     ) {
     }
 }

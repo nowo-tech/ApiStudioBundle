@@ -90,6 +90,33 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.18.0** (minor, no BC break; no schema change):
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+- Nothing to do for a standard host. New, optional:
+  - `Query\ApiWorkspaceQueryInterface` to list or count workspaces (instead of DQL over `api_studio_workspace` or the
+    concrete repositories), and `workspaceIdOfService()` / `workspaceIdOfEndpoint()` (instead of loading
+    `ApiEndpoint` / `ApiService` in a route guard).
+  - `Security\ApiWorkspaceAccessInterface` to check a workspace action by ids (e.g. a host route guard or an API).
+    It requires `security.permission_checker`: without one it refuses every call (and logs a warning), since the
+    default checker grants everything.
+- **DDD hosts** moving off DQL over the bundle's tables, an entity listener on `ApiWorkspace` or an SQL filter on its
+  tables: turn the bundle's tenancy on (`tenancy.enabled`, your tenant as `ApiStudioTenantProviderInterface`), record
+  ownership from `ApiWorkspaceCreatedCommittedEvent` (ids, after the commit) in your own table keyed by workspace id,
+  decide in your permission checker on `$subject->workspaceId` and `$subject->actorId`, then set
+  `nowo_api_studio.entity_manager` to a manager of its own.
+- **Permission checkers**: `$subject->workspace` is deprecated and is null when the check comes from
+  `ApiWorkspaceAccessInterface`; decide on `$subject->workspaceId` (set since 1.12). A checker that dereferences
+  `$subject->workspace` without a null check fails there, and that failure is answered as a refusal.
+- **`history.actor_resolver`**: now also called on permission checks (for `$subject->actorId`). It must stay cheap and
+  must not call `ApiStudioAuthorization`.
+- **Event listeners**: prefer the ids to `ApiWorkspaceCreatedEvent::$workspace` / `$user` (deprecated). Every event has
+  `occurredAt`. If you construct the bundle's events yourself (tests), nothing changes: the argument is optional and
+  last.
+
 ## To 1.18.0
 
 From **1.17.1**:

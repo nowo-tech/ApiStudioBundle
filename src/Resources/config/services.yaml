@@ -33,6 +33,8 @@ services:
             - '../../Scope/ScopeAccessSubject.php'
             - '../../Scope/WorkspaceSlugTakenException.php'
             - '../../Seed/{EndpointSeed,EnvironmentSeed,SecretReferenceSeed,SeedStats,SeedValidation,ServiceSeed,VariableSeed,WorkspaceSeed,WorkspaceSeedResult}.php'
+            # 1.19 value objects of the workspace query port.
+            - '../../Query/{ApiWorkspaceCriteria,ApiWorkspacePage,ApiWorkspaceSort,ApiWorkspaceView}.php'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
     # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without
@@ -117,6 +119,20 @@ services:
         arguments:
             $resolver: null
             $enabled: false
+
+    # 1.19 (DDD-host checklist B1/B7/B8): host ports by ids. $scopeChecker is set by the extension (scope.enabled).
+    Nowo\ApiStudioBundle\Query\ApiWorkspaceQueryInterface:
+        alias: Nowo\ApiStudioBundle\Query\DoctrineApiWorkspaceQuery
+        public: true
+
+    Nowo\ApiStudioBundle\Security\ApiWorkspaceAccess:
+        arguments:
+            $scopeChecker: null
+            $logger: '@?logger'
+
+    Nowo\ApiStudioBundle\Security\ApiWorkspaceAccessInterface:
+        alias: Nowo\ApiStudioBundle\Security\ApiWorkspaceAccess
+        public: true
 
     Nowo\ApiStudioBundle\Seed\WorkspaceSeeder:
         public: true
