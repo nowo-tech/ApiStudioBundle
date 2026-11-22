@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.19.1] - 2026-11-22](#1191---2026-11-22)
 - [[1.19.0] - 2026-11-22](#1190---2026-11-22)
 - [[1.18.0] - 2026-11-19](#1180---2026-11-19)
 - [[1.17.1] - 2026-11-19](#1171---2026-11-19)
@@ -70,9 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-11-22
+
 ### Fixed
 
 - Translations: `variables.syntax` and `field.variable_key` ("Placeholder") are now translated in de, es, fr, it, nl and pt; `tester.tab.pre_script` / `tester.tab.post_script` ("Pre-request" / "Post-request") in de, es, fr, it, nl and pt; `field.pre_request_script` / `field.post_request_script` in es and pt; and es `tester.tab.params`, `tester.tab.docs`, `tester.tab.headers`, `field.headers`, `field.query_params` and `field.default_headers` use Spanish wording. A new strict `TranslationCatalogueTest` fails on a non-en locale missing a key, on a non-en value identical to English (any length, placeholders included; values without letters are skipped) unless allow-listed per locale (brands, units, protocols, loanwords, true cognates), on a non-es value identical to the Spanish one (longer than 12 characters, different from English) unless allow-listed as genuinely shared, and on stale entries in either allow-list.
+
+[1.19.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.19.1
 
 ## [1.19.0] - 2026-11-22
 
