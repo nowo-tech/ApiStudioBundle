@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.19.0] - 2026-11-22](#1190---2026-11-22)
 - [[1.18.0] - 2026-11-19](#1180---2026-11-19)
 - [[1.17.1] - 2026-11-19](#1171---2026-11-19)
 - [[1.17.0] - 2026-11-19](#1170---2026-11-19)
@@ -69,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-22
+
 ### Added
 
 - **Workspace query port** (DDD-host checklist B1/B7): `Query\ApiWorkspaceQueryInterface` (autowirable; Doctrine
@@ -115,6 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shape leaves `actorId` null there (an id-only checker then denies; a checker that reads the user object is
   unaffected). Tests: a DDD host kernel with a private manager and id-only checkers (`tests/Functional/IdOnlyHost`), and
   the exact-key scenario of the query port on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16 (`tests/Database`) (B10).
+
+[1.19.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.19.0
 
 ## [1.18.0] - 2026-11-19
 
