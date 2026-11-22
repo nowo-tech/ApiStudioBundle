@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
+use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Form\CsrfOnlyType;
 use Nowo\ApiStudioBundle\Routing\ApiStudioUrlGenerator;
 use Nowo\ApiStudioBundle\Security\ApiStudioAuthorization;
@@ -38,8 +39,10 @@ trait ApiStudioPageTrait
             ApiStudioAuthorization::class => '?' . ApiStudioAuthorization::class,
             'event_dispatcher'            => '?' . EventDispatcherInterface::class,
             ApiStudioHistoryScope::class  => '?' . ApiStudioHistoryScope::class,
-            'translator'                  => '?' . TranslatorInterface::class,
-            ApiStudioUrlGenerator::class  => '?' . ApiStudioUrlGenerator::class,
+            // 1.20: the conflict answer of a stale edit form (RowVersionEditTrait).
+            ConcurrencyConflictSubscriber::class => ConcurrencyConflictSubscriber::class,
+            'translator'                         => '?' . TranslatorInterface::class,
+            ApiStudioUrlGenerator::class         => '?' . ApiStudioUrlGenerator::class,
         ];
     }
 

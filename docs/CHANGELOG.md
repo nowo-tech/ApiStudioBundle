@@ -71,6 +71,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Row versions on the edit forms** (REQ-RUNTIME-003 rule 4, closes the *pre-1.17* last-writer-wins residual): the
+  workspace, service, endpoint and environment get a `row_version` column (`INTEGER NOT NULL DEFAULT 1`, additive:
+  generate the migration, see [UPGRADING](UPGRADING.md#to-1200)). Their edit forms carry it in a hidden `rowVersion`
+  field and save only on that version: the save claims the row with a guarded atomic
+  `UPDATE … SET row_version = row_version + 1 WHERE id = ? AND row_version = ?` and flushes in the same transaction.
+  A form saved after another save (or after the seed API, a documentation save, a folder move or a variable change of
+  that row) answers **409** (or the configured `concurrency.conflict_status`) with `X-Conflict-Code: CONFLICT_001` +
+  `Retry-After` (`CONFLICT_002` without `Retry-After` when the request committed earlier work), shows the stored data
+  with the message `conflict.stale_edit` (every shipped locale), and writes nothing. Two editors racing on the same
+  version: exactly one saves. A row deleted meanwhile answers 404.
+- `Doctrine\RowVersionListener` (Doctrine listener, all managers): every other ORM write of those rows, and of endpoint
+  translations and environment variables, moves the parent's version atomically, so an older form is refused instead
+  of overwriting that change.
+- `Doctrine\RowVersionGuard`, `Concurrency\StaleEditException` (a transaction-doctrine lock conflict: answered 409 by
+  the conflict subscriber anywhere it escapes), `Entity\RowVersionedInterface`, `Form\RowVersionField` (option
+  `row_version` on `ApiWorkspaceFormType`, `ApiServiceFormType`, `ApiEndpointFormType`, `ApiEnvironmentFormType`), and
+  `ConcurrencyConflictSubscriber::answerFor()` (the status and headers for a page that answers a conflict itself).
+- Real-database race tests (`tests/Database/RowVersionRaceTest.php`, MySQL 8.4, MariaDB 11.4, PostgreSQL 16): two
+  editors on the same version, the first editor holding the lock, a lock wait timeout on the claim (409 +
+  `CONFLICT_001`, connection usable), writers without a version moving it atomically, child rows moving their parent.
+
 ## [1.19.1] - 2026-11-22
 
 ### Fixed

@@ -31,11 +31,14 @@ final class ApiWorkspaceFormType extends AbstractType
             $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 6, 'class' => 'as-code-input']]);
         }
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
+        // 1.20: the row version this edit form is rendered from (hidden, unmapped; none on create forms).
+        RowVersionField::add($builder, $options);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults(['data_class' => ApiWorkspace::class, 'scripts' => false]);
         $resolver->setAllowedTypes('scripts', 'bool');
+        RowVersionField::configure($resolver);
     }
 }

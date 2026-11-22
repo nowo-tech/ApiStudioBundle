@@ -348,6 +348,18 @@ These 53 `src/` files were added by releases after the last review. Each row map
 | `Validator/UniqueSlug.php` | The entity's slug is unique within its scope: the instance for a workspace, the workspace for a service or an environ... | FR-VALIDATOR-001 |
 | `Validator/UniqueSlugValidator.php` | Looks the slug up in the entity's scope (UniqueSlug::$scope) and reports a duplicate on the `slug` field. | FR-VALIDATOR-001 |
 
+## Sources added in 1.20 (row versions of the edit forms)
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Entity/RowVersionedInterface.php` | A row whose edit form is guarded by its `row_version` (workspace, service, endpoint, environment) | FR-CONCUR-002 |
+| `Entity/RowVersionTrait.php` | The `row_version` column (`INTEGER NOT NULL DEFAULT 1`, additive) and its accessors | FR-CONCUR-002 |
+| `Concurrency/StaleEditException.php` | An edit saved on a version that is no longer current; a transaction-doctrine lock conflict | FR-CONCUR-002 |
+| `Doctrine/RowVersionGuard.php` | Guarded claim (`row_version = row_version + 1 … AND row_version = ?`) and atomic bump of the version | FR-CONCUR-002 |
+| `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
+| `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
+| `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, conflict status and headers) | FR-CONCUR-002, FR-CTRL-001 |
+
 ## Coverage summary
 
 | Category | Files | Mapped |

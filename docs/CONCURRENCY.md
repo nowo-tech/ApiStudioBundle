@@ -5,6 +5,7 @@
 - [Conflict answers](#conflict-answers)
 - [Write paths](#write-paths)
 - [Seed API and scope mover (1.17)](#seed-api-and-scope-mover-117)
+- [Row versions of the edit forms (1.20)](#row-versions-of-the-edit-forms-120)
 - [Tests](#tests)
 - [Host options](#host-options)
 - [Residual risks](#residual-risks)
@@ -42,10 +43,11 @@ registers `NowoTransactionDoctrineBundle`, its responder (priority 64) answers f
 | `WorkspaceSeeder::seed()` (1.17) | One per attempt, transaction-doctrine `forHostEntityManager()` runner | Workspace row `FOR UPDATE` (lookup before the transaction, no gap lock); unique (tenant, scope, slug) + catch for a new workspace; unique (workspace, slug) / (environment, key) for children; up to 3 attempts from a fresh read (outermost only) | `ConcurrencyConflict` (`CONFLICT_001`) after the last lock conflict; the last unique violation is rethrown |
 | `WorkspaceScopeMover::move()` (1.17) | One, transaction-doctrine runner | Row `FOR UPDATE`; unique (tenant, scope, slug) decides a collision | `WorkspaceSlugTakenException` (domain, nothing changed); a lock conflict propagates as `TransientStorageFailure` (one attempt) |
 | Workspace create (UI, also on a scoped mount) | Explicit transaction (created event inside, committed event after) | Unique (tenant, scope, slug) + catch → 422 on the slug field | 409 on lock conflicts (1.17) |
-| Workspace / service / environment / endpoint edit and delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Unique slug keys + catch → 422; last writer wins on plain fields | 409 on lock conflicts (1.17) |
+| Workspace / service / environment / endpoint edit (UI, *1.20*) | Explicit transaction: claim, then flush | Row version: guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?` (the row lock until the commit); unique slug keys + catch → 422 | Stale version → 409 + `CONFLICT_001` (form again with the stored data); 409 on lock conflicts |
+| Workspace / service / environment / endpoint delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Type-to-confirm (workspace, service); the delete wins over a concurrent edit (that edit then answers 404) | 409 on lock conflicts (1.17) |
 | Folder tree moves, folder deletes, imports into a service (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
 | `pm.globals` / `pm.collectionVariables` saves (*1.15*) | Explicit transaction, DBAL statements | Workspace row lock, caps checked under it | 409 + `Retry-After` (audit RW-D-I1) |
-| Environment variable sync, request / response examples, documentation (*pre-1.17*) | One ORM flush | Unique (environment, key) | 409 on lock conflicts (1.17) |
+| Environment variable sync, request / response examples, documentation (*pre-1.17*) | One ORM flush | Unique (environment, key); since 1.20 a variable or documentation write moves the parent's row version (atomic, `RowVersionListener`) | 409 on lock conflicts (1.17) |
 | Console execute → history row (*pre-1.17*) | One insert | Append-only | 409 on lock conflicts (1.17) |
 | Commands `tenant:move`, `tenant:unsuffix-slugs`, `seed-demo`, `sync-schema` (*pre-1.17*) | Per command | Operator tools, not concurrent by design | Exception |
 
@@ -70,6 +72,40 @@ only when a failure closed it), and the seeder refuses to start over pending cha
 - **Events after the commit** (`ApiWorkspaceSeededEvent`, `ApiWorkspaceScopeChangedEvent`), ids only.
 - No HTTP, mail or file I/O under the locks.
 
+## Row versions of the edit forms (1.20)
+
+REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render the form, save it):
+
+- **Column**: `row_version INTEGER NOT NULL DEFAULT 1` on the workspace, service, endpoint and environment
+  (`Entity\RowVersionTrait`). Not a Doctrine `#[ORM\Version]`: the bundle moves it with atomic statements, so writers
+  that carry no version (seed API, documentation, folder moves, variables) never fail on it.
+- **Edit form**: a hidden, unmapped `rowVersion` field holds the version the form was rendered from (a 422 shows the
+  submitted one again). The save (`Controller\RowVersionEditTrait::saveEdit()`) opens a transaction, runs
+  `RowVersionGuard::claim()` — `UPDATE <table> SET row_version = row_version + 1 WHERE id = ? AND row_version = ?` — and
+  flushes. One row changed: the save owns the row (its lock is held until the commit). No row: someone saved it (or
+  deleted it) after the form was rendered: `StaleEditException`, the transaction is rolled back (only the level the
+  save opened), nothing is written.
+- **Two editors on the same version**: the second one's `UPDATE` waits for the first one's row lock, then matches no
+  row (MySQL / MariaDB read the latest committed row for an `UPDATE`; PostgreSQL READ COMMITTED re-checks the condition
+  on the new row version; under REPEATABLE READ / SERIALIZABLE PostgreSQL raises a serialization failure, which is a
+  409 `CONFLICT_001` too). Exactly one saves.
+- **Stale answer** (HTML): the page re-reads the rows the refused form changed (the main row, its translations or
+  variables, the other environments of the workspace; orphan removals of the form are cancelled), shows the form again
+  with the stored data and the error flash `conflict.stale_edit`, with the status and headers of
+  `ConcurrencyConflictSubscriber::answerFor()`: 409 (or `conflict_status`) + `X-Conflict-Code: CONFLICT_001` +
+  `Retry-After`, or `CONFLICT_002` without `Retry-After` when the request's commit watermark saw earlier work committed.
+  A row deleted meanwhile answers 404. Anywhere else the exception escapes, it is a transaction-doctrine
+  `LockConflictExceptionInterface` and the conflict subscriber answers it.
+- **Other writers** (`Doctrine\RowVersionListener`, `postUpdate` / `postPersist` / `postRemove`, every manager): an ORM
+  update of a versioned row that does not set `rowVersion` itself, and any write of an endpoint translation or an
+  environment variable, runs `UPDATE … SET row_version = row_version + 1 WHERE id = ?` in the flush's transaction and
+  records the stored value on the entity. A flush that writes a row and its children moves it once per written row;
+  only growth matters. New rows (inserted at 1), claimed rows and rows being deleted are skipped.
+- **Worker mode**: the guard is static and the listener stateless; the version lives on the entity (one row per
+  request) and in the database, never on a service.
+- **Template overrides** that drop the hidden field: the save uses the version this request loaded (last writer wins
+  only between two page loads). A malformed value never matches (409).
+
 ## Tests
 
 - `tests/Database/WorkspaceSeedRaceTest.php` (testsuite `Database`): MySQL 8.4, MariaDB 11.4, PostgreSQL 16, a second
@@ -88,6 +124,17 @@ only when a failure closed it), and the seeder refuses to start over pending cha
   failures, a conflict from below passed on, nested transaction (one attempt), pending changes refused.
 - `tests/Unit/EventListener/ConcurrencyConflictSubscriberTest.php`: 409 / 503, `CONFLICT_001` / `CONFLICT_002`
   (committed flag and request watermark), JSON routes, unmapped failures.
+- `tests/Database/RowVersionRaceTest.php` (testsuite `Database`, the same three servers and second session): two
+  editors on the same version (the second waits for the lock, then writes nothing); the first editor holding the lock
+  while the second's guarded `UPDATE` waits (no lost update); a lock wait timeout on the claim (409 + `CONFLICT_001` +
+  `Retry-After`, nothing written, connection usable); a writer without a version after a concurrent bump (atomic: 3,
+  never a second 2; a form at the old version is refused); translation and variable writes moving their parent.
+- `tests/Functional/StaleEditTest.php` (SQLite kernel): each of the four edit pages saved after another save (409,
+  `X-Conflict-Code`, `Retry-After`, the message, the stored data unchanged, the new form saves); two tabs; malformed and
+  missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a
+  documentation save refusing an older endpoint form; a row deleted meanwhile (404).
+- `tests/Integration/Doctrine/RowVersionTest.php` (SQLite): claim, stale claim, bump of a deleted row, child writes,
+  ignored entities, the stale conflict answer (`CONFLICT_001`, and `CONFLICT_002` when work was committed).
 - CI job **Databases** (DBAL 3 and DBAL 4) runs the race suite with `--fail-on-skipped`; locally `make test-with-db`.
 
 ## Host options
@@ -104,9 +151,12 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 
 ## Residual risks
 
-- Edit / delete pages of workspaces, services, endpoints and environments (*pre-1.17*) keep last-writer-wins on plain
-  fields (no version column): two editors saving the same form at once keep the later save. No duplicates or
-  half-saved rows (one flush, unique keys); to be revisited in the concurrency wave of the older paths.
+- (Closed in 1.20: the edit pages of workspaces, services, endpoints and environments are no longer last-writer-wins.)
+- The inline documentation editor of an endpoint (`…/documentation`, JSON) carries no version: it overwrites the title
+  and description of one locale (last writer wins between two documentation saves), but it moves the endpoint's
+  version, so an older endpoint edit form is refused instead of reverting it.
+- Host SQL writes (DBAL, raw SQL) to the four tables that do not add `row_version = row_version + 1` are not seen by
+  older forms.
 - Hosts that skip the 1.17 column migration (binary tenant columns and variable keys on MySQL / MariaDB, see
   [UPGRADING](UPGRADING.md#to-1170)) keep a case-insensitive unique key: a seed for a tenant id or a variable key that
   differs only in case is refused after its retries instead of creating a second row.

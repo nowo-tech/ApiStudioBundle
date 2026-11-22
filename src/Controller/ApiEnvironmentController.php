@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiEnvironmentFormType;
+use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
@@ -23,6 +25,7 @@ final class ApiEnvironmentController extends AbstractController
     use ApiStudioPageTrait;
     use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
+    use RowVersionEditTrait;
     use SlugConflictTrait;
 
     public function __construct(
@@ -92,22 +95,33 @@ final class ApiEnvironmentController extends AbstractController
     {
         $workspace   = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $environment = $this->requireEnvironment($id, $workspace);
-        $form        = $this->createForm(ApiEnvironmentFormType::class, $environment);
+        // 1.20: the rows this form may write, as loaded (a stale save re-reads them).
+        $written = $request->isMethod(Request::METHOD_POST) ? [...$environment->getVariables()->toArray(), ...$workspace->getEnvironments()->toArray()] : [];
+        $form    = $this->createForm(ApiEnvironmentFormType::class, $environment, [RowVersionField::OPTION => $environment->getRowVersion()]);
         $form->handleRequest($request);
+        $status  = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+        $headers = [];
 
         if ($form->isSubmitted() && $form->isValid()) {
             if ($environment->isDefault()) {
                 $this->clearDefaultFlag($workspace, $environment);
             }
 
-            if ($this->flushUnlessSlugTaken($form)) {
-                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
-                $this->flash('success', 'flash.updated');
+            try {
+                if ($this->saveEdit($form, $environment)) {
+                    $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
+                    $this->flash('success', 'flash.updated');
 
-                return $this->redirectToRoute('nowo_api_studio_environment_show', [
-                    'workspaceId' => $workspaceId,
-                    'id'          => $id,
-                ]);
+                    return $this->redirectToRoute('nowo_api_studio_environment_show', [
+                        'workspaceId' => $workspaceId,
+                        'id'          => $id,
+                    ]);
+                }
+            } catch (StaleEditException $e) {
+                // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
+                [$status, $headers] = $this->answerStaleEdit($request, $e, $environment, ...$written);
+                $form               = $this->createForm(ApiEnvironmentFormType::class, $environment, [RowVersionField::OPTION => $environment->getRowVersion()]);
+                $this->flash('error', StaleEditException::MESSAGE_KEY);
             }
         }
 
@@ -118,7 +132,7 @@ final class ApiEnvironmentController extends AbstractController
                 $form->createView(),
                 $this->csrfOnlyForm($this->generateUrl('nowo_api_studio_environment_delete', ['workspaceId' => $workspaceId, 'id' => $id]), 'delete' . $id),
             ),
-        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ], new Response(status: $status, headers: $headers));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
