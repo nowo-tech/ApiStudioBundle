@@ -56,8 +56,8 @@ field.default_headers: Cabeçalhos predefinidos (JSON)
 tester.auth_hint: O tipo de auth "%type%" é resolvido no servidor com variáveis de ambiente.
 tester.resolved: Resolvido
 tester.unresolved_vars: Algumas {{variables}} não puderam ser resolvidas — selecione um ambiente ou defina as chaves em falta.
-tester.tab.pre_script: Pre-request
-tester.tab.post_script: Post-request
+tester.tab.pre_script: Antes do pedido
+tester.tab.post_script: Depois do pedido
 tester.tab.script_console: Consola
 tester.pre_script_hint: Executa no navegador antes de enviar. Use pm.environment.set('key', value) para alterar variáveis para este pedido.
 tester.post_script_hint: Executa no navegador após a resposta. Extraia valores e atualize variáveis para o próximo pedido.
@@ -65,12 +65,12 @@ tester.service_pre_script: Pre-script do serviço
 tester.service_post_script: Post-script do serviço
 tester.service_script_readonly: executa automaticamente a partir da configuração do serviço
 tester.persist_variables: Guardar alterações de variáveis
-field.pre_request_script: Script pre-request (navegador)
-field.post_request_script: Script post-request (navegador)
-variables.syntax: Placeholder
+field.pre_request_script: Script anterior ao pedido (navegador)
+field.post_request_script: Script posterior à resposta (navegador)
+variables.syntax: Marcador
 variables.section_title: Variáveis de ambiente
 variables.key_syntax_hint: Defina cada variável como {{variable_name}}. Use a mesma sintaxe {{…}} em URLs base, caminhos, cabeçalhos, parâmetros de consulta e corpos de pedido.
-field.variable_key: Placeholder
+field.variable_key: Marcador
 field.base_url_help: URL base com placeholders {{variable_name}} resolvidos a partir do ambiente ativo.
 variables.workspace_title: Variáveis de ambiente (espaço de trabalho)
 variables.service_scope: Todos os endpoints deste serviço herdam variáveis do espaço de trabalho via placeholders {{name}} na URL base, caminho, cabeçalhos, corpo e auth.

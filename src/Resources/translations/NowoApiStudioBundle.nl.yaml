@@ -56,8 +56,8 @@ field.default_headers: Standaard headers (JSON)
 tester.auth_hint: Auth-type "%type%" wordt server-side opgelost met omgevingsvariabelen.
 tester.resolved: Opgelost
 tester.unresolved_vars: Sommige {{variables}} konden niet worden opgelost — selecteer een omgeving of definieer ontbrekende sleutels.
-tester.tab.pre_script: Pre-request
-tester.tab.post_script: Post-request
+tester.tab.pre_script: Voor het verzoek
+tester.tab.post_script: Na het verzoek
 tester.tab.script_console: Console
 tester.pre_script_hint: Wordt in de browser uitgevoerd vóór verzenden. Gebruik pm.environment.set('key', value) om variabelen voor dit verzoek te wijzigen.
 tester.post_script_hint: Wordt in de browser uitgevoerd na het antwoord. Extraheer waarden en werk variabelen bij voor het volgende verzoek.
@@ -67,10 +67,10 @@ tester.service_script_readonly: wordt automatisch uitgevoerd vanuit serviceconfi
 tester.persist_variables: Variabelenwijzigingen opslaan
 field.pre_request_script: Pre-request-script (browser)
 field.post_request_script: Post-request-script (browser)
-variables.syntax: Placeholder
+variables.syntax: Plaatshouder
 variables.section_title: Omgevingsvariabelen
 variables.key_syntax_hint: Definieer elke variabele als {{variable_name}}. Gebruik dezelfde {{…}}-syntaxis in basis-URL's, paden, headers, queryparameters en verzoekbodies.
-field.variable_key: Placeholder
+field.variable_key: Plaatshouder
 field.base_url_help: Basis-URL met {{variable_name}}-placeholders opgelost vanuit de actieve omgeving.
 variables.workspace_title: Omgevingsvariabelen (werkruimte)
 variables.service_scope: Alle endpoints in deze service erven werkruimtevariabelen via {{name}}-placeholders in basis-URL, pad, headers, body en auth.

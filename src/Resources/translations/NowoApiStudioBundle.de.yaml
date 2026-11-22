@@ -56,8 +56,8 @@ field.default_headers: Standard-Header (JSON)
 tester.auth_hint: Auth-Typ „%type%“ wird serverseitig mit Umgebungsvariablen aufgelöst.
 tester.resolved: Aufgelöst
 tester.unresolved_vars: Einige {{variables}} konnten nicht aufgelöst werden — wählen Sie eine Umgebung oder definieren Sie fehlende Schlüssel.
-tester.tab.pre_script: Pre-request
-tester.tab.post_script: Post-request
+tester.tab.pre_script: Vor der Anfrage
+tester.tab.post_script: Nach der Anfrage
 tester.tab.script_console: Konsole
 tester.pre_script_hint: Wird im Browser vor dem Senden ausgeführt. Verwenden Sie pm.environment.set('key', value), um Variablen für diese Anfrage zu ändern.
 tester.post_script_hint: Wird im Browser nach der Antwort ausgeführt. Werte extrahieren und Variablen für die nächste Anfrage aktualisieren.
@@ -67,10 +67,10 @@ tester.service_script_readonly: wird automatisch aus der Dienstkonfiguration aus
 tester.persist_variables: Variablenänderungen speichern
 field.pre_request_script: Pre-request-Skript (Browser)
 field.post_request_script: Post-request-Skript (Browser)
-variables.syntax: Placeholder
+variables.syntax: Platzhalter
 variables.section_title: Umgebungsvariablen
 variables.key_syntax_hint: Definieren Sie jede Variable als {{variable_name}}. Verwenden Sie dieselbe {{…}}-Syntax in Basis-URLs, Pfaden, Headern, Abfrageparametern und Anfrage-Bodies.
-field.variable_key: Placeholder
+field.variable_key: Platzhalter
 field.base_url_help: Basis-URL mit {{variable_name}}-Platzhaltern, aufgelöst aus der aktiven Umgebung.
 variables.workspace_title: Umgebungsvariablen (Arbeitsbereich)
 variables.service_scope: Alle Endpunkte dieses Dienstes erben Arbeitsbereichsvariablen über {{name}}-Platzhalter in Basis-URL, Pfad, Headern, Body und Auth.
