@@ -56,8 +56,8 @@ field.default_headers: Header predefiniti (JSON)
 tester.auth_hint: Il tipo di auth "%type%" viene risolto lato server con le variabili d'ambiente.
 tester.resolved: Risolto
 tester.unresolved_vars: Alcune {{variables}} non sono state risolte — seleziona un ambiente o definisci le chiavi mancanti.
-tester.tab.pre_script: Pre-request
-tester.tab.post_script: Post-request
+tester.tab.pre_script: Prima della richiesta
+tester.tab.post_script: Dopo la richiesta
 tester.tab.script_console: Console
 tester.pre_script_hint: Viene eseguito nel browser prima dell'invio. Usa pm.environment.set('key', value) per modificare le variabili per questa richiesta.
 tester.post_script_hint: Viene eseguito nel browser dopo la risposta. Estrai valori e aggiorna le variabili per la richiesta successiva.
@@ -67,10 +67,10 @@ tester.service_script_readonly: eseguito automaticamente dalla configurazione de
 tester.persist_variables: Salva modifiche alle variabili
 field.pre_request_script: Script pre-request (browser)
 field.post_request_script: Script post-request (browser)
-variables.syntax: Placeholder
+variables.syntax: Segnaposto
 variables.section_title: Variabili d'ambiente
 variables.key_syntax_hint: Definisci ogni variabile come {{variable_name}}. Usa la stessa sintassi {{…}} negli URL base, percorsi, header, parametri di query e corpi delle richieste.
-field.variable_key: Placeholder
+field.variable_key: Segnaposto
 field.base_url_help: URL base con placeholder {{variable_name}} risolti dall'ambiente attivo.
 variables.workspace_title: Variabili d'ambiente (workspace)
 variables.service_scope: Tutti gli endpoint di questo servizio ereditano le variabili del workspace tramite placeholder {{name}} in URL base, percorso, header, corpo e auth.

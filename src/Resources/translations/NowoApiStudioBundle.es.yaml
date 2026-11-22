@@ -26,8 +26,8 @@ env.default: predeterminado
 action.save: Guardar
 action.cancel: Cancelar
 tester.tab.body: Cuerpo
-tester.tab.params: Params
-tester.tab.docs: Docs
+tester.tab.params: Parámetros
+tester.tab.docs: Documentación
 tester.params_hint: Parámetros de consulta definidos para este endpoint.
 tester.params_editable_hint: Edita query params aquí. Los valores admiten {{variables}}. Las filas desactivadas no se envían. La URL se actualiza al vuelo.
 tester.add_param: Añadir parámetro
@@ -43,21 +43,21 @@ tester.body_valid_json_vars: JSON válido (con {{variables}} sin resolver)
 tester.body_valid_xml: XML válido
 tester.body_valid_xml_vars: XML válido (con {{variables}} sin resolver)
 tester.body_empty: Cuerpo vacío
-tester.tab.headers: Headers
+tester.tab.headers: Cabeceras
 tester.tab.variables: Variables
 tester.variables_hint: Usa {{nombre_variable}} en cuerpo, URL, headers, query params y auth. Los valores vienen del entorno seleccionado.
 tester.variables_scope: Variables de entorno del workspace — disponibles en cada endpoint del servicio (URL base, ruta, headers, cuerpo, auth).
 tester.headers_hint: Headers por defecto del servicio + headers del endpoint. La auth se aplica al enviar.
 tester.headers_editable_hint: Edita headers de la petición aquí. Los valores admiten {{variables}}. Las filas desactivadas no se envían.
 tester.add_header: Añadir header
-field.headers: Headers (JSON)
-field.query_params: Query params (JSON)
-field.default_headers: Headers por defecto (JSON)
+field.headers: Cabeceras (JSON)
+field.query_params: Parámetros de consulta (JSON)
+field.default_headers: Cabeceras por defecto (JSON)
 tester.auth_hint: Auth tipo "%type%" se resuelve en servidor con variables de entorno.
 tester.resolved: Resuelto
 tester.unresolved_vars: Hay {{variables}} sin resolver — selecciona un entorno o define las claves faltantes.
-tester.tab.pre_script: Pre-request
-tester.tab.post_script: Post-request
+tester.tab.pre_script: Antes de la petición
+tester.tab.post_script: Después de la petición
 tester.tab.script_console: Consola
 tester.pre_script_hint: Se ejecuta en el navegador antes de enviar. Usa pm.environment.set('clave', valor) para cambiar variables.
 tester.post_script_hint: Se ejecuta en el navegador tras la respuesta. Extrae valores y actualiza variables para la siguiente petición.
@@ -65,12 +65,12 @@ tester.service_pre_script: Pre-script del servicio
 tester.service_post_script: Post-script del servicio
 tester.service_script_readonly: se ejecuta automáticamente desde la config del servicio
 tester.persist_variables: Guardar cambios de variables
-field.pre_request_script: Script pre-request (navegador)
-field.post_request_script: Script post-request (navegador)
-variables.syntax: Placeholder
+field.pre_request_script: Script previo a la petición (navegador)
+field.post_request_script: Script posterior a la respuesta (navegador)
+variables.syntax: Marcador
 variables.section_title: Variables de entorno
 variables.key_syntax_hint: Define cada variable como {{nombre_variable}}. Usa la misma sintaxis {{…}} en URLs base, rutas, headers, query params y cuerpos de petición.
-field.variable_key: Placeholder
+field.variable_key: Marcador
 field.base_url_help: URL base con placeholders {{nombre_variable}} resueltos desde el entorno activo.
 variables.workspace_title: Variables de entorno (workspace)
 variables.service_scope: Todos los endpoints de este servicio heredan las variables del workspace vía {{nombre}} en URL base, ruta, headers, cuerpo y auth.
