@@ -35,6 +35,8 @@ final class ApiEnvironmentFormType extends AbstractType
             'by_reference'  => false,
             'label'         => 'variables.section_title',
         ]);
+        // 1.20: the row version this edit form is rendered from (hidden, unmapped; none on create forms).
+        RowVersionField::add($builder, $options);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -43,5 +45,6 @@ final class ApiEnvironmentFormType extends AbstractType
             'data_class'         => ApiEnvironment::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
+        RowVersionField::configure($resolver);
     }
 }

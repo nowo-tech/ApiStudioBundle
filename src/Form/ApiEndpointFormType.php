@@ -77,6 +77,8 @@ final class ApiEndpointFormType extends AbstractType
             'by_reference'  => false,
             'locale_tabs'   => $this->localeTabs(),
         ]);
+        // 1.20: the row version this edit form is rendered from (hidden, unmapped; none on create forms).
+        RowVersionField::add($builder, $options);
     }
 
     /**
@@ -106,5 +108,6 @@ final class ApiEndpointFormType extends AbstractType
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
         $resolver->setAllowedTypes('folders', ['null', 'array']);
+        RowVersionField::configure($resolver);
     }
 }

@@ -98,6 +98,16 @@ Areas introduced by releases after the baseline review; each requirement names t
 - **FR-TENANCY-001** `src/Tenancy/`: Opaque owner of a workspace: a `(type, id)` pair chosen by the host (e.g. `('organization', <public uuid>)`).
 - **FR-VALIDATOR-001** `src/Validator/`: Slug format (1.11): lowercase letters and digits, single `-` or `_` between them, at most 128 characters.
 
+### Requirements added in 1.20 (row versions of the edit forms)
+
+- **FR-CONCUR-002** Row versions (REQ-RUNTIME-003 rule 4): the workspace, service, endpoint and environment carry a
+  `row_version` column (`INTEGER NOT NULL DEFAULT 1`). Their edit forms render it in a hidden field and save only on
+  that version (`RowVersionGuard::claim()`: a guarded atomic `UPDATE` in the save's transaction); a stale save answers
+  the conflict status with `X-Conflict-Code` (`CONFLICT_001`, or `CONFLICT_002` when the request committed earlier
+  work), shows the stored data and the message `conflict.stale_edit`, and writes nothing. Every other ORM write of
+  those rows, and of endpoint translations and environment variables, moves the version atomically
+  (`RowVersionListener`).
+
 ## Success Criteria
 
 - **SC-001**: **138/138** production files under `src/` mapped in [`code-inventory.md`](code-inventory.md) (audited 2026-10-30; `git ls-files src | wc -l`).

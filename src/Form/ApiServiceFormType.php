@@ -54,6 +54,8 @@ final class ApiServiceFormType extends AbstractType
             $this->addTextarea($builder, 'postRequestScript', ['required' => false, 'attr' => ['rows' => 6]]);
         }
         $this->addCheckbox($builder, 'enabled', ['required' => false]);
+        // 1.20: the row version this edit form is rendered from (hidden, unmapped; none on create forms).
+        RowVersionField::add($builder, $options);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -63,5 +65,6 @@ final class ApiServiceFormType extends AbstractType
             'data_class'         => ApiService::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
+        RowVersionField::configure($resolver);
     }
 }

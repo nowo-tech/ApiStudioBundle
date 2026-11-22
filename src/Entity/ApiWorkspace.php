@@ -27,8 +27,10 @@ use SortDirection;
 #[ORM\UniqueConstraint(name: 'uniq_workspace_slug', columns: ['slug'])]
 #[UniqueSlug]
 #[SlugFormat]
-class ApiWorkspace
+class ApiWorkspace implements RowVersionedInterface
 {
+    use RowVersionTrait;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]

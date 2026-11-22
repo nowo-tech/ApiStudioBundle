@@ -117,6 +117,41 @@ final class DedicatedEntityManagerTest extends TestCase
     }
 
     /**
+     * 1.20 row versions on a DDD host's dedicated manager: a save moves the version, an older form of the same row is
+     * refused (409 + CONFLICT_001), and an ORM write without a version (the listener, registered on every manager)
+     * moves it too. The host manager is never flushed.
+     */
+    public function testRowVersionsOnADedicatedManager(): void
+    {
+        $this->boot($this->dedicatedDoctrine(true), ['entity_manager' => 'api_studio']);
+        [$host, $studio] = $this->managersWithSchema();
+        $workspace       = new ApiWorkspace('Payments', 'payments');
+        $studio->persist($workspace);
+        $studio->flush();
+        $id = (int) $workspace->getId();
+
+        $client = new KernelBrowser($this->kernel());
+        $client->disableReboot();
+        $first  = $client->request('GET', sprintf('/api-studio/workspaces/%d/edit', $id))->filter('form[name="api_workspace_form"]')->form();
+        $second = $client->request('GET', sprintf('/api-studio/workspaces/%d/edit', $id))->filter('form[name="api_workspace_form"]')->form();
+        $client->submit($first, ['api_workspace_form[name]' => 'First']);
+        self::assertSame(302, $client->getResponse()->getStatusCode());
+        $client->submit($second, ['api_workspace_form[name]' => 'Second']);
+        self::assertSame(409, $client->getResponse()->getStatusCode());
+        self::assertSame('CONFLICT_001', $client->getResponse()->headers->get('X-Conflict-Code'));
+        self::assertSame('First', $studio->getConnection()->fetchOne('SELECT name FROM api_studio_workspace WHERE id = ?', [$id]));
+        self::assertSame(2, (int) $studio->getConnection()->fetchOne('SELECT row_version FROM api_studio_workspace WHERE id = ?', [$id]));
+
+        $studio->clear();
+        $stored = $studio->find(ApiWorkspace::class, $id);
+        self::assertInstanceOf(ApiWorkspace::class, $stored);
+        $stored->setDescription('Written without a version');
+        $studio->flush();
+        self::assertSame(3, (int) $studio->getConnection()->fetchOne('SELECT row_version FROM api_studio_workspace WHERE id = ?', [$id]));
+        self::assertSame(0, (int) $host->getConnection()->fetchOne('SELECT COUNT(*) FROM host_note'));
+    }
+
+    /**
      * DoctrineBundle 3.4 regression: `auto_discover_entities` (on by default for a manager without `mappings` and
      * `auto_mapping`) gives the host manager's chain a default attribute driver, which claims every `#[ORM\Entity]`
      * class, so `getManagerForClass()` answered the host manager and the repositories queried its database. The

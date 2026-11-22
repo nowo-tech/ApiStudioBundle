@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
@@ -15,6 +16,7 @@ use Nowo\ApiStudioBundle\Enum\HttpMethod;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiEndpointFormType;
 use Nowo\ApiStudioBundle\Form\ApiFolderFormType;
+use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
@@ -48,6 +50,7 @@ final class ApiEndpointController extends AbstractController
     use ApiStudioPageTrait;
     use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
+    use RowVersionEditTrait;
     use SlugConflictTrait;
 
     public function __construct(
@@ -281,22 +284,33 @@ final class ApiEndpointController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $workspaceId, int $serviceId, int $id): Response
     {
-        $context  = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
-        $endpoint = $this->requireEndpoint($id, $context['service'], ApiStudioAction::WorkspaceEdit);
+        $context      = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
+        $endpoint     = $this->requireEndpoint($id, $context['service'], ApiStudioAction::WorkspaceEdit);
+        $translations = $endpoint->getTranslations()->toArray();
         $this->ensureTranslationLocales($endpoint);
-        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']));
+        $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']) + [RowVersionField::OPTION => $endpoint->getRowVersion()]);
         $form->handleRequest($request);
+        $status  = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+        $headers = [];
 
         if ($form->isSubmitted() && $form->isValid() && $this->folderEditable($endpoint)) {
-            if ($this->flushUnlessSlugTaken($form)) {
-                $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
-                $this->flash('success', 'flash.updated');
+            try {
+                if ($this->saveEdit($form, $endpoint)) {
+                    $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
+                    $this->flash('success', 'flash.updated');
 
-                return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
-                    'workspaceId' => $workspaceId,
-                    'serviceId'   => $serviceId,
-                    'id'          => $id,
-                ]);
+                    return $this->redirectToRoute('nowo_api_studio_endpoint_show', [
+                        'workspaceId' => $workspaceId,
+                        'serviceId'   => $serviceId,
+                        'id'          => $id,
+                    ]);
+                }
+            } catch (StaleEditException $e) {
+                // 1.20: saved by someone else after this form was rendered: the form again, with the stored data.
+                [$status, $headers] = $this->answerStaleEdit($request, $e, $endpoint, ...$translations);
+                $this->ensureTranslationLocales($endpoint);
+                $form = $this->createForm(ApiEndpointFormType::class, $endpoint, $this->formOptions($context['workspace'], $context['service']) + [RowVersionField::OPTION => $endpoint->getRowVersion()]);
+                $this->flash('error', StaleEditException::MESSAGE_KEY);
             }
         }
 
@@ -315,7 +329,7 @@ final class ApiEndpointController extends AbstractController
             ),
             'enabledLocales' => $this->localeManager->getEnabledLocales(),
             'currentLocale'  => $locale,
-        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ], new Response(status: $status, headers: $headers));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
