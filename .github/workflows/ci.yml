@@ -208,8 +208,13 @@ jobs:
     name: Databases (MySQL 8.4, MariaDB 11.4, PostgreSQL 16) - ${{ matrix.deps }}
     runs-on: ubuntu-latest
     needs: changes
-    # Light mode: skipped (a skipped non-matrix job reports its own name as skipped, accepted by branch protection).
-    if: ${{ !cancelled() && needs.changes.outputs.mode != 'light' }}
+    # Light mode: every leg still starts and passes after one echo step. A matrix job skipped with a job-level `if:`
+    # reports its un-expanded name ("… - ${{ matrix.deps }}"), so the required "… - DBAL 3" / "… - DBAL 4" contexts
+    # would never appear. The service images are empty in light mode (no container pulled). Fail-closed: only 'light'
+    # reduces the job.
+    if: ${{ !cancelled() }}
+    env:
+      HEAVY: ${{ needs.changes.outputs.mode != 'light' }}
 
     strategy:
       fail-fast: false
@@ -222,7 +227,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.4
+        image: ${{ needs.changes.outputs.mode != 'light' && 'mysql:8.4' || '' }}
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
           MYSQL_DATABASE: api_studio
@@ -230,7 +235,7 @@ jobs:
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=5s --health-timeout=5s --health-retries=30
       mariadb:
-        image: mariadb:11.4
+        image: ${{ needs.changes.outputs.mode != 'light' && 'mariadb:11.4' || '' }}
         env:
           MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
           MARIADB_DATABASE: api_studio
@@ -238,7 +243,7 @@ jobs:
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=30
       postgres:
-        image: postgres:16-alpine
+        image: ${{ needs.changes.outputs.mode != 'light' && 'postgres:16-alpine' || '' }}
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: api_studio
@@ -247,10 +252,16 @@ jobs:
           --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=30
 
     steps:
+      - name: Light mode (deps/docs-only PR) - no database run
+        if: env.HEAVY != 'true'
+        run: echo "Light mode, this leg has nothing to do."
+
       - name: Checkout code
+        if: env.HEAVY == 'true'
         uses: actions/checkout@v7
 
       - name: Setup PHP
+        if: env.HEAVY == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -259,15 +270,19 @@ jobs:
           tools: composer:v2
 
       - name: Pin the DBAL major
+        if: env.HEAVY == 'true'
         run: composer require "doctrine/dbal:${{ matrix.dbal }}" --no-update --no-interaction
 
       - name: SearchKit (PHP >= 8.3)
+        if: env.HEAVY == 'true'
         run: .github/ci/search-kit.sh --no-update
 
       - name: Install dependencies
+        if: env.HEAVY == 'true'
         run: composer update --prefer-dist --no-progress --no-interaction --with-all-dependencies
 
       - name: Real race / lock wait tests (none may be skipped)
+        if: env.HEAVY == 'true'
         env:
           AS_MYSQL_URL: mysql://root@127.0.0.1:3306/api_studio?serverVersion=8.4.0
           AS_MARIADB_URL: mysql://root@127.0.0.1:3307/api_studio?serverVersion=11.4.2-MariaDB
@@ -276,7 +291,7 @@ jobs:
 
       # 1.18: the SearchKit groups on the same servers (SearchKit's test kit needs DBAL 4).
       - name: SearchKit groups on real databases (none may be skipped)
-        if: matrix.deps == 'DBAL 4'
+        if: env.HEAVY == 'true' && matrix.deps == 'DBAL 4'
         env:
           AS_MYSQL_URL: mysql://root@127.0.0.1:3306/api_studio?serverVersion=8.4.0
           AS_MARIADB_URL: mysql://root@127.0.0.1:3307/api_studio?serverVersion=11.4.2-MariaDB
