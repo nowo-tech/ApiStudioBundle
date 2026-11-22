@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.20.0] - 2026-11-22](#1200---2026-11-22)
 - [[1.19.1] - 2026-11-22](#1191---2026-11-22)
 - [[1.19.0] - 2026-11-22](#1190---2026-11-22)
 - [[1.18.0] - 2026-11-19](#1180---2026-11-19)
@@ -71,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-22
+
 ### Added
 
 - **Row versions on the edit forms** (REQ-RUNTIME-003 rule 4, closes the *pre-1.17* last-writer-wins residual): the
@@ -105,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit ZH-L1 (pre-existing): two concurrent environment edits that each set their environment as the default could
   leave two defaults. Such an edit now locks the workspace row first and clears the other defaults with one statement
   (their row versions move), so one default remains.
+
+[1.20.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.20.0
 
 ## [1.19.1] - 2026-11-22
 
