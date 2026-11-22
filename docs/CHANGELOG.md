@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.21.0] - 2026-11-22](#1210---2026-11-22)
 - [[1.20.0] - 2026-11-22](#1200---2026-11-22)
 - [[1.19.1] - 2026-11-22](#1191---2026-11-22)
 - [[1.19.0] - 2026-11-22](#1190---2026-11-22)
@@ -72,6 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-22
+
 ### Changed
 
 - **A stale edit answers the house domain conflict, not a retryable lock conflict** (REQ-RUNTIME-003, convention
@@ -104,6 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refusal was answered **503 + `Retry-After`**, which proxies, load balancers and monitoring read as an outage of the
   application, and which an intermediary may replay. It is now a plain domain 409 with
   `X-Error-Code: API_STUDIO_STALE_EDIT` and no retry hint.
+
+[1.21.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.21.0
 
 ## [1.20.0] - 2026-11-22
 
