@@ -20,6 +20,7 @@
 - [Host secrets (1.13)](#host-secrets-113)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
+  - [Query and access ports by id (1.19)](#query-and-access-ports-by-id-119)
 - [Overriding Twig templates (REQ-TWIG-001)](#overriding-twig-templates-req-twig-001)
   - [Override vs upgrade](#override-vs-upgrade)
   - [Override in the application](#override-in-the-application)
@@ -634,6 +635,9 @@ Every event is dispatched through the Symfony event dispatcher (event name = cla
 | `ApiStudioResourceChangedEvent` (1.12) | After a flushed create / update / delete / import of a workspace, service, endpoint (incl. its documentation), environment, the variables of an environment, or a request / response example | `resourceType`, `resourceId`, `workspaceId`, `action`, `actorId` |
 | `ApiRequestExecutedEvent` (1.12) | After the console executed a request and stored its history row | `endpointId`, `serviceId`, `workspaceId`, `environmentId`, `historyId`, `method`, `host`, `statusCode`, `durationMs`, `success`, `actorId` — never the path, query, headers, bodies or variable values |
 
+Since 1.19 every event above also carries `occurredAt` (`DateTimeImmutable`, when the bundle built it, right before the
+dispatch), and `ApiWorkspaceCreatedEvent::$workspace` / `$user` are deprecated (read the ids).
+
 `actorId` is the same opaque id history rows record (`history.actor_resolver`, else `u:` + the user identifier, hashed
 beyond 62 characters); null for anonymous users. Use the in-transaction `ApiWorkspaceCreatedEvent` for host rows that
 must be atomic with the workspace, and the committed / changed / executed events for outboxes, audit logs, search
@@ -681,6 +685,8 @@ nowo_api_studio:
   only. The entities are not mapped on your managers even with `auto_mapping: true`, and the bundle prepends nothing
   into your ORM configuration (no phantom `default` manager; your `default_entity_manager` stays yours).
 - Permission checkers receive `ApiStudioSubject` with `workspaceId` (1.12) next to the entity: store grants by id.
+  Since 1.19 the subject (and the scope checker's `ScopeAccessSubject`) also carries `actorId`, the opaque id of the
+  user, so a checker needs neither the user object nor the entity (`$subject->workspace` is deprecated).
 - The tenant comes from your application context through `ApiStudioTenantProviderInterface::current()` (no HTTP
   request in your port). Read it per call; do not cache it in a property (worker mode).
 - React to the id events (`ApiWorkspaceCreatedCommittedEvent`, `ApiStudioResourceChangedEvent`,
@@ -690,6 +696,50 @@ nowo_api_studio:
 - A "host controls the transaction" mode does not apply here: every write comes from the studio's own UI controllers,
   never from a host command handler. The dedicated manager is the DDD path.
 - `sync-schema` and the `tenant:*` commands use the configured manager.
+
+### Query and access ports by id (1.19)
+
+Read and check workspaces from your own code without DQL over the bundle's tables and without loading its entities
+(scalar reads on the bundle's manager). Both are autowirable interfaces; both are stateless (worker mode).
+
+```php
+use Nowo\ApiStudioBundle\Query\ApiWorkspaceCriteria;
+use Nowo\ApiStudioBundle\Query\ApiWorkspaceQueryInterface;
+use Nowo\ApiStudioBundle\Query\ApiWorkspaceSort;
+use Nowo\ApiStudioBundle\Security\ApiStudioAction;
+use Nowo\ApiStudioBundle\Security\ApiWorkspaceAccessInterface;
+use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
+
+$tenant = new ApiStudioTenant('organization', $organizationPublicId);
+
+// Lists and counts: the tenant is the only boundary, so narrow to what the user may see yourself.
+$page = $workspaces->find(ApiWorkspaceCriteria::forTenant($tenant)
+    ->withIds($myGrants->workspaceIdsOf($userId))   // [] matches nothing
+    ->matching($search)                              // literal, case-insensitive, name or slug
+    ->sortedBy(ApiWorkspaceSort::UpdatedAt, true)
+    ->onPage($pageNumber, 25));                      // $page->items (ApiWorkspaceView), $page->total, $page->pages()
+
+// A route guard that only has an endpoint id: its workspace, in that tenant (null otherwise).
+$workspaceId = $workspaces->workspaceIdOfEndpoint($tenant, $endpointId);
+
+// Access by ids: your user object, or the opaque actor id ('u:' + identifier, or your history.actor_resolver id).
+$allowed = $workspaceId !== null && $access->isGranted('u:' . $userIdentifier, ApiStudioAction::WorkspaceRun, $tenant, $workspaceId);
+```
+
+- **Exact keys**: tenants, scopes and ids compare exactly, in SQL and again in PHP (`ACME` is not `acme`, a padded
+  value is not the value). Without `tenancy.enabled` only the instance tenant `ApiStudioTenant::instance()` has
+  workspaces; without `scope.enabled` every workspace is at tenant level.
+- **`ApiWorkspaceAccessInterface`** runs, in order and each only able to refuse: the workspace in that tenant,
+  `visibleWorkspaceIds()` (user objects), the scope checker for a scoped workspace (deny by default), the permission
+  checker for `workspace.view` then the action, with `ApiStudioSubject::forWorkspaceId()` (no entity; `actorId` set).
+  With an actor id string the checkers receive `$user = null`: decide on `$subject->actorId`. The request-level gates of
+  the studio routes (roles, `access_checker`, `feature_gate`, `studio.open`) are not part of it; tenant-level actions
+  are refused.
+- **No oracle**: an unknown id, another tenant, a look-alike, an unusable actor id, a refusal and a failure (logged
+  with its class only) give the same `false` / `null`.
+- **A snapshot** (REQ-RUNTIME-003): an answer holds as of the call. The studio's controllers check again on every
+  request, so a grant you revoke applies to the next request.
+- Inside an Api Studio request the tenant SQL filter is on too: it can only narrow the answers to that request's tenant.
 
 ## Overriding Twig templates (REQ-TWIG-001)
 

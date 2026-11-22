@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Event;
 
+use DateTimeImmutable;
 use Nowo\ApiStudioBundle\Seed\WorkspaceSeeder;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenant;
 
@@ -19,6 +20,8 @@ final readonly class ApiWorkspaceSeededEvent
         public ?string $scope,
         /** True when the seed created the workspace, false when it updated it. */
         public bool $created,
+        /** 1.19 (DDD-host checklist B4): when the bundle built the event, right before dispatching it. */
+        public DateTimeImmutable $occurredAt = new DateTimeImmutable(),
     ) {
     }
 }

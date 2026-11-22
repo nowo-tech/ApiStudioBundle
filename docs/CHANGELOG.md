@@ -69,10 +69,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Workspace query port** (DDD-host checklist B1/B7): `Query\ApiWorkspaceQueryInterface` (autowirable; Doctrine
+  implementation on the bundle's own manager) lists and counts workspaces without DQL over the bundle's tables and
+  without loading an entity. `find(ApiWorkspaceCriteria)` returns an `ApiWorkspacePage` of `ApiWorkspaceView` scalars
+  (id, name, slug, description, enabled, tenant, scope, created / updated); `count()`, `get(tenant, id)`,
+  `workspaceIdOfService(tenant, id)` and `workspaceIdOfEndpoint(tenant, id)`. Criteria: tenant (mandatory), scope (any,
+  tenant level, or one), an id set (≤ 10 000), a literal case-insensitive text on name or slug, enabled, sort (name,
+  created, updated, id; ascending or descending, id as tie-break) and paging (limit clamped to 1–100). Tenant and scope
+  compare exactly (bound parameters, then `===` in PHP). A store read, not an access check: narrow it with your own
+  permission port (`withIds()`).
+- **Access by ids** (B1/B8): `Security\ApiWorkspaceAccessInterface::isGranted(user, action, tenant, workspaceId)` and
+  `viewableWorkspace(user, tenant, workspaceId)`. The user is your security user object, an opaque actor id string or
+  null. The workspace is read by exact id and tenant, then the studio's checks run: `visibleWorkspaceIds()` (user
+  objects), the scope checker for a scoped workspace (deny by default), and the permission checker for `workspace.view`
+  then the action. Unknown ids, other or look-alike tenants, unusable actor ids, refusals and failures (logged with the
+  exception class only) all give the same `false` / `null`. Nothing is kept between calls (worker mode).
+- `ApiStudioSubject::forWorkspaceId(tenant, id, scope, actorId)` and `ApiStudioSubject::forTenant()`; the subject and
+  `ScopeAccessSubject` carry `actorId` (the opaque id history rows and events record), set by the studio's own checks
+  too, so a host checker can decide on ids alone. `ApiStudioAuthorization::actorId()`.
+- Every domain event carries `occurredAt` (`DateTimeImmutable`, a trailing optional constructor argument):
+  `ApiWorkspaceCreatedEvent`, `ApiWorkspaceCreatedCommittedEvent`, `ApiWorkspaceDeletedEvent`, `ApiWorkspaceMovedEvent`,
+  `ApiWorkspaceSeededEvent`, `ApiWorkspaceScopeChangedEvent`, `ApiStudioResourceChangedEvent`,
+  `ApiRequestExecutedEvent` (B4).
+
+### Deprecated
+
+- `ApiStudioSubject::$workspace` (use `$workspaceId`; null in the subjects of `ApiWorkspaceAccessInterface`), and
+  `ApiWorkspaceCreatedEvent::$workspace` / `$user` (use `$workspaceId`, `$slug`, `$actorId`; prefer
+  `ApiWorkspaceCreatedCommittedEvent`, which fires after the commit). Kept in 1.x; no removal is planned.
+
 ### Changed
 
 - Demo: runs in UiKit's demo platform shell (`nowo-tech/ui-kit-bundle` ^2.60; shared top bar, aside, page header and section cards; no demo stylesheet or `<style>`). Demo only, no bundle change.
 - Requires `nowo-tech/transaction-doctrine` ^1.8.1 (fixes GHSA-9wh3-m3m5-jffx and GHSA-65w2-9r4h-848g).
+- The studio's permission checks resolve the actor id (`history.actor_resolver`, else `u:` + the user identifier) for
+  `ApiStudioSubject::$actorId`: a host resolver is now called on permission checks too. A resolver that answers another
+  shape leaves `actorId` null there (an id-only checker then denies; a checker that reads the user object is
+  unaffected). Tests: a DDD host kernel with a private manager and id-only checkers (`tests/Functional/IdOnlyHost`), and
+  the exact-key scenario of the query port on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16 (`tests/Database`) (B10).
 
 ## [1.18.0] - 2026-11-19
 

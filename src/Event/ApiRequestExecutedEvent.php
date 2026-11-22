@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Event;
 
+use DateTimeImmutable;
+
 /**
  * Dispatched after the studio executed a request and stored its history row (1.12, architecture bar rules 4 and 7).
  * Ids and scalars only: no URL path or query, no headers, no bodies and no variable values (they may carry secrets);
@@ -27,6 +29,8 @@ final readonly class ApiRequestExecutedEvent
         public bool $success,
         /** Opaque actor id; null when anonymous. */
         public ?string $actorId = null,
+        /** 1.19 (DDD-host checklist B4): when the bundle built the event, right before dispatching it. */
+        public DateTimeImmutable $occurredAt = new DateTimeImmutable(),
     ) {
     }
 }
