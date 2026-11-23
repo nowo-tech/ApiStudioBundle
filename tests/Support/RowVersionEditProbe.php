@@ -34,6 +34,17 @@ final class RowVersionEditProbe
         return $this->saveEdit($form, $row, $beforeClaim);
     }
 
+    /**
+     * The create pages' save (1.21.1).
+     *
+     * @param FormInterface<mixed> $form
+     * @param callable(): void $beforeFlush
+     */
+    public function create(FormInterface $form, callable $beforeFlush): bool
+    {
+        return $this->saveNew($form, $beforeFlush);
+    }
+
     /** @return array{int, array<string, string>} */
     public function answer(Request $request, RowVersionedInterface $row, object ...$written): array
     {

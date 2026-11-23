@@ -172,6 +172,7 @@ import.postman_variables: Importar variáveis da coleção Postman para o ambien
 import.submit: Importar
 import.help: Carregue JSON, YAML ou .env (apenas variáveis). OpenAPI 3.x e Swagger 2.0 suportados para importação de API.
 import.error: Falha na importação. Verifique o formato do ficheiro e tente novamente.
+import.error.busy: 'Outra pessoa está a alterar este espaço de trabalho: tente de novo daqui a pouco.'
 import.openapi.title: Importar OpenAPI / Swagger
 import.openapi.service_title: Importar OpenAPI para o serviço
 import.openapi.service_short: Importar OpenAPI

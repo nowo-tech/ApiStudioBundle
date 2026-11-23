@@ -172,6 +172,7 @@ import.postman_variables: Import Postman collection variables into workspace env
 import.submit: Import
 import.help: Upload JSON, YAML, or .env (variables only). OpenAPI 3.x and Swagger 2.0 supported for API import.
 import.error: Import failed. Check file format and try again.
+import.error.busy: 'Someone else is changing this workspace: try again in a moment.'
 import.openapi.title: Import OpenAPI / Swagger
 import.openapi.service_title: Import OpenAPI into service
 import.openapi.service_short: Import OpenAPI

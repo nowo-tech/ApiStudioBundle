@@ -117,6 +117,13 @@ final class EnvironmentVariableImporter
                     $slug,
                 );
                 $environment->setIsDefault((bool) ($envMeta['is_default'] ?? false));
+                if ($environment->isDefault()) {
+                    // 1.21.1: one default per workspace. The import runs under the workspace lock and reads the
+                    // environments after it, so clearing the loaded ones clears every stored default.
+                    foreach ($workspace->getEnvironments() as $other) {
+                        $other->setIsDefault(false);
+                    }
+                }
                 $workspace->addEnvironment($environment);
                 $this->entityManager->persist($environment);
                 $created = true;

@@ -172,6 +172,7 @@ import.postman_variables: Postman-Sammlungsvariablen in Arbeitsbereichsumgebung 
 import.submit: Importieren
 import.help: JSON, YAML oder .env hochladen (nur Variablen). OpenAPI 3.x und Swagger 2.0 für API-Import unterstützt.
 import.error: Import fehlgeschlagen. Dateiformat prüfen und erneut versuchen.
+import.error.busy: 'Jemand anderes ändert gerade diesen Arbeitsbereich: Versuchen Sie es gleich noch einmal.'
 import.openapi.title: OpenAPI / Swagger importieren
 import.openapi.service_title: OpenAPI in Dienst importieren
 import.openapi.service_short: OpenAPI importieren

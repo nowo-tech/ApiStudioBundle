@@ -172,6 +172,7 @@ import.postman_variables: Importer les variables de la collection Postman dans l
 import.submit: Importer
 import.help: Téléversez JSON, YAML ou .env (variables uniquement). OpenAPI 3.x et Swagger 2.0 pris en charge pour l'import API.
 import.error: Échec de l'importation. Vérifiez le format du fichier et réessayez.
+import.error.busy: 'Quelqu’un d’autre modifie cet espace de travail : réessayez dans un instant.'
 import.openapi.title: Importer OpenAPI / Swagger
 import.openapi.service_title: Importer OpenAPI dans le service
 import.openapi.service_short: Importer OpenAPI

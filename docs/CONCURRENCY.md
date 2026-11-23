@@ -61,7 +61,9 @@ decides. Cross-origin browser clients need `X-Error-Code` in the host's `Access-
 | Workspace create (UI, also on a scoped mount) | Explicit transaction (created event inside, committed event after) | Unique (tenant, scope, slug) + catch → 422 on the slug field | 409 on lock conflicts (1.17) |
 | Workspace / service / environment / endpoint edit (UI, *1.20*) | Explicit transaction: claim, then flush | Row version: guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?` (the row lock until the commit); unique slug keys + catch → 422 | Stale version → domain 409 + `X-Error-Code: API_STUDIO_STALE_EDIT` (*1.21*; form again with the stored data); 409 + `CONFLICT_00x` on lock conflicts |
 | Workspace / service / environment / endpoint delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Type-to-confirm (workspace, service); the delete wins over a concurrent edit (that edit then answers 404) | 409 on lock conflicts (1.17) |
-| Folder tree moves, folder deletes, imports into a service (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
+| Environment create (UI, *1.21.1*) | Explicit transaction (`RowVersionEditTrait::saveNew()`): workspace lock, then flush | Workspace row `FOR UPDATE` first; a new default clears every stored default in one statement (`DefaultEnvironmentSwitch::prepareCreate()`); unique (workspace, slug) + catch → 422 | 409 + `CONFLICT_00x` on lock conflicts |
+| Folder tree moves, folder deletes (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
+| Imports: OpenAPI, Postman, environment variables, into a workspace, a service or an environment (*1.21.1*; into a service since *1.14*) | One unit (`Doctrine\WorkspaceImportUnit`) | Workspace row `FOR UPDATE` first, then the service row for an import into a service; the import reads its rows after the lock and merges into them (no duplicate, one default environment) | 409 + `Retry-After` + `import.error.busy` on a lock conflict, or on a unique key refusing a row another writer stored meanwhile below the workspace, such as a variable saved from an environment's edit page (the retry merges). Writers inserting a service or an environment of the workspace wait for the lock (their foreign key check locks the workspace row) |
 | `pm.globals` / `pm.collectionVariables` saves (*1.15*) | Explicit transaction, DBAL statements | Workspace row lock, caps checked under it | 409 + `Retry-After` (audit RW-D-I1) |
 | Environment variable sync, request / response examples, documentation (*pre-1.17*) | One ORM flush | Unique (environment, key); since 1.20 a variable or documentation write moves the parent's row version (atomic, `RowVersionListener`) | 409 on lock conflicts (1.17) |
 | Console execute → history row (*pre-1.17*) | One insert | Append-only | 409 on lock conflicts (1.17) |
@@ -113,8 +115,10 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
 - **Default environment** (audit ZH-L1): an edit that makes its environment the default first locks the workspace row,
   then clears the other defaults with one `UPDATE … SET is_default = false, row_version = row_version + 1` and only then
   claims its own row (`Doctrine\DefaultEnvironmentSwitch`): two such edits run one after the other and the second clears
-  the first, so a workspace keeps one default. (Creating an environment as the default still clears the others in
-  memory, without the workspace lock.)
+  the first, so a workspace keeps one default. Since 1.21.1 the create page does the same before its insert
+  (`DefaultEnvironmentSwitch::prepareCreate()`: the workspace lock, then every stored default cleared), and an import
+  takes the workspace lock before it reads the environments, so creates, edits and imports that set a default run one
+  after the other and the last one wins.
 - **Two editors on the same version**: the second one's `UPDATE` waits for the first one's row lock, then matches no
   row (MySQL / MariaDB read the latest committed row for an `UPDATE`; PostgreSQL READ COMMITTED re-checks the condition
   on the new row version; under REPEATABLE READ / SERIALIZABLE PostgreSQL raises a serialization failure, which is a
@@ -164,8 +168,12 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   never a second 2; a form at the old version is refused); translation and variable writes moving their parent; a
   deadlock in the edit's flush (a second session holds the child, then bumps the parent: on MySQL / MariaDB the edit
   loses with 409 + `CONFLICT_001`, nesting level 0, nothing half-saved, the next save works; PostgreSQL is the control
-  where either side may lose); two edits making different environments the default (one default left). The tests go
-  through the pages' own save (`RowVersionEditTrait::saveEdit()`).
+  where either side may lose); two edits making different environments the default (one default left). 1.21.1: two creates of a
+  new default, and a create racing an edit that sets a default (one default left, the last one); a create that cannot
+  get the workspace lock (409 + `CONFLICT_001` + `Retry-After`, nothing inserted, connection usable); two imports of the
+  same environment (the second waits for the workspace lock and merges: one row); an import refused by a variable an
+  environment edit stored meanwhile (retryable, nesting level 0, the retry merges). The tests go through the pages' own
+  saves (`RowVersionEditTrait::saveEdit()` / `saveNew()`, `WorkspaceImportUnit::run()`).
 - `tests/Functional/StaleEditTest.php` (SQLite kernel): each of the four edit pages saved after another save (409,
   `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After`, the message, the stored data
   unchanged, the new form saves); two tabs; malformed and missing versions; a 422 keeping the submitted version; a refused environment save changing no default flag; a
@@ -176,6 +184,9 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   `Retry-After` (`tests/Functional/App/TransactionDoctrineTestKernel.php`, `App/ConflictProbeController.php`).
 - `tests/Integration/Doctrine/RowVersionTest.php` (SQLite): claim, stale claim, bump of a deleted row, child writes,
   ignored entities, the domain stale answer (`API_STUDIO_STALE_EDIT`, and no lock conflict for the classifier).
+  1.21.1: a new default created clears every stored default, a new non-default keeps it.
+- `tests/Integration/Doctrine/WorkspaceImportUnitTest.php` (SQLite, 1.21.1): an import committed as one unit, a failure
+  rolling back only its own level, which failures are retryable (lock conflicts, a lost savepoint, unique violations).
 - CI job **Databases** (DBAL 3 and DBAL 4) runs the race suite with `--fail-on-skipped`; locally `make test-with-db`.
 
 ## Host options
@@ -193,6 +204,11 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 ## Residual risks
 
 - (Closed in 1.20: the edit pages of workspaces, services, endpoints and environments are no longer last-writer-wins.)
+- (Closed in 1.21.1: creating or importing environments can no longer leave two default environments, and two
+  imports into one workspace no longer insert duplicates.)
+- A unique key that refuses an import because of the import file itself on a host that skipped the 1.17 column
+  migration (variable keys differing only in case, see below) answers the retryable `import.error.busy` and is refused
+  again on every retry.
 - The inline documentation editor of an endpoint (`…/documentation`, JSON) carries no version: it overwrites the title
   and description of one locale (last writer wins between two documentation saves), but it moves the endpoint's
   version, so an older endpoint edit form is refused instead of reverting it.

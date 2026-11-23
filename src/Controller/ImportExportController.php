@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Controller;
 
-use Doctrine\DBAL\Exception\RetryableException;
-use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Nowo\ApiStudioBundle\Doctrine\WorkspaceImportUnit;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
@@ -17,7 +16,6 @@ use Nowo\ApiStudioBundle\Repository\ApiEnvironmentRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
 use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
-use Nowo\ApiStudioBundle\Service\FolderTreeConflictException;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiExporter;
@@ -237,21 +235,10 @@ final class ImportExportController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // 1.14 (audit RJ-D-L1): an import into a service runs under the service lock, like the tree writes, so a
-            // concurrent move cannot push its folders past the depth limit.
-            $locked = false;
+            // 1.14 (audit RJ-D-L1) an import into a service runs under the service lock; 1.21.1 every import runs in one
+            // transaction under the workspace lock first, so two imports into one workspace never insert duplicates.
             try {
-                if ($service instanceof ApiService && $service->getId() !== null) {
-                    $this->entityManager->beginTransaction();
-                    $locked = true;
-                    $this->entityManager->lock($service, LockMode::PESSIMISTIC_WRITE);
-                }
-                $result = $importer($form);
-                $this->entityManager->flush();
-                if ($locked) {
-                    $this->entityManager->commit();
-                    $locked = false;
-                }
+                $result = WorkspaceImportUnit::run($this->entityManager, $workspace, $service, static fn (): ImportResult => $importer($form));
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspace->getId(), $workspace->getId(), ApiStudioResourceChangedEvent::ACTION_IMPORTED);
                 $this->addFlash('success', $this->translator->trans('flash.imported', [
                     '%services%'          => $result->servicesCreated,
@@ -276,16 +263,11 @@ final class ImportExportController extends AbstractController
 
                 return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
             } catch (Throwable $e) {
-                if ($locked) {
-                    try {
-                        $this->entityManager->rollback();
-                    } catch (Throwable) {
-                        $this->entityManager->getConnection()->close();
-                    }
-                }
-                // RJ-D2-L1: a write conflict on the service lock is retryable (409), anything else an import error.
-                if (FolderTreeConflictException::wrap($e) instanceof RetryableException) {
-                    $this->flash('error', 'folder.error.busy');
+                // RJ-D2-L1: a write conflict on the locks is retryable (409), anything else an import error. 1.21.1: a
+                // unique key refusing a row another writer stored meanwhile (a variable saved from an environment's edit
+                // page) is retryable too: the retry reads that row and merges into it.
+                if (WorkspaceImportUnit::isRetryable($e)) {
+                    $this->flash('error', 'import.error.busy');
 
                     return $this->renderPage('@NowoApiStudioBundle/import_export/import.html.twig', [
                         'page' => $this->pages()->import($workspace, $titleKey, $form->createView(), $service, $environment),

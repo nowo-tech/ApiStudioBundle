@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-22 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources)
+**Last audited**: 2026-11-23 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -410,7 +410,8 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | `Doctrine/RowVersionGuard.php` | Guarded claim (`row_version = row_version + 1 … AND row_version = ?`) and atomic bump of the version | FR-CONCUR-002 |
 | `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
 | `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
-| `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
+| `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment (edit page, and since 1.21.1 the create page) locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
+| `Doctrine/WorkspaceImportUnit.php` | 1.21.1: an import as one write unit under the workspace lock (then the service lock), savepoint-aware repair, which failures answer the retryable 409 | FR-CONCUR-002 |
 | `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, domain 409 + `X-Error-Code`) | FR-CONCUR-002, FR-CTRL-001 |
 
 ## Coverage summary
@@ -440,8 +441,9 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | Twig views | 27 | 27 |
 | Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 140 | 140 |
 | Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
-| **Total production sources** | **286** | **286** |
+| Sources added in 1.21.1 (workspace import unit) | 1 | 1 |
+| **Total production sources** | **287** | **287** |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **286** (2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **287** (2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
