@@ -88,12 +88,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment-variable import into a workspace ran without a transaction or a lock (only imports into a service took
   the service lock, 1.14): two imports of the same file into one workspace could both insert the same service,
   environment or variable, and the loser's unique violation answered the generic `import.error` (422). Every import now
-  runs as one unit (`Doctrine\WorkspaceImportUnit`): the workspace row is locked first, then the service row for an
-  import into a service, so the second import reads the first one's rows and merges into them. A lock conflict, or a
-  unique key refusing a row another writer stored meanwhile (a variable saved from an environment's edit page), answers
-  **409 + `Retry-After`**
-  with the new message `import.error.busy` (every shipped locale); the retry merges into the stored row. An import into
-  a service that met a lock conflict now shows `import.error.busy` instead of `folder.error.busy` (same 409).
+  runs as one unit (`Doctrine\WorkspaceImportUnit`, internal): the workspace row is locked first, then the service row
+  for an import into a service, then the workspace's environments in id order (the lock order of an environment's edit
+  page, so an import of variables and an edit of the same environment run one after the other instead of colliding on
+  the variable's unique key or deadlocking). The later import reads the earlier one's rows and merges into them. A lock
+  conflict answers **409 + `Retry-After`** with the new message `import.error.busy` (every shipped locale), and the
+  retry is safe. A unique violation stays an import error (**422** + `import.error`): under these locks no other writer
+  can store the same row meanwhile, so it comes from the file itself (two operation names that give the same slug once
+  truncated to 128 characters) and the same import would be refused again. An import into a service that met a lock
+  conflict now shows `import.error.busy` instead of `folder.error.busy` (same 409).
 - **An imported default environment is the only default.** Importing a workspace environment export whose default
   environment is new in the target workspace kept the target's own default too (two defaults, even without any
   concurrency). The imported default now clears the other flags.

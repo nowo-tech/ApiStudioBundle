@@ -76,18 +76,24 @@ final class WorkspaceImportUnitTest extends TestCase
         $connection->rollBack();
     }
 
-    public function testLockConflictsAndConcurrentUniqueRowsAreRetryable(): void
+    public function testLockConflictsAreRetryable(): void
     {
         self::assertTrue(WorkspaceImportUnit::isRetryable(new DeadlockException(self::driver('Deadlock found', 1213), null)));
         self::assertTrue(WorkspaceImportUnit::isRetryable(new LockWaitTimeoutException(self::driver('Lock wait timeout exceeded', 1205), null)));
         self::assertTrue(WorkspaceImportUnit::isRetryable(new DriverException(self::driver('SAVEPOINT DOCTRINE_2 does not exist', 1305), null)));
-        $unique = new UniqueConstraintViolationException(self::driver('Duplicate entry for key uniq_environment_workspace_slug', 1062), null);
-        self::assertTrue(WorkspaceImportUnit::isRetryable($unique));
-        self::assertTrue(WorkspaceImportUnit::isRetryable(new RuntimeException('Flush failed.', 0, $unique)));
+        self::assertTrue(WorkspaceImportUnit::isRetryable(new RuntimeException('Flush failed.', 0, new DeadlockException(self::driver('Deadlock found', 1213), null))));
     }
 
-    public function testOtherFailuresAreImportErrors(): void
+    /**
+     * Audit L1: under the unit's locks a unique violation comes from the import itself (two operation names sharing
+     * their first 128 characters give one slug): the same import would be refused again, so it is an import error
+     * (422), never the retryable 409.
+     */
+    public function testUniqueViolationsAndOtherFailuresAreImportErrors(): void
     {
+        $unique = new UniqueConstraintViolationException(self::driver('Duplicate entry for key uniq_endpoint_service_slug', 1062), null);
+        self::assertFalse(WorkspaceImportUnit::isRetryable($unique));
+        self::assertFalse(WorkspaceImportUnit::isRetryable(new RuntimeException('Flush failed.', 0, $unique)));
         self::assertFalse(WorkspaceImportUnit::isRetryable(new RuntimeException('Broken file.')));
         self::assertFalse(WorkspaceImportUnit::isRetryable(new DriverException(self::driver('Data too long', 1406), null)));
     }

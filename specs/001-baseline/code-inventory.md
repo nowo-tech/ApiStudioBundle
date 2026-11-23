@@ -411,7 +411,7 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | `Doctrine/RowVersionListener.php` | Moves the version on every other ORM write of a versioned row and of its translations / variables | FR-CONCUR-002 |
 | `Form/RowVersionField.php` | Hidden, unmapped `rowVersion` field of the edit forms (option `row_version`) | FR-CONCUR-002, FR-FORM-001 |
 | `Doctrine/DefaultEnvironmentSwitch.php` | A new default environment (edit page, and since 1.21.1 the create page) locks the workspace row, then clears the other defaults in one statement (audit ZH-L1) | FR-CONCUR-002 |
-| `Doctrine/WorkspaceImportUnit.php` | 1.21.1: an import as one write unit under the workspace lock (then the service lock), savepoint-aware repair, which failures answer the retryable 409 | FR-CONCUR-002 |
+| `Doctrine/WorkspaceImportUnit.php` | 1.21.1 (internal): an import as one write unit under the workspace, service and environment locks, savepoint-aware repair, which failures (lock conflicts only) answer the retryable 409 | FR-CONCUR-002 |
 | `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, domain 409 + `X-Error-Code`) | FR-CONCUR-002, FR-CTRL-001 |
 
 ## Coverage summary
