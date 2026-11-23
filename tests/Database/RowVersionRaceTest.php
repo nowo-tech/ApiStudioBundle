@@ -499,7 +499,7 @@ final class RowVersionRaceTest extends TestCase
 
         $other = $this->other();
         self::assertSame('OK', $other->execute($this->begin()));
-        self::assertSame('OK', $other->execute(sprintf("INSERT INTO api_studio_environment_variable (environment_id, variable_key, value, secret) VALUES (%d, 'base_url', 'https://other.example.test', %s)", $stagingId, $this->bool(false))));
+        self::assertSame('OK', $other->execute(sprintf("INSERT INTO api_studio_environment_variable (id, environment_id, variable_key, value, secret) VALUES (%s, %d, 'base_url', 'https://other.example.test', %s)", $this->nextId(ApiEnvironmentVariable::class, 'api_studio_environment_variable'), $stagingId, $this->bool(false))));
         $other->sleep(700);
         $other->send('COMMIT');
 
@@ -553,10 +553,31 @@ final class RowVersionRaceTest extends TestCase
         return $environment;
     }
 
+    /**
+     * The id of a row the second session inserts with plain SQL: on PostgreSQL with DBAL 3 the ORM draws ids from a
+     * sequence (the column has no default), so it is drawn here too; elsewhere the column generates it (`DEFAULT`).
+     *
+     * @param class-string $class
+     */
+    private function nextId(string $class, string $table): string
+    {
+        $sequence = $this->manager->getClassMetadata($class)->sequenceGeneratorDefinition['sequenceName'] ?? null;
+        if (!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform || !is_string($sequence) || $sequence === ''
+            || $this->connection->fetchOne('SELECT column_default FROM information_schema.columns WHERE table_name = ? AND column_name = ?', [$table, 'id']) !== null) {
+            return 'DEFAULT';
+        }
+
+        return (string) (int) $this->connection->fetchOne(sprintf("SELECT nextval('%s')", $sequence));
+    }
+
+    /**
+     * The environment row as the ORM would insert it.
+     */
     private function insertEnvironment(int $workspaceId, string $slug, bool $default): string
     {
         return sprintf(
-            "INSERT INTO api_studio_environment (workspace_id, name, slug, is_default, created_at, updated_at, row_version) VALUES (%d, '%s', '%s', %s, '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1)",
+            "INSERT INTO api_studio_environment (id, workspace_id, name, slug, is_default, created_at, updated_at, row_version) VALUES (%s, %d, '%s', '%s', %s, '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1)",
+            $this->nextId(ApiEnvironment::class, 'api_studio_environment'),
             $workspaceId,
             ucfirst($slug),
             $slug,
