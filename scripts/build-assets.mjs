@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const srcDir = resolve(root, 'src/Resources/assets/src');
 const outDir = resolve(root, 'src/Resources/public');
-// One build id for every script, shown in its "script loaded" console line (a hash of the sources, not a date).
+// One build id for every script, shown in its "script loaded" console line (a readable UTC build date label from build-info.json, not a hash).
 const buildId = buildTimeLabel(root, 'src/Resources/assets/src');
 
 const entries = [

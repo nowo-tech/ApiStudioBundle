@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- `scripts/build-assets.mjs`: the comment on the build id now says it is the readable UTC build date label from `build-info.json`, not a hash of the sources (audit ZAI-5). Comment only, assets unchanged.
+
 ## [1.22.0] - 2026-11-23
 
 ### Added
