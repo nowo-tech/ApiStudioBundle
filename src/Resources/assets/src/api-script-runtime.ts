@@ -6,6 +6,13 @@
 
 import type { ScriptContext, ScriptRunResult, StringMap } from './types/global';
 import { createPm, runScript } from './lib/pm';
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/script-runtime', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 function storageKey(envId: string): string {
   return `nowo_api_studio_runtime_vars_${envId}`;

@@ -5,6 +5,13 @@
  */
 
 import type { BodyFormat, BodyValidationLabels, BodyValidationResult } from './types/global';
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/body-tools', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 const VAR_PATTERN = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
 

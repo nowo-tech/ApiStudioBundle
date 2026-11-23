@@ -5,6 +5,13 @@
  */
 
 import type { DocumentationByLocale } from './types/global';
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/endpoint-doc', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 function parseJson<T>(raw: string | undefined, fallback: T): T {
   if (!raw) {
