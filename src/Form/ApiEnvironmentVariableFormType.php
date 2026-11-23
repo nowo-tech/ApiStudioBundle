@@ -81,7 +81,7 @@ final class ApiEnvironmentVariableFormType extends AbstractType
             $variable  = $event->getForm()->getData();
             $submitted = $event->getData();
             if ($variable instanceof ApiEnvironmentVariable && $variable->isSecret() && is_array($submitted)
-                && (($submitted['value'] ?? '') === '' || !isset($submitted['value']))) {
+                && ($submitted['value'] ?? '') === '') {
                 $submitted['value'] = $variable->getValue();
                 $event->setData($submitted);
             }
