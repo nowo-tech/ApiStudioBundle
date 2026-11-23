@@ -481,55 +481,92 @@ final class RowVersionRaceTest extends TestCase
     }
 
     /**
-     * 1.21.1: a writer below the workspace (an environment edit page saving a variable, which locks the environment
-     * row, not the workspace) stores the same variable while the import into that environment runs: the unique key
-     * refuses the import's row, the unit rolls back to level 0, the failure is retryable (the import page answers 409 +
-     * Retry-After) and the retry merges into the stored variable. (A writer that inserts a row of the workspace itself,
-     * a service or an environment, already waits on the workspace lock: its foreign key check locks the workspace
-     * row, see testTwoImportsOfTheSameEnvironmentLeaveOneRow.).
+     * 1.21.1 (audit L2): an environment's edit page (second session: the claim of its row, then a new variable) racing
+     * an import of the same variable into that environment. The import locks the workspace, then the environment rows
+     * (the edit page's order), so it waits for the edit, reads its variable after the lock and merges into it: one
+     * variable with the imported value, no unique violation, no deadlock.
      */
     #[DataProvider('servers')]
-    public function testAnImportRefusedByAConcurrentRowIsRetryableAndItsRetryMerges(string $variable): void
+    public function testAnImportIntoAnEnvironmentWaitsForAnEditOfItAndMerges(string $variable): void
     {
         $this->boot($variable);
         [$workspace] = $this->graph();
         $workspaceId = (int) $workspace->getId();
+        $stagingId   = $this->stagingEditedMeanwhile($workspaceId);
+
+        $manager = $this->freshManager();
+        $loaded  = $manager->find(ApiWorkspace::class, $workspaceId);
+        $target  = $manager->find(ApiEnvironment::class, $stagingId);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        self::assertInstanceOf(ApiEnvironment::class, $target);
+        $result = WorkspaceImportUnit::run($manager, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $manager))
+            ->importIntoEnvironment($target, $this->stagingVariables(), 'merge', 'variables.json'));
+
+        $this->assertMergedIntoTheEdit($result, $stagingId);
+    }
+
+    /**
+     * 1.21.1 (audit L2): the same race through a workspace import whose payload names the edited environment by slug:
+     * the workspace's environments are locked in id order before the import reads them.
+     */
+    #[DataProvider('servers')]
+    public function testAWorkspaceImportWaitsForAnEditOfItsEnvironmentAndMerges(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace] = $this->graph();
+        $workspaceId = (int) $workspace->getId();
+        $stagingId   = $this->stagingEditedMeanwhile($workspaceId);
+
+        $manager = $this->freshManager();
+        $loaded  = $manager->find(ApiWorkspace::class, $workspaceId);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        $result = WorkspaceImportUnit::run($manager, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $manager))
+            ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
+
+        self::assertSame(0, $result->environmentsCreated);
+        self::assertSame(1, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'staging'"));
+        $this->assertMergedIntoTheEdit($result, $stagingId);
+    }
+
+    /**
+     * A stored environment "staging", then the second session plays its edit page: the claim of its row and a new
+     * variable `base_url`, committed after 700 ms. Returns the environment id.
+     */
+    private function stagingEditedMeanwhile(int $workspaceId): int
+    {
         $this->connection->executeStatement($this->insertEnvironment($workspaceId, 'staging', false));
         $stagingId = (int) $this->connection->fetchOne("SELECT id FROM api_studio_environment WHERE slug = 'staging'");
 
         $other = $this->other();
         self::assertSame('OK', $other->execute($this->begin()));
-        self::assertSame('OK', $other->execute(sprintf("INSERT INTO api_studio_environment_variable (id, environment_id, variable_key, value, secret) VALUES (%s, %d, 'base_url', 'https://other.example.test', %s)", $this->nextId(ApiEnvironmentVariable::class, 'api_studio_environment_variable'), $stagingId, $this->bool(false))));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET row_version = row_version + 1 WHERE id = %d AND row_version = 1', $stagingId)));
+        self::assertSame('OK', $other->execute(sprintf("INSERT INTO api_studio_environment_variable (id, environment_id, variable_key, value, secret) VALUES (%s, %d, 'base_url', 'https://edited.example.test', %s)", $this->nextId(ApiEnvironmentVariable::class, 'api_studio_environment_variable'), $stagingId, $this->bool(false))));
         $other->sleep(700);
         $other->send('COMMIT');
 
-        $manager = $this->freshManager();
-        $loaded  = $manager->find(ApiWorkspace::class, $workspaceId);
-        self::assertInstanceOf(ApiWorkspace::class, $loaded);
-        $failure = null;
-        try {
-            WorkspaceImportUnit::run($manager, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $manager))
-                ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
-        } catch (Throwable $e) {
-            $failure = $e;
-        }
-        self::assertInstanceOf(Throwable::class, $failure, 'Expected the unique key to refuse the import.');
-        self::assertTrue(WorkspaceImportUnit::isRetryable($failure), $failure::class . ': ' . $failure->getMessage());
-        self::assertSame('OK', $other->await());
-        self::assertSame('OK', $other->await());
-        self::assertSame(0, $this->connection->getTransactionNestingLevel());
-        self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM api_studio_environment_variable WHERE environment_id = ?', [$stagingId]));
+        return $stagingId;
+    }
 
-        // The retry (a new request: a fresh manager) reads the stored variable and merges into it.
-        $retry  = $this->freshManager();
-        $loaded = $retry->find(ApiWorkspace::class, $workspaceId);
-        self::assertInstanceOf(ApiWorkspace::class, $loaded);
-        $result = WorkspaceImportUnit::run($retry, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $retry))
-            ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
+    private function assertMergedIntoTheEdit(ImportResult $result, int $stagingId): void
+    {
+        $other = $this->other;
+        self::assertInstanceOf(SecondConnection::class, $other);
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
         self::assertSame(0, $result->variablesCreated);
-        self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM api_studio_environment_variable WHERE environment_id = ?', [$stagingId]));
-        self::assertSame(1, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'staging'"));
+        self::assertSame(1, $result->variablesUpdated);
+        self::assertSame(['https://staging.example.test'], $this->connection->fetchFirstColumn("SELECT value FROM api_studio_environment_variable WHERE environment_id = ? AND variable_key = 'base_url'", [$stagingId]));
         self::assertSame(0, $this->connection->getTransactionNestingLevel());
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT 1'));
+    }
+
+    /** The variables export of one environment with `base_url`. */
+    private function stagingVariables(): string
+    {
+        $staging = new ApiEnvironment('Staging', 'staging');
+        $staging->addVariable(new ApiEnvironmentVariable('base_url', 'https://staging.example.test'));
+
+        return (new EnvironmentVariableExporter(new DocumentParser()))->render($staging, 'json');
     }
 
     /**

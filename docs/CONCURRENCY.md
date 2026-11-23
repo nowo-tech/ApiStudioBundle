@@ -63,7 +63,7 @@ decides. Cross-origin browser clients need `X-Error-Code` in the host's `Access-
 | Workspace / service / environment / endpoint delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Type-to-confirm (workspace, service); the delete wins over a concurrent edit (that edit then answers 404) | 409 on lock conflicts (1.17) |
 | Environment create (UI, *1.21.1*) | Explicit transaction (`RowVersionEditTrait::saveNew()`): workspace lock, then flush | Workspace row `FOR UPDATE` first; a new default clears every stored default in one statement (`DefaultEnvironmentSwitch::prepareCreate()`); unique (workspace, slug) + catch → 422 | 409 + `CONFLICT_00x` on lock conflicts |
 | Folder tree moves, folder deletes (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
-| Imports: OpenAPI, Postman, environment variables, into a workspace, a service or an environment (*1.21.1*; into a service since *1.14*) | One unit (`Doctrine\WorkspaceImportUnit`) | Workspace row `FOR UPDATE` first, then the service row for an import into a service; the import reads its rows after the lock and merges into them (no duplicate, one default environment) | 409 + `Retry-After` + `import.error.busy` on a lock conflict, or on a unique key refusing a row another writer stored meanwhile below the workspace, such as a variable saved from an environment's edit page (the retry merges). Writers inserting a service or an environment of the workspace wait for the lock (their foreign key check locks the workspace row) |
+| Imports: OpenAPI, Postman, environment variables, into a workspace, a service or an environment (*1.21.1*; into a service since *1.14*) | One unit (`Doctrine\WorkspaceImportUnit`) | Workspace row `FOR UPDATE` first, then the service row for an import into a service, then the workspace's environments in id order (an environment's edit page locks its own row, after the workspace when it sets the default: the same order); the import reads its rows after the locks and merges into them (no duplicate, one default environment). Writers inserting a service or an environment of the workspace wait too: their foreign key check locks the workspace row | 409 + `Retry-After` + `import.error.busy` on a lock conflict (the retry is safe). A unique violation is an import error (422 + `import.error`): under these locks it comes from the file itself (two names giving one slug once truncated to 128 characters) and would be refused again |
 | `pm.globals` / `pm.collectionVariables` saves (*1.15*) | Explicit transaction, DBAL statements | Workspace row lock, caps checked under it | 409 + `Retry-After` (audit RW-D-I1) |
 | Environment variable sync, request / response examples, documentation (*pre-1.17*) | One ORM flush | Unique (environment, key); since 1.20 a variable or documentation write moves the parent's row version (atomic, `RowVersionListener`) | 409 on lock conflicts (1.17) |
 | Console execute → history row (*pre-1.17*) | One insert | Append-only | 409 on lock conflicts (1.17) |
@@ -171,8 +171,9 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   where either side may lose); two edits making different environments the default (one default left). 1.21.1: two creates of a
   new default, and a create racing an edit that sets a default (one default left, the last one); a create that cannot
   get the workspace lock (409 + `CONFLICT_001` + `Retry-After`, nothing inserted, connection usable); two imports of the
-  same environment (the second waits for the workspace lock and merges: one row); an import refused by a variable an
-  environment edit stored meanwhile (retryable, nesting level 0, the retry merges). The tests go through the pages' own
+  same environment (the second waits for the workspace lock and merges: one row); an import of variables racing an edit of
+  their environment, into that environment and through a workspace payload (the import waits for the edit's commit and
+  merges: one variable, the imported value, nesting level 0). The tests go through the pages' own
   saves (`RowVersionEditTrait::saveEdit()` / `saveNew()`, `WorkspaceImportUnit::run()`).
 - `tests/Functional/StaleEditTest.php` (SQLite kernel): each of the four edit pages saved after another save (409,
   `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After`, the message, the stored data
@@ -206,9 +207,12 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 - (Closed in 1.20: the edit pages of workspaces, services, endpoints and environments are no longer last-writer-wins.)
 - (Closed in 1.21.1: creating or importing environments can no longer leave two default environments, and two
   imports into one workspace no longer insert duplicates.)
-- A unique key that refuses an import because of the import file itself on a host that skipped the 1.17 column
-  migration (variable keys differing only in case, see below) answers the retryable `import.error.busy` and is refused
-  again on every retry.
+- Imports lock the workspace's environments with a locking read on the `workspace_id` index: under REPEATABLE READ
+  (MySQL default) its next-key locks can also make an environment create of the neighbouring workspace id wait until
+  the import commits. READ COMMITTED is recommended.
+- A unique violation inside an import is answered as an import error (422), never retried: the locks leave only the
+  file itself as its cause. A writer outside Api Studio's pages (your own SQL) that stores an endpoint translation or a
+  folder of the same service meanwhile also gets the import a 422; importing again then merges.
 - The inline documentation editor of an endpoint (`…/documentation`, JSON) carries no version: it overwrites the title
   and description of one locale (last writer wins between two documentation saves), but it moves the endpoint's
   version, so an older endpoint edit form is refused instead of reverting it.

@@ -39,6 +39,8 @@ final class DefaultEnvironmentSwitch
      * The create page (1.21.1): locks the workspace row before the new environment is inserted, so a create waits for
      * any other create, edit or import of the workspace; when the new environment is the default, clears the flag of
      * every stored environment of the workspace (the new row is not stored yet, so it keeps its own).
+     *
+     * @internal the create page's lock and clear, not a public API of the bundle (1.21.1)
      */
     public static function prepareCreate(EntityManagerInterface $manager, ApiWorkspace $workspace, bool $default): void
     {

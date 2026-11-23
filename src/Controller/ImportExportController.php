@@ -236,7 +236,8 @@ final class ImportExportController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             // 1.14 (audit RJ-D-L1) an import into a service runs under the service lock; 1.21.1 every import runs in one
-            // transaction under the workspace lock first, so two imports into one workspace never insert duplicates.
+            // transaction under the workspace, service and environment locks, so concurrent imports and edits never
+            // insert duplicates.
             try {
                 $result = WorkspaceImportUnit::run($this->entityManager, $workspace, $service, static fn (): ImportResult => $importer($form));
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_WORKSPACE, $workspace->getId(), $workspace->getId(), ApiStudioResourceChangedEvent::ACTION_IMPORTED);
@@ -263,9 +264,8 @@ final class ImportExportController extends AbstractController
 
                 return $this->redirectToRoute('nowo_api_studio_workspace_show', ['id' => $workspace->getId()]);
             } catch (Throwable $e) {
-                // RJ-D2-L1: a write conflict on the locks is retryable (409), anything else an import error. 1.21.1: a
-                // unique key refusing a row another writer stored meanwhile (a variable saved from an environment's edit
-                // page) is retryable too: the retry reads that row and merges into it.
+                // RJ-D2-L1: a lock conflict is retryable (409), anything else an import error (422), a unique violation
+                // included: under the unit's locks it comes from the file itself, and the same import would fail again.
                 if (WorkspaceImportUnit::isRetryable($e)) {
                     $this->flash('error', 'import.error.busy');
 
