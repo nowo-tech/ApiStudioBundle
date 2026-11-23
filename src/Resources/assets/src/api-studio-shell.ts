@@ -5,6 +5,13 @@
  *
  * @packageDocumentation
  */
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/studio-shell', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 /*
  * Workspace rows (AS-A11Y-1): the toggle is the chevron <button data-tree-toggle> (native Enter / Space), with

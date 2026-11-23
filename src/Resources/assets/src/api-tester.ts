@@ -25,6 +25,13 @@ import {
   type StoredScript,
 } from './lib/script-approval';
 import { DEFAULT_TIMEOUT_MS, MAX_SEND_BUDGET, MAX_SEND_REQUESTS, parseLevelScripts, parseScopes, runInSandbox, sandboxContext, type SandboxHttpResponse, type SandboxState, type SendTransport } from './lib/sandbox';
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/tester', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 /**
  * The script runtime, unless the console says `data-scripts-mode="disabled"` (QE-A-L1): then scripts never run, even

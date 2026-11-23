@@ -1,11 +1,14 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
+import { buildTimeLabel } from './build-id.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const srcDir = resolve(root, 'src/Resources/assets/src');
 const outDir = resolve(root, 'src/Resources/public');
+// One build id for every script, shown in its "script loaded" console line (a hash of the sources, not a date).
+const buildId = buildTimeLabel(root, 'src/Resources/assets/src');
 
 const entries = [
   'api-body-tools',
@@ -23,6 +26,7 @@ const targets = [...entries.map((name) => [name, outDir]), ['api-script-runner',
 for (const [name, dir] of targets) {
   await build({
     configFile: false,
+    define: { __API_STUDIO_BUILD_TIME__: JSON.stringify(buildId) },
     build: {
       outDir: dir,
       emptyOutDir: false,

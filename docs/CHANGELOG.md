@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Console**: each browser script (`api-body-tools.js`, `api-endpoint-doc.js`, `api-script-runtime.js`, `api-script-sandbox.js`, `api-studio-shell.js`, `api-tester.js`; the server-side runner sidecar is unchanged) logs one line on load, `📦 [api-studio/<script>] script loaded, build: 2026-11-23 14:05 UTC`, with the house `createBundleLogger`. The build time is read from the committed `build-info.json` (`{sourceHash, builtAt}`): it is reused while the sources are unchanged and renewed only when they change, so rebuilding unchanged sources never rewrites the committed assets (no wall-clock stamp, no user data). Quiet switch: `<html data-nowo-console="quiet">` or `globalThis.NOWO_CONSOLE = 'quiet'` prints nothing; the default is unchanged.
+
 ## [1.21.1] - 2026-11-23
 
 ### Fixed

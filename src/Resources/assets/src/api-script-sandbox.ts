@@ -9,6 +9,13 @@
 import ScriptWorker from './api-script-worker?worker&inline';
 import { createFrameRelay } from './lib/frame-relay';
 import { lockDownNetwork } from './lib/lockdown';
+import { createBundleLogger } from './logger';
+
+declare const __API_STUDIO_BUILD_TIME__: string;
+
+createBundleLogger('api-studio/script-sandbox', {
+  buildTime: typeof __API_STUDIO_BUILD_TIME__ !== 'undefined' ? __API_STUDIO_BUILD_TIME__ : undefined,
+}).scriptLoaded();
 
 const post = window.parent.postMessage.bind(window.parent);
 const toParent = (message: unknown): void => post(message, '*');

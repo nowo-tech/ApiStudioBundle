@@ -28,6 +28,7 @@
   - [Forms in the templates (REQ-TWIG-005)](#forms-in-the-templates-req-twig-005)
 - [Translations (REQ-I18N)](#translations-req-i18n)
   - [Override in the application](#override-in-the-application-1)
+- [Browser console](#browser-console)
 
 ## Workspaces
 
@@ -858,3 +859,7 @@ workspace:
 Symfony uses application translations first; missing keys fall back to the bundle.
 
 UI/documentation locales are configured via `nowo_api_studio.ui.locales` (see [CONFIGURATION.md](CONFIGURATION.md)).
+
+## Browser console
+
+The bundle's script logs one line when it loads (`📦 [api-studio/<script>] script loaded, build: 2026-11-23 14:05 UTC`) so a developer can tell which build a page runs. To silence it, set `<html data-nowo-console="quiet">` or `globalThis.NOWO_CONSOLE = 'quiet'` before the script loads; nothing is printed then. The default is unchanged.
