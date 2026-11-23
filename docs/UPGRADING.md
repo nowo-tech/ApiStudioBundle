@@ -98,6 +98,12 @@ composer update nowo-tech/api-studio-bundle
 
 ## To 1.21.1
 
+From **1.21.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
 From **1.21.0** (patch, **no schema change**, no configuration change):
 
 - Creating an environment and every import (OpenAPI, Postman, environment variables) now lock the workspace row for

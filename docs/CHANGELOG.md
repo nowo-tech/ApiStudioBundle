@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.21.1] - 2026-11-23](#1211---2026-11-23)
 - [[1.21.0] - 2026-11-22](#1210---2026-11-22)
 - [[1.20.0] - 2026-11-22](#1200---2026-11-22)
 - [[1.19.1] - 2026-11-22](#1191---2026-11-22)
@@ -73,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-11-23
+
 ### Fixed
 
 - **One default environment per workspace, also when environments are created or imported at the same time**
@@ -100,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **An imported default environment is the only default.** Importing a workspace environment export whose default
   environment is new in the target workspace kept the target's own default too (two defaults, even without any
   concurrency). The imported default now clears the other flags.
+
+[1.21.1]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.21.1
 
 ## [1.21.0] - 2026-11-22
 
