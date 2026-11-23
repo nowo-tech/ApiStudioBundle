@@ -25,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
+use function array_map;
+
 /**
  * 1.20 row versions on SQLite: the claim, the atomic bump of writers without a version, the listener's choices
  * (claimed, new, deleted and foreign rows), and the domain answer of a stale edit.
@@ -137,6 +139,50 @@ final class RowVersionTest extends TestCase
     {
         $this->expectException(LogicException::class);
         DefaultEnvironmentSwitch::makeDefault($this->manager, new ApiEnvironment('New', 'new'));
+    }
+
+    /**
+     * 1.21.1: the create page locks the workspace and, for a new default, clears every stored default before the insert.
+     */
+    public function testANewEnvironmentCreatedAsTheDefaultClearsEveryStoredDefault(): void
+    {
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $this->manager->flush();
+        $before = (int) $this->stored($current);
+
+        $created = (new ApiEnvironment('Created', 'created'))->setIsDefault(true);
+        $workspace->addEnvironment($created);
+        $this->manager->persist($created);
+        $this->manager->getConnection()->beginTransaction();
+        DefaultEnvironmentSwitch::prepareCreate($this->manager, $workspace, true);
+        $this->manager->flush();
+        $this->manager->getConnection()->commit();
+
+        $defaults = $this->manager->getConnection()->fetchFirstColumn('SELECT id FROM api_studio_environment WHERE workspace_id = ? AND is_default = ?', [$workspace->getId(), true], [1 => 'boolean']);
+        self::assertSame([(int) $created->getId()], array_map('intval', $defaults));
+        self::assertSame($before + 1, $this->stored($current));
+    }
+
+    public function testANewEnvironmentThatIsNotTheDefaultKeepsTheStoredDefault(): void
+    {
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $this->manager->flush();
+        $before = (int) $this->stored($current);
+
+        $this->manager->getConnection()->beginTransaction();
+        DefaultEnvironmentSwitch::prepareCreate($this->manager, $workspace, false);
+        $this->manager->getConnection()->commit();
+
+        self::assertTrue((bool) $this->manager->getConnection()->fetchOne('SELECT is_default FROM api_studio_environment WHERE id = ?', [$current->getId()]));
+        self::assertSame($before, $this->stored($current));
+    }
+
+    public function testANewEnvironmentNeedsAStoredWorkspace(): void
+    {
+        $this->expectException(LogicException::class);
+        DefaultEnvironmentSwitch::prepareCreate($this->manager, new ApiWorkspace('New', 'new'), true);
     }
 
     public function testOtherEntitiesAreIgnored(): void

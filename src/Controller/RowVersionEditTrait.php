@@ -22,6 +22,7 @@ use function preg_match;
  * {@see ApiStudioPageTrait} services.
  *
  * - {@see saveEdit()}: one transaction — claim the row at the version the form was rendered from, then flush.
+ * - {@see saveNew()} (1.21.1): one transaction — the parent locks of a create page, then flush.
  * - {@see answerStaleEdit()}: on {@see StaleEditException}, drops the refused changes from the manager (refresh of the
  *   rows the form wrote) and returns the domain stale-edit answer of {@see ConcurrencyConflictSubscriber} (1.21: 409 +
  *   `X-Error-Code: API_STUDIO_STALE_EDIT`, no `X-Conflict-Code` and no `Retry-After` — nothing was written and the same
@@ -41,16 +42,47 @@ trait RowVersionEditTrait
      */
     private function saveEdit(FormInterface $form, RowVersionedInterface $row, ?callable $beforeClaim = null): bool
     {
-        $expected   = $this->submittedRowVersion($form, $row);
-        $connection = $this->entityManager->getConnection();
-        $level      = $connection->getTransactionNestingLevel();
-        $connection->beginTransaction();
-        try {
+        $expected = $this->submittedRowVersion($form, $row);
+        $saved    = $this->flushInTransaction($form, function () use ($row, $expected, $beforeClaim): void {
             // Locks a parent row first when the save writes more than its own row (the default environment flag).
             if ($beforeClaim !== null) {
                 $beforeClaim();
             }
             RowVersionGuard::claim($this->entityManager, $row, $expected);
+        });
+
+        if (!$saved) {
+            // Rolled back: the row keeps its version, the form keeps the submitted one.
+            $row->markRowVersion($expected);
+        }
+
+        return $saved;
+    }
+
+    /**
+     * A create page's save (1.21.1): the parent locks of `$beforeFlush`, then the flush, in one transaction with the
+     * same failure repair as {@see saveEdit()}. True when saved, false when a slug unique index refused it (form error
+     * on `slug`, rolled back). A lock conflict propagates to the conflict subscriber (409 + `CONFLICT_00x`).
+     *
+     * @param FormInterface<mixed> $form
+     * @param callable(): void $beforeFlush Runs first inside the transaction (parent locks)
+     */
+    private function saveNew(FormInterface $form, callable $beforeFlush): bool
+    {
+        return $this->flushInTransaction($form, $beforeFlush);
+    }
+
+    /**
+     * @param FormInterface<mixed> $form
+     * @param callable(): void $before
+     */
+    private function flushInTransaction(FormInterface $form, callable $before): bool
+    {
+        $connection = $this->entityManager->getConnection();
+        $level      = $connection->getTransactionNestingLevel();
+        $connection->beginTransaction();
+        try {
+            $before();
             if ($this->flushUnlessSlugTaken($form)) {
                 $connection->commit();
 
@@ -74,9 +106,6 @@ trait RowVersionEditTrait
             // The original failure keeps the deadlock in its chain: the conflict subscriber answers 409 + CONFLICT_001.
             throw $e;
         }
-
-        // Rolled back: the row keeps its version, the form keeps the submitted one.
-        $row->markRowVersion($expected);
 
         return false;
     }

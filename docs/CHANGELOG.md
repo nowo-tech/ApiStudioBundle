@@ -73,6 +73,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **One default environment per workspace, also when environments are created or imported at the same time**
+  (REQ-RUNTIME-003 rule 4, audit ZH-L1 on the create page). Creating an environment marked as the default cleared only
+  the other environments loaded in memory and flushed outside a transaction, without the workspace lock the edit page
+  takes since 1.20: two creates, or a create racing an edit, that each set a default left **two default environments**.
+  The create page now saves in one transaction (`RowVersionEditTrait::saveNew()`, the same failure repair as the edit
+  page): it locks the workspace row first, then a new default clears every stored default in one statement
+  (`DefaultEnvironmentSwitch::prepareCreate()`), then inserts. A lock conflict answers 409 + `CONFLICT_001` /
+  `CONFLICT_002` like the edit page. No data was lost before: the extra flag only made the choice of the default
+  environment ambiguous.
+- **Imports into a workspace no longer insert duplicates or fail on a concurrent import.** An OpenAPI, Postman or
+  environment-variable import into a workspace ran without a transaction or a lock (only imports into a service took
+  the service lock, 1.14): two imports of the same file into one workspace could both insert the same service,
+  environment or variable, and the loser's unique violation answered the generic `import.error` (422). Every import now
+  runs as one unit (`Doctrine\WorkspaceImportUnit`): the workspace row is locked first, then the service row for an
+  import into a service, so the second import reads the first one's rows and merges into them. A lock conflict, or a
+  unique key refusing a row another writer stored meanwhile (a variable saved from an environment's edit page), answers
+  **409 + `Retry-After`**
+  with the new message `import.error.busy` (every shipped locale); the retry merges into the stored row. An import into
+  a service that met a lock conflict now shows `import.error.busy` instead of `folder.error.busy` (same 409).
+- **An imported default environment is the only default.** Importing a workspace environment export whose default
+  environment is new in the target workspace kept the target's own default too (two defaults, even without any
+  concurrency). The imported default now clears the other flags.
+
 ## [1.21.0] - 2026-11-22
 
 ### Changed

@@ -58,12 +58,16 @@ final class ApiEnvironmentController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            if ($environment->isDefault()) {
+            $default = $environment->isDefault();
+            if ($default) {
                 $this->clearDefaultFlag($workspace, $environment);
             }
 
             $this->entityManager->persist($environment);
-            if ($this->flushUnlessSlugTaken($form)) {
+            // 1.21.1 (audit ZH-L1 on the create page): one transaction; the workspace row is locked first, then a new
+            // default clears every stored default in one statement, so two creates (or a create and an edit) that
+            // each set a default leave one. A lock conflict answers 409 + CONFLICT_00x like the edit page.
+            if ($this->saveNew($form, fn () => DefaultEnvironmentSwitch::prepareCreate($this->entityManager, $workspace, $default))) {
                 $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_ENVIRONMENT, $environment->getId(), $workspaceId, ApiStudioResourceChangedEvent::ACTION_CREATED);
                 $this->flash('success', 'flash.created');
 
@@ -171,6 +175,9 @@ final class ApiEnvironmentController extends AbstractController
         return $environment;
     }
 
+    /**
+     * The loaded environments, in memory only (the stored flags are cleared by {@see DefaultEnvironmentSwitch}).
+     */
     private function clearDefaultFlag(ApiWorkspace $workspace, ApiEnvironment $current): void
     {
         foreach ($workspace->getEnvironments() as $environment) {

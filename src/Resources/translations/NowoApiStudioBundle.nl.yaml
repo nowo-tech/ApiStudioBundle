@@ -172,6 +172,7 @@ import.postman_variables: Postman-collectievariabelen importeren in werkruimteom
 import.submit: Importeren
 import.help: Upload JSON, YAML of .env (alleen variabelen). OpenAPI 3.x en Swagger 2.0 ondersteund voor API-import.
 import.error: Import mislukt. Controleer het bestandsformaat en probeer opnieuw.
+import.error.busy: 'Iemand anders wijzigt deze werkruimte: probeer het zo opnieuw.'
 import.openapi.title: OpenAPI / Swagger importeren
 import.openapi.service_title: OpenAPI importeren in service
 import.openapi.service_short: OpenAPI importeren

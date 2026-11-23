@@ -14,6 +14,7 @@ use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\Doctrine\DefaultEnvironmentSwitch;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionGuard;
 use Nowo\ApiStudioBundle\Doctrine\RowVersionListener;
+use Nowo\ApiStudioBundle\Doctrine\WorkspaceImportUnit;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiEndpointTranslation;
 use Nowo\ApiStudioBundle\Entity\ApiEnvironment;
@@ -23,6 +24,10 @@ use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Entity\RowVersionedInterface;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\Form\RowVersionField;
+use Nowo\ApiStudioBundle\Model\ImportResult;
+use Nowo\ApiStudioBundle\Service\ImportExport\DocumentParser;
+use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableExporter;
+use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use Nowo\ApiStudioBundle\Tests\Database\Support\SecondConnection;
 use Nowo\ApiStudioBundle\Tests\Support\RowVersionEditProbe;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeOrmTrait;
@@ -39,6 +44,7 @@ use function array_map;
 use function getenv;
 use function is_string;
 use function sprintf;
+use function ucfirst;
 
 /**
  * 1.20 REQ-RUNTIME-003 rule 4 on real servers (MySQL 8.4, MariaDB 11.4, PostgreSQL 16): the row version of the edit
@@ -342,6 +348,260 @@ final class RowVersionRaceTest extends TestCase
         $defaults = $this->connection->fetchFirstColumn(sprintf('SELECT id FROM api_studio_environment WHERE workspace_id = %d AND is_default = %s', $workspace->getId(), $this->bool(true)));
         self::assertSame([(int) $second->getId()], array_map('intval', $defaults));
         $this->assertUsable();
+    }
+
+    /**
+     * 1.21.1 (audit ZH-L1 on the create page): two creates that each make their new environment the default. The
+     * other create (second session) locks the workspace, clears the defaults, inserts its default and holds the locks;
+     * this create waits for the workspace lock, then clears the other one: one default, never two.
+     */
+    #[DataProvider('servers')]
+    public function testTwoCreatesThatSetADefaultLeaveOneDefault(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $this->manager->flush();
+        $workspaceId = (int) $workspace->getId();
+
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_workspace SET name = name WHERE id = %d', $workspaceId)));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET is_default = %s, row_version = row_version + 1 WHERE workspace_id = %d AND is_default = %s', $this->bool(false), $workspaceId, $this->bool(true))));
+        self::assertSame('OK', $other->execute($this->insertEnvironment($workspaceId, 'other', true)));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        $created = $this->createEnvironment($workspace, 'created', true);
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+
+        self::assertSame([(int) $created->getId()], $this->defaults($workspaceId));
+        self::assertSame(1, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'other'"));
+        $this->assertUsable();
+    }
+
+    /**
+     * 1.21.1: an edit that makes an environment the default (second session, the edit page's protocol: workspace lock,
+     * clear the others, claim its own row) racing a create of a new default: the create waits, then clears the edit's
+     * default. One default.
+     */
+    #[DataProvider('servers')]
+    public function testACreateRacingAnEditThatSetsADefaultLeavesOneDefault(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace, , , $current] = $this->graph();
+        $current->setIsDefault(true);
+        $edited = (new ApiEnvironment('Edited', 'edited'))->setWorkspace($workspace);
+        $this->manager->persist($edited);
+        $this->manager->flush();
+        $workspaceId = (int) $workspace->getId();
+
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_workspace SET name = name WHERE id = %d', $workspaceId)));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET is_default = %s, row_version = row_version + 1 WHERE workspace_id = %d AND id <> %d AND is_default = %s', $this->bool(false), $workspaceId, $edited->getId(), $this->bool(true))));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_environment SET is_default = %s, row_version = row_version + 1 WHERE id = %d AND row_version = 1', $this->bool(true), $edited->getId())));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        $created = $this->createEnvironment($workspace, 'created', true);
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+
+        self::assertSame([(int) $created->getId()], $this->defaults($workspaceId));
+        $this->assertUsable();
+    }
+
+    /**
+     * 1.21.1: a create that cannot get the workspace lock fails retry-safe: 409 + CONFLICT_001 + Retry-After on an Api
+     * Studio route, nothing inserted, connection usable.
+     */
+    #[DataProvider('servers')]
+    public function testALockWaitTimeoutOnACreateIsARetrySafeConflict(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace] = $this->graph();
+        $other       = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_workspace SET name = name WHERE id = %d', $workspace->getId())));
+        $this->connection->executeStatement($this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform ? "SET lock_timeout = '1s'" : 'SET SESSION innodb_lock_wait_timeout = 1');
+
+        try {
+            $this->createEnvironment($workspace, 'blocked', true);
+            self::fail('Expected a lock wait timeout.');
+        } catch (Throwable $failure) {
+            $request = new Request();
+            $request->attributes->set('_route', 'nowo_api_studio_environment_new');
+            [$status, $headers] = (new ConcurrencyConflictSubscriber())->answerFor($request, $failure);
+            self::assertTrue((new ConcurrencyConflictSubscriber())->isConflict($failure));
+            self::assertSame(409, $status);
+            self::assertSame('CONFLICT_001', $headers['X-Conflict-Code']);
+            self::assertArrayHasKey('Retry-After', $headers);
+        }
+
+        self::assertSame('OK', $other->execute('COMMIT'));
+        self::assertSame(0, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'blocked'"));
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT 1'));
+    }
+
+    /**
+     * 1.21.1: two imports of the same environment into one workspace. The other import (second session) holds the
+     * workspace lock and inserts the environment; this import waits for the lock, then reads that row and merges into
+     * it: one environment, the variable in it, no unique violation.
+     */
+    #[DataProvider('servers')]
+    public function testTwoImportsOfTheSameEnvironmentLeaveOneRow(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace] = $this->graph();
+        $workspaceId = (int) $workspace->getId();
+
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf('UPDATE api_studio_workspace SET name = name WHERE id = %d', $workspaceId)));
+        self::assertSame('OK', $other->execute($this->insertEnvironment($workspaceId, 'staging', false)));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        // What the import page does: the workspace loaded before the unit, the import inside it.
+        $manager = $this->freshManager();
+        $loaded  = $manager->find(ApiWorkspace::class, $workspaceId);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        $result = WorkspaceImportUnit::run($manager, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $manager))
+            ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+
+        self::assertSame(0, $result->environmentsCreated);
+        self::assertSame(1, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'staging'"));
+        self::assertSame(1, (int) $this->connection->fetchOne(sprintf("SELECT COUNT(*) FROM api_studio_environment_variable v JOIN api_studio_environment e ON e.id = v.environment_id WHERE e.slug = 'staging' AND e.workspace_id = %d", $workspaceId)));
+        $this->assertUsable();
+    }
+
+    /**
+     * 1.21.1: a writer below the workspace (an environment edit page saving a variable, which locks the environment
+     * row, not the workspace) stores the same variable while the import into that environment runs: the unique key
+     * refuses the import's row, the unit rolls back to level 0, the failure is retryable (the import page answers 409 +
+     * Retry-After) and the retry merges into the stored variable. (A writer that inserts a row of the workspace itself,
+     * a service or an environment, already waits on the workspace lock: its foreign key check locks the workspace
+     * row, see testTwoImportsOfTheSameEnvironmentLeaveOneRow.).
+     */
+    #[DataProvider('servers')]
+    public function testAnImportRefusedByAConcurrentRowIsRetryableAndItsRetryMerges(string $variable): void
+    {
+        $this->boot($variable);
+        [$workspace] = $this->graph();
+        $workspaceId = (int) $workspace->getId();
+        $this->connection->executeStatement($this->insertEnvironment($workspaceId, 'staging', false));
+        $stagingId = (int) $this->connection->fetchOne("SELECT id FROM api_studio_environment WHERE slug = 'staging'");
+
+        $other = $this->other();
+        self::assertSame('OK', $other->execute($this->begin()));
+        self::assertSame('OK', $other->execute(sprintf("INSERT INTO api_studio_environment_variable (id, environment_id, variable_key, value, secret) VALUES (%s, %d, 'base_url', 'https://other.example.test', %s)", $this->nextId(ApiEnvironmentVariable::class, 'api_studio_environment_variable'), $stagingId, $this->bool(false))));
+        $other->sleep(700);
+        $other->send('COMMIT');
+
+        $manager = $this->freshManager();
+        $loaded  = $manager->find(ApiWorkspace::class, $workspaceId);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        $failure = null;
+        try {
+            WorkspaceImportUnit::run($manager, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $manager))
+                ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
+        } catch (Throwable $e) {
+            $failure = $e;
+        }
+        self::assertInstanceOf(Throwable::class, $failure, 'Expected the unique key to refuse the import.');
+        self::assertTrue(WorkspaceImportUnit::isRetryable($failure), $failure::class . ': ' . $failure->getMessage());
+        self::assertSame('OK', $other->await());
+        self::assertSame('OK', $other->await());
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM api_studio_environment_variable WHERE environment_id = ?', [$stagingId]));
+
+        // The retry (a new request: a fresh manager) reads the stored variable and merges into it.
+        $retry  = $this->freshManager();
+        $loaded = $retry->find(ApiWorkspace::class, $workspaceId);
+        self::assertInstanceOf(ApiWorkspace::class, $loaded);
+        $result = WorkspaceImportUnit::run($retry, $loaded, null, fn (): ImportResult => (new EnvironmentVariableImporter(new DocumentParser(), $retry))
+            ->importIntoWorkspace($loaded, $this->stagingExport(), 'merge', 'environments.json'));
+        self::assertSame(0, $result->variablesCreated);
+        self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM api_studio_environment_variable WHERE environment_id = ?', [$stagingId]));
+        self::assertSame(1, (int) $this->connection->fetchOne("SELECT COUNT(*) FROM api_studio_environment WHERE slug = 'staging'"));
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+    }
+
+    /**
+     * The create page's save (ApiEnvironmentController::new(), RowVersionEditTrait::saveNew()) on this session.
+     */
+    private function createEnvironment(ApiWorkspace $workspace, string $slug, bool $default): ApiEnvironment
+    {
+        $environment = (new ApiEnvironment(ucfirst($slug), $slug))->setIsDefault($default);
+        $workspace->addEnvironment($environment);
+        if ($default) {
+            foreach ($workspace->getEnvironments() as $loaded) {
+                if ($loaded !== $environment) {
+                    $loaded->setIsDefault(false);
+                }
+            }
+        }
+        $this->manager->persist($environment);
+        $form = Forms::createFormFactory()->createBuilder(FormType::class, $environment, ['data_class' => ApiEnvironment::class])->getForm();
+        self::assertTrue($this->probe($this->manager)->create($form, fn () => DefaultEnvironmentSwitch::prepareCreate($this->manager, $workspace, $default)));
+
+        return $environment;
+    }
+
+    /**
+     * The id of a row the second session inserts with plain SQL: on PostgreSQL with DBAL 3 the ORM draws ids from a
+     * sequence (the column has no default), so it is drawn here too; elsewhere the column generates it (`DEFAULT`).
+     *
+     * @param class-string $class
+     */
+    private function nextId(string $class, string $table): string
+    {
+        $sequence = $this->manager->getClassMetadata($class)->sequenceGeneratorDefinition['sequenceName'] ?? null;
+        if (!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform || !is_string($sequence) || $sequence === ''
+            || $this->connection->fetchOne('SELECT column_default FROM information_schema.columns WHERE table_name = ? AND column_name = ?', [$table, 'id']) !== null) {
+            return 'DEFAULT';
+        }
+
+        return (string) (int) $this->connection->fetchOne(sprintf("SELECT nextval('%s')", $sequence));
+    }
+
+    /**
+     * The environment row as the ORM would insert it.
+     */
+    private function insertEnvironment(int $workspaceId, string $slug, bool $default): string
+    {
+        return sprintf(
+            "INSERT INTO api_studio_environment (id, workspace_id, name, slug, is_default, created_at, updated_at, row_version) VALUES (%s, %d, '%s', '%s', %s, '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1)",
+            $this->nextId(ApiEnvironment::class, 'api_studio_environment'),
+            $workspaceId,
+            ucfirst($slug),
+            $slug,
+            $this->bool($default),
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function defaults(int $workspaceId): array
+    {
+        return array_map('intval', $this->connection->fetchFirstColumn(sprintf('SELECT id FROM api_studio_environment WHERE workspace_id = %d AND is_default = %s ORDER BY id', $workspaceId, $this->bool(true))));
+    }
+
+    /** A workspace export with one environment "staging" and one variable. */
+    private function stagingExport(): string
+    {
+        $source  = new ApiWorkspace('Source', 'source');
+        $staging = new ApiEnvironment('Staging', 'staging');
+        $staging->addVariable(new ApiEnvironmentVariable('base_url', 'https://staging.example.test'));
+        $source->addEnvironment($staging);
+
+        return (new EnvironmentVariableExporter(new DocumentParser()))->renderWorkspace($source, 'json');
     }
 
     private function boot(string $variable): void

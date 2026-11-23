@@ -13,6 +13,9 @@ use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use PHPUnit\Framework\TestCase;
 
+use function array_filter;
+use function array_values;
+
 final class EnvironmentVariableImportExportTest extends TestCase
 {
     public function testExportAndImportJsonRoundTrip(): void
@@ -53,5 +56,31 @@ final class EnvironmentVariableImportExportTest extends TestCase
         $result = $importer->importIntoEnvironment($environment, "API_KEY=test123\n# comment\nTOKEN=abc", 'merge', 'vars.env');
 
         self::assertSame(2, $result->variablesCreated);
+    }
+
+    /**
+     * 1.21.1: a workspace export whose default environment is new in the target workspace becomes the only default
+     * (the target's own default is cleared), never a second one.
+     */
+    public function testAnImportedDefaultEnvironmentIsTheOnlyDefault(): void
+    {
+        $source     = new ApiWorkspace('Source', 'source');
+        $production = (new ApiEnvironment('Production', 'production'))->setIsDefault(true);
+        $source->addEnvironment($production);
+        $parser = new DocumentParser();
+        $json   = (new EnvironmentVariableExporter($parser))->renderWorkspace($source, 'json');
+
+        $target = new ApiWorkspace('Target', 'target');
+        $local  = (new ApiEnvironment('Local', 'local'))->setIsDefault(true);
+        $target->addEnvironment($local);
+
+        $result = (new EnvironmentVariableImporter($parser, $this->createMock(EntityManagerInterface::class)))
+            ->importIntoWorkspace($target, $json, 'merge', 'environments.json');
+
+        self::assertSame(1, $result->environmentsCreated);
+        $defaults = array_values(array_filter($target->getEnvironments()->toArray(), static fn (ApiEnvironment $e): bool => $e->isDefault()));
+        self::assertCount(1, $defaults);
+        self::assertSame('production', $defaults[0]->getSlug());
+        self::assertFalse($local->isDefault());
     }
 }

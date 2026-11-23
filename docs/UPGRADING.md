@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.21.1](#to-1211)
 - [To 1.21.0](#to-1210)
 - [To 1.20.0](#to-1200)
   - [To 1.20.0](#to-1200-1)
@@ -94,6 +95,27 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.21.1
+
+From **1.21.0** (patch, **no schema change**, no configuration change):
+
+- Creating an environment and every import (OpenAPI, Postman, environment variables) now lock the workspace row for
+  the length of their transaction, like the edit pages and the seed API. Two of them on the same workspace run one
+  after the other; keep the database lock wait timeout short for HTTP (a few seconds), as for the edit pages.
+- An import that meets a lock conflict, or a row stored meanwhile by another writer, answers **409 + `Retry-After: 1`**
+  with the flash `import.error.busy` (new translation key; override it in your `NowoApiStudioBundle` catalogue if you
+  translate the bundle). Retrying the same import is safe: it merges into the stored rows. Other import failures keep
+  the 422 + `import.error` answer.
+- Workspaces that already have **more than one default environment** (left by the races fixed here) keep them until an
+  environment of the workspace is saved as the default again. To find them:
+
+  ```sql
+  SELECT workspace_id, COUNT(*) FROM api_studio_environment WHERE is_default = true GROUP BY workspace_id HAVING COUNT(*) > 1;
+  ```
+
+  (use your table prefix; `is_default = 1` on MySQL / MariaDB). Fix one by editing the environment that should be the
+  default and saving it with *Default* checked: the others are cleared.
 
 ## To 1.21.0
 
