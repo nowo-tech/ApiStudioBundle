@@ -47,6 +47,17 @@ describe('createBundleLogger', () => {
     expect(consoleLog).toHaveBeenCalledTimes(1);
   });
 
+  it('scriptLoaded() still prints once when the banner registry is frozen or read-only', () => {
+    (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners = Object.freeze({});
+    expect(() => createBundleLogger('frozen').scriptLoaded()).not.toThrow();
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(globalThis, '__nowoScriptBanners', { value: 'readonly', writable: false, configurable: true });
+    expect(() => createBundleLogger('readonly').scriptLoaded()).not.toThrow();
+    expect(consoleLog).toHaveBeenCalledTimes(2);
+    delete (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners;
+  });
+
   it('scriptLoaded() logs without build id when no options', () => {
     const log = createBundleLogger('test');
     log.scriptLoaded();

@@ -59,16 +59,20 @@ function isQuiet(): boolean {
 /**
  * True the first time a script name announces itself on the page (the per-name global `__nowoScriptBanners`, shared
  * with UiKit's `announceScript`), so a script loaded twice (Turbo, a fragment, a template include) logs once.
- * A clobbered non-object global is replaced; without a window nothing is remembered.
+ * A clobbered non-object global is replaced; a frozen or read-only one is ignored (the banner prints, never throws).
  */
 function firstAnnouncement(name: string): boolean {
-  const scope = globalThis as { __nowoScriptBanners?: unknown };
-  if (typeof scope.__nowoScriptBanners !== 'object' || scope.__nowoScriptBanners === null) {
-    scope.__nowoScriptBanners = {};
+  try {
+    const scope = globalThis as { __nowoScriptBanners?: unknown };
+    if (typeof scope.__nowoScriptBanners !== 'object' || scope.__nowoScriptBanners === null) {
+      scope.__nowoScriptBanners = {};
+    }
+    const seen = scope.__nowoScriptBanners as Record<string, true>;
+    if (seen[name] === true) return false;
+    seen[name] = true;
+  } catch {
+    // A frozen registry or a read-only global cannot remember the name: the banner still prints (once per evaluation).
   }
-  const seen = scope.__nowoScriptBanners as Record<string, true>;
-  if (seen[name] === true) return false;
-  seen[name] = true;
   return true;
 }
 
