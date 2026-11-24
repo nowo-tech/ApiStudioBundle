@@ -11,7 +11,9 @@ use Nowo\ApiStudioBundle\Script\Runner\NullScriptRunner;
 use Nowo\ApiStudioBundle\Script\Runner\ProcessScriptRunner;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Service\WorkspaceEnvironmentInitializer;
+use Nowo\ApiStudioBundle\Ui\ApiStudioPages;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -74,6 +76,26 @@ final class ApiStudioExtensionTest extends TestCase
 
         self::assertFalse($container->getParameter('nowo_api_studio.scripts.confirm_stored'));
         self::assertSame('inline', $container->getParameter('nowo_api_studio.scripts.mode'));
+    }
+
+    public function testHeaderActionsDefaultToTheHeaderRowAndAcceptPageActions(): void
+    {
+        $default = new ContainerBuilder();
+        (new ApiStudioExtension())->load([], $default);
+        self::assertSame('header', $default->getParameter('nowo_api_studio.ui.header_actions'));
+
+        $menu = new ContainerBuilder();
+        (new ApiStudioExtension())->load([['ui' => ['header_actions' => 'page_actions']]], $menu);
+        self::assertSame('page_actions', $menu->getParameter('nowo_api_studio.ui.header_actions'));
+        self::assertSame('%nowo_api_studio.ui.header_actions%', $menu->getDefinition(ApiStudioPages::class)->getArgument('$headerActions'));
+    }
+
+    public function testAnUnknownHeaderActionsModeIsRejected(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('header_actions');
+
+        (new ApiStudioExtension())->load([['ui' => ['header_actions' => 'toolbar']]], new ContainerBuilder());
     }
 
     public function testLocalesRequirementReflectsConfiguredLocales(): void

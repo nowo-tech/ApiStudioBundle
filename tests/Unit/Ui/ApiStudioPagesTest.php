@@ -25,6 +25,13 @@ final class ApiStudioPagesTest extends TestCase
         self::assertSame(['%n%' => 1], $label->params);
     }
 
+    public function testHeaderActionsDefaultToTheHeaderRow(): void
+    {
+        self::assertFalse((new ApiStudioPages())->headerActionsInPageMenu());
+        self::assertFalse((new ApiStudioPages(headerActions: ApiStudioPages::HEADER_ACTIONS_HEADER))->headerActionsInPageMenu());
+        self::assertTrue((new ApiStudioPages(headerActions: ApiStudioPages::HEADER_ACTIONS_PAGE_ACTIONS))->headerActionsInPageMenu());
+    }
+
     public function testNoLayoutOrTheLegacyDefaultMeansTheUiKitLayout(): void
     {
         foreach ([null, '', ApiStudioPages::LEGACY_DEFAULT_LAYOUT] as $layout) {

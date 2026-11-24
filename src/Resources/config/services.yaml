@@ -260,6 +260,7 @@ services:
             $layoutTemplate: '%nowo_api_studio.ui.layout_template%'
             $twig: '@twig'
             $scopeLayoutTemplate: '%nowo_api_studio.scope.layout_template%'
+            $headerActions: '%nowo_api_studio.ui.header_actions%'
 
     # 1.14 folders: depth limit; the folder checker is set by the extension (null without folders / checker).
     Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory:

@@ -289,6 +289,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->setParameter(Configuration::ALIAS . '.table_prefix', $config['table_prefix']);
         $container->setParameter(Configuration::ALIAS . '.ui.path', $config['ui']['path']);
         $container->setParameter(Configuration::ALIAS . '.ui.layout_template', $config['ui']['layout_template']);
+        $container->setParameter(Configuration::ALIAS . '.ui.header_actions', $config['ui']['header_actions']);
         $container->setParameter(Configuration::ALIAS . '.ui.css_framework', $config['ui']['css_framework']);
         if ($config['ui']['css_framework'] !== null) {
             trigger_deprecation('nowo-tech/api-studio-bundle', '1.10', 'The "nowo_api_studio.ui.css_framework" option is deprecated: set "nowo_ui_kit.css_framework" (UiKit page contract) instead.');
