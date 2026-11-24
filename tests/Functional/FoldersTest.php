@@ -83,7 +83,7 @@ final class FoldersTest extends StudioWebTestCase
         $top     = $this->createFolder('Users');
         $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
         $form    = $crawler->filter('form[name="api_folder_form"]')->form();
-        self::assertSame('1', $form['api_folder_form[rowVersion]']->getValue());
+        self::assertSame('1', $form->getValues()['api_folder_form[rowVersion]']);
 
         // Another editor saves first (the same statement as a claim, plus its own change).
         $this->entityManager()->getConnection()->executeStatement(sprintf('UPDATE %s SET row_version = row_version + 1, name = ? WHERE id = ?', $this->folderTable()), ['Saved by the other editor', $top]);
@@ -100,8 +100,8 @@ final class FoldersTest extends StudioWebTestCase
 
         // The form shows the stored data at the new version: saving it now works.
         $again = $crawler->filter('form[name="api_folder_form"]')->form();
-        self::assertSame('Saved by the other editor', $again['api_folder_form[name]']->getValue());
-        self::assertSame('2', $again['api_folder_form[rowVersion]']->getValue());
+        self::assertSame('Saved by the other editor', $again->getValues()['api_folder_form[name]']);
+        self::assertSame('2', $again->getValues()['api_folder_form[rowVersion]']);
         $again['api_folder_form[name]'] = 'Mine, on top';
         $this->client->submit($again);
         self::assertResponseRedirects($this->serviceUrl());
@@ -145,6 +145,22 @@ final class FoldersTest extends StudioWebTestCase
         self::assertSame('No version', $this->storedFolder($top, 'name'));
     }
 
+    public function testALockConflictOnAFolderEditIsABusyFormErrorAndKeepsTheVersion(): void
+    {
+        $top                           = $this->createFolder('Users');
+        $crawler                       = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
+        $form                          = $crawler->filter('form[name="api_folder_form"]')->form();
+        $form['api_folder_form[name]'] = 'Mine';
+
+        // The database answers a lock conflict while the edit flushes (after the claim, inside its transaction).
+        $this->entityManager()->getConnection()->executeStatement(sprintf("CREATE TRIGGER folder_locked BEFORE UPDATE OF name ON %s BEGIN SELECT RAISE(ABORT, 'database is locked'); END", $this->folderTable()));
+        $this->client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('1', $this->storedFolder($top, 'row_version'), 'the claim was rolled back with the transaction');
+        self::assertSame('Users', $this->storedFolder($top, 'name'));
+    }
+
     public function testAnEditRefusedByATreeRuleKeepsTheVersion(): void
     {
         $a = $this->createFolder('A');
@@ -154,7 +170,7 @@ final class FoldersTest extends StudioWebTestCase
 
         $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $x)));
         $form    = $crawler->filter('form[name="api_folder_form"]')->form();
-        $form['api_folder_form[parent]']->select((string) $c);
+        $form->setValues(['api_folder_form[parent]' => (string) $c]);
         $this->client->submit($form);
 
         self::assertResponseStatusCodeSame(422);
