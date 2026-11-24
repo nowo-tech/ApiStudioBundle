@@ -3,7 +3,7 @@
  * IIFE scripts with top-level side effects, so each one is imported on an empty document with a fresh module registry
  * (the sandbox frame gets a fake worker and a stubbed network lockdown, as in script-sandbox-frame.test.ts).
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/api-script-worker?worker&inline', () => ({
   default: class FakeWorker {
@@ -25,6 +25,10 @@ const ENTRIES = [
 ] as const;
 
 describe.each(ENTRIES)('%s', (entry, name) => {
+  beforeEach(() => {
+    delete (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners;
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -52,5 +56,16 @@ describe.each(ENTRIES)('%s', (entry, name) => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain(`[${name}] script loaded, build: `);
     expect(JSON.stringify(log.mock.calls)).toContain('abc123def456');
+  });
+
+  it('logs once when the script is evaluated twice (Turbo, a fragment)', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await import(/* @vite-ignore */ entry);
+    vi.resetModules();
+    await import(/* @vite-ignore */ entry);
+
+    const lines = log.mock.calls.map((call) => String(call[0])).filter((line) => line.includes('script loaded'));
+    expect(lines).toHaveLength(1);
   });
 });

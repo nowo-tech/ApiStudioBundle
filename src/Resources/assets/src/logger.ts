@@ -35,6 +35,8 @@
  *      __MY_BUNDLE_BUILD_TIME__: JSON.stringify(buildTimeLabel('src/Resources/assets/src')), // "2026-11-23 14:05 UTC"
  *    },
  *
+ * 5b. scriptLoaded() logs once per name and page (`globalThis.__nowoScriptBanners`), even if the script is evaluated twice.
+ *
  * 6. Quiet switch: scriptLoaded() prints nothing when <html data-nowo-console="quiet"> or
  *    globalThis.NOWO_CONSOLE === 'quiet'. The default (print) is unchanged.
  *
@@ -52,6 +54,22 @@ function isQuiet(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * True the first time a script name announces itself on the page (the per-name global `__nowoScriptBanners`, shared
+ * with UiKit's `announceScript`), so a script loaded twice (Turbo, a fragment, a template include) logs once.
+ * A clobbered non-object global is replaced; without a window nothing is remembered.
+ */
+function firstAnnouncement(name: string): boolean {
+  const scope = globalThis as { __nowoScriptBanners?: unknown };
+  if (typeof scope.__nowoScriptBanners !== 'object' || scope.__nowoScriptBanners === null) {
+    scope.__nowoScriptBanners = {};
+  }
+  const seen = scope.__nowoScriptBanners as Record<string, true>;
+  if (seen[name] === true) return false;
+  seen[name] = true;
+  return true;
 }
 
 export type BundleLoggerOptions = {
@@ -106,6 +124,7 @@ export function createBundleLogger(name: string, options: BundleLoggerOptions = 
   return {
     scriptLoaded(): void {
       if (isQuiet()) return;
+      if (!firstAnnouncement(name)) return;
       if (buildTime !== undefined && buildTime !== '') {
         console.log(
           `%c${EMOJI.script} ${prefix} script loaded, build: %c${buildTime}`,
