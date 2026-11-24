@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+- [To 1.23.0](#to-1230)
 - [To 1.22.0](#to-1220)
 - [To 1.21.1](#to-1211)
 - [To 1.21.0](#to-1210)
@@ -96,6 +97,14 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+## To 1.23.0
+
+From **1.22.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
 
 From **1.22.0**:
 

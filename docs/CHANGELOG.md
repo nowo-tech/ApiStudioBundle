@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.23.0] - 2026-11-24](#1230---2026-11-24)
 - [[1.22.0] - 2026-11-23](#1220---2026-11-23)
 - [[1.21.1] - 2026-11-23](#1211---2026-11-23)
 - [[1.21.0] - 2026-11-22](#1210---2026-11-22)
@@ -75,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-24
+
 ### Added
 
 - `nowo_api_studio.ui.header_actions` (`header` | `page_actions`, default `header`): with `page_actions` "New workspace", "New service", "New environment", "New endpoint", "New folder" and the other header actions of every page are UiKit `View\Action` entries of the page-actions menu (the page header uses the UiKit split layout, `PageHeader::actionsLayout` `split`, and the create actions are `secondary`) instead of buttons of the header row (Beacon UI-PATTERNS section 3). `header` keeps the 1.22 behaviour. The empty states keep their primary action in both modes. Same option as VaultBundle 2.2 `web_ui.header_actions`; no new label, so no new translation.
@@ -97,6 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - `scripts/build-assets.mjs`: the comment on the build id now says it is the readable UTC build date label from `build-info.json`, not a hash of the sources (audit ZAI-5). Comment only, assets unchanged.
+
+[1.23.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.23.0
 
 ## [1.22.0] - 2026-11-23
 
