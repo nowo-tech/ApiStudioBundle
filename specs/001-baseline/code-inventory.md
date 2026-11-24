@@ -470,8 +470,10 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 140 | 140 |
 | Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
 | Sources added in 1.21.1 (workspace import unit) | 1 | 1 |
-| **Total production sources** | **287** | **287** |
+| Sources added in 1.23 (`logger.ts` listed, runner value objects split one per row) | 1 | 1 |
+| **Total production sources** | **288** | **288** |
+| Vitest tests under `Resources/assets/tests/` (ship no runtime code, not in the production total) | 24 | 24 |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **287** (2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **288** (2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
