@@ -62,6 +62,7 @@ decides. Cross-origin browser clients need `X-Error-Code` in the host's `Access-
 | Workspace / service / environment / endpoint edit (UI, *1.20*) | Explicit transaction: claim, then flush | Row version: guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?` (the row lock until the commit); unique slug keys + catch → 422 | Stale version → domain 409 + `X-Error-Code: API_STUDIO_STALE_EDIT` (*1.21*; form again with the stored data); 409 + `CONFLICT_00x` on lock conflicts |
 | Workspace / service / environment / endpoint delete (UI, *pre-1.17*) | One ORM flush (implicit transaction) | Type-to-confirm (workspace, service); the delete wins over a concurrent edit (that edit then answers 404) | 409 on lock conflicts (1.17) |
 | Environment create (UI, *1.21.1*) | Explicit transaction (`RowVersionEditTrait::saveNew()`): workspace lock, then flush | Workspace row `FOR UPDATE` first; a new default clears every stored default in one statement (`DefaultEnvironmentSwitch::prepareCreate()`); unique (workspace, slug) + catch → 422 | 409 + `CONFLICT_00x` on lock conflicts |
+| Folder edit (UI, *1.23*) | Explicit transaction (`RowVersionEditTrait::saveEdit()`): service lock and rule checks (`FolderTree::guardEdit()`), claim, then flush | Service row `FOR UPDATE`, rules re-checked on rows read under the lock, then the row version (guarded atomic `UPDATE … row_version = row_version + 1 … AND row_version = ?`) | Stale version → domain 409 + `X-Error-Code: API_STUDIO_STALE_EDIT` (form again with the stored data); a broken rule → 422 on `parent`; 409 + `Retry-After` on lock conflicts |
 | Folder tree moves, folder deletes (*1.14*) | Explicit transaction | Service row `FOR UPDATE`, rules re-checked on rows read under the lock | 409 + `Retry-After` (audit RJ-L1) |
 | Imports: OpenAPI, Postman, environment variables, into a workspace, a service or an environment (*1.21.1*; into a service since *1.14*) | One unit (`Doctrine\WorkspaceImportUnit`) | Workspace row `FOR UPDATE` first, then the service row for an import into a service, then the workspace's environments in id order (an environment's edit page locks its own row, after the workspace when it sets the default: the same order); the import reads its rows after the locks and merges into them (no duplicate, one default environment). Writers inserting a service or an environment of the workspace wait too: their foreign key check locks the workspace row | 409 + `Retry-After` + `import.error.busy` on a lock conflict (the retry is safe). A unique violation is an import error (422 + `import.error`): under these locks it comes from the file itself (two names giving one slug once truncated to 128 characters) and would be refused again |
 | `pm.globals` / `pm.collectionVariables` saves (*1.15*) | Explicit transaction, DBAL statements | Workspace row lock, caps checked under it | 409 + `Retry-After` (audit RW-D-I1) |
@@ -94,8 +95,8 @@ only when a failure closed it), and the seeder refuses to start over pending cha
 
 REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render the form, save it):
 
-- **Column**: `row_version INTEGER NOT NULL DEFAULT 1` on the workspace, service, endpoint and environment
-  (`Entity\RowVersionTrait`). Not a Doctrine `#[ORM\Version]`: the bundle moves it with atomic statements, so writers
+- **Column**: `row_version INTEGER NOT NULL DEFAULT 1` on the workspace, service, endpoint and environment, and (1.23) on
+  the folder, when `folders.enabled` maps it (`Entity\RowVersionTrait`). Not a Doctrine `#[ORM\Version]`: the bundle moves it with atomic statements, so writers
   that carry no version (seed API, documentation, folder moves, variables) never fail on it.
 - **Edit form**: a hidden, unmapped `rowVersion` field holds the version the form was rendered from (a 422 shows the
   submitted one again). The save (`Controller\RowVersionEditTrait::saveEdit()`) opens a transaction, runs
@@ -216,7 +217,10 @@ answer say `CONFLICT_002` when the host or another bundle committed earlier in t
 - The inline documentation editor of an endpoint (`…/documentation`, JSON) carries no version: it overwrites the title
   and description of one locale (last writer wins between two documentation saves), but it moves the endpoint's
   version, so an older endpoint edit form is refused instead of reverting it.
-- Host SQL writes (DBAL, raw SQL) to the four tables that do not add `row_version = row_version + 1` are not seen by
+- A folder edit form (1.23) is refused after any ORM write of the folder: another edit, a drag & drop of the tree (a move
+  renumbers the siblings, so their forms are refused too) or a delete of a folder above it that moves it up. Before 1.23 the
+  folder edit was last writer wins; hosts that still run 1.22 keep that.
+- Host SQL writes (DBAL, raw SQL) to the five tables that do not add `row_version = row_version + 1` are not seen by
   older forms.
 - Hosts that skip the 1.17 column migration (binary tenant columns and variable keys on MySQL / MariaDB, see
   [UPGRADING](UPGRADING.md#to-1170)) keep a case-insensitive unique key: a seed for a tenant id or a variable key that

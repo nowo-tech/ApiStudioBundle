@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Controller;
 
 use Doctrine\DBAL\Exception\RetryableException;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityNotFoundException;
 use DomainException;
+use Nowo\ApiStudioBundle\Concurrency\StaleEditException;
 use Nowo\ApiStudioBundle\Entity\ApiEndpoint;
 use Nowo\ApiStudioBundle\Entity\ApiFolder;
 use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiFolderFormType;
+use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
@@ -46,6 +49,8 @@ final class ApiFolderController extends AbstractController
     use ApiStudioPageTrait;
     use AuthorizesTrait;
     use CsrfOnlyFormValidationTrait;
+    use RowVersionEditTrait;
+    use SlugConflictTrait;
 
     /** CSRF token id of the tree moves (header `X-CSRF-Token`). */
     public const MOVE_CSRF_ID = 'api_studio_tree_move';
@@ -57,6 +62,7 @@ final class ApiFolderController extends AbstractController
         private readonly ApiEndpointRepository $endpointRepository,
         private readonly FolderTree $folderTree,
         private readonly FolderAccess $folderAccess,
+        private readonly EntityManagerInterface $entityManager,
         private readonly bool $foldersEnabled = false,
         private readonly bool $scriptLevels = false,
     ) {
@@ -93,14 +99,27 @@ final class ApiFolderController extends AbstractController
     {
         $context = $this->requireContext($workspaceId, $serviceId, ApiStudioAction::WorkspaceEdit);
         $folder  = $this->requireFolder($id, $context['service'], ApiStudioAction::WorkspaceEdit);
-        $form    = $this->createForm(ApiFolderFormType::class, $folder, ['parents' => $this->parentChoices($context['service'], $folder), 'scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])]);
+        $options = ['parents' => $this->parentChoices($context['service'], $folder), 'scripts' => $this->scriptLevels && $this->authorization()->can(ApiStudioAction::WorkspaceEditScripts, $context['workspace'])];
+        $form    = $this->createForm(ApiFolderFormType::class, $folder, $options + [RowVersionField::OPTION => $folder->getRowVersion()]);
         $form->handleRequest($request);
+        $status  = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
+        $headers = [];
 
-        if ($form->isSubmitted() && $form->isValid() && $this->saved($form, $folder)) {
-            $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
-            $this->flash('success', 'flash.updated');
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                if ($this->savedEdit($form, $folder)) {
+                    $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_FOLDER, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_UPDATED);
+                    $this->flash('success', 'flash.updated');
 
-            return $this->redirectToRoute('nowo_api_studio_service_show', ['workspaceId' => $workspaceId, 'id' => $serviceId]);
+                    return $this->redirectToRoute('nowo_api_studio_service_show', ['workspaceId' => $workspaceId, 'id' => $serviceId]);
+                }
+            } catch (StaleEditException) {
+                // 1.23: saved (or moved in the tree) by someone else after this form was rendered: the form again, with the stored data.
+                [$status, $headers] = $this->answerStaleEdit($request, $folder);
+                $options['parents'] = $this->parentChoices($context['service'], $folder);
+                $form               = $this->createForm(ApiFolderFormType::class, $folder, $options + [RowVersionField::OPTION => $folder->getRowVersion()]);
+                $this->flash('error', StaleEditException::MESSAGE_KEY);
+            }
         }
 
         return $this->renderPage('@NowoApiStudioBundle/folder/form.html.twig', [
@@ -114,7 +133,7 @@ final class ApiFolderController extends AbstractController
                     'delete_folder' . $id,
                 ),
             ),
-        ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ], new Response(status: $status, headers: $headers));
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'serviceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
@@ -195,6 +214,35 @@ final class ApiFolderController extends AbstractController
         $this->resourceChanged($type === 'folder' ? ApiStudioResourceChangedEvent::TYPE_FOLDER : ApiStudioResourceChangedEvent::TYPE_ENDPOINT, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_MOVED);
 
         return new JsonResponse(['ok' => true]);
+    }
+
+    /**
+     * The edit save (1.23, REQ-RUNTIME-003 rule 4): in one transaction the service lock and the rule checks of
+     * {@see FolderTree::guardEdit()}, the claim of the row at the version the form was rendered from, then the flush. A
+     * broken rule or a write conflict becomes a form error.
+     *
+     * @param FormInterface<ApiFolder> $form
+     *
+     * @throws StaleEditException when the folder changed (or was deleted) after the form was rendered; nothing written
+     */
+    private function savedEdit(FormInterface $form, ApiFolder $folder): bool
+    {
+        try {
+            $parent = $folder->getParent();
+            if ($parent instanceof ApiFolder) {
+                $this->folderAccess->requireFolder($parent, ApiStudioAction::WorkspaceEdit);
+            }
+
+            return $this->saveEdit($form, $folder, fn () => $this->folderTree->guardEdit($folder));
+        } catch (DomainException $e) {
+            $form->get('parent')->addError(new FormError($this->translate($e->getMessage())));
+
+            return false;
+        } catch (RetryableException) {
+            $form->addError(new FormError($this->translate('folder.error.busy')));
+
+            return false;
+        }
     }
 
     /**

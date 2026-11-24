@@ -79,6 +79,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `nowo_api_studio.ui.header_actions` (`header` | `page_actions`, default `header`): with `page_actions` "New workspace", "New service", "New environment", "New endpoint", "New folder" and the other header actions of every page are UiKit `View\Action` entries of the page-actions menu (the page header uses the UiKit split layout, `PageHeader::actionsLayout` `split`, and the create actions are `secondary`) instead of buttons of the header row (Beacon UI-PATTERNS section 3). `header` keeps the 1.22 behaviour. The empty states keep their primary action in both modes. Same option as VaultBundle 2.2 `web_ui.header_actions`; no new label, so no new translation.
 
+### Fixed
+
+- Folder edit page (REQ-RUNTIME-003 rule 4): `ApiFolderController::edit` saved name, parent and scripts without a row version (last writer wins). `ApiFolder` is now row-versioned like the workspace, service, endpoint and environment: a folder edit form saved after another save of the folder (or a drag & drop of the tree) answers 409 + `X-Error-Code: API_STUDIO_STALE_EDIT`, shows the stored data and writes nothing. The service lock and the tree rules (`FolderTree::guardEdit()`) run first, in the same transaction as the claim. Needs one additive column, `row_version INTEGER NOT NULL DEFAULT 1`, on the folder table when `folders.enabled` is true: DDL for every database in [UPGRADING](UPGRADING.md). Database tests on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16.
+
 ### Changed
 
 - The conflict answers of `ConcurrencyConflictSubscriber` use `Nowo\TransactionDoctrine\ConflictCodeResolver::forRequest()` instead of the deprecated `ConflictCode::forRequest()` (REQ-ARCH-002 contract types); the headers and statuses are unchanged.

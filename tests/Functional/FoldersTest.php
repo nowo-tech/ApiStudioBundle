@@ -78,6 +78,90 @@ final class FoldersTest extends StudioWebTestCase
         self::assertSame($child, $em->getRepository(ApiEndpoint::class)->find($this->ids['endpoint'])?->getFolder()?->getId());
     }
 
+    public function testAFolderFormSavedAfterAnotherSaveIsRefused(): void
+    {
+        $top     = $this->createFolder('Users');
+        $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
+        $form    = $crawler->filter('form[name="api_folder_form"]')->form();
+        self::assertSame('1', $form['api_folder_form[rowVersion]']->getValue());
+
+        // Another editor saves first (the same statement as a claim, plus its own change).
+        $this->entityManager()->getConnection()->executeStatement(sprintf('UPDATE %s SET row_version = row_version + 1, name = ? WHERE id = ?', $this->folderTable()), ['Saved by the other editor', $top]);
+
+        $form['api_folder_form[name]'] = 'Mine';
+        $crawler                       = $this->client->submit($form);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertResponseHeaderSame('X-Error-Code', 'API_STUDIO_STALE_EDIT');
+        self::assertResponseNotHasHeader('X-Conflict-Code');
+        self::assertResponseNotHasHeader('Retry-After');
+        self::assertStringContainsString('Someone else saved this item after you opened the form.', (string) $this->client->getResponse()->getContent());
+        self::assertSame('Saved by the other editor', $this->storedFolder($top, 'name'));
+
+        // The form shows the stored data at the new version: saving it now works.
+        $again = $crawler->filter('form[name="api_folder_form"]')->form();
+        self::assertSame('Saved by the other editor', $again['api_folder_form[name]']->getValue());
+        self::assertSame('2', $again['api_folder_form[rowVersion]']->getValue());
+        $again['api_folder_form[name]'] = 'Mine, on top';
+        $this->client->submit($again);
+        self::assertResponseRedirects($this->serviceUrl());
+        self::assertSame('Mine, on top', $this->storedFolder($top, 'name'));
+        self::assertSame('3', $this->storedFolder($top, 'row_version'));
+    }
+
+    public function testATreeMoveRefusesAnOlderFolderForm(): void
+    {
+        $top     = $this->createFolder('Users');
+        $other   = $this->createFolder('Admin');
+        $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
+        $form    = $crawler->filter('form[name="api_folder_form"]')->form();
+
+        $this->move(['type' => 'folder', 'id' => $top, 'parent' => $other, 'before' => null], $this->moveToken());
+        self::assertResponseIsSuccessful();
+        self::assertSame('2', $this->storedFolder($top, 'row_version'));
+
+        $this->client->submit($form);
+        self::assertResponseStatusCodeSame(409);
+        self::assertResponseHeaderSame('X-Error-Code', 'API_STUDIO_STALE_EDIT');
+        self::assertSame((string) $other, $this->storedFolder($top, 'parent_id'), 'the refused save did not move the folder back');
+    }
+
+    public function testAMalformedFolderVersionIsRefusedAndAMissingOneUsesTheLoadedRow(): void
+    {
+        $top                                 = $this->createFolder('Users');
+        $crawler                             = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
+        $form                                = $crawler->filter('form[name="api_folder_form"]')->form();
+        $form['api_folder_form[rowVersion]'] = '1 OR 1=1';
+        $this->client->submit($form);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('1', $this->storedFolder($top, 'row_version'));
+
+        $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $top)));
+        $values  = $crawler->filter('form[name="api_folder_form"]')->form()->getPhpValues();
+        unset($values['api_folder_form']['rowVersion']);
+        $values['api_folder_form']['name'] = 'No version';
+        $this->client->request('POST', $this->folderUrl(sprintf('/%d/edit', $top)), $values);
+        self::assertResponseRedirects($this->serviceUrl());
+        self::assertSame('No version', $this->storedFolder($top, 'name'));
+    }
+
+    public function testAnEditRefusedByATreeRuleKeepsTheVersion(): void
+    {
+        $a = $this->createFolder('A');
+        $b = $this->createFolder('B', $a);
+        $c = $this->createFolder('C', $b);
+        $x = $this->createFolder('X');
+
+        $crawler = $this->client->request('GET', $this->folderUrl(sprintf('/%d/edit', $x)));
+        $form    = $crawler->filter('form[name="api_folder_form"]')->form();
+        $form['api_folder_form[parent]']->select((string) $c);
+        $this->client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('1', $this->storedFolder($x, 'row_version'));
+        self::assertSame('', $this->storedFolder($x, 'parent_id'));
+    }
+
     public function testTreeMovesRefuseCyclesOtherServicesAndBadTokens(): void
     {
         $top   = $this->createFolder('Users');
@@ -495,6 +579,16 @@ final class FoldersTest extends StudioWebTestCase
         self::assertSame(['Pets'], $exported['paths']['/pets/{id}']['delete']['tags']);
         self::assertSame(['Pets'], $exported['paths']['/health']['get']['tags']);
         self::assertSame([['name' => 'Pets', 'description' => 'Pet operations']], $exported['tags']);
+    }
+
+    private function folderTable(): string
+    {
+        return $this->entityManager()->getClassMetadata(ApiFolder::class)->getTableName();
+    }
+
+    private function storedFolder(int $id, string $column): string
+    {
+        return (string) $this->entityManager()->getConnection()->fetchOne(sprintf('SELECT %s FROM %s WHERE id = ?', $column, $this->folderTable()), [$id]);
     }
 
     private function folderUrl(string $suffix): string

@@ -16,7 +16,8 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Folder of a service tree (1.14): name, description, parent (option `parents`: the folders it may move under, the
- * folder itself and its descendants already left out), order, and the auth / headers its endpoints inherit.
+ * folder itself and its descendants already left out), order, and the auth / headers its endpoints inherit. The edit
+ * form carries the hidden row version (1.23, option `row_version`, {@see RowVersionField}).
  *
  * @extends AbstractType<ApiFolder>
  */
@@ -27,6 +28,7 @@ final class ApiFolderFormType extends AbstractType
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        RowVersionField::add($builder, $options);
         $this->addText($builder, 'name', ['attr' => ['maxlength' => 128]]);
         $this->addTextarea($builder, 'description', ['required' => false, 'attr' => ['rows' => 3]]);
         /** @var list<ApiFolder> $parents */
@@ -67,6 +69,7 @@ final class ApiFolderFormType extends AbstractType
             'data_class'         => ApiFolder::class,
             'translation_domain' => ApiStudioBundle::TRANSLATION_DOMAIN,
         ]);
+        RowVersionField::configure($resolver);
         $resolver->setAllowedTypes('parents', 'array');
         $resolver->setAllowedTypes('scripts', 'bool');
     }
