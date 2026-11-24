@@ -97,6 +97,38 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.22.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle nowo-tech/transaction-doctrine nowo-tech/transaction-contract nowo-tech/ui-kit-bundle
+```
+
+**Schema (hosts with `folders.enabled: true`):** the folder table gets one additive column, `row_version INTEGER NOT NULL
+DEFAULT 1` (existing rows start at 1; nothing is rebuilt; hosts without folders have no folder table and need nothing).
+Generate the migration with `doctrine:migrations:diff` (or run `nowo:api-studio:sync-schema`); for reference, with the
+default `api_studio_` table prefix (adapt the name to your `table_prefix`):
+
+```sql
+-- MySQL / MariaDB / PostgreSQL / SQLite
+ALTER TABLE api_studio_folder ADD row_version INT DEFAULT 1 NOT NULL;
+-- SQL Server
+ALTER TABLE api_studio_folder ADD row_version INT NOT NULL CONSTRAINT DF_api_studio_folder_row_version DEFAULT 1;
+-- Oracle
+ALTER TABLE api_studio_folder ADD (row_version NUMBER(10) DEFAULT 1 NOT NULL);
+```
+
+Deploy the migration with the code: the folder mapping reads and writes the column, so without it the folder pages fail.
+Behaviour: a folder edit form saved after another save of the folder (two tabs, or a drag & drop of the tree in between)
+is no longer last-writer-wins: it answers 409 with `X-Error-Code: API_STUDIO_STALE_EDIT`, shows the stored data and the
+message `conflict.stale_edit`, and writes nothing (same as the workspace, service, endpoint and environment edits since
+1.20). Overridden `folder/form.html.twig` templates keep rendering the hidden `rowVersion` field (the UiKit scaffold's
+child loop does). Host SQL writes to the folder table that should refuse older forms add `row_version = row_version + 1`.
+
+Nothing else breaks: `nowo_api_studio.ui.header_actions` defaults to `header` (the 1.22 behaviour). Set `page_actions` to
+move the create actions to the UiKit page-actions menu. The Composer floors rise to `nowo-tech/transaction-doctrine:
+^1.10`, `nowo-tech/transaction-contract: ^1.1` and `nowo-tech/ui-kit-bundle: ^2.21` (the page headers pass
+`actionsLayout`, a UiKit 2.21 argument); a host on older versions updates them with the command above.
+
 ## To 1.22.0
 
 From **1.21.1**:

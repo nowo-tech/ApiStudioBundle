@@ -74,7 +74,8 @@ final readonly class ApiStudioPageFactory
             header: new PageHeader(
                 ApiStudioPages::label('page.dashboard'),
                 ApiStudioPages::label('dashboard.subtitle'),
-                self::actions([$this->newWorkspaceAction()]),
+                self::actions([$this->newWorkspaceAction($this->headerVariant())]),
+                actionsLayout: $this->headerLayout(),
             ),
             kpis: [
                 new KpiTile(ApiStudioPages::label('dashboard.stat.workspaces'), $workspaces, href: $this->url('nowo_api_studio_workspace_index')),
@@ -107,7 +108,7 @@ final readonly class ApiStudioPageFactory
         }
 
         return new ListPage(
-            header: new PageHeader(ApiStudioPages::label('page.workspaces'), null, self::actions([$this->newWorkspaceAction()]), [$this->homeCrumb(), new Crumb(ApiStudioPages::label('page.workspaces'))]),
+            header: new PageHeader(ApiStudioPages::label('page.workspaces'), null, self::actions([$this->newWorkspaceAction($this->headerVariant())]), [$this->homeCrumb(), new Crumb(ApiStudioPages::label('page.workspaces'))], actionsLayout: $this->headerLayout()),
             columns: [
                 new Column('name', ApiStudioPages::label('field.name'), required: true),
                 new Column('slug', ApiStudioPages::label('field.slug'), priority: 2),
@@ -135,13 +136,14 @@ final readonly class ApiStudioPageFactory
                 $workspace->getName(),
                 $workspace->getDescription(),
                 self::actions([
-                    $this->permitted('nowo_api_studio_service_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_service'), $this->url('nowo_api_studio_service_new', ['workspaceId' => $id]), variant: 'primary', attributes: ['data-testid' => 'api-studio-new-service']) : null,
-                    $this->permitted('nowo_api_studio_environment_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_environment'), $this->url('nowo_api_studio_environment_new', ['workspaceId' => $id])) : null,
+                    $this->permitted('nowo_api_studio_service_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_service'), $this->url('nowo_api_studio_service_new', ['workspaceId' => $id]), variant: $this->headerVariant(), attributes: ['data-testid' => 'api-studio-new-service']) : null,
+                    $this->permitted('nowo_api_studio_environment_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_environment'), $this->url('nowo_api_studio_environment_new', ['workspaceId' => $id]), variant: $this->headerVariant() === 'primary' ? null : 'secondary') : null,
                     $this->permitted('nowo_api_studio_environment_index', $workspace) ? new Action('custom', ApiStudioPages::label('section.environments'), $this->url('nowo_api_studio_environment_index', ['workspaceId' => $id])) : null,
                     $this->permitted('nowo_api_studio_io_hub', $workspace) ? new Action('import', ApiStudioPages::label('import_export.hub_title'), $this->url('nowo_api_studio_io_hub', ['workspaceId' => $id])) : null,
                     $this->permitted('nowo_api_studio_workspace_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_workspace_edit', ['id' => $id]), ApiStudioPages::label('action.edit')) : null,
                 ]),
                 $this->workspaceCrumbs($workspace, false),
+                actionsLayout: $this->headerLayout(),
             ),
             sections: [
                 new DetailSection(ApiStudioPages::label('section.details'), [
@@ -220,8 +222,9 @@ final readonly class ApiStudioPageFactory
             header: new PageHeader(
                 ApiStudioPages::label('section.services'),
                 ApiStudioPages::label('service.collections_hint'),
-                self::actions([$this->newServiceAction($workspace)]),
+                self::actions([$this->newServiceAction($workspace, $this->headerVariant())]),
                 [...$this->workspaceCrumbs($workspace), new Crumb(ApiStudioPages::label('section.services'))],
+                actionsLayout: $this->headerLayout(),
             ),
             columns: [
                 new Column('name', ApiStudioPages::label('field.name'), required: true),
@@ -252,12 +255,13 @@ final readonly class ApiStudioPageFactory
                 $service->getName(),
                 $service->getDescription(),
                 self::actions([
-                    $this->permitted('nowo_api_studio_endpoint_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_endpoint'), $this->url('nowo_api_studio_endpoint_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), variant: 'primary', attributes: ['data-testid' => 'api-studio-new-endpoint']) : null,
-                    $this->foldersEnabled && $this->permitted('nowo_api_studio_folder_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_folder'), $this->url('nowo_api_studio_folder_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), attributes: ['data-testid' => 'api-studio-new-folder']) : null,
+                    $this->permitted('nowo_api_studio_endpoint_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_endpoint'), $this->url('nowo_api_studio_endpoint_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), variant: $this->headerVariant(), attributes: ['data-testid' => 'api-studio-new-endpoint']) : null,
+                    $this->foldersEnabled && $this->permitted('nowo_api_studio_folder_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_folder'), $this->url('nowo_api_studio_folder_new', ['workspaceId' => $wid, 'serviceId' => $service->getId()]), variant: $this->headerVariant() === 'primary' ? null : 'secondary', attributes: ['data-testid' => 'api-studio-new-folder']) : null,
                     $this->permitted('nowo_api_studio_environment_index', $workspace) ? new Action('custom', ApiStudioPages::label('section.environments'), $this->url('nowo_api_studio_environment_index', ['workspaceId' => $wid])) : null,
                     $this->permitted('nowo_api_studio_service_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_service_edit', ['workspaceId' => $wid, 'id' => $service->getId()]), ApiStudioPages::label('action.edit')) : null,
                 ]),
                 [...$this->workspaceCrumbs($workspace), new Crumb($service->getName())],
+                actionsLayout: $this->headerLayout(),
             ),
             sections: [
                 new DetailSection(ApiStudioPages::label('section.details'), [
@@ -335,8 +339,9 @@ final readonly class ApiStudioPageFactory
             header: new PageHeader(
                 ApiStudioPages::label('section.endpoints'),
                 $service->getBaseUrl(),
-                self::actions([$this->permitted('nowo_api_studio_endpoint_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_endpoint'), $this->url('nowo_api_studio_endpoint_new', $base), variant: 'primary') : null]),
+                self::actions([$this->permitted('nowo_api_studio_endpoint_new', $workspace) ? new Action('create', ApiStudioPages::label('action.new_endpoint'), $this->url('nowo_api_studio_endpoint_new', $base), variant: $this->headerVariant()) : null]),
                 [...$this->serviceCrumbs($workspace, $service), new Crumb(ApiStudioPages::label('section.endpoints'))],
+                actionsLayout: $this->headerLayout(),
             ),
             columns: [
                 new Column('method', ApiStudioPages::label('field.method')),
@@ -373,6 +378,7 @@ final readonly class ApiStudioPageFactory
                     $this->permitted('nowo_api_studio_endpoint_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_endpoint_edit', ['workspaceId' => $wid, 'serviceId' => $service->getId(), 'id' => $endpoint->getId()]), ApiStudioPages::label('action.edit')) : null,
                 ]),
                 [...$this->serviceCrumbs($workspace, $service), ...$this->folderCrumbs($endpoint->getFolder()), new Crumb($endpoint->getName())],
+                actionsLayout: $this->headerLayout(),
             ),
             bundle: ApiStudioPages::BUNDLE,
             layout: $this->pages->layout(),
@@ -460,8 +466,9 @@ final readonly class ApiStudioPageFactory
             header: new PageHeader(
                 ApiStudioPages::label('section.environments'),
                 ApiStudioPages::label('variables.key_syntax_hint'),
-                self::actions([$this->newEnvironmentAction($workspace)]),
+                self::actions([$this->newEnvironmentAction($workspace, $this->headerVariant())]),
                 [...$this->workspaceCrumbs($workspace), new Crumb(ApiStudioPages::label('section.environments'))],
+                actionsLayout: $this->headerLayout(),
             ),
             columns: [
                 new Column('name', ApiStudioPages::label('field.name'), required: true),
@@ -500,6 +507,7 @@ final readonly class ApiStudioPageFactory
                     $this->permitted('nowo_api_studio_environment_edit', $workspace) ? Action::edit($this->url('nowo_api_studio_environment_edit', ['workspaceId' => $wid, 'id' => $environment->getId()]), ApiStudioPages::label('action.edit')) : null,
                 ]),
                 [...$this->workspaceCrumbs($workspace), new Crumb(ApiStudioPages::label('section.environments'), $this->url('nowo_api_studio_environment_index', ['workspaceId' => $wid])), new Crumb($environment->getName())],
+                actionsLayout: $this->headerLayout(),
             ),
             sections: [new DetailSection(ApiStudioPages::label('import_export.export_title'), $export, 'api-studio-environment-export')],
             bundle: ApiStudioPages::BUNDLE,
@@ -637,19 +645,37 @@ final readonly class ApiStudioPageFactory
         );
     }
 
-    private function newWorkspaceAction(): ?Action
+    /**
+     * 1.23 `ui.header_actions`: the variant of the create actions of a page header (`primary` button in the default
+     * `header` mode, `secondary` entries of the page-actions menu with `page_actions`).
+     */
+    private function headerVariant(): string
     {
-        return !$this->permitted('nowo_api_studio_workspace_new', null) ? null : new Action('create', ApiStudioPages::label('action.new_workspace'), $this->url('nowo_api_studio_workspace_new'), variant: 'primary', attributes: ['data-testid' => 'api-studio-new-workspace']);
+        return $this->pages->headerActionsInPageMenu() ? 'secondary' : 'primary';
     }
 
-    private function newServiceAction(ApiWorkspace $workspace): ?Action
+    /**
+     * 1.23 `ui.header_actions`: `toolbar` (every action a toolbar button, as before) or `split` (UiKit
+     * `header_actions`: the page-actions menu).
+     */
+    private function headerLayout(): string
     {
-        return !$this->permitted('nowo_api_studio_service_new', $workspace) ? null : new Action('create', ApiStudioPages::label('action.new_service'), $this->url('nowo_api_studio_service_new', ['workspaceId' => $workspace->getId()]), variant: 'primary');
+        return $this->pages->headerActionsInPageMenu() ? 'split' : 'toolbar';
     }
 
-    private function newEnvironmentAction(ApiWorkspace $workspace): ?Action
+    private function newWorkspaceAction(string $variant = 'primary'): ?Action
     {
-        return !$this->permitted('nowo_api_studio_environment_new', $workspace) ? null : new Action('create', ApiStudioPages::label('action.new_environment'), $this->url('nowo_api_studio_environment_new', ['workspaceId' => $workspace->getId()]), variant: 'primary');
+        return !$this->permitted('nowo_api_studio_workspace_new', null) ? null : new Action('create', ApiStudioPages::label('action.new_workspace'), $this->url('nowo_api_studio_workspace_new'), variant: $variant, attributes: ['data-testid' => 'api-studio-new-workspace']);
+    }
+
+    private function newServiceAction(ApiWorkspace $workspace, string $variant = 'primary'): ?Action
+    {
+        return !$this->permitted('nowo_api_studio_service_new', $workspace) ? null : new Action('create', ApiStudioPages::label('action.new_service'), $this->url('nowo_api_studio_service_new', ['workspaceId' => $workspace->getId()]), variant: $variant);
+    }
+
+    private function newEnvironmentAction(ApiWorkspace $workspace, string $variant = 'primary'): ?Action
+    {
+        return !$this->permitted('nowo_api_studio_environment_new', $workspace) ? null : new Action('create', ApiStudioPages::label('action.new_environment'), $this->url('nowo_api_studio_environment_new', ['workspaceId' => $workspace->getId()]), variant: $variant);
     }
 
     private function homeCrumb(): Crumb

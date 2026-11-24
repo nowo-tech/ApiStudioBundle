@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Workspaces](#workspaces)
+- [Header actions (1.23)](#header-actions-123)
 - [Documenting endpoints](#documenting-endpoints)
 - [Demo seed](#demo-seed)
 - [Testing requests](#testing-requests)
@@ -37,6 +38,23 @@ Create a workspace per product, client, or team. Each workspace owns:
 - **Services** — API providers (REST/SOAP/GraphQL)
 - **Environments** — variable sets (`local`, `staging`, `prod`)
 - **Endpoints** — individual operations
+
+## Header actions (1.23)
+
+By default the create actions ("New workspace", "New service", "New environment", "New endpoint", "New folder") are
+buttons of the page header row. A host that follows the Beacon UI-PATTERNS section 3 (page actions in one menu) sets:
+
+```yaml
+nowo_api_studio:
+    ui:
+        header_actions: page_actions   # header (default) | page_actions
+```
+
+With `page_actions` every page header uses the UiKit split layout (`PageHeader::actionsLayout: 'split'`): the create
+actions (and the other header actions such as Edit or Import) are `View\Action` entries of the page-actions menu, and
+the host compact header reads the same `PageHeader` actions. The empty states of the lists keep their primary
+"New ..." button. Needs UiKit 2.21+. The data-testid hooks of the actions (`api-studio-new-workspace`,
+`api-studio-new-service`, `api-studio-new-endpoint`, `api-studio-new-folder`) do not change.
 
 ## Documenting endpoints
 

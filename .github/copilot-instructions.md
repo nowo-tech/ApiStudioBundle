@@ -10,7 +10,7 @@ Use this when suggesting code, tests, documentation, or CI changes for **Api Stu
 
 ### Code
 
-- Follow **PSR-12** and `.php-cs-fixer.dist.php`.
+- Follow **PER-CS** (successor of PSR-12) and `.php-cs-fixer.dist.php`.
 - Keep changes minimal; match patterns in `src/` and `tests/`.
 - Controllers used as services must remain **public** in `services.yaml`.
 - PHPDoc in **English** for non-trivial APIs.

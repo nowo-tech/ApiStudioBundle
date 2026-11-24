@@ -62,6 +62,39 @@ final class PageContractTest extends PageContractTestCase
         yield 'import (environment)' => new PageFixture($v . 'import_export/import.html.twig', ApiStudioPageFixtures::import('environment'));
     }
 
+    public function testHeaderModeKeepsTheCreateActionsAsToolbarButtons(): void
+    {
+        $page = ApiStudioPageFixtures::workspaceShow();
+
+        self::assertSame('toolbar', $page['page']->header->actionsLayout);
+        $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/workspace/show.html.twig', $page))->html;
+        self::assertStringContainsString('data-testid="api-studio-new-service"', $html);
+        self::assertStringNotContainsString('data-nowo-ui-header-more', $html);
+    }
+
+    public function testPageActionsModePutsEveryCreateActionInThePageActionsMenu(): void
+    {
+        $factory = ApiStudioPageFixtures::pageActionsFactory();
+        $page    = ApiStudioPageFixtures::workspaceShow($factory);
+        $header  = $page['page']->header;
+
+        self::assertSame('split', $header->actionsLayout);
+        foreach ($header->actions as $action) {
+            self::assertNotSame('primary', $action->resolvedVariant());
+        }
+
+        $menu = $this->renderPage(new PageFixture('@NowoUiKitBundle/partials/_header_actions.html.twig', ['actions' => $header->actions, 'bundle' => 'NowoApiStudioBundle']))->html;
+        self::assertStringContainsString('data-nowo-ui-header-more', $menu, 'The entries are in the page-actions menu.');
+        self::assertStringContainsString('data-testid="api-studio-new-service"', $menu);
+
+        $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/workspace/show.html.twig', $page))->html;
+        self::assertStringContainsString('data-testid="api-studio-new-service"', $html);
+
+        $list = ApiStudioPageFixtures::workspaceIndex(false, $factory);
+        self::assertSame('split', $list['page']->header->actionsLayout);
+        self::assertStringContainsString('data-testid="api-studio-new-workspace"', $this->renderPage(new PageFixture('@NowoApiStudioBundle/workspace/index.html.twig', $list))->html);
+    }
+
     public function testWorkbenchTreeMarksTheOpenBranch(): void
     {
         $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/endpoint/show.html.twig', ApiStudioPageFixtures::endpointShow()))->html;

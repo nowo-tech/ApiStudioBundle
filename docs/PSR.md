@@ -16,7 +16,7 @@ Others are **N/A** (or already covered by Symfony) so the decision stays auditab
 
 | PSR | Decision | How |
 | --- | -------- | --- |
-| PSR-12 (coding style) | **Adopted** | `@PSR12` in `.php-cs-fixer.dist.php` (Nowo REQ-CS-001). |
+| PSR-12 (coding style) | **Adopted**, superseded by PER-CS | `@PER-CS` + `@PER-CS:risky` in `.php-cs-fixer.dist.php` (Nowo REQ-CS-001, REQ-CS-009). |
 | PSR-4 (autoloading) | **Adopted** | `composer.json` `autoload` / `autoload-dev` PSR-4 map for package sources and tests. |
 
 ## Interface / contract PSRs

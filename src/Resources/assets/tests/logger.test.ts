@@ -13,6 +13,7 @@ describe('createBundleLogger', () => {
   let consoleError: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    delete (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners;
     consoleLog = vi.fn();
     consoleDebug = vi.fn();
     consoleInfo = vi.fn();
@@ -29,6 +30,32 @@ describe('createBundleLogger', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('scriptLoaded() logs once per name, even from two loggers (script loaded twice)', () => {
+    createBundleLogger('twice').scriptLoaded();
+    createBundleLogger('twice', { buildTime: 'x' }).scriptLoaded();
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+    createBundleLogger('other').scriptLoaded();
+    expect(consoleLog).toHaveBeenCalledTimes(2);
+  });
+
+  it('scriptLoaded() recovers from a clobbered banner registry', () => {
+    (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners = 'broken';
+    createBundleLogger('clobbered').scriptLoaded();
+    createBundleLogger('clobbered').scriptLoaded();
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('scriptLoaded() still prints once when the banner registry is frozen or read-only', () => {
+    (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners = Object.freeze({});
+    expect(() => createBundleLogger('frozen').scriptLoaded()).not.toThrow();
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(globalThis, '__nowoScriptBanners', { value: 'readonly', writable: false, configurable: true });
+    expect(() => createBundleLogger('readonly').scriptLoaded()).not.toThrow();
+    expect(consoleLog).toHaveBeenCalledTimes(2);
+    delete (globalThis as { __nowoScriptBanners?: unknown }).__nowoScriptBanners;
   });
 
   it('scriptLoaded() logs without build id when no options', () => {

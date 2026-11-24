@@ -21,13 +21,16 @@ use function count;
  * (null = top level), an order among its siblings, and auth / headers that the endpoints below inherit.
  *
  * Mapped only when folders are enabled ({@see TablePrefixSubscriber} turns the class into
- * a mapped superclass otherwise, so the schema stays exactly 1.13's).
+ * a mapped superclass otherwise, so the schema stays exactly 1.13's). Row-versioned since 1.23: the edit form saves
+ * only on the version it was rendered from ({@see RowVersionedInterface}).
  */
 #[ORM\Entity(repositoryClass: ApiFolderRepository::class)]
 #[ORM\Table(name: 'folder')]
 #[ORM\Index(name: 'idx_folder_service_parent', columns: ['service_id', 'parent_id', 'sort_order'])]
-class ApiFolder
+class ApiFolder implements RowVersionedInterface
 {
+    use RowVersionTrait;
+
     /** Longest creator id stored (opaque actor id, exact binary comparison). */
     public const MAX_CREATOR_LENGTH = 128;
 

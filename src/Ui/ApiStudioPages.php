@@ -33,6 +33,12 @@ final readonly class ApiStudioPages
     /** The 1.x default of `ui.layout_template`: the removed bundle layout, read as "no layout override". */
     public const LEGACY_DEFAULT_LAYOUT = '@NowoApiStudioBundle/layout.html.twig';
 
+    /** `ui.header_actions` default: the create actions are buttons of the page header row (1.22 behaviour). */
+    public const HEADER_ACTIONS_HEADER = 'header';
+
+    /** `ui.header_actions`: the create actions are UiKit `View\Action` entries of the page-actions menu. */
+    public const HEADER_ACTIONS_PAGE_ACTIONS = 'page_actions';
+
     /** A layout that defines this block renders the UiKit canonical blocks. */
     private const CANONICAL_BLOCK = 'nowo_ui_page_header';
 
@@ -45,13 +51,24 @@ final readonly class ApiStudioPages
      * @param string|null $scopeLayoutTemplate 1.17 `scope.layout_template`: layout of the pages of a scoped request
      *                                         (null = `ui.layout_template`)
      * @param ScopeContext|null $scopeContext 1.17: the host scope of the request
+     * @param string $headerActions 1.23 `ui.header_actions`: `header` (default) or `page_actions`
      */
     public function __construct(
         private ?string $layoutTemplate = null,
         private ?Environment $twig = null,
         private ?string $scopeLayoutTemplate = null,
         private ?ScopeContext $scopeContext = null,
+        private string $headerActions = self::HEADER_ACTIONS_HEADER,
     ) {
+    }
+
+    /**
+     * Whether the create actions of the page headers are entries of the page-actions menu (`ui.header_actions:
+     * page_actions`, 1.23) instead of buttons of the header row.
+     */
+    public function headerActionsInPageMenu(): bool
+    {
+        return $this->headerActions === self::HEADER_ACTIONS_PAGE_ACTIONS;
     }
 
     /**

@@ -94,7 +94,7 @@ final class ApiFolderControllerTest extends TestCase
         $container->set(ApiStudioAccessPolicy::class, new ApiStudioAccessPolicy());
         $container->set('security.csrf.token_manager', $csrf);
 
-        $controller = new ApiFolderController($workspaces, $services, $folders, $endpoints, new FolderTree($em, $folders), new FolderAccess(), true);
+        $controller = new ApiFolderController($workspaces, $services, $folders, $endpoints, new FolderTree($em, $folders), new FolderAccess(), $em, true);
         $controller->setContainer($container);
 
         return $controller;

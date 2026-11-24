@@ -1253,6 +1253,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         path?: scalar|Param|null, // Dashboard path prefix (host should lock with security.access_control). // Default: "/api-studio"
  *         path_requirements?: array<string, scalar|Param|null>,
  *         layout_template?: scalar|Param|null, // Layout the Api Studio pages (UiKit page scaffolds) extend. Null (default) = nowo_ui_kit.layouts.admin, set once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that renders {% block body %} is wrapped in a deprecated bridge. // Default: null
+ *         header_actions?: "header"|"page_actions"|Param, // 1.23: where the create actions of the pages go. "header" (default): buttons in the page header row. "page_actions": entries of the UiKit page-actions menu (UiKit split header). Needs UiKit 2.21+. // Default: "header"
  *         css_framework?: "bootstrap5"|"tailwind"|"foundation"|"custom"|Param, // Deprecated since 1.10: the CSS stack is nowo_ui_kit.css_framework (UiKit page contract). When set (and nowo_ui_kit.css_framework is not), it still seeds nowo_ui_kit.css_framework / icon_set and the FormKit css_framework. // Default: null
  *         locale_scope?: "global"|"routes"|"none"|Param, // Which requests get the Api Studio UI locale: routes (default since 1.11) = Api Studio pages only; global = every request of the host (1.10 behaviour); none = never (the host owns the locale). // Default: "routes"
  *         default_locale?: scalar|Param|null, // Default: "en"

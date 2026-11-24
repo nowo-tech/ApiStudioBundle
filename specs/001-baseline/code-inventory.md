@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-23 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
+**Last audited**: 2026-11-24 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -83,7 +83,12 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Controller/ScriptSendRequestController.php` | `pm.sendRequest` relay endpoint (sandbox mode, 1.15) | FR-SCR-006 (spec 003) |
 | `Script/ScriptRequestSender.php` | Guarded literal sender of `pm.sendRequest` (1.15) | FR-SCR-006 (spec 003) |
 | `Script/Runner/ApiStudioScriptRunnerInterface.php` | Server-side script runner port (1.15) | FR-SCR-005 (spec 003) |
-| `Script/Runner/ScriptRunRequest.php`, `ScriptRunResult.php`, `ScriptSource.php`, `ScriptRunLimits.php`, `ScriptTestResult.php`, `ScriptRunStatus.php` | Runner value objects (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptRunRequest.php` | Runner request value object (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptRunResult.php` | Runner result value object (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptSource.php` | Script source value object (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptRunLimits.php` | Runner time / memory / output limits (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptTestResult.php` | Result of one script test case (1.15) | FR-SCR-005 (spec 003) |
+| `Script/Runner/ScriptRunStatus.php` | Run status enum (1.15) | FR-SCR-005 (spec 003) |
 | `Script/Runner/ProcessScriptRunner.php` | Reference runner: sidecar process per run, limits, sendRequest relay (1.15) | FR-SCR-004, FR-SCR-005 (spec 003) |
 | `Script/Runner/NullScriptRunner.php` | Default runner: scripts not run (1.15) | US2 (spec 003) |
 | `Script/ScriptChainBuilder.php` | Endpoint script chain in run order with log labels, for runs outside the browser (1.15) | US4 (spec 003) |
@@ -195,8 +200,8 @@ This file proves that **every production source artifact** under `src/` is refer
 
 | Source file | Spec section | Requirement IDs |
 | --- | --- | --- |
-| `Ui/ApiStudioPages.php` | Layout resolution (`ui.layout_template` / `nowo_ui_kit.layouts.admin`), deprecated pre-1.10 layout bridge, labels | FR-UI-003, FR-CFG-001 |
-| `Ui/ApiStudioPageFactory.php` | UiKit view models of every page (headers, actions, breadcrumbs, rows, sections, delete zone) | FR-UI-003 |
+| `Ui/ApiStudioPages.php` | Layout resolution (`ui.layout_template` / `nowo_ui_kit.layouts.admin`), deprecated pre-1.10 layout bridge, labels, `ui.header_actions` (1.23) | FR-UI-003, FR-CFG-001 |
+| `Ui/ApiStudioPageFactory.php` | UiKit view models of every page (headers, actions, breadcrumbs, rows, sections, delete zone); `header` or `page_actions` (UiKit split header) create actions (1.23) | FR-UI-003 |
 
 ## SOAP transport (`src/Soap/`)
 
@@ -317,6 +322,29 @@ These 53 `src/` files were added by releases after the last review. Each row map
 | `Model/HostSecretResolution.php` | Outcome of resolving the host secret references of one execution (1.13). | FR-EXEC-001 |
 | `Resources/assets/tests/sidebar-tree.test.ts` | Vitest test `sidebar-tree.test.ts` (ships no runtime code) | FR-UI-001 |
 | `Resources/assets/tests/tester-scripts-disabled.test.ts` | Vitest test `tester-scripts-disabled.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/body-tools.test.ts` | Vitest test `body-tools.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/endpoint-doc.test.ts` | Vitest test `endpoint-doc.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/expect.test.ts` | Vitest test `expect.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/frame-relay.test.ts` | Vitest test `frame-relay.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/lockdown.test.ts` | Vitest test `lockdown.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/logger.test.ts` | Vitest test `logger.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/node-refusal.test.ts` | Vitest test `node-refusal.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/require.test.ts` | Vitest test `require.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/sandbox-hardening.test.ts` | Vitest test `sandbox-hardening.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/sandbox.test.ts` | Vitest test `sandbox.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-approval.test.ts` | Vitest test `script-approval.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-loaded.test.ts` | Vitest test `script-loaded.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-runner.test.ts` | Vitest test `script-runner.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-runtime.test.ts` | Vitest test `script-runtime.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-sandbox-frame.test.ts` | Vitest test `script-sandbox-frame.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/script-worker.test.ts` | Vitest test `script-worker.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/studio-shell.test.ts` | Vitest test `studio-shell.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/tester-console.test.ts` | Vitest test `tester-console.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/tester-sandbox.test.ts` | Vitest test `tester-sandbox.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/tester-scripts-confirm.test.ts` | Vitest test `tester-scripts-confirm.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/tree-dnd.test.ts` | Vitest test `tree-dnd.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/tests/utils.test.ts` | Vitest test `utils.test.ts` (ships no runtime code) | FR-UI-001 |
+| `Resources/assets/src/logger.ts` | Console logger of the bundle scripts: `log.scriptLoaded()` banner (REQ-ASSETS-005) and debug-gated level methods | FR-UI-001 |
 | `Routing/ApiStudioRouteLoader.php` | Route loader behind ` | FR-ROUTING-001 |
 | `Routing/ApiStudioRouteScopeListener.php` | `ui.path` placeholders (e.g. `/organizations/{organization}/api-studio`): on an Api Studio request the values of the... | FR-ROUTING-001 |
 | `Secret/ApiStudioSecretRef.php` | A host secret reference to resolve (1.13, ApiStudioSecretSourceInterface), with the context the host authorises it in. | FR-SECRET-001 |
@@ -442,8 +470,10 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | Sources added after the baseline review (sweeps 2026-11-16 and 2026-11-22, incl. grouped rows) | 140 | 140 |
 | Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
 | Sources added in 1.21.1 (workspace import unit) | 1 | 1 |
-| **Total production sources** | **287** | **287** |
+| Sources added in 1.23 (`logger.ts` listed, runner value objects split one per row) | 1 | 1 |
+| **Total production sources** | **288** | **288** |
+| Vitest tests under `Resources/assets/tests/` (ship no runtime code, not in the production total) | 24 | 24 |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **287** (2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **288** (2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).

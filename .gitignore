@@ -37,5 +37,8 @@
 /package-lock.json
 /.pnpm-store/
 
+# Deptrac (REQ-ARCH-002)
+/.deptrac.cache
+
 # Cursor local sandbox (machine-specific; REQ-IDE-005)
 .cursor/sandbox.json

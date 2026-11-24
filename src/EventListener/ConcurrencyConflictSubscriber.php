@@ -9,7 +9,7 @@ use Nowo\ApiStudioBundle\Controller\RowVersionEditTrait;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioRoutes;
 use Nowo\TransactionContract\TransientStorageFailure;
-use Nowo\TransactionDoctrine\ConflictCode;
+use Nowo\TransactionDoctrine\ConflictCodeResolver;
 use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
 use Nowo\TransactionDoctrine\TransientFailureClassifier;
 use Psr\Log\LoggerInterface;
@@ -29,7 +29,7 @@ use function is_string;
  * failure anywhere in the failure (or a `TransientStorageFailure` / transaction-doctrine `ConcurrencyConflict`)
  * answers **409** (or 503, `concurrency.conflict_status`) with `X-Conflict-Code`:
  * - `CONFLICT_001` + `Retry-After` when nothing was committed;
- * - `CONFLICT_002` without `Retry-After` when part of the request was committed (`ConflictCode::forRequest()`: the
+ * - `CONFLICT_002` without `Retry-After` when part of the request was committed (`ConflictCodeResolver::forRequest()`: the
  *   failure's own flag, or transaction-doctrine's request commit watermark when the host enables it).
  *
  * JSON routes of the console get `{"error": "concurrency_conflict", "code": …}`; pages get an HTTP exception with the
@@ -45,7 +45,7 @@ use function is_string;
  * Detection uses transaction-doctrine's bounded walk (`TransientFailureClassifier::findConflict()`, >= 1.7.1, audit
  * UA2-5): the `getPrevious()` chain and the exceptions a Messenger wrapper carries (a deadlock in the second handler of
  * a synchronous `HandlerFailedException`), each throwable once, at most `ThrowableWalk::MAX_NODES`. A
- * `HandlerFailedException` whose envelope carries a `HandledStamp` answers `CONFLICT_002` (`ConflictCode`). When the host registers NowoTransactionDoctrineBundle its responder (priority 64)
+ * `HandlerFailedException` whose envelope carries a `HandledStamp` answers `CONFLICT_002` (`ConflictCodeResolver`). When the host registers NowoTransactionDoctrineBundle its responder (priority 64)
  * answers first; this is the fallback for hosts that do not. Stateless (worker-safe).
  */
 final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInterface
@@ -95,7 +95,7 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
             return;
         }
 
-        $code    = ConflictCode::forRequest($request, $failure);
+        $code    = ConflictCodeResolver::forRequest($request, $failure);
         $hint    = $this->hint($conflict);
         $headers = $this->policy->headersFor($code, $hint);
         $this->logger?->warning('Api Studio: a write met a database lock conflict; answered the conflict status.', [
@@ -173,7 +173,7 @@ final readonly class ConcurrencyConflictSubscriber implements EventSubscriberInt
      */
     public function answerFor(Request $request, Throwable $failure): array
     {
-        $code     = ConflictCode::forRequest($request, $failure);
+        $code     = ConflictCodeResolver::forRequest($request, $failure);
         $conflict = TransientFailureClassifier::findConflict($failure);
         $route    = $request->attributes->get('_route');
         $this->logger?->info('Api Studio: a write met a lock conflict a page answers itself; answered the conflict status.', [

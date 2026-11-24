@@ -54,7 +54,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 - **FR-CTRL-001**: Dashboard, workspace/service/endpoint CRUD, examples, import/export, locale switcher, execute controller.
 - **FR-FORM-001**: Form types for CRUD + `JsonMapType` + import upload; client-side and CSRF-only form views (`ClientSideFieldsType`, `CsrfOnlyType`, `KeyValueRowType`, `EndpointTesterFormFactory`) so no template contains raw form controls (REQ-TWIG-005).
 - **FR-TWIG-001**: Page templates on the UiKit scaffolds, workbench (API tree), tester panels, locale tabs, overridable under `templates/bundles/NowoApiStudioBundle/` (see inventory and `docs/TEMPLATES.md`).
-- **FR-UI-003**: UiKit page contract (REQ-UI-003): every page extends a UiKit scaffold (`dashboard`, `list`, `show`, `form`) fed by view models from `ApiStudioPageFactory`; the layout is `ui.layout_template` or `nowo_ui_kit.layouts.admin` (`ApiStudioPages`, deprecated bridge for pre-1.10 layouts); deletes use the UiKit confirm contract; no CDN, no inline handler; enforced by `PageContractTestCase`.
+- **FR-UI-003**: UiKit page contract (REQ-UI-003): every page extends a UiKit scaffold (`dashboard`, `list`, `show`, `form`) fed by view models from `ApiStudioPageFactory`; the layout is `ui.layout_template` or `nowo_ui_kit.layouts.admin` (`ApiStudioPages`, deprecated bridge for pre-1.10 layouts); `ui.header_actions` (1.23) puts the create actions in the header row (`header`, default) or in the UiKit page-actions menu (`page_actions`); deletes use the UiKit confirm contract; no CDN, no inline handler; enforced by `PageContractTestCase`.
 
 ### Execution engine
 

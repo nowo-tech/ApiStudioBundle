@@ -40,9 +40,9 @@
         "doctrine/doctrine-bundle": "^2.10 || ^3.0",
         "doctrine/orm": "^3.7",
         "nowo-tech/form-kit-bundle": "^2.14",
-        "nowo-tech/transaction-contract": "^1.0",
-        "nowo-tech/transaction-doctrine": "^1.8.1",
-        "nowo-tech/ui-kit-bundle": "^2.17.2",
+        "nowo-tech/transaction-contract": "^1.1",
+        "nowo-tech/transaction-doctrine": "^1.10",
+        "nowo-tech/ui-kit-bundle": "^2.21",
         "symfony/asset": "^7.4 || ^8.0",
         "symfony/config": "^7.4 || ^8.0",
         "symfony/dependency-injection": "^7.4 || ^8.0",
@@ -63,6 +63,7 @@
         "twig/string-extra": "^3.12"
     },
     "require-dev": {
+        "deptrac/deptrac": "^4.7.2",
         "friendsofphp/php-cs-fixer": "^3.0",
         "igor-php/igor-php": "^0.10.0",
         "nowo-tech/phpstan-frankenphp": "^1.0",
@@ -92,6 +93,7 @@
     "archive": {
         "exclude": [
             "/demo",
+            "/deptrac.yaml",
             "/.cursor"
         ]
     },
@@ -131,7 +133,11 @@
         "twig:lint": "twig-cs-fixer lint --config=.twig-cs-fixer.php",
         "twig:fix": "twig-cs-fixer fix --config=.twig-cs-fixer.php",
         "twig:fix:check": "twig-cs-fixer lint --config=.twig-cs-fixer.php --fix",
-        "igor": "igor-php --no-agent ."
+        "igor": "igor-php --no-agent .",
+        "deptrac": [
+            "deptrac analyse --no-progress --fail-on-uncovered --report-uncovered",
+            "deptrac debug:unassigned"
+        ]
     },
     "scripts-descriptions": {
         "test": "Run PHPUnit tests",
@@ -146,7 +152,8 @@
         "update": "Update composer.lock (composer update)",
         "validate": "Validate composer.json (composer validate --strict)",
         "qa": "Run all quality assurance checks",
-        "igor": "Run Igor FrankenPHP worker-state audit (REQ-CS-008)"
+        "igor": "Run Igor FrankenPHP worker-state audit (REQ-CS-008)",
+        "deptrac": "Check the layer dependencies of src/ with Deptrac; fail on violations, uncovered dependencies and unassigned classes (REQ-ARCH-002)"
     },
     "suggest": {
         "ext-soap": "Required for SOAP endpoint execution",

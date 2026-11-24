@@ -8,6 +8,7 @@ use Nowo\ApiStudioBundle\EventListener\LocaleSubscriber;
 use Nowo\ApiStudioBundle\Security\ApiStudioAccessPolicy;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\ApiStudioBundle\Twig\ApiStudioExtension as ApiStudioTwigExtension;
+use Nowo\ApiStudioBundle\Ui\ApiStudioPages;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -75,6 +76,11 @@ final class Configuration implements ConfigurationInterface
                         ->scalarNode('layout_template')
                             ->defaultNull()
                             ->info('Layout the Api Studio pages (UiKit page scaffolds) extend. Null (default) = nowo_ui_kit.layouts.admin, set once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that renders {% block body %} is wrapped in a deprecated bridge.')
+                        ->end()
+                        ->enumNode('header_actions')
+                            ->values([ApiStudioPages::HEADER_ACTIONS_HEADER, ApiStudioPages::HEADER_ACTIONS_PAGE_ACTIONS])
+                            ->defaultValue(ApiStudioPages::HEADER_ACTIONS_HEADER)
+                            ->info('1.23: where the create actions of the pages go. "header" (default): buttons in the page header row. "page_actions": "New workspace", "New service", "New environment", "New endpoint" and the other header actions are UiKit View\\Action entries of the page-actions menu (UiKit split header). Needs UiKit 2.21+.')
                         ->end()
                         ->enumNode('css_framework')
                             ->values(self::CSS_FRAMEWORKS)

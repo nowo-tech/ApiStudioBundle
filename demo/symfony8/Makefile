@@ -98,7 +98,7 @@ link-bundle: ensure-up
 
 update-bundle: ensure-up
 	@$(COMPOSE) exec -T -e COMPOSER_MEMORY_LIMIT=-1 php sh -c '\
-		composer update nowo-tech/api-studio-bundle --no-interaction --no-scripts || true'
+		composer update nowo-tech/api-studio-bundle nowo-tech/transaction-doctrine nowo-tech/transaction-contract -W --no-interaction --no-scripts'
 	@$(MAKE) link-bundle
 	@$(COMPOSE) exec -T php composer dump-autoload --no-interaction
 	@$(COMPOSE) exec -T php php bin/console cache:clear --env=dev --no-interaction

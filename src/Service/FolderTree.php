@@ -134,6 +134,24 @@ final class FolderTree
     }
 
     /**
+     * The checks of a folder edit, for a caller that owns the transaction (1.23: the folder edit page, which claims the row version first): locks the
+     * service row, checks that the folder still exists and that its place is valid on the current rows. Writes
+     * nothing and starts no transaction (the caller claims the row version, then flushes).
+     *
+     * @throws DomainException when the folder is gone or may not sit under its parent
+     */
+    public function guardEdit(ApiFolder $folder): void
+    {
+        $service = $this->serviceOf($folder->getService());
+        $folder->setName(FolderImportHelper::cleanName($folder->getName()));
+        $this->entityManager->lock($service, LockMode::PESSIMISTIC_WRITE);
+        if (!$this->exists($service, $folder)) {
+            throw new DomainException(self::ERROR_GONE);
+        }
+        $this->assertCanPlaceFolder($folder, $folder->getParent());
+    }
+
+    /**
      * Moves $folder under $parent (null = root), before the sibling folder $beforeId (null = last), and renumbers the
      * sibling folders.
      */

@@ -22,6 +22,7 @@ use Nowo\ApiStudioBundle\Form\ImportFileFormType;
 use Nowo\ApiStudioBundle\Service\EndpointTesterFormFactory;
 use Nowo\ApiStudioBundle\Tests\Functional\App\TestKernel;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
+use Nowo\ApiStudioBundle\Ui\ApiStudioPages;
 use Nowo\UiKitBundle\View\Pagination;
 use ReflectionProperty;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -33,6 +34,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 use function assert;
 
@@ -64,24 +66,26 @@ final class ApiStudioPageFixtures
     /**
      * @return array<string, mixed>
      */
-    public static function workspaceIndex(bool $empty = false): array
+    public static function workspaceIndex(bool $empty = false, ?ApiStudioPageFactory $factory = null): array
     {
         $workspaces = $empty ? [] : [self::workspace(), self::workspace(2, 'Billing', 'billing')];
+        $factory ??= self::factory();
 
-        return self::factory()->context([
-            'page' => self::factory()->workspaceIndex($workspaces, new Pagination(1, 2, $empty ? 0 : 3, null, 'nowo_api_studio_workspace_index')),
+        return $factory->context([
+            'page' => $factory->workspaceIndex($workspaces, new Pagination(1, 2, $empty ? 0 : 3, null, 'nowo_api_studio_workspace_index')),
         ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    public static function workspaceShow(): array
+    public static function workspaceShow(?ApiStudioPageFactory $factory = null): array
     {
         $workspace = self::workspace();
+        $factory ??= self::factory();
 
-        return self::factory()->context([
-            'page'      => self::factory()->workspaceShow($workspace),
+        return $factory->context([
+            'page'      => $factory->workspaceShow($workspace),
             'workspace' => $workspace,
         ]);
     }
@@ -356,6 +360,19 @@ final class ApiStudioPageFixtures
         $formFactory = self::container()->get('form.factory');
 
         return $formFactory;
+    }
+
+    /**
+     * 1.23: the page factory of the functional kernel with `ui.header_actions: page_actions` (same URL generator and
+     * authorization, only the pages differ).
+     */
+    public static function pageActionsFactory(): ApiStudioPageFactory
+    {
+        $reflection = new ReflectionProperty(ApiStudioPageFactory::class, 'urlGenerator');
+        /** @var UrlGeneratorInterface $urls */
+        $urls = $reflection->getValue(self::factory());
+
+        return new ApiStudioPageFactory($urls, new ApiStudioPages(headerActions: ApiStudioPages::HEADER_ACTIONS_PAGE_ACTIONS));
     }
 
     public static function factory(): ApiStudioPageFactory
