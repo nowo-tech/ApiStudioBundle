@@ -120,4 +120,6 @@ return (new Config())
             ->in(__DIR__)
             ->exclude(['vendor', 'var', 'coverage', '.phpunit.cache'])
             ->notName('reference.php')
+            // Flex-managed demo files (rewritten by Symfony recipes, REQ-CS-009).
+            ->notPath('#^demo/[^/]+/config/bundles\.php$#')
     );
