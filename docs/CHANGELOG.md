@@ -75,6 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `nowo_api_studio.ui.header_actions` (`header` | `page_actions`, default `header`): with `page_actions` "New workspace", "New service", "New environment", "New endpoint", "New folder" and the other header actions of every page are UiKit `View\Action` entries of the page-actions menu (the page header uses the UiKit split layout, `PageHeader::actionsLayout` `split`, and the create actions are `secondary`) instead of buttons of the header row (Beacon UI-PATTERNS section 3). `header` keeps the 1.22 behaviour. The empty states keep their primary action in both modes. Same option as VaultBundle 2.2 `web_ui.header_actions`; no new label, so no new translation.
+
+### Changed
+
+- The conflict answers of `ConcurrencyConflictSubscriber` use `Nowo\TransactionDoctrine\ConflictCodeResolver::forRequest()` instead of the deprecated `ConflictCode::forRequest()` (REQ-ARCH-002 contract types); the headers and statuses are unchanged.
+- Composer floors: `nowo-tech/transaction-doctrine` `^1.10` and `nowo-tech/transaction-contract` `^1.1` (the resolver), and `nowo-tech/ui-kit-bundle` `^2.21` (`PageHeader::actionsLayout`, needed by the page headers).
+
+### Internal
+
+- `.php-cs-fixer.dist.php`: the base ruleset is `@PER-CS` + `@PER-CS:risky` instead of `@PSR12` (REQ-CS-009); the tree needed no reformatting.
+- `specs/001-baseline/code-inventory.md` lists every `src/` file one per row (REQ-SPECKIT-001 / REQ-SPECKIT-003): the runner value objects, `logger.ts` and the Vitest tests that were missing or grouped.
+
 ### Documentation
 
 - `scripts/build-assets.mjs`: the comment on the build id now says it is the readable UTC build date label from `build-info.json`, not a hash of the sources (audit ZAI-5). Comment only, assets unchanged.

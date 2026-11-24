@@ -13,6 +13,7 @@ nowo_api_studio:
         path_requirements: {}    # e.g. {organization: '[0-9a-f-]{36}'}; default [^/]+
         locale_scope: routes     # routes (1.11 default) | global (1.10 behaviour) | none
         layout_template: null    # null = nowo_ui_kit.layouts.admin (UiKit page contract)
+        header_actions: header   # 1.23: header (buttons in the header row) | page_actions (UiKit page-actions menu)
         # css_framework: deprecated since 1.10 — set nowo_ui_kit.css_framework instead
         default_locale: en
         locales: [en, es, fr, it]
@@ -93,6 +94,7 @@ nowo_api_studio:
 | `table_prefix` | Prefix for all bundle tables and unique indexes (default `api_studio_`). Lowercase letters, numbers, and underscores only. |
 | `environments` | Environments created automatically when a workspace is created from the UI (default `dev`, `test`, `prod`); the first one is marked as default. Slugs are derived from the names (lowercase, non-alphanumerics → `_`). Set `[]` to create workspaces without environments. Imports and the demo seeder are not affected. |
 | `ui.path` | Dashboard base path / path prefix (default `/api-studio`). Lock with Symfony `access_control`. |
+| `ui.header_actions` | **1.23.** Where the create actions of the pages go. `header` (default): buttons in the page header row. `page_actions`: "New workspace", "New service", "New environment", "New endpoint", "New folder" and the other header actions are UiKit `View\Action` entries of the page-actions menu (UiKit split header, create actions `secondary`); the empty states keep their primary action. Needs UiKit 2.21+. Same option as VaultBundle `web_ui.header_actions`. See [USAGE.md](USAGE.md#header-actions-123). |
 | `ui.layout_template` | Layout the Api Studio pages (UiKit page scaffolds) extend. `null` (default; the 1.x default `@NowoApiStudioBundle/layout.html.twig` reads as null) = `nowo_ui_kit.layouts.admin`, configured once for every UiKit bundle. A layout that renders the UiKit canonical blocks is used as is; a pre-1.10 layout that only renders `{% block body %}` is wrapped in a deprecated bridge (removed in 2.0). Twig global `nowo_api_studio_layout_template`. See [TEMPLATES.md](TEMPLATES.md#layout). |
 | `ui.css_framework` | **Deprecated since 1.10** (default `null`): the CSS stack is `nowo_ui_kit.css_framework`. When set (and the host did not set `nowo_ui_kit.css_framework` / `nowo_form_kit.css_framework`), it still seeds UiKit (`css_framework`, `icon_set: bootstrap-icons`) and FormKit, and triggers a deprecation. The bundle loads no CSS framework (no CDN). |
 | `ui.path_requirements` | **1.11.** Requirements of the `{placeholders}` of `ui.path` (a placeholder without one matches `[^/]+`). Placeholder names must be lowercase identifiers and not a route parameter of the bundle (`id`, `workspaceId`, `serviceId`, `endpointId`, `environmentId`, `exampleId`, `format`, `_locale`…); an entry for an unknown name fails the build. On an Api Studio request the placeholder values become router-context defaults, so every link the bundle generates carries them; elsewhere the host passes them. Requirements set on the host's route import still apply. |

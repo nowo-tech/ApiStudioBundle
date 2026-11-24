@@ -97,6 +97,17 @@ composer update nowo-tech/api-studio-bundle
 
 ## Unreleased
 
+From **1.22.0**:
+
+```bash
+composer update nowo-tech/api-studio-bundle nowo-tech/transaction-doctrine nowo-tech/transaction-contract nowo-tech/ui-kit-bundle
+```
+
+Nothing breaks: `nowo_api_studio.ui.header_actions` defaults to `header` (the 1.22 behaviour). Set `page_actions` to
+move the create actions to the UiKit page-actions menu. The Composer floors rise to `nowo-tech/transaction-doctrine:
+^1.10`, `nowo-tech/transaction-contract: ^1.1` and `nowo-tech/ui-kit-bundle: ^2.21` (the page headers pass
+`actionsLayout`, a UiKit 2.21 argument); a host on older versions updates them with the command above.
+
 ## To 1.22.0
 
 From **1.21.1**:
