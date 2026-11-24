@@ -11,7 +11,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: test-with-db db-up db-down help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan igor update validate validate-translations check-no-cursor-coauthor check-open-prs check-no-raw-html-form strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
+.PHONY: test-with-db db-up db-down help up down down-dev build shell install assets test test-coverage test-ts cs-check cs-fix qa clean release-check release-check-demos composer-sync rector rector-dry phpstan deptrac igor update validate validate-translations check-no-cursor-coauthor check-open-prs check-no-raw-html-form strip-cursor-coauthor-from-history setup-hooks demo-smoke check-twig-extra
 
 help:
 	@echo "API Studio Bundle - Development Commands"
@@ -36,6 +36,7 @@ help:
 	@echo "  rector-dry    Run Rector in dry-run mode"
 	@echo "  phpstan       Run PHPStan static analysis"
 	@echo "  igor          Run Igor worker-state audit (REQ-CS-008)"
+	@echo "  deptrac       Check the layer dependencies of src/ (REQ-ARCH-002)"
 	@echo "  qa            Run all QA checks (cs-check + test)"
 	@echo "  release-check Pre-release pipeline (checks, CS, Rector, PHPStan, Igor, coverage, TS check, demos)"
 	@echo "  composer-sync Validate composer.json and align composer.lock (no install)"
@@ -121,6 +122,10 @@ rector-dry: ensure-up
 phpstan: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) composer phpstan
 
+# REQ-ARCH-002: layer dependencies of src/ (deptrac.yaml); fails on violations, uncovered and unassigned classes.
+deptrac: ensure-up
+	$(COMPOSE) exec -T $(SERVICE_PHP) composer deptrac
+
 qa: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) composer qa
 
@@ -145,7 +150,7 @@ igor: ensure-up
 	$(COMPOSE) exec -T php composer igor
 
 # Pre-release (REQ-MAKE-002)
-release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra check-no-raw-html-form validate-translations composer-sync cs-fix cs-check rector-dry phpstan igor test-coverage release-check-demos test-ts
+release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra check-no-raw-html-form validate-translations composer-sync cs-fix cs-check rector-dry phpstan deptrac igor test-coverage release-check-demos test-ts
 
 # REQ-TEST-011 — boot demo stack and assert one HTTP 200
 demo-smoke:

@@ -324,6 +324,9 @@ jobs:
       - name: PHPStan
         run: composer phpstan
 
+      - name: Deptrac layer check (REQ-ARCH-002)
+        run: composer deptrac
+
       - name: Rector (dry run)
         run: composer rector-dry
 

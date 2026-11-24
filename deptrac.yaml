@@ -1,0 +1,90 @@
+# REQ-ARCH-002: layer dependencies of src/ checked by Deptrac (strict ruleset, no skipped violations).
+# Api Studio has no Domain/Application split (REQ-ARCH-002 rule 6): the two-layer ruleset "Public API" vs "Internal".
+# Run: composer deptrac / make deptrac. docs/ARCHITECTURE.md explains the layers.
+deptrac:
+  paths:
+    - ./src
+  exclude_files:
+    - '#.*/src/Resources/.*#'
+  layers:
+    # --- Bundle layers ---
+    # Public API: what a host codes against (entities, enums, events, query / scope / security / secret / runner ports and
+    # their value objects). It never depends on Internal.
+    - name: PublicApi
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Nowo\\ApiStudioBundle\\(Entity|Enum|Event|Model|Concurrency|Validator|Repository|Query|Scope|Security|Secret|Script\\Runner|Tenancy|Search\\SearchKind|Service\\VariableSyntax)(\\|$)'
+          must_not:
+            - type: classLike
+              value: '^Nowo\\ApiStudioBundle\\(Query\\Doctrine.*|Scope\\(ScopeListener|WorkspaceScopeMover)|Security\\(ApiStudioAccessPolicy|ApiWorkspaceAccess|ConfigurableApiStudioAccessChecker|LegacyPermissionChecker|SecretValueCipher|ExecutionUrlValidator|FolderAccess|ApiStudioAuthorization|ApiStudioHistoryScope)|Secret\\(SecretForms|SecretRedactingLogger)|Script\\Runner\\(ProcessScriptRunner|NullScriptRunner)|Tenancy\\(ApiStudioTenantListener|TenantProviderResolver|TenantSqlFilterListener)|Validator\\.*Validator|Doctrine\\.*)$'
+    # Internal: controllers, forms, commands, Doctrine listeners, services, seeds, Twig, routing, the page factory and the
+    # composition root (DependencyInjection and the bundle class). May use everything.
+    - name: Internal
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Nowo\\ApiStudioBundle\\'
+          must_not:
+            - type: layer
+              value: PublicApi
+    # --- Vendor layers ---
+    # Native classes of newer PHP versions that the analyser does not know on the CI PHP (SortDirection, PHP 8.6).
+    - name: PhpNative
+      collectors:
+        - type: classLike
+          value: '^SortDirection$'
+    - name: Psr
+      collectors:
+        - type: classLike
+          value: '^Psr\\'
+    - name: TransactionContract
+      collectors:
+        - type: classLike
+          value: '^Nowo\\TransactionContract\\'
+    - name: SymfonyContracts
+      collectors:
+        - type: classLike
+          value: '^Symfony\\Contracts\\'
+    - name: Symfony
+      collectors:
+        - type: classLike
+          value: '^Symfony\\(Component|Bundle|Bridge)\\'
+    - name: Doctrine
+      collectors:
+        - type: classLike
+          value: '^Doctrine\\'
+    - name: Twig
+      collectors:
+        - type: classLike
+          value: '^Twig\\'
+    - name: TransactionDoctrine
+      collectors:
+        - type: classLike
+          value: '^Nowo\\TransactionDoctrine\\'
+    - name: NowoBundles
+      collectors:
+        - type: classLike
+          value: '^Nowo\\(UiKitBundle|FormKitBundle|SearchKitBundle)\\'
+  ruleset:
+    PublicApi:
+      - PhpNative
+      - Psr
+      - TransactionContract
+      - SymfonyContracts
+      - Symfony
+      - Doctrine
+    Internal:
+      - PublicApi
+      - PhpNative
+      - Psr
+      - TransactionContract
+      - SymfonyContracts
+      - Symfony
+      - Doctrine
+      - Twig
+      - TransactionDoctrine
+      - NowoBundles
+  skip_violations: {}

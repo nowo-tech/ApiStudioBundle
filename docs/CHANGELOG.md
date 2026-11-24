@@ -90,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- Deptrac layer check (REQ-ARCH-002): `deptrac.yaml` with the two-layer ruleset `PublicApi` / `Internal` plus the vendor layers, `composer deptrac` / `make deptrac` (violations, uncovered dependencies and unassigned classes all fail), a CI step in the static analysis job, and `docs/ARCHITECTURE.md`. 0 violations, 0 uncovered, no skipped entry; no code change.
 - `.php-cs-fixer.dist.php`: the base ruleset is `@PER-CS` + `@PER-CS:risky` instead of `@PSR12` (REQ-CS-009); the tree needed no reformatting.
 - `specs/001-baseline/code-inventory.md` lists every `src/` file one per row (REQ-SPECKIT-001 / REQ-SPECKIT-003): the runner value objects, `logger.ts` and the Vitest tests that were missing or grouped.
 
