@@ -83,7 +83,7 @@ Postman/Apidog-style **API studio** inside Symfony: workspaces, services, enviro
 
 ### Frontend
 
-- **FR-UI-001**: TypeScript modules (tester, shell, body tools, script runtime) built to `Resources/public/*.js`.
+- **FR-UI-001**: TypeScript modules (tester, shell, body tools, script runtime) built to `Resources/public/*.js`. Each browser script (`api-studio/script-runtime`, `script-sandbox`, `body-tools`, `studio-shell`, `endpoint-doc`, tester) prints one `📦 [name] script loaded, build: <date> UTC` console line through `logger.ts` (1.22, REQ-ASSETS-005); `<html data-nowo-console="quiet">` or `globalThis.NOWO_CONSOLE = 'quiet'` silences it and the level methods are no-ops unless debug is on.
 - **FR-UI-002**: Workbench / console CSS mapped to the UiKit `--nowo-ui-*` tokens (no global element rules, no own palette).
 
 ---
