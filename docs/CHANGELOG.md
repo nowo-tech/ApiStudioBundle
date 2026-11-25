@@ -76,6 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Import (YAML)**: symfony/yaml 7.4.24 / 8.1.12 stop an alias bomb themselves with a `ParseException` before the bundle's node budget runs. `DocumentParser` now translates every YAML `ParseException` into the bundle's `InvalidArgumentException`: the new alias limit gets the same "more than 100000 values" rejection as the bundle's own guard (kept for older yaml releases), and any other YAML syntax error becomes "Invalid YAML document (line N)." without quoting the payload. Fixes the PHP 8.5 / Symfony 8.1 CI cell.
+
 ## [1.23.0] - 2026-11-24
 
 ### Added
