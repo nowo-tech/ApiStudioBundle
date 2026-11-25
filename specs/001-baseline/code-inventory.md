@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-24 (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
+**Last audited**: 2026-11-27 (re-verified 288/288 against `git ls-files src`; spec reviewed; sweeps below) (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
