@@ -63,6 +63,18 @@ final class DocumentParserTest extends TestCase
         (new DocumentParser())->parse($yaml, 'bomb.yaml');
     }
 
+    public function testInvalidYamlIsRejectedWithoutEchoingThePayload(): void
+    {
+        try {
+            (new DocumentParser())->parse("openapi: 3.0.0\nfoo: [unclosed TOP-SECRET-TOKEN\n  - bar: {", 'broken.yaml');
+            self::fail('Invalid YAML must be rejected.');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringStartsWith('Invalid YAML document', $e->getMessage());
+            self::assertStringNotContainsString('TOP-SECRET-TOKEN', $e->getMessage());
+            self::assertNull($e->getPrevious());
+        }
+    }
+
     public function testAcceptsADocumentWithinTheBudget(): void
     {
         $data = (new DocumentParser())->parse('{"items": ' . json_encode(range(1, 1000)) . '}');
