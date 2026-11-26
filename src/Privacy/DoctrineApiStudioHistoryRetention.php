@@ -8,7 +8,6 @@ use DateInterval;
 use DateTimeImmutable;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
-use LogicException;
 use Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver;
 use Nowo\ApiStudioBundle\Entity\ApiRequestHistory;
 use Psr\Log\LoggerInterface;
@@ -50,7 +49,7 @@ final readonly class DoctrineApiStudioHistoryRetention implements ApiStudioHisto
         $manager    = $this->managers->entityManager();
         $connection = $manager->getConnection();
         if ($connection->isTransactionActive()) {
-            throw new LogicException('Api Studio: the history purge commits batch by batch; run it outside a transaction.');
+            throw new HistoryPurgeInsideTransactionException();
         }
 
         $table  = $manager->getClassMetadata(ApiRequestHistory::class)->getTableName();

@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 use function array_column;
 use function getenv;
 use function is_string;
+use function rawurlencode;
 use function sprintf;
 
 /**
@@ -117,6 +118,35 @@ final class HistoryPrivacyDatabaseTest extends TestCase
         self::assertSame([1, 1], [$result->historyRowsDeleted, $result->foldersAnonymised]);
         self::assertEqualsCanonicalizing(['u:usera', 'u:UserA '], $this->connection->fetchFirstColumn('SELECT executed_by FROM api_studio_request_history'));
         self::assertEqualsCanonicalizing(['u:usera', 'u:UserA '], $this->connection->fetchFirstColumn('SELECT created_by FROM api_studio_folder WHERE created_by IS NOT NULL'));
+        $this->assertUsable();
+    }
+
+    /**
+     * Audit ZCL-H1: default actor ids carry the raw identifier (spaces, non-ASCII); they are erased and exported
+     * byte-exact on the server (`u:josé` is not `u:jose` nor `u:JOSÉ`).
+     */
+    #[DataProvider('servers')]
+    public function testIdsWithSpacesAndNonAsciiAreErasedAndExportedExactly(string $variable): void
+    {
+        $endpoint = $this->boot($variable);
+        $em       = $this->privacyEntityManager($this->registry);
+        $service  = $endpoint->getService();
+        self::assertNotNull($service);
+        foreach (['u:John Smith', 'u:john smith', 'u:josé@example.test', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:名前🙂'] as $actor) {
+            $this->addHistory($em, $endpoint, $actor, 'https://api.example.test/' . rawurlencode($actor));
+            $this->addFolder($em, $service, $actor, 'Folder ' . $actor);
+        }
+        $ports = $this->ports();
+
+        foreach (['u:John Smith', 'u:josé@example.test', 'u:名前🙂'] as $actor) {
+            self::assertSame(['https://api.example.test/' . rawurlencode($actor)], array_column($ports->export($actor)->history, 'url'), $actor);
+            self::assertSame(['Folder ' . $actor], array_column($ports->export($actor)->folders, 'name'), $actor);
+            $result = $ports->erase($actor);
+            self::assertSame([1, 1], [$result->historyRowsDeleted, $result->foldersAnonymised], $actor);
+        }
+
+        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test'], $this->connection->fetchFirstColumn('SELECT executed_by FROM api_studio_request_history'));
+        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test'], $this->connection->fetchFirstColumn('SELECT created_by FROM api_studio_folder WHERE created_by IS NOT NULL'));
         $this->assertUsable();
     }
 

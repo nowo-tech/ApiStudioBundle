@@ -36,7 +36,7 @@ use const DATE_ATOM;
  *   `u:usera` reach `u:UserA`'s rows). Writes then go row by row by primary key (point locks only).
  * - Each erasure batch is one write unit through the transaction-doctrine runner (savepoint-aware repair after a
  *   failure, so a deadlock never leaves the connection at a wrong nesting level). Inside a caller's transaction
- *   (UserKit's erasure) the batch is a savepoint of it and a lock conflict propagates at once; standalone, a
+ *   on the same connection (UserKit's erasure, when it shares the connection) the batch is a savepoint of it and a lock conflict propagates at once; standalone, a
  *   conflicting batch is tried {@see self::MAX_ATTEMPTS} times (it is idempotent) before the conflict propagates.
  * - `history.scope: endpoint` does not map `executed_by`; rows stored while the scope was `user` still carry it, so
  *   the column is then looked up in the schema. The same holds for the folder table while `folders.enabled` is off.
@@ -227,12 +227,15 @@ final readonly class DoctrineApiStudioPersonalData implements ApiStudioPersonalD
     }
 
     /**
-     * Same shape as stored ids: 1 to 128 printable ASCII characters without spaces (ApiStudioHistoryScope).
+     * Every id the bundle can store (audit ZCL-H1): the default id is `u:` + the raw user identifier, so spaces and
+     * non-ASCII characters are legitimate (`u:John Smith`, `u:josé@example.test`). Accepted: valid UTF-8, 1 to 128
+     * characters (the folder column; history ids are at most 64), no control character. Exactness comes from the
+     * binary column and the `===` re-check, not from the alphabet.
      */
     private static function assertActor(string $actorId): void
     {
-        if (preg_match('/^[\x21-\x7E]{1,' . self::MAX_ACTOR_LENGTH . '}$/D', $actorId) !== 1) {
-            throw new InvalidArgumentException('Api Studio: an actor id is 1 to 128 printable ASCII characters without spaces.');
+        if (preg_match('/^[^\x00-\x1F\x7F]{1,' . self::MAX_ACTOR_LENGTH . '}$/Du', $actorId) !== 1) {
+            throw new InvalidArgumentException('Api Studio: an actor id is 1 to 128 UTF-8 characters without control characters.');
         }
     }
 

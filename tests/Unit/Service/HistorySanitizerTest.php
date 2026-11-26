@@ -74,6 +74,28 @@ final class HistorySanitizerTest extends TestCase
         );
     }
 
+    /**
+     * 1.24 (audit ZCL-L1).
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function userinfoAndFragments(): iterable
+    {
+        yield 'token as user name' => ['https://ghp_tokenvalue@github.example/org/repo', 'https://[REDACTED]@github.example/org/repo'];
+        yield 'password with @' => ['https://u:p@ss@host.example/', 'https://u:[REDACTED]@host.example/'];
+        yield 'user and empty password' => ['https://u:@host.example/', 'https://u:[REDACTED]@host.example/'];
+        yield '@ in the path is not userinfo' => ['https://host.example/users/@me?x=1', 'https://host.example/users/@me?x=1'];
+        yield 'fragment token' => ['https://app.example/cb#access_token=tok123&state=s1&token_type=bearer', 'https://app.example/cb#access_token=[REDACTED]&state=s1&token_type=[REDACTED]'];
+        yield 'fragment and query' => ['https://app.example/cb?code=c1&sig=s#id_token=x&page=2', 'https://app.example/cb?code=c1&sig=[REDACTED]#id_token=[REDACTED]&page=2'];
+        yield 'plain fragment' => ['https://app.example/docs#section-2', 'https://app.example/docs#section-2'];
+    }
+
+    #[DataProvider('userinfoAndFragments')]
+    public function testSanitizeUrlMasksUserinfoAndFragmentTokens(string $url, string $expected): void
+    {
+        self::assertSame($expected, (new HistorySanitizer())->sanitizeUrl($url));
+    }
+
     public function testSanitizeUrlRedactsExtraNamesAndSecretValues(): void
     {
         $out = (new HistorySanitizer())->sanitizeUrl(

@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 use function json_encode;
+use function mb_strlen;
 use function str_repeat;
 
 use const JSON_THROW_ON_ERROR;
@@ -194,10 +195,47 @@ final class DoctrineApiStudioPersonalDataTest extends TestCase
     public static function invalidActors(): iterable
     {
         yield 'empty' => [''];
-        yield 'space' => ['u:User A'];
-        yield 'too long' => [str_repeat('a', 129)];
-        yield 'non ASCII' => ['u:usér'];
-        yield 'control' => ["u:user\n"];
+        yield 'too long' => [str_repeat('é', 129)];
+        yield 'trailing newline' => ["u:user\n"];
+        yield 'tab' => ["u:us\ter"];
+        yield 'NUL' => ["u:us\0er"];
+        yield 'invalid UTF-8' => ["u:us\xFFer"];
+    }
+
+    /**
+     * Audit ZCL-H1: the default actor id is `u:` + the raw identifier, so spaces and non-ASCII are stored and must be
+     * erasable and exportable (128 characters is the longest the folder column holds).
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function storableActors(): iterable
+    {
+        yield 'space' => ['u:John Smith'];
+        yield 'non ASCII' => ['u:josé@example.test'];
+        yield 'emoji and CJK' => ['u:名前🙂'];
+        yield 'longest' => [str_repeat('é', 128)];
+    }
+
+    #[DataProvider('storableActors')]
+    public function testIdsWithSpacesAndNonAsciiAreErasedAndExported(string $actor): void
+    {
+        $registry             = $this->privacyRegistry();
+        $em                   = $this->privacyEntityManager($registry);
+        [$service, $endpoint] = $this->seedEndpoint($em);
+        if (mb_strlen($actor) <= 64) {
+            $this->addHistory($em, $endpoint, $actor);
+        }
+        $this->addFolder($em, $service, $actor);
+        $this->addHistory($em, $endpoint, 'u:other');
+        $ports = $this->ports($registry, 10);
+
+        $export = $ports->export($actor);
+        self::assertCount(mb_strlen($actor) <= 64 ? 1 : 0, $export->history);
+        self::assertCount(1, $export->folders);
+        $result = $ports->erase($actor);
+
+        self::assertSame([mb_strlen($actor) <= 64 ? 1 : 0, 1], [$result->historyRowsDeleted, $result->foldersAnonymised]);
+        self::assertSame(['u:other'], $em->getConnection()->fetchFirstColumn('SELECT executed_by FROM api_studio_request_history'));
     }
 
     #[DataProvider('invalidActors')]

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Tests\Integration\Privacy;
 
 use DateTimeImmutable;
-use LogicException;
 use Nowo\ApiStudioBundle\Privacy\DoctrineApiStudioHistoryRetention;
+use Nowo\ApiStudioBundle\Privacy\HistoryPurgeInsideTransactionException;
 use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
 use Nowo\ApiStudioBundle\Tests\Support\PrivacyOrmTrait;
 use Nowo\ApiStudioBundle\Tests\Support\ScopeManagerRegistry;
@@ -107,8 +107,8 @@ final class DoctrineApiStudioHistoryRetentionTest extends TestCase
         $connection->beginTransaction();
 
         try {
-            $this->expectException(LogicException::class);
-            $this->expectExceptionMessage('outside a transaction');
+            $this->expectException(HistoryPurgeInsideTransactionException::class);
+            $this->expectExceptionMessage('doctrine_transaction');
             $this->retention($registry, 90, 10)->purge();
         } finally {
             $connection->rollBack();

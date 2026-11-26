@@ -8,6 +8,8 @@ use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExport;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExporterInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\UserKitBundle\PersonalData\PersonalDataExportProviderInterface;
+use Psr\Log\LoggerInterface;
+use UnexpectedValueException;
 
 /**
  * UserKit personal-data export section `api_studio` (1.24; registered like {@see ApiStudioUserKitEraser}):
@@ -27,6 +29,7 @@ final readonly class ApiStudioUserKitExportProvider implements PersonalDataExpor
     public function __construct(
         private ApiStudioPersonalDataExporterInterface $exporter,
         private ApiStudioHistoryScope $actors,
+        private ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -46,10 +49,27 @@ final readonly class ApiStudioUserKitExportProvider implements PersonalDataExpor
     public function export(object $user): array
     {
         $export = new ApiStudioPersonalDataExport();
-        foreach ($this->actors->actorIdsOf($user) as $actorId) {
+        foreach ($this->actorIds($user, null) as $actorId) {
             $export = $export->with($this->exporter->export($actorId));
         }
 
         return $export->toArray();
+    }
+
+    /**
+     * The person's actor ids. A host resolver id of the wrong shape was refused at write time too, so no row can be
+     * stored under it: logged (class only) and skipped instead of aborting the whole UserKit run (audit ZCL-H1).
+     *
+     * @return list<string>
+     */
+    private function actorIds(object $user, ?string $originalIdentifier): array
+    {
+        try {
+            return $this->actors->actorIdsOf($user, $originalIdentifier);
+        } catch (UnexpectedValueException $e) {
+            $this->logger?->warning('Api Studio: the actor resolver returned an id the bundle cannot store; nothing to export under it.', ['exception' => $e::class]);
+
+            return [];
+        }
     }
 }

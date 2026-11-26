@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\Privacy;
 
 use DateTimeImmutable;
-use LogicException;
 
 /**
  * Request history retention (1.24, `nowo_api_studio.history.retention_days`, default 90, 0 = keep forever): deletes
@@ -21,7 +20,8 @@ interface ApiStudioHistoryRetentionInterface
      * @param int|null $maxBatches stop after this many batches (null = until no row is older than the cut-off)
      * @param DateTimeImmutable|null $now reference time (null = now)
      *
-     * @throws LogicException when called inside an open transaction (the batches must commit one by one)
+     * @throws HistoryPurgeInsideTransactionException when called inside an open transaction (the batches must commit
+     *                                                one by one)
      */
     public function purge(?int $maxBatches = null, ?DateTimeImmutable $now = null): ApiStudioHistoryPurgeResult;
 

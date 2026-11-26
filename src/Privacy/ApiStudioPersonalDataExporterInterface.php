@@ -20,7 +20,7 @@ use InvalidArgumentException;
 interface ApiStudioPersonalDataExporterInterface
 {
     /**
-     * @throws InvalidArgumentException when the actor id is not 1 to 128 printable ASCII characters without spaces
+     * @throws InvalidArgumentException when the actor id is not 1 to 128 UTF-8 characters without control characters
      */
     public function export(string $actorId): ApiStudioPersonalDataExport;
 }

@@ -399,6 +399,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         if (interface_exists(MessageBusInterface::class)) {
             $container->register(PurgeApiStudioHistoryHandler::class, PurgeApiStudioHistoryHandler::class)
                 ->setArgument('$retention', new Reference(ApiStudioHistoryRetentionInterface::class))
+                ->setArgument('$logger', $logger)
                 ->addTag('messenger.message_handler', ['handles' => PurgeApiStudioHistory::class]);
         }
 
@@ -408,10 +409,12 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $container->register(ApiStudioUserKitEraser::class, ApiStudioUserKitEraser::class)
             ->setArgument('$eraser', new Reference(ApiStudioPersonalDataEraserInterface::class))
             ->setArgument('$actors', new Reference(ApiStudioHistoryScope::class))
+            ->setArgument('$logger', $logger)
             ->addTag('nowo_user_kit.personal_data.eraser', ['priority' => ApiStudioUserKitEraser::PRIORITY]);
         $container->register(ApiStudioUserKitExportProvider::class, ApiStudioUserKitExportProvider::class)
             ->setArgument('$exporter', new Reference(ApiStudioPersonalDataExporterInterface::class))
             ->setArgument('$actors', new Reference(ApiStudioHistoryScope::class))
+            ->setArgument('$logger', $logger)
             ->addTag('nowo_user_kit.personal_data.export_provider', ['priority' => ApiStudioUserKitExportProvider::PRIORITY]);
     }
 

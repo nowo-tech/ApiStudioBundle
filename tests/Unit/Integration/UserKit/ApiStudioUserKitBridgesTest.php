@@ -8,11 +8,13 @@ use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitEraser;
 use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitExportProvider;
 use Nowo\ApiStudioBundle\Security\ApiStudioActorResolverInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
+use Nowo\ApiStudioBundle\Tests\Support\InMemoryLogger;
 use Nowo\ApiStudioBundle\Tests\Support\RecordingPersonalDataPorts;
 use Nowo\UserKitBundle\PersonalData\ErasureRequest;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 use Symfony\Component\Security\Core\User\InMemoryUser;
+use UnexpectedValueException;
 
 /**
  * 1.24 UserKit bridges: the eraser erases every actor id of the person (the original identifier too, so a host
@@ -46,6 +48,42 @@ final class ApiStudioUserKitBridgesTest extends TestCase
             ->erase(new ErasureRequest(new InMemoryUser('deleted-7', null), null, [], 'ana@example.test'));
 
         self::assertSame(['u:0b9e2f3c-uuid'], $eraser->erased);
+    }
+
+    /**
+     * Audit ZCL-H1: default config (history.scope endpoint), identifiers with a space or non-ASCII characters.
+     */
+    public function testIdentifiersWithSpacesAndNonAsciiReachThePorts(): void
+    {
+        $ports = new RecordingPersonalDataPorts();
+        (new ApiStudioUserKitEraser($ports, new ApiStudioHistoryScope()))
+            ->erase(new ErasureRequest(new InMemoryUser('erased-1', null), null, [], 'John Smith'));
+        (new ApiStudioUserKitExportProvider($ports, new ApiStudioHistoryScope()))->export(new InMemoryUser('josé@example.test', null));
+
+        self::assertSame(['u:John Smith', 'u:erased-1'], $ports->erased);
+        self::assertSame(['u:josé@example.test'], $ports->exported);
+    }
+
+    public function testAMalformedHostResolverIdIsLoggedAndSkipped(): void
+    {
+        $ports    = new RecordingPersonalDataPorts();
+        $logger   = new InMemoryLogger();
+        $resolver = new class implements ApiStudioActorResolverInterface {
+            public function actorId(object $user): string
+            {
+                return 'has space';
+            }
+        };
+        $scope = new ApiStudioHistoryScope('user', $resolver);
+
+        (new ApiStudioUserKitEraser($ports, $scope, $logger))->erase(new ErasureRequest(new InMemoryUser('ana', null)));
+        $section = (new ApiStudioUserKitExportProvider($ports, $scope, $logger))->export(new InMemoryUser('ana', null));
+
+        self::assertSame([], $ports->erased);
+        self::assertSame(['history' => [], 'folders_created' => []], $section);
+        self::assertCount(2, $logger->records);
+        self::assertSame(['exception' => UnexpectedValueException::class], $logger->records[0]['context']);
+        self::assertStringNotContainsString('has space', $logger->text());
     }
 
     public function testTheSameIdentifierIsErasedOnce(): void
