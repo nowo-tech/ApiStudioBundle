@@ -10,6 +10,7 @@
 - [Browser scripts and CSP](#browser-scripts-and-csp)
 - [Feature gate and 404 policy (1.16)](#feature-gate-and-404-policy-116)
 - [Workspace scopes (1.17)](#workspace-scopes-117)
+- [Personal data, export and retention (1.24)](#personal-data-export-and-retention-124)
 - [Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)](#residual-risks-accepted-for-req-sec-004-pass-good--low)
 - [AI security audit (REQ-SEC-004)](#ai-security-audit-req-sec-004)
 - [Release security checklist (12.4.1)](#release-security-checklist-1241)
@@ -62,6 +63,9 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - Run `composer audit` in the application
 - Do not commit `.env` or secrets; rotate env variables stored in Api Studio DB
 - Redact or disable request history for sensitive environments
+- Schedule the history purge (1.24, `nowo:api-studio:history:purge` or the `PurgeApiStudioHistory` message; default
+  retention 90 days) and keep the UserKit eraser / export registered (`personal_data.enabled`), or call the GDPR ports
+  yourself
 
 ## Bundle responsibilities
 
@@ -72,6 +76,9 @@ The bundle **does not replace** Symfony Security. Authentication, firewall rules
 - CSRF protection on mutating controller actions
 - Validate `table_prefix` (alphanumeric + underscore only)
 - Document threat model and release checklist in this file
+- GDPR (1.24): erase and export per actor id, byte-exact (binary column plus a PHP re-check); the export holds metadata
+  only (method, URL re-masked, status, times; folder id / name / service / time), never bodies, headers or error
+  messages; erasure and purge logs carry counts only (no actor id, URL or name)
 
 ## Feature gate and 404 policy (1.16)
 
@@ -258,6 +265,20 @@ relay and the server runner runs before the tag).
 - Worker mode: the scope lives on the main request (always written, null included), decisions are memoised on the
   request, `ScopeContext::runAs()` is restored in `finally` and by `reset()`, router-context placeholders are restored
   at `kernel.finish_request` and by `reset()`.
+
+## Personal data, export and retention (1.24)
+
+| Item | Detail |
+| --- | --- |
+| What is personal | `executed_by` (opaque actor id), request / response URL, headers and bodies and the error message of each history row (`history.scope: user`); `created_by` of folders. |
+| Erasure | `ApiStudioPersonalDataEraserInterface::erase()`: history rows deleted (bodies with them), folders anonymised (kept, `created_by` null). The UserKit eraser erases the ids of the original and the current identifier. |
+| Export | Metadata only: `history` (id, endpoint id, method, URL masked again by `HistorySanitizer::sanitizeUrl()`: secret-like query and fragment names, the userinfo password or a user name alone; status, time) and `folders_created` (id, name, service id, time). Bodies, headers and error messages are never exported. |
+| Look-alike ids | The actor column has a binary NO PAD collation on MySQL / MariaDB (1.24 for `executed_by`, 1.14 for `created_by`); every row read for erasure or export is re-checked with `===` in PHP, so an install that has not migrated yet still never reaches `u:UserA` for `u:usera` or `u:UserA ` (trailing space). Ids are what the bundle stores (the default id is `u:` + the raw identifier, so spaces and non-ASCII are legitimate): valid UTF-8, 1–128 characters, no NUL (control characters of an imported identifier, such as `u:ana\n`, are accepted); anything else is refused by the ports. The UserKit bridges log (class only) and skip both a host resolver id of the wrong shape and an id the ports refuse: no row can hold them, and UserKit's erasure / export is never aborted. |
+| Resolver and erasure order | A host `actor_resolver` must read an immutable key: a host identity eraser with a priority above 150 that anonymises the field it reads makes the `api_studio` eraser miss the rows. |
+| Atomicity | Same connection as UserKit: savepoints of its transaction. Another connection: each page commits on its own before UserKit commits (idempotent; a retry completes it). |
+| Logs | Erasure / export: counts only. Purge: cut-off, batch size, counts. A batch retry logs the attempt and the exception class. Never actor ids, URLs, folder names or SQL. |
+| Retention | `history.retention_days` (default 90; 0 = keep). The purge runs only when scheduled; it deletes by primary key, oldest first, in short transactions, refuses to run inside an open transaction. |
+| Residual | The URL is masked by parameter names and userinfo; a secret placed in a path segment or a non-secret-looking parameter name of an older row is exported as stored (it was masked at write time with the then known secret values). Rows stored while `history.scope` was `endpoint` carry no actor and cannot be attributed (they go with the retention). |
 
 ## Residual risks (accepted for REQ-SEC-004 Pass (good) / Low)
 

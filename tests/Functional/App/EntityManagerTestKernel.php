@@ -11,6 +11,8 @@ use Nowo\ApiStudioBundle\Event\ApiRequestExecutedEvent;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedCommittedEvent;
 use Nowo\ApiStudioBundle\Event\ApiWorkspaceCreatedEvent;
+use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitEraser;
+use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitExportProvider;
 use Nowo\FormKitBundle\NowoFormKitBundle;
 use Nowo\UiKitBundle\NowoUiKitBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -160,6 +162,13 @@ final class EntityManagerTestKernel extends Kernel implements CompilerPassInterf
             // An attribute driver answers "not transient" for any class carrying #[ORM\Entity], whatever its paths.
             $container->getDefinition('doctrine.orm.default_metadata_driver')
                 ->addMethodCall('setDefaultDriver', [new Definition(AttributeDriver::class, [[__DIR__ . '/Entity'], true])]);
+        }
+
+        // 1.24: the UserKit bridges (no UserKit bundle here to consume their tags) are fetched by the GDPR tests.
+        foreach ([ApiStudioUserKitEraser::class, ApiStudioUserKitExportProvider::class] as $id) {
+            if ($container->hasDefinition($id)) {
+                $container->getDefinition($id)->setPublic(true);
+            }
         }
 
         foreach (self::DEBUG_COLLECTORS as $id) {

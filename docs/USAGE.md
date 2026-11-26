@@ -19,6 +19,7 @@
   - [Moving a workspace between scopes (1.17)](#moving-a-workspace-between-scopes-117)
 - [Global search](#global-search)
 - [Host secrets (1.13)](#host-secrets-113)
+- [Personal data and retention (1.24)](#personal-data-and-retention-124)
 - [Events](#events)
 - [Using it from a DDD / hexagonal host](#using-it-from-a-ddd--hexagonal-host)
   - [Query and access ports by id (1.19)](#query-and-access-ports-by-id-119)
@@ -638,6 +639,78 @@ How it behaves:
   port must not either (no value or decision in a service property across requests).
 - **Standard and DDD hosts** work the same way: the port only sees ids and strings. A standard host may load its own
   user by `actorId`; a DDD host keeps the policy in its domain and wires an adapter like the one above.
+
+## Personal data and retention (1.24)
+
+Api Studio stores two kinds of personal data:
+
+- **Request history** (`history.scope: user`): who ran each request (`executed_by`, the opaque actor id) plus the
+  request and response URL, headers and bodies, which may hold third-party personal data.
+- **Folders** (`folders.enabled`): who created each folder (`created_by`).
+
+**Erasure (GDPR art. 17).** `Privacy\ApiStudioPersonalDataEraserInterface::erase($actorId)` deletes the history rows
+the actor executed (bodies, headers and error messages go with the row) and anonymises their folders (`created_by`
+becomes null; the folder and its content stay, its row version moves so an open edit form answers the usual 409).
+**Export (art. 15 / 20).** `Privacy\ApiStudioPersonalDataExporterInterface::export($actorId)` returns metadata only:
+
+```json
+{
+  "history": [
+    {"id": 812, "endpoint_id": 14, "method": "POST", "url": "https://api.example.com/orders?api_key=[REDACTED]", "status": 201, "executed_at": "2026-11-20T09:12:44+00:00"}
+  ],
+  "folders_created": [
+    {"id": 3, "name": "Invoices", "service_id": 5, "created_at": "2026-10-02T15:00:00+00:00"}
+  ]
+}
+```
+
+Request / response bodies, headers and error messages are **never** exported (owner decision 2026-11-26: they may
+hold third-party data and secrets); the URL is masked again on the way out (secret-like query names, userinfo
+passwords). Both ports compare the actor id byte-exact and read in keyset pages.
+
+**With UserKit** (`nowo-tech/user-kit-bundle` ^1.12) nothing else is needed: the eraser `api_studio` (priority 150,
+before host identity erasers) and the export section `api_studio` are registered together, unless
+`personal_data.enabled: false`. The eraser covers the actor id of the identifier the user had when the erasure started
+(`ErasureRequest::identifier()`) and of the current one; a host `history.actor_resolver` gives its own id. Ids may
+hold spaces, control characters and any UTF-8 character (the default id is `u:` + the raw identifier); only NUL,
+invalid UTF-8 and ids longer than 128 characters are refused, and the bridges log such an id by class and skip it.
+
+- **Host `actor_resolver`:** derive the id from an immutable key (the user id). The eraser asks the resolver with the
+  user as it is at priority 150: a host eraser with a higher priority that anonymises the field the resolver reads makes
+  Api Studio miss the rows. Keep such erasers below 150, or resolve by id.
+- **Same connection as UserKit** (standard host): the batches are savepoints of UserKit's transaction; a lock conflict
+  rolls the whole erasure back.
+- **Another connection** (dedicated `entity_manager` on its own connection): each page commits on its own, before
+  UserKit commits. If a later eraser fails and UserKit rolls back, the Api Studio rows stay erased; running the erasure
+  again completes it (idempotent).
+
+**Without UserKit** (DDD host), call the ports with the ids of `ApiStudioHistoryScope::actorIdsOf($user)`:
+
+```php
+foreach ($historyScope->actorIdsOf($user) as $actorId) {
+    $eraser->erase($actorId);      // ApiStudioErasureResult: historyRowsDeleted, foldersAnonymised
+}
+```
+
+**Retention.** `history.retention_days` (default 90, `0` = keep forever) applies when the host runs the purge:
+
+```bash
+# cron, e.g. nightly; --max-batches bounds one run, --dry-run only counts
+bin/console nowo:api-studio:history:purge --max-batches=200
+```
+
+```php
+// Messenger (e.g. from a Symfony Scheduler schedule); idempotent, safe to redeliver
+$bus->dispatch(new \Nowo\ApiStudioBundle\Privacy\PurgeApiStudioHistory());
+```
+
+The handler is registered when symfony/messenger is installed; route the message to an async transport if you like.
+**Use a bus without the `doctrine_transaction` middleware** for this message (on the Api Studio connection): the purge
+commits batch by batch and refuses to start inside a transaction; the handler then logs an error and throws
+`UnrecoverableMessageHandlingException` (no retry, straight to the failure transport).
+A lock conflict that outlasts the purge's own 3 attempts per batch is thrown, so your retry strategy (or the failure
+transport) takes over. Each batch deletes by primary key in its own short transaction, oldest rows first, and never
+waits on rows being written now. The purge refuses to run inside an open transaction.
 
 ## Events
 

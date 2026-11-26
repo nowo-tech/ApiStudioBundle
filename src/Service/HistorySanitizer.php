@@ -16,6 +16,7 @@ use function is_string;
 use function json_encode;
 use function preg_match;
 use function preg_replace;
+use function preg_replace_callback;
 use function rawurlencode;
 use function rtrim;
 use function str_replace;
@@ -78,7 +79,8 @@ final class HistorySanitizer
 
     /**
      * Redacts secrets from a request URL before it is stored in history: values of query parameters with
-     * sensitive names (or listed in $extraSensitiveNames), userinfo passwords and any occurrence of the
+     * sensitive names (or listed in $extraSensitiveNames), in the query and (1.24) the fragment, the userinfo
+     * password (1.24: a user name alone too) and any occurrence of the
      * given secret values (e.g. resolved secret environment variables).
      *
      * @param list<string> $extraSensitiveNames additional query parameter names to redact
@@ -88,38 +90,64 @@ final class HistorySanitizer
     {
         $extra = array_map(strtolower(...), $extraSensitiveNames);
 
-        // user:password@host
-        $url = preg_replace('#^([a-z][a-z0-9+.\-]*://[^/@:?\#]+):[^/@?\#]*@#i', '$1:' . self::REDACTED . '@', $url) ?? $url;
+        // 1.24 (audit ZCL-L1): the whole userinfo, up to the LAST "@" of the authority. `user:password@` keeps the user
+        // name; a user name alone (`token@host`, how Git hosts take tokens) is masked; a password holding "@" is
+        // masked whole.
+        $url = (string) (preg_replace_callback(
+            '#^([a-z][a-z0-9+.\-]*://)([^/?\#]*)@#i',
+            static function (array $m): string {
+                $colon = strpos($m[2], ':');
+
+                return $m[1] . ($colon === false ? self::REDACTED : substr($m[2], 0, $colon) . ':' . self::REDACTED) . '@';
+            },
+            $url,
+        ) ?? $url);
 
         $fragment = '';
         $hashPos  = strpos($url, '#');
         if ($hashPos !== false) {
-            $fragment = substr($url, $hashPos);
-            $url      = substr($url, 0, $hashPos);
+            // 1.24 (audit ZCL-L1): implicit-flow fragments (`#access_token=…`) are masked like a query string.
+            $fragment = substr($url, $hashPos + 1);
+            // Hash routing (`#/route?key=x`, audit ZCL-v-I): the pairs after the route's "?" are masked too.
+            $routeQuery = strpos($fragment, '?');
+            $fragment   = '#' . ($routeQuery === false
+                ? $this->maskPairs($fragment, $extra)
+                : substr($fragment, 0, $routeQuery + 1) . $this->maskPairs(substr($fragment, $routeQuery + 1), $extra));
+            $url = substr($url, 0, $hashPos);
         }
 
         $queryPos = strpos($url, '?');
         if ($queryPos !== false) {
-            $pairs = explode('&', substr($url, $queryPos + 1));
-            foreach ($pairs as $i => $pair) {
-                $eqPos = strpos($pair, '=');
-                if ($eqPos === false) {
-                    continue;
-                }
-
-                $name = trim(urldecode(substr($pair, 0, $eqPos)));
-                $base = strtolower((string) preg_replace('/\[.*$/', '', $name));
-                if ($base !== '' && (in_array($base, $extra, true) || preg_match(self::SENSITIVE_QUERY_PATTERN, $base) === 1)) {
-                    $pairs[$i] = substr($pair, 0, $eqPos + 1) . self::REDACTED;
-                }
-            }
-
-            $url = substr($url, 0, $queryPos + 1) . implode('&', $pairs);
+            $url = substr($url, 0, $queryPos + 1) . $this->maskPairs(substr($url, $queryPos + 1), $extra);
         }
 
         $url .= $fragment;
 
         return $this->maskSecretValues($url, $secretValues);
+    }
+
+    /**
+     * `name=value&…` with the values of sensitive names (or $extra names) replaced.
+     *
+     * @param list<string> $extra lower-cased extra names
+     */
+    private function maskPairs(string $pairsString, array $extra): string
+    {
+        $pairs = explode('&', $pairsString);
+        foreach ($pairs as $i => $pair) {
+            $eqPos = strpos($pair, '=');
+            if ($eqPos === false) {
+                continue;
+            }
+
+            $name = trim(urldecode(substr($pair, 0, $eqPos)));
+            $base = strtolower((string) preg_replace('/\[.*$/', '', $name));
+            if ($base !== '' && (in_array($base, $extra, true) || preg_match(self::SENSITIVE_QUERY_PATTERN, $base) === 1)) {
+                $pairs[$i] = substr($pair, 0, $eqPos + 1) . self::REDACTED;
+            }
+        }
+
+        return implode('&', $pairs);
     }
 
     /**

@@ -55,7 +55,7 @@ final class TablePrefixSubscriber
             $this->mapScope($metadata, $event->getObjectManager()->getConnection());
         }
         if ($this->historyActor && $metadata->getName() === ApiRequestHistory::class) {
-            $this->mapHistoryActor($metadata);
+            $this->mapHistoryActor($metadata, $event->getObjectManager()->getConnection());
         }
         if ($metadata->getName() === ApiFolder::class) {
             if (!$this->folders) {
@@ -156,20 +156,23 @@ final class TablePrefixSubscriber
 
     /**
      * `nowo_api_studio.history.scope: user`: who executed each request (opaque actor id), and an index for the
-     * per-user list of an endpoint.
+     * per-user list of an endpoint. 1.24: the actor id compares exactly (binary NO PAD collation on MySQL / MariaDB,
+     * audit LQ) and has its own index for the GDPR erasure and export (`idx_history_actor`).
      *
      * @param ClassMetadata<object> $metadata
      */
-    private function mapHistoryActor(ClassMetadata $metadata): void
+    private function mapHistoryActor(ClassMetadata $metadata, Connection $connection): void
     {
         if (!$metadata->hasField('executedBy')) {
             $metadata->mapField(['fieldName' => 'executedBy', 'columnName' => 'executed_by', 'type' => Types::STRING, 'length' => 64, 'nullable' => true]);
         }
+        $this->mapBinaryCollation($metadata, 'executedBy', $connection);
 
         /** @var array<string, mixed> $table */
         $table                                 = $metadata->table;
         $indexes                               = is_array($table['indexes'] ?? null) ? $table['indexes'] : [];
         $indexes['idx_history_endpoint_actor'] = ['columns' => ['endpoint_id', 'executed_by', 'executed_at']];
+        $indexes['idx_history_actor']          = ['columns' => ['executed_by', 'id']];
         $table['indexes']                      = $indexes;
         $metadata->setPrimaryTable($table);
     }

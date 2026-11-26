@@ -10,10 +10,12 @@ use Doctrine\ORM\Mapping as ORM;
 use Nowo\ApiStudioBundle\Repository\ApiRequestHistoryRepository;
 
 /**
- * Persisted log of a request executed from the API tester.
+ * Persisted log of a request executed from the API tester. 1.24: index on `executed_at` for the retention purge
+ * (`nowo_api_studio.history.retention_days`); erased per actor through `Privacy\ApiStudioPersonalDataEraserInterface`.
  */
 #[ORM\Entity(repositoryClass: ApiRequestHistoryRepository::class)]
 #[ORM\Table(name: 'request_history')]
+#[ORM\Index(name: 'idx_history_executed_at', columns: ['executed_at'])]
 class ApiRequestHistory
 {
     #[ORM\Id]

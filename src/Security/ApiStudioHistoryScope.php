@@ -8,6 +8,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use UnexpectedValueException;
 
 use function hash;
+use function in_array;
 use function method_exists;
 use function preg_match;
 use function strlen;
@@ -50,7 +51,7 @@ final readonly class ApiStudioHistoryScope
 
         if ($this->actorResolver instanceof ApiStudioActorResolverInterface) {
             $actor = $this->actorResolver->actorId($user);
-            if (preg_match('/^[\x21-\x7E]{1,64}$/', $actor) !== 1) {
+            if (preg_match('/^[\x21-\x7E]{1,64}$/D', $actor) !== 1) {
                 throw new UnexpectedValueException('ApiStudioActorResolverInterface::actorId() must return 1 to 64 printable ASCII characters without spaces.');
             }
 
@@ -58,6 +59,41 @@ final readonly class ApiStudioHistoryScope
         }
 
         $identifier = $user instanceof UserInterface ? $user->getUserIdentifier() : (method_exists($user, '__toString') ? (string) $user : '');
+
+        return self::defaultActorId($identifier);
+    }
+
+    /**
+     * Every actor id under which rows of $user may be stored (1.24, GDPR erasure and export): the host resolver's id;
+     * without a resolver, the default id of $originalIdentifier (the identifier before an erasure anonymised it, e.g.
+     * UserKit's `ErasureRequest::identifier()`) and of the current identifier when they differ.
+     *
+     * @throws UnexpectedValueException when the host resolver returns another shape
+     *
+     * @return list<string>
+     */
+    public function actorIdsOf(object $user, ?string $originalIdentifier = null): array
+    {
+        $ids = [];
+        if (!$this->actorResolver instanceof ApiStudioActorResolverInterface && $originalIdentifier !== null) {
+            $original = self::defaultActorId($originalIdentifier);
+            if ($original !== null) {
+                $ids[] = $original;
+            }
+        }
+        $current = $this->actorId($user);
+        if ($current !== null && !in_array($current, $ids, true)) {
+            $ids[] = $current;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * `u:` + the identifier when it fits, else `h:` + its SHA-256 (null for an empty identifier).
+     */
+    private static function defaultActorId(string $identifier): ?string
+    {
         if ($identifier === '') {
             return null;
         }

@@ -77,6 +77,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GDPR erasure and export (1.24, REQ-DATA parity: every eraser has its export).** Two plain-PHP ports, always
+  registered: `Privacy\ApiStudioPersonalDataEraserInterface::erase(actorId)` deletes the request history rows the actor
+  executed (bodies, headers and error messages go with them) and anonymises the folders they created (`created_by`
+  becomes null, the folder stays, its row version moves); `Privacy\ApiStudioPersonalDataExporterInterface::export(actorId)`
+  returns **metadata only** (owner decision 2026-11-26): endpoint id, method, URL with secrets masked again, status and
+  execution time of each history row, and id / name / service / creation time of each folder. Bodies, headers and
+  error messages are never exported. Rows are read in keyset pages and compared byte-exact (also re-checked in PHP).
+  Every stored id is accepted, spaces and non-ASCII included (valid UTF-8, 1–128 characters, no NUL; control characters of an
+  imported identifier included). The UserKit bridges log and skip an id the ports refuse.
+  Rows stored under an earlier `history.scope: user` or `folders.enabled: true` are still found after the option is
+  turned off.
+- **UserKit bridges**: with `nowo-tech/user-kit-bundle` (^1.12) installed, the `api_studio` eraser (priority 150,
+  before host identity erasers; it erases the actor ids of the original identifier and the current one) and the
+  `api_studio` export section (priority -50) are registered together. `nowo_api_studio.personal_data.enabled: false`
+  turns both off (literal boolean).
+- **History retention**: `history.retention_days` (default **90**, 0 = keep forever) and `history.purge_batch_size`
+  (default 500). `nowo:api-studio:history:purge` (`--dry-run`, `--max-batches`) and the Messenger message
+  `Privacy\PurgeApiStudioHistory` (handled when symfony/messenger is installed; on a bus with the
+  `doctrine_transaction` middleware it fails with `UnrecoverableMessageHandlingException` and an error log, since the
+  purge refuses to run inside a transaction: `Privacy\HistoryPurgeInsideTransactionException`) delete the expired rows oldest first,
+  by primary key, one short transaction per batch; a lock conflict on a batch is retried 3 times. Nothing is deleted
+  until the host schedules one of them. Port: `Privacy\ApiStudioHistoryRetentionInterface`.
+- `ApiStudioHistoryScope::actorIdsOf()`: the actor ids under which a person's rows may be stored.
+- Indexes: `idx_history_executed_at` (always) and `idx_history_actor` (`executed_by`, `id`; with `history.scope: user`).
+
+### Changed
+
+- `executed_by` (`history.scope: user`) compares exactly: binary NO PAD collation on MySQL (`utf8mb4_0900_bin`) and
+  MariaDB (`utf8mb4_nopad_bin`), as `created_by` since 1.14 (audit LQ). Schema change, see UPGRADING.
+- `symfony/http-client` floor raised to `^7.4.24 || ^8.1.12` (CVE-2026-133757 and CVE-2026-133758 in
+  `NoPrivateNetworkHttpClient`, which the executor and the script sender wrap the host client in; CVE-2026-133750 and
+  CVE-2026-133747 concern caching / scoped clients the bundle does not create). The development lock is refreshed: the
+  20 Symfony / Twig advisories of 2026-11-25 no longer apply to it (`composer audit --locked` is clean).
+
+### Fixed
+
+- **History URL masking** (`HistorySanitizer::sanitizeUrl()`, used when a row is stored and, since this release, on
+  export; audit ZCL-L1): a token given as the userinfo user name alone (`https://<token>@host/`) was kept, a password
+  holding `@` was cut at its first `@` (the rest stayed visible), and the fragment was kept verbatim
+  (`#access_token=…`). The whole userinfo is now masked up to the last `@` of the authority (a `user:` prefix is
+  kept), and fragment pairs are masked like query pairs (with hash routing, `#/route?key=…`, the pairs after the
+  route's `?`). Rows stored by earlier versions are masked again on export.
+- A host `ApiStudioActorResolverInterface` id with a trailing newline was accepted (`$` matched before the newline);
+  the actor id check now anchors at the very end.
+
 ## [1.23.1] - 2026-11-26
 
 ### Fixed

@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-27 (re-verified 288/288 against `git ls-files src`; spec reviewed; sweeps below) (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit)
+**Last audited**: 2026-11-26 (1.24.0: 303/303 against `find src`, spec 012 sources added; 288/288 re-verified against `git ls-files src` before it) (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit, 2026-11-26 GDPR / retention)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -442,6 +442,31 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | `Doctrine/WorkspaceImportUnit.php` | 1.21.1 (internal): an import as one write unit under the workspace, service and environment locks, savepoint-aware repair, which failures (lock conflicts only) answer the retryable 409 | FR-CONCUR-002 |
 | `Controller/RowVersionEditTrait.php` | Edit save in one transaction (claim + flush), the stale answer (re-read rows, domain 409 + `X-Error-Code`) | FR-CONCUR-002, FR-CTRL-001 |
 
+## Sources added in 1.24 (GDPR erasure / export, history retention; spec 012)
+
+| Source file | Spec section | Requirement IDs |
+| --- | --- | --- |
+| `Privacy/ApiStudioPersonalDataEraserInterface.php` | Erasure port: delete the actor's history rows, anonymise their folders (byte-exact, keyset batches) | FR-GDPR-001 (spec 012) |
+| `Privacy/ApiStudioPersonalDataExporterInterface.php` | Export port: metadata only (method, URL re-masked, status, times; folders) | FR-GDPR-002 (spec 012) |
+| `Privacy/ApiStudioErasureResult.php` | Erasure counts (history rows deleted, folders anonymised) | FR-GDPR-001 (spec 012) |
+| `Privacy/ApiStudioPersonalDataExport.php` | Export value object (`history`, `folders_created`), merge per row id | FR-GDPR-002 (spec 012) |
+| `Privacy/DoctrineApiStudioPersonalData.php` | Doctrine adapter of both ports (DBAL on the Api Studio connection, PHP re-check, schema fallback for unmapped columns) | FR-GDPR-001, FR-GDPR-002, FR-GDPR-005 (spec 012) |
+| `Privacy/BatchWriter.php` | One batch = one write unit (transaction-doctrine runner), retry standalone only, one statement per id | FR-GDPR-006 (spec 012), FR-CONCUR-001 |
+| `Privacy/ApiStudioHistoryRetentionInterface.php` | Retention port (purge, expired rows, cut-off) | FR-RET-001 (spec 012) |
+| `Privacy/ApiStudioHistoryPurgeResult.php` | Purge outcome (deleted, batches, complete, cut-off) | FR-RET-001 (spec 012) |
+| `Privacy/DoctrineApiStudioHistoryRetention.php` | Retention adapter: oldest expired ids, delete by primary key per batch, refused inside a transaction | FR-RET-001, FR-RET-002 (spec 012) |
+| `Privacy/PurgeApiStudioHistory.php` | Messenger message of the purge | FR-RET-003 (spec 012) |
+| `Privacy/PurgeApiStudioHistoryHandler.php` | `#[AsMessageHandler]` of the purge (idempotent; unrecoverable inside a transaction) | FR-RET-003 (spec 012) |
+| `Privacy/HistoryPurgeInsideTransactionException.php` | The purge refused inside an open transaction (`doctrine_transaction` middleware) | FR-RET-003 (spec 012) |
+| `Integration/UserKit/ApiStudioUserKitEraser.php` | UserKit eraser `api_studio` (priority 150; original + current identifier) | FR-GDPR-003 (spec 012) |
+| `Integration/UserKit/ApiStudioUserKitExportProvider.php` | UserKit export section `api_studio` (priority -50) | FR-GDPR-003 (spec 012) |
+| `Command/HistoryPurgeCommand.php` | `nowo:api-studio:history:purge` (`--dry-run`, `--max-batches`) | FR-RET-002 (spec 012) |
+
+Changed in 1.24 (rows above in this file): `Security/ApiStudioHistoryScope.php` (`actorIdsOf()`, anchored id check),
+`Doctrine/TablePrefixSubscriber.php` (`executed_by` binary collation, `idx_history_actor`), `Entity/ApiRequestHistory.php`
+(`idx_history_executed_at`), `DependencyInjection/Configuration.php` and `ApiStudioExtension.php` (`history.retention_days`,
+`history.purge_batch_size`, `personal_data.enabled`), `Resources/config/services.yaml` (excludes).
+
 ## Coverage summary
 
 | Category | Files | Mapped |
@@ -471,9 +496,10 @@ These 45 `src/` files (workspace seeding, scopes, global search, workspace query
 | Sources added in 1.20 (row versions of the edit forms) | 8 | 8 |
 | Sources added in 1.21.1 (workspace import unit) | 1 | 1 |
 | Sources added in 1.23 (`logger.ts` listed, runner value objects split one per row) | 1 | 1 |
-| **Total production sources** | **288** | **288** |
+| Sources added in 1.24 (GDPR erasure / export, history retention) | 15 | 15 |
+| **Total production sources** | **303** | **303** |
 | Vitest tests under `Resources/assets/tests/` (ship no runtime code, not in the production total) | 24 | 24 |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **288** (2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **303** (2026-11-26, 1.24.0; 288 on 2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
