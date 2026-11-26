@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Integration\UserKit;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataEraserInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
 use Nowo\UserKitBundle\PersonalData\ErasureRequest;
@@ -55,7 +56,12 @@ final readonly class ApiStudioUserKitEraser implements PersonalDataEraserInterfa
     public function erase(ErasureRequest $request): void
     {
         foreach ($this->actorIds($request->user, $request->identifier()) as $actorId) {
-            $this->eraser->erase($actorId);
+            try {
+                $this->eraser->erase($actorId);
+            } catch (InvalidArgumentException $e) {
+                // An id the port cannot look up (audit ZCL-v-L1): no row can hold it; never abort UserKit's erasure.
+                $this->logger?->warning('Api Studio: an actor id the erasure port refuses was skipped.', ['exception' => $e::class]);
+            }
         }
     }
 

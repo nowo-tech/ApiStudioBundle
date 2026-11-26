@@ -196,8 +196,6 @@ final class DoctrineApiStudioPersonalDataTest extends TestCase
     {
         yield 'empty' => [''];
         yield 'too long' => [str_repeat('é', 129)];
-        yield 'trailing newline' => ["u:user\n"];
-        yield 'tab' => ["u:us\ter"];
         yield 'NUL' => ["u:us\0er"];
         yield 'invalid UTF-8' => ["u:us\xFFer"];
     }
@@ -213,6 +211,9 @@ final class DoctrineApiStudioPersonalDataTest extends TestCase
         yield 'space' => ['u:John Smith'];
         yield 'non ASCII' => ['u:josé@example.test'];
         yield 'emoji and CJK' => ['u:名前🙂'];
+        // Audit ZCL-v-L1: an imported identifier may carry control characters; the default id keeps them.
+        yield 'trailing newline' => ["u:ana\n"];
+        yield 'tab' => ["u:an\ta"];
         yield 'longest' => [str_repeat('é', 128)];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Support;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioErasureResult;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataEraserInterface;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExport;
@@ -20,9 +21,15 @@ final class RecordingPersonalDataPorts implements ApiStudioPersonalDataEraserInt
     /** @var list<string> */
     public array $exported = [];
 
+    /** An actor id both ports refuse with InvalidArgumentException (after recording it). */
+    public ?string $refuse = null;
+
     public function erase(string $actorId): ApiStudioErasureResult
     {
         $this->erased[] = $actorId;
+        if ($actorId === $this->refuse) {
+            throw new InvalidArgumentException('refused');
+        }
 
         return new ApiStudioErasureResult(1);
     }
@@ -30,6 +37,9 @@ final class RecordingPersonalDataPorts implements ApiStudioPersonalDataEraserInt
     public function export(string $actorId): ApiStudioPersonalDataExport
     {
         $this->exported[] = $actorId;
+        if ($actorId === $this->refuse) {
+            throw new InvalidArgumentException('refused');
+        }
 
         return new ApiStudioPersonalDataExport([self::row(1)]);
     }

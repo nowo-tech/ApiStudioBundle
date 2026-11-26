@@ -87,6 +87,7 @@ final class HistorySanitizerTest extends TestCase
         yield '@ in the path is not userinfo' => ['https://host.example/users/@me?x=1', 'https://host.example/users/@me?x=1'];
         yield 'fragment token' => ['https://app.example/cb#access_token=tok123&state=s1&token_type=bearer', 'https://app.example/cb#access_token=[REDACTED]&state=s1&token_type=[REDACTED]'];
         yield 'fragment and query' => ['https://app.example/cb?code=c1&sig=s#id_token=x&page=2', 'https://app.example/cb?code=c1&sig=[REDACTED]#id_token=[REDACTED]&page=2'];
+        yield 'hash routing' => ['https://app.example/#/callback?key=k1&sig=s1&sid=x&auth=a&page=2', 'https://app.example/#/callback?key=[REDACTED]&sig=[REDACTED]&sid=[REDACTED]&auth=[REDACTED]&page=2'];
         yield 'plain fragment' => ['https://app.example/docs#section-2', 'https://app.example/docs#section-2'];
     }
 

@@ -107,8 +107,13 @@ final class HistorySanitizer
         $hashPos  = strpos($url, '#');
         if ($hashPos !== false) {
             // 1.24 (audit ZCL-L1): implicit-flow fragments (`#access_token=…`) are masked like a query string.
-            $fragment = '#' . $this->maskPairs(substr($url, $hashPos + 1), $extra);
-            $url      = substr($url, 0, $hashPos);
+            $fragment = substr($url, $hashPos + 1);
+            // Hash routing (`#/route?key=x`, audit ZCL-v-I): the pairs after the route's "?" are masked too.
+            $routeQuery = strpos($fragment, '?');
+            $fragment   = '#' . ($routeQuery === false
+                ? $this->maskPairs($fragment, $extra)
+                : substr($fragment, 0, $routeQuery + 1) . $this->maskPairs(substr($fragment, $routeQuery + 1), $extra));
+            $url = substr($url, 0, $hashPos);
         }
 
         $queryPos = strpos($url, '?');

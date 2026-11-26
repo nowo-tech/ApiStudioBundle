@@ -228,14 +228,15 @@ final readonly class DoctrineApiStudioPersonalData implements ApiStudioPersonalD
 
     /**
      * Every id the bundle can store (audit ZCL-H1): the default id is `u:` + the raw user identifier, so spaces and
-     * non-ASCII characters are legitimate (`u:John Smith`, `u:josé@example.test`). Accepted: valid UTF-8, 1 to 128
-     * characters (the folder column; history ids are at most 64), no control character. Exactness comes from the
-     * binary column and the `===` re-check, not from the alphabet.
+     * non-ASCII characters are legitimate (`u:John Smith`, `u:josé@example.test`), and so are control characters an
+     * imported identifier may carry (`u:ana\n`, audit ZCL-v-L1). Accepted: valid UTF-8, 1 to 128 characters (the
+     * folder column; history ids are at most 64), no NUL. Exactness comes from the binary column and the `===`
+     * re-check, not from the alphabet.
      */
     private static function assertActor(string $actorId): void
     {
-        if (preg_match('/^[^\x00-\x1F\x7F]{1,' . self::MAX_ACTOR_LENGTH . '}$/Du', $actorId) !== 1) {
-            throw new InvalidArgumentException('Api Studio: an actor id is 1 to 128 UTF-8 characters without control characters.');
+        if (preg_match('/^[^\x00]{1,' . self::MAX_ACTOR_LENGTH . '}$/Du', $actorId) !== 1) {
+            throw new InvalidArgumentException('Api Studio: an actor id is 1 to 128 UTF-8 characters without NUL.');
         }
     }
 

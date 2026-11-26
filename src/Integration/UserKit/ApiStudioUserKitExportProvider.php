@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Integration\UserKit;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExport;
 use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExporterInterface;
 use Nowo\ApiStudioBundle\Security\ApiStudioHistoryScope;
@@ -50,7 +51,12 @@ final readonly class ApiStudioUserKitExportProvider implements PersonalDataExpor
     {
         $export = new ApiStudioPersonalDataExport();
         foreach ($this->actorIds($user, null) as $actorId) {
-            $export = $export->with($this->exporter->export($actorId));
+            try {
+                $export = $export->with($this->exporter->export($actorId));
+            } catch (InvalidArgumentException $e) {
+                // An id the port cannot look up (audit ZCL-v-L1): no row can hold it; never abort UserKit's export.
+                $this->logger?->warning('Api Studio: an actor id the export port refuses was skipped.', ['exception' => $e::class]);
+            }
         }
 
         return $export->toArray();

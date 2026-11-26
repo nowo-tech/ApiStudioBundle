@@ -134,21 +134,21 @@ final class HistoryPrivacyDatabaseTest extends TestCase
         $em       = $this->privacyEntityManager($this->registry);
         $service  = $endpoint->getService();
         self::assertNotNull($service);
-        foreach (['u:John Smith', 'u:john smith', 'u:josé@example.test', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:名前'] as $actor) {
+        foreach (['u:John Smith', 'u:john smith', 'u:josé@example.test', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:名前', "u:ana\n", 'u:ana', "u:an\ta"] as $actor) {
             $this->addHistory($em, $endpoint, $actor, 'https://api.example.test/' . rawurlencode($actor));
             $this->addFolder($em, $service, $actor, 'Folder ' . $actor);
         }
         $ports = $this->ports();
 
-        foreach (['u:John Smith', 'u:josé@example.test', 'u:名前'] as $actor) {
+        foreach (['u:John Smith', 'u:josé@example.test', 'u:名前', "u:ana\n", "u:an\ta"] as $actor) {
             self::assertSame(['https://api.example.test/' . rawurlencode($actor)], array_column($ports->export($actor)->history, 'url'), $actor);
             self::assertSame(['Folder ' . $actor], array_column($ports->export($actor)->folders, 'name'), $actor);
             $result = $ports->erase($actor);
             self::assertSame([1, 1], [$result->historyRowsDeleted, $result->foldersAnonymised], $actor);
         }
 
-        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test'], $this->connection->fetchFirstColumn('SELECT executed_by FROM api_studio_request_history'));
-        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test'], $this->connection->fetchFirstColumn('SELECT created_by FROM api_studio_folder WHERE created_by IS NOT NULL'));
+        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:ana'], $this->connection->fetchFirstColumn('SELECT executed_by FROM api_studio_request_history'));
+        self::assertEqualsCanonicalizing(['u:john smith', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:ana'], $this->connection->fetchFirstColumn('SELECT created_by FROM api_studio_folder WHERE created_by IS NOT NULL'));
         $this->assertUsable();
     }
 

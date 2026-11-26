@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ApiStudioBundle\Tests\Unit\Integration\UserKit;
 
+use InvalidArgumentException;
 use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitEraser;
 use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitExportProvider;
 use Nowo\ApiStudioBundle\Security\ApiStudioActorResolverInterface;
@@ -84,6 +85,26 @@ final class ApiStudioUserKitBridgesTest extends TestCase
         self::assertCount(2, $logger->records);
         self::assertSame(['exception' => UnexpectedValueException::class], $logger->records[0]['context']);
         self::assertStringNotContainsString('has space', $logger->text());
+    }
+
+    /**
+     * Audit ZCL-v-L1: an id the port refuses is logged by class and skipped, never thrown into UserKit.
+     */
+    public function testAnIdThePortRefusesIsLoggedAndSkipped(): void
+    {
+        $ports         = new RecordingPersonalDataPorts();
+        $ports->refuse = 'u:refused';
+        $logger        = new InMemoryLogger();
+
+        (new ApiStudioUserKitEraser($ports, new ApiStudioHistoryScope(), $logger))
+            ->erase(new ErasureRequest(new InMemoryUser('ana', null), null, [], 'refused'));
+        $section = (new ApiStudioUserKitExportProvider($ports, new ApiStudioHistoryScope(), $logger))->export(new InMemoryUser('refused', null));
+
+        self::assertSame(['u:refused', 'u:ana'], $ports->erased);
+        self::assertSame(['history' => [], 'folders_created' => []], $section);
+        self::assertCount(2, $logger->records);
+        self::assertSame(['exception' => InvalidArgumentException::class], $logger->records[1]['context']);
+        self::assertStringNotContainsString('refused', $logger->text());
     }
 
     public function testTheSameIdentifierIsErasedOnce(): void
