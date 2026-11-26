@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.24.0] - 2026-11-26](#1240---2026-11-26)
 - [[1.23.1] - 2026-11-26](#1231---2026-11-26)
 - [[1.23.0] - 2026-11-24](#1230---2026-11-24)
 - [[1.22.0] - 2026-11-23](#1220---2026-11-23)
@@ -77,6 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-11-26
+
 ### Added
 
 - **GDPR erasure and export (1.24, REQ-DATA parity: every eraser has its export).** Two plain-PHP ports, always
@@ -123,6 +126,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   route's `?`). Rows stored by earlier versions are masked again on export.
 - A host `ApiStudioActorResolverInterface` id with a trailing newline was accepted (`$` matched before the newline);
   the actor id check now anchors at the very end.
+
+[1.24.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.24.0
 
 ## [1.23.1] - 2026-11-26
 
