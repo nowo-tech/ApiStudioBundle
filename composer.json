@@ -48,7 +48,7 @@
         "symfony/dependency-injection": "^7.4 || ^8.0",
         "symfony/form": "^7.4 || ^8.0",
         "symfony/framework-bundle": "^7.4 || ^8.0",
-        "symfony/http-client": "^7.4 || ^8.0",
+        "symfony/http-client": "^7.4.24 || ^8.1.12",
         "symfony/http-kernel": "^7.4 || ^8.0",
         "symfony/mime": "^7.4 || ^8.0",
         "symfony/routing": "^7.4 || ^8.0",
@@ -67,6 +67,7 @@
         "friendsofphp/php-cs-fixer": "^3.0",
         "igor-php/igor-php": "^0.10.0",
         "nowo-tech/phpstan-frankenphp": "^1.0",
+        "nowo-tech/user-kit-bundle": "^1.24",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
@@ -79,6 +80,9 @@
         "symfony/messenger": "^7.4 || ^8.0",
         "symfony/process": "^7.4 || ^8.0",
         "vincentlanglet/twig-cs-fixer": "^4.0"
+    },
+    "conflict": {
+        "nowo-tech/user-kit-bundle": "<1.12"
     },
     "autoload": {
         "psr-4": {
@@ -158,6 +162,8 @@
     "suggest": {
         "ext-soap": "Required for SOAP endpoint execution",
         "nowo-tech/search-kit-bundle": "^1.9 (needs PHP >= 8.3) for the header search groups: workspaces, services, endpoints (nowo_api_studio.search_kit)",
-        "symfony/flex": "For automatic recipe installation"
+        "nowo-tech/user-kit-bundle": "^1.12 for GDPR erasure and export: registers the \"api_studio\" eraser and export section (nowo_api_studio.personal_data, 1.24)",
+        "symfony/flex": "For automatic recipe installation",
+        "symfony/messenger": "Run the history retention in a worker with the PurgeApiStudioHistory message (1.24)"
     }
 }
