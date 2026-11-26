@@ -5,6 +5,7 @@
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
 - [Unreleased](#unreleased)
+  - [To 1.24.0](#to-1240)
 - [To 1.23.1](#to-1231)
 - [To 1.23.0](#to-1230)
 - [To 1.22.0](#to-1220)
@@ -98,6 +99,35 @@ composer update nowo-tech/api-studio-bundle
 ```
 
 ## Unreleased
+
+### To 1.24.0
+
+From **1.23.x**: a minor release, no breaking change.
+
+```bash
+composer update nowo-tech/api-studio-bundle
+```
+
+1. **Schema.** Generate and run a migration (`doctrine:migrations:diff`, or the MigrationsKit flow):
+   - every host: the index `<prefix>idx_history_executed_at` on the history table (retention purge);
+   - `history.scope: user`: the index `<prefix>idx_history_actor` (`executed_by`, `id`), and on MySQL / MariaDB the
+     binary NO PAD collation of `executed_by` (`utf8mb4_0900_bin` / `utf8mb4_nopad_bin`; set `serverVersion` in the
+     DBAL URL). On a large history table the collation change rebuilds the table: run it in a quiet window, or purge
+     first (step 3).
+2. **GDPR.** With UserKit installed, the `api_studio` eraser and export section are registered automatically (they
+   run when UserKit erases or exports a user). If the application already erases / exports the Api Studio tables,
+   set `nowo_api_studio.personal_data.enabled: false`. Without UserKit, call the ports
+   `Privacy\ApiStudioPersonalDataEraserInterface` / `ApiStudioPersonalDataExporterInterface` with the actor id
+   (`ApiStudioHistoryScope::actorIdsOf($user)` gives them). The export never contains request / response bodies,
+   headers or error messages.
+3. **Retention.** `history.retention_days` defaults to **90**. Nothing is deleted until you schedule the purge:
+   - cron: `bin/console nowo:api-studio:history:purge` (add `--max-batches=N` to bound one run; `--dry-run` counts);
+   - Messenger: dispatch `Nowo\ApiStudioBundle\Privacy\PurgeApiStudioHistory` (for example from a Symfony Scheduler
+     schedule); the handler is idempotent and a lock conflict reaches your retry strategy.
+   To keep the history forever, set `history.retention_days: 0`. Check how many rows the first run deletes with
+   `--dry-run`.
+4. Host code that wrote `created_by` / `executed_by` itself: actor ids are 1 to 128 printable ASCII characters without
+   spaces (64 for `executed_by`); the ports refuse other values.
 
 ## To 1.23.1
 

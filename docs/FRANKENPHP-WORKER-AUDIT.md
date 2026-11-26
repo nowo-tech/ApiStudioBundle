@@ -79,6 +79,7 @@ A bundle that is safe under **B** is safe under **A** and under classic mode / P
 | 9 Doctrine repositories (`ServiceEntityRepository`, 20 lines each) | yes | none | ✅ | ✅ (host clears identity map, W-02) |
 | 6 form types (`ApiEndpointFormType`, `ApiEnvironmentFormType`, `ApiServiceFormType`, `ApiWorkspaceFormType`, `ImportFileFormType`, `JsonMapType`) | yes | none (no constructor, stateless transformers) | ✅ | ✅ |
 | `Command\SyncSchemaCommand`, `Command\SeedDemoCommand` | yes | none (CLI only) | ✅ | ✅ |
+| `Privacy\DoctrineApiStudioPersonalData`, `Privacy\DoctrineApiStudioHistoryRetention`, `Privacy\PurgeApiStudioHistoryHandler`, `Integration\UserKit\ApiStudioUserKitEraser` / `ApiStudioUserKitExportProvider`, `Command\HistoryPurgeCommand` (1.24, `final readonly` except the command) | yes | none: the manager and its connection are resolved per call, DBAL statements only (no entity enters a manager), the batch writer is created per call. `WorkerPersonalDataTest`: 500 rounds in one production-built kernel without the resetter, alternating subjects, a purge message every 50 rounds on the real bus; no cross-subject row, no managed entity left, memory within 2 MiB | ✅ | ✅ |
 
 Note (audit OB2): with a custom asynchronous Messenger `MessageExecutionStrategyInterface` the tracker loses its nested-worker protection (a worker run inside a handler may clear the outer message's unit); the boundary clears still happen.
 

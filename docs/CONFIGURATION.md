@@ -49,6 +49,10 @@ nowo_api_studio:
     history:
         scope: endpoint          # endpoint | user (maps executed_by)
         # actor_resolver: App\ApiStudio\MyActorResolver
+        retention_days: 90       # 1.24: purge rows older than this (0 = keep forever); nothing runs until scheduled
+        purge_batch_size: 500    # 1.24: rows per batch (one short transaction each), 10–5000
+    personal_data:
+        enabled: true            # 1.24: UserKit eraser + export section "api_studio" when UserKit is installed
     search_kit:                  # Unreleased: SearchKit groups (needs nowo-tech/search-kit-bundle ^1.9)
         enabled: false           # literal boolean; opt-in
         groups:
@@ -130,6 +134,9 @@ nowo_api_studio:
 | `tenancy.provider` | **1.12.** Service id implementing `ApiStudioTenantProviderInterface::current(): ?ApiStudioTenant` — a request-free alternative to `tenancy.resolver` for hosts whose application layer already knows the tenant. Set one of the two (both fails the build). |
 | `history.scope` | **1.11.** `endpoint` (default): one shared history per endpoint. `user`: rows record who executed them (`executed_by`, a migration) and users see only their own unless granted `history.view_all`. |
 | `history.actor_resolver` | **1.11.** Service id implementing `ApiStudioActorResolverInterface` (the opaque actor id, ≤ 64 characters). Default: the user identifier, hashed beyond 64 characters. |
+| `history.retention_days` | **1.24.** Request history older than this many days (0–3650, default **90**) is deleted by `nowo:api-studio:history:purge` or the `Privacy\PurgeApiStudioHistory` Messenger message, oldest first, in batches. Nothing is deleted until the host schedules one of them. `0` = keep forever. See [USAGE.md](USAGE.md#personal-data-and-retention-124). |
+| `history.purge_batch_size` | **1.24.** Rows deleted per batch (10–5000, default 500) by the purge and the GDPR erasure; each batch is one short transaction. |
+| `personal_data.enabled` | **1.24.** With `nowo-tech/user-kit-bundle` installed (default `true`): register the UserKit eraser `api_studio` and the export section `api_studio`. `false` when the application erases / exports the Api Studio tables itself. The ports `ApiStudioPersonalDataEraserInterface` / `ApiStudioPersonalDataExporterInterface` stay registered either way. Literal boolean. |
 | `scripts.mode` | **1.11.** `inline` (default): pre / post request scripts run in the page (needs `script-src 'unsafe-eval'`). `disabled`: no script tab and no script code sent to the browser; stored scripts are kept. |
 | `scripts.mode: sandbox` | **1.15.** Scripts run in an opaque-origin iframe with its own CSP (no network, no page, cookies or storage); the console page needs `frame-src 'self'` and no `'unsafe-eval'`. The confirmation of `scripts.confirm_stored` is not used in this mode. Enables workspace and folder scripts (two nullable columns on each table, see UPGRADING). |
 | `scripts.limits.time_ms` | **1.15.** Wall time of one phase (pre or post, 100–30000 ms, default 2000): the sandbox frame is removed, the server runner's sidecar is killed. |

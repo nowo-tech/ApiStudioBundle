@@ -69,6 +69,8 @@ decides. Cross-origin browser clients need `X-Error-Code` in the host's `Access-
 | Environment variable sync, request / response examples, documentation (*pre-1.17*) | One ORM flush | Unique (environment, key); since 1.20 a variable or documentation write moves the parent's row version (atomic, `RowVersionListener`) | 409 on lock conflicts (1.17) |
 | Console execute → history row (*pre-1.17*) | One insert | Append-only | 409 on lock conflicts (1.17) |
 | Commands `tenant:move`, `tenant:unsuffix-slugs`, `seed-demo`, `sync-schema` (*pre-1.17*) | Per command | Operator tools, not concurrent by design | Exception |
+| History purge: `nowo:api-studio:history:purge`, `PurgeApiStudioHistory` message (*1.24*) | One per batch (`history.purge_batch_size`), transaction-doctrine `forConnection()` runner; refused inside an open transaction | Ids of the oldest expired rows read without a lock (index `executed_at`), then one `DELETE … WHERE id = ?` per row: primary-key point locks only, never a range or a scan of the live end of the table (an `IN (…)` list may be run as a table scan, which MariaDB does on small tables); idempotent (a row another run deleted counts 0) | A lock conflict on a batch is retried (3 attempts), then `TransientStorageFailure` (command: exit code 1; Messenger: the retry strategy) |
+| GDPR erasure: `ApiStudioPersonalDataEraserInterface::erase()`, UserKit eraser `api_studio` (*1.24*) | One per keyset page (`id > last`), same runner: a savepoint inside UserKit's transaction, its own transaction otherwise | Rows read by actor id (index `idx_history_actor`), re-checked byte-exact, then one `DELETE` / `UPDATE folder SET created_by = NULL, row_version = row_version + 1` per row by primary key; erasing twice is harmless | Standalone: retried (3 attempts), then `TransientStorageFailure`. Inside the caller's transaction: propagates at once (UserKit rolls the whole erasure back); the nesting level is repaired savepoint-aware first |
 
 The bundle never clears or resets an open host entity manager: the runners use `forHostEntityManager()` (replaced
 only when a failure closed it), and the seeder refuses to start over pending changes of the manager.
@@ -189,6 +191,15 @@ REQ-RUNTIME-003 rule 4 for the read-modify-write that spans two requests (render
   1.21.1: a new default created clears every stored default, a new non-default keeps it.
 - `tests/Integration/Doctrine/WorkspaceImportUnitTest.php` (SQLite, 1.21.1): an import committed as one unit, a failure
   rolling back only its own level, which failures are retryable (lock conflicts, a lost savepoint, unique violations).
+- `tests/Database/HistoryPrivacyDatabaseTest.php` (1.24, the same three servers and second session): the history purge
+  while a live writer holds a recent row and an uncommitted new row (no wait, every expired row gone, the writer
+  commits); erasure and export byte-exact on the server (`u:UserA`, `u:usera`, `u:UserA `), and the PHP re-check on an
+  older case-insensitive MySQL / MariaDB column; a standalone erasure retrying a held row lock then reporting
+  `TransientStorageFailure` with nothing half-erased and the connection usable; the same conflict inside a caller's
+  transaction propagating at once at the caller's level.
+- `tests/Integration/Privacy` (SQLite, 1.24): keyset batches, the folder row version, a caller's transaction joined and
+  rolled back, schema fallback, purge batches, `maxBatches`, refusal inside a transaction. `tests/Unit/Privacy/BatchWriterTest.php`:
+  retry outside a transaction only, the nesting level repaired.
 - CI job **Databases** (DBAL 3 and DBAL 4) runs the race suite with `--fail-on-skipped`; locally `make test-with-db`.
 
 ## Host options

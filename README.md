@@ -32,7 +32,7 @@ This bundle is **FrankenPHP worker mode friendly**, including worker mode with t
 - **Multilingual docs** — per-endpoint translations (title, description, notes)
 - **Request/response examples** — document sample payloads
 - **Request console** — execute and inspect live responses from the UI
-- **History** — last executions persisted per endpoint
+- **History** — last executions persisted per endpoint; retention purge (default 90 days, cron or Messenger) and GDPR erasure / export (UserKit bridges or plain ports), see [USAGE](docs/USAGE.md#personal-data-and-retention-124)
 - **Tenants and scopes** — workspaces per tenant (1.11) and per host sub-scope such as a project (1.17, a project tab mounted under the host prefix), plus an idempotent seed API with secret references only
 - **Import / Export** — OpenAPI 3 & Swagger 2, Postman collections, environment variables (JSON/YAML/.env)
 - **Browser scripts** — pre/post-request JavaScript in the console (`pm.environment.set`, `pm.response.json`, tests)
