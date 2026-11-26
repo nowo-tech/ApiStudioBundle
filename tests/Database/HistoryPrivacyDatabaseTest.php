@@ -123,7 +123,9 @@ final class HistoryPrivacyDatabaseTest extends TestCase
 
     /**
      * Audit ZCL-H1: default actor ids carry the raw identifier (spaces, non-ASCII); they are erased and exported
-     * byte-exact on the server (`u:josé` is not `u:jose` nor `u:JOSÉ`).
+     * byte-exact on the server (`u:josé` is not `u:jose` nor `u:JOSÉ`). Characters of the BMP only: with DBAL 3 the
+     * test schema's tables default to 3-byte utf8 on MySQL / MariaDB (the folder name column); 4-byte ids are covered
+     * on SQLite (tests/Integration/Privacy).
      */
     #[DataProvider('servers')]
     public function testIdsWithSpacesAndNonAsciiAreErasedAndExportedExactly(string $variable): void
@@ -132,13 +134,13 @@ final class HistoryPrivacyDatabaseTest extends TestCase
         $em       = $this->privacyEntityManager($this->registry);
         $service  = $endpoint->getService();
         self::assertNotNull($service);
-        foreach (['u:John Smith', 'u:john smith', 'u:josé@example.test', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:名前🙂'] as $actor) {
+        foreach (['u:John Smith', 'u:john smith', 'u:josé@example.test', 'u:jose@example.test', 'u:JOSÉ@example.test', 'u:名前'] as $actor) {
             $this->addHistory($em, $endpoint, $actor, 'https://api.example.test/' . rawurlencode($actor));
             $this->addFolder($em, $service, $actor, 'Folder ' . $actor);
         }
         $ports = $this->ports();
 
-        foreach (['u:John Smith', 'u:josé@example.test', 'u:名前🙂'] as $actor) {
+        foreach (['u:John Smith', 'u:josé@example.test', 'u:名前'] as $actor) {
             self::assertSame(['https://api.example.test/' . rawurlencode($actor)], array_column($ports->export($actor)->history, 'url'), $actor);
             self::assertSame(['Folder ' . $actor], array_column($ports->export($actor)->folders, 'name'), $actor);
             $result = $ports->erase($actor);
