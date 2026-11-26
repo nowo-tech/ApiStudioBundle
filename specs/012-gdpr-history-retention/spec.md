@@ -52,7 +52,10 @@ remain with `created_by` null.
 
 - `history.scope` switched from `user` to `endpoint` (column no longer mapped) or `folders.enabled` switched off: rows
   stored before are still erased and exported (the column is looked up in the schema).
-- An actor id outside 1–128 printable ASCII characters (spaces, newline, non-ASCII): refused.
+- Actor ids with spaces or non-ASCII characters (the default id is `u:` + the raw identifier) are erased and exported;
+  only invalid UTF-8, control characters and ids over 128 characters are refused (audit ZCL-H1).
+- A host resolver id of the wrong shape: logged by class and skipped by the UserKit bridges (no row can hold it).
+- The purge message on a bus with `doctrine_transaction`: unrecoverable failure with an error log (audit ZCL-L2).
 - The purge inside an open transaction: refused (`LogicException`).
 
 ## Requirements *(mandatory)*
@@ -70,7 +73,9 @@ remain with `created_by` null.
 - **FR-RET-001**: `history.retention_days` (0–3650, default 90) and `history.purge_batch_size` (10–5000, default 500);
   port `ApiStudioHistoryRetentionInterface`; index `idx_history_executed_at`.
 - **FR-RET-002**: `nowo:api-studio:history:purge` (`--dry-run`, `--max-batches`).
-- **FR-RET-003**: Messenger message `PurgeApiStudioHistory` and its idempotent `#[AsMessageHandler]`.
+- **FR-RET-003**: Messenger message `PurgeApiStudioHistory` and its idempotent `#[AsMessageHandler]`; inside a
+  transaction `UnrecoverableMessageHandlingException` (`HistoryPurgeInsideTransactionException`).
+- **FR-GDPR-007**: export URL masking covers a user name alone, a password holding `@` and fragment pairs (ZCL-L1).
 
 ## Success Criteria
 

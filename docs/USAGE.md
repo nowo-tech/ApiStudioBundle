@@ -671,8 +671,18 @@ passwords). Both ports compare the actor id byte-exact and read in keyset pages.
 **With UserKit** (`nowo-tech/user-kit-bundle` ^1.12) nothing else is needed: the eraser `api_studio` (priority 150,
 before host identity erasers) and the export section `api_studio` are registered together, unless
 `personal_data.enabled: false`. The eraser covers the actor id of the identifier the user had when the erasure started
-(`ErasureRequest::identifier()`) and of the current one; a host `history.actor_resolver` gives its own id. Inside
-UserKit's transaction the batches are savepoints of it: a lock conflict rolls the whole erasure back.
+(`ErasureRequest::identifier()`) and of the current one; a host `history.actor_resolver` gives its own id. Ids may
+hold spaces and any UTF-8 character (the default id is `u:` + the raw identifier); only control characters and ids
+longer than 128 characters are refused.
+
+- **Host `actor_resolver`:** derive the id from an immutable key (the user id). The eraser asks the resolver with the
+  user as it is at priority 150: a host eraser with a higher priority that anonymises the field the resolver reads makes
+  Api Studio miss the rows. Keep such erasers below 150, or resolve by id.
+- **Same connection as UserKit** (standard host): the batches are savepoints of UserKit's transaction; a lock conflict
+  rolls the whole erasure back.
+- **Another connection** (dedicated `entity_manager` on its own connection): each page commits on its own, before
+  UserKit commits. If a later eraser fails and UserKit rolls back, the Api Studio rows stay erased; running the erasure
+  again completes it (idempotent).
 
 **Without UserKit** (DDD host), call the ports with the ids of `ApiStudioHistoryScope::actorIdsOf($user)`:
 
@@ -695,6 +705,9 @@ $bus->dispatch(new \Nowo\ApiStudioBundle\Privacy\PurgeApiStudioHistory());
 ```
 
 The handler is registered when symfony/messenger is installed; route the message to an async transport if you like.
+**Use a bus without the `doctrine_transaction` middleware** for this message (on the Api Studio connection): the purge
+commits batch by batch and refuses to start inside a transaction; the handler then logs an error and throws
+`UnrecoverableMessageHandlingException` (no retry, straight to the failure transport).
 A lock conflict that outlasts the purge's own 3 attempts per batch is thrown, so your retry strategy (or the failure
 transport) takes over. Each batch deletes by primary key in its own short transaction, oldest rows first, and never
 waits on rows being written now. The purge refuses to run inside an open transaction.
