@@ -128,7 +128,9 @@ composer update nowo-tech/api-studio-bundle
    To keep the history forever, set `history.retention_days: 0`. Check how many rows the first run deletes with
    `--dry-run`.
 4. Actor ids: the ports accept every id the bundle stores, including spaces and non-ASCII characters (the default id
-   is `u:` + the raw user identifier): valid UTF-8, 1 to 128 characters (64 for `executed_by`), no control character.
+   is `u:` + the raw user identifier): valid UTF-8, 1 to 128 characters (64 for `executed_by`), no NUL (control characters an imported identifier carries,
+   such as a trailing newline, are accepted). An id the ports refuse is logged by class and skipped by the UserKit
+   bridges, never thrown into UserKit.
    With a host `history.actor_resolver`, derive the id from an immutable key (the user id): a host identity eraser with
    a UserKit priority above 150 that anonymises the field the resolver reads makes Api Studio miss the rows.
 5. With a dedicated `entity_manager` on its own connection, the Api Studio erasure commits before UserKit's

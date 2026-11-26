@@ -86,7 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returns **metadata only** (owner decision 2026-11-26): endpoint id, method, URL with secrets masked again, status and
   execution time of each history row, and id / name / service / creation time of each folder. Bodies, headers and
   error messages are never exported. Rows are read in keyset pages and compared byte-exact (also re-checked in PHP).
-  Every stored id is accepted, spaces and non-ASCII included (valid UTF-8, 1–128 characters, no control character).
+  Every stored id is accepted, spaces and non-ASCII included (valid UTF-8, 1–128 characters, no NUL; control characters of an
+  imported identifier included). The UserKit bridges log and skip an id the ports refuse.
   Rows stored under an earlier `history.scope: user` or `folders.enabled: true` are still found after the option is
   turned off.
 - **UserKit bridges**: with `nowo-tech/user-kit-bundle` (^1.12) installed, the `api_studio` eraser (priority 150,
@@ -118,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export; audit ZCL-L1): a token given as the userinfo user name alone (`https://<token>@host/`) was kept, a password
   holding `@` was cut at its first `@` (the rest stayed visible), and the fragment was kept verbatim
   (`#access_token=…`). The whole userinfo is now masked up to the last `@` of the authority (a `user:` prefix is
-  kept), and fragment pairs are masked like query pairs. Rows stored by earlier versions are masked again on export.
+  kept), and fragment pairs are masked like query pairs (with hash routing, `#/route?key=…`, the pairs after the
+  route's `?`). Rows stored by earlier versions are masked again on export.
 - A host `ApiStudioActorResolverInterface` id with a trailing newline was accepted (`$` matched before the newline);
   the actor id check now anchors at the very end.
 

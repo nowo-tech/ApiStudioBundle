@@ -672,8 +672,8 @@ passwords). Both ports compare the actor id byte-exact and read in keyset pages.
 before host identity erasers) and the export section `api_studio` are registered together, unless
 `personal_data.enabled: false`. The eraser covers the actor id of the identifier the user had when the erasure started
 (`ErasureRequest::identifier()`) and of the current one; a host `history.actor_resolver` gives its own id. Ids may
-hold spaces and any UTF-8 character (the default id is `u:` + the raw identifier); only control characters and ids
-longer than 128 characters are refused.
+hold spaces, control characters and any UTF-8 character (the default id is `u:` + the raw identifier); only NUL,
+invalid UTF-8 and ids longer than 128 characters are refused, and the bridges log such an id by class and skip it.
 
 - **Host `actor_resolver`:** derive the id from an immutable key (the user id). The eraser asks the resolver with the
   user as it is at priority 150: a host eraser with a higher priority that anonymises the field the resolver reads makes

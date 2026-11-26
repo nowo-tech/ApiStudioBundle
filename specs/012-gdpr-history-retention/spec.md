@@ -53,7 +53,8 @@ remain with `created_by` null.
 - `history.scope` switched from `user` to `endpoint` (column no longer mapped) or `folders.enabled` switched off: rows
   stored before are still erased and exported (the column is looked up in the schema).
 - Actor ids with spaces or non-ASCII characters (the default id is `u:` + the raw identifier) are erased and exported;
-  only invalid UTF-8, control characters and ids over 128 characters are refused (audit ZCL-H1).
+  only invalid UTF-8, NUL and ids over 128 characters are refused (audits ZCL-H1, ZCL-v-L1: `u:ana\n` is accepted);
+  the bridges log and skip an id the ports refuse.
 - A host resolver id of the wrong shape: logged by class and skipped by the UserKit bridges (no row can hold it).
 - The purge message on a bus with `doctrine_transaction`: unrecoverable failure with an error log (audit ZCL-L2).
 - The purge inside an open transaction: refused (`LogicException`).
