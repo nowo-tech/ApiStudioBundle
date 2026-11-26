@@ -15,10 +15,10 @@ deptrac:
         - type: bool
           must:
             - type: classLike
-              value: '^Nowo\\ApiStudioBundle\\(Entity|Enum|Event|Model|Concurrency|Validator|Repository|Query|Scope|Security|Secret|Script\\Runner|Tenancy|Search\\SearchKind|Service\\VariableSyntax)(\\|$)'
+              value: '^Nowo\\ApiStudioBundle\\(Entity|Enum|Event|Model|Concurrency|Validator|Repository|Query|Scope|Security|Secret|Script\\Runner|Tenancy|Search\\SearchKind|Service\\VariableSyntax|Privacy)(\\|$)'
           must_not:
             - type: classLike
-              value: '^Nowo\\ApiStudioBundle\\(Query\\Doctrine.*|Scope\\(ScopeListener|WorkspaceScopeMover)|Security\\(ApiStudioAccessPolicy|ApiWorkspaceAccess|ConfigurableApiStudioAccessChecker|LegacyPermissionChecker|SecretValueCipher|ExecutionUrlValidator|FolderAccess|ApiStudioAuthorization|ApiStudioHistoryScope)|Secret\\(SecretForms|SecretRedactingLogger)|Script\\Runner\\(ProcessScriptRunner|NullScriptRunner)|Tenancy\\(ApiStudioTenantListener|TenantProviderResolver|TenantSqlFilterListener)|Validator\\.*Validator|Doctrine\\.*)$'
+              value: '^Nowo\\ApiStudioBundle\\(Query\\Doctrine.*|Scope\\(ScopeListener|WorkspaceScopeMover)|Security\\(ApiStudioAccessPolicy|ApiWorkspaceAccess|ConfigurableApiStudioAccessChecker|LegacyPermissionChecker|SecretValueCipher|ExecutionUrlValidator|FolderAccess|ApiStudioAuthorization|ApiStudioHistoryScope)|Secret\\(SecretForms|SecretRedactingLogger)|Script\\Runner\\(ProcessScriptRunner|NullScriptRunner)|Tenancy\\(ApiStudioTenantListener|TenantProviderResolver|TenantSqlFilterListener)|Validator\\.*Validator|Privacy\\(Doctrine.*|BatchWriter|PurgeApiStudioHistoryHandler)|Doctrine\\.*)$'
     # Internal: controllers, forms, commands, Doctrine listeners, services, seeds, Twig, routing, the page factory and the
     # composition root (DependencyInjection and the bundle class). May use everything.
     - name: Internal
@@ -67,7 +67,7 @@ deptrac:
     - name: NowoBundles
       collectors:
         - type: classLike
-          value: '^Nowo\\(UiKitBundle|FormKitBundle|SearchKitBundle)\\'
+          value: '^Nowo\\(UiKitBundle|FormKitBundle|SearchKitBundle|UserKitBundle)\\'
   ruleset:
     PublicApi:
       - PhpNative

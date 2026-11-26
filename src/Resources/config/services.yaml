@@ -41,6 +41,10 @@ services:
             - '../../Doctrine/DefaultEnvironmentSwitch.php'
             # 1.21.1 the static import unit (workspace lock first).
             - '../../Doctrine/WorkspaceImportUnit.php'
+            # 1.24 GDPR / retention: value objects and the message are not services; the adapters, the handler and
+            # the UserKit bridges are registered by ApiStudioExtension::registerPersonalData().
+            - '../../Privacy/'
+            - '../../Integration/'
 
     # Controllers carry #[Route] attributes: autoconfigure stays off so Symfony >= 7.3 does not tag them
     # routing.controller (the host's `routing.controllers` resource would then load every Api Studio route without

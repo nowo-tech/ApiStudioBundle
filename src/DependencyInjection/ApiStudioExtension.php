@@ -5,10 +5,20 @@ declare(strict_types=1);
 namespace Nowo\ApiStudioBundle\DependencyInjection;
 
 use Nowo\ApiStudioBundle\Bridge\SearchKit\ApiStudioSearchDefinition;
+use Nowo\ApiStudioBundle\Doctrine\ApiStudioEntityManagerResolver;
 use Nowo\ApiStudioBundle\Doctrine\TablePrefixSubscriber;
 use Nowo\ApiStudioBundle\Doctrine\TenantSqlFilter;
 use Nowo\ApiStudioBundle\EventListener\ConcurrencyConflictSubscriber;
 use Nowo\ApiStudioBundle\EventSubscriber\ApiStudioAccessSubscriber;
+use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitEraser;
+use Nowo\ApiStudioBundle\Integration\UserKit\ApiStudioUserKitExportProvider;
+use Nowo\ApiStudioBundle\Privacy\ApiStudioHistoryRetentionInterface;
+use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataEraserInterface;
+use Nowo\ApiStudioBundle\Privacy\ApiStudioPersonalDataExporterInterface;
+use Nowo\ApiStudioBundle\Privacy\DoctrineApiStudioHistoryRetention;
+use Nowo\ApiStudioBundle\Privacy\DoctrineApiStudioPersonalData;
+use Nowo\ApiStudioBundle\Privacy\PurgeApiStudioHistory;
+use Nowo\ApiStudioBundle\Privacy\PurgeApiStudioHistoryHandler;
 use Nowo\ApiStudioBundle\Repository\ApiEndpointRepository;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
@@ -38,6 +48,7 @@ use Nowo\ApiStudioBundle\Security\ExecutionUrlValidator;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Security\LegacyPermissionChecker;
 use Nowo\ApiStudioBundle\Seed\WorkspaceSeeder;
+use Nowo\ApiStudioBundle\Service\HistorySanitizer;
 use Nowo\ApiStudioBundle\Service\HostSecretResolver;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantContext;
 use Nowo\ApiStudioBundle\Tenancy\ApiStudioTenantListener;
@@ -46,6 +57,8 @@ use Nowo\ApiStudioBundle\Tenancy\TenantSqlFilterListener;
 use Nowo\ApiStudioBundle\Ui\ApiStudioPageFactory;
 use Nowo\SearchKitBundle\Provider\Entity\EntitySearchDefinition;
 use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\UserKitBundle\PersonalData\PersonalDataEraserInterface;
+use Nowo\UserKitBundle\PersonalData\PersonalDataExportProviderInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -55,6 +68,7 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 use function array_key_exists;
 use function array_keys;
@@ -62,6 +76,7 @@ use function class_exists;
 use function dirname;
 use function implode;
 use function in_array;
+use function interface_exists;
 use function is_array;
 use function is_bool;
 use function is_string;
@@ -232,6 +247,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
             'tenancy.enabled'                  => $config['tenancy']['enabled'],
             'scope.enabled'                    => $config['scope']['enabled'],
             'search_kit.enabled'               => $config['search_kit']['enabled'],
+            'personal_data.enabled'            => $config['personal_data']['enabled'],
             'security.allow_unauthenticated'   => $security['allow_unauthenticated'],
             'execution_url_allowlist_required' => $config['execution_url_allowlist_required'],
         ];
@@ -347,6 +363,56 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
         $this->registerAccessChecker($container, $config['security'], $config['ui']['required_roles']);
         $this->registerAccessPolicy($container, $config['security']);
         $this->registerSearch($container, $config['search_kit'], $config['enabled']);
+        $this->registerPersonalData($container, $config['history'], $config['personal_data']['enabled'] === true);
+    }
+
+    /**
+     * 1.24 GDPR and retention: the erasure / export ports and the history retention (always), the Messenger handler
+     * of {@see PurgeApiStudioHistory} (symfony/messenger installed), and the UserKit eraser and export section (UserKit
+     * installed and `personal_data.enabled`).
+     *
+     * @param array{retention_days: int, purge_batch_size: int} $history
+     */
+    private function registerPersonalData(ContainerBuilder $container, array $history, bool $userKit): void
+    {
+        $container->setParameter(Configuration::ALIAS . '.history.retention_days', $history['retention_days']);
+        $container->setParameter(Configuration::ALIAS . '.history.purge_batch_size', $history['purge_batch_size']);
+        $container->setParameter(Configuration::ALIAS . '.personal_data.enabled', $userKit);
+        $logger = new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE);
+
+        $container->register(DoctrineApiStudioPersonalData::class, DoctrineApiStudioPersonalData::class)
+            ->setArgument('$managers', new Reference(ApiStudioEntityManagerResolver::class))
+            ->setArgument('$sanitizer', new Reference(HistorySanitizer::class))
+            ->setArgument('$tablePrefix', '%' . Configuration::ALIAS . '.table_prefix%')
+            ->setArgument('$logger', $logger)
+            ->setArgument('$batchSize', $history['purge_batch_size']);
+        $container->setAlias(ApiStudioPersonalDataEraserInterface::class, DoctrineApiStudioPersonalData::class)->setPublic(true);
+        $container->setAlias(ApiStudioPersonalDataExporterInterface::class, DoctrineApiStudioPersonalData::class)->setPublic(true);
+
+        $container->register(DoctrineApiStudioHistoryRetention::class, DoctrineApiStudioHistoryRetention::class)
+            ->setArgument('$managers', new Reference(ApiStudioEntityManagerResolver::class))
+            ->setArgument('$retentionDays', $history['retention_days'])
+            ->setArgument('$batchSize', $history['purge_batch_size'])
+            ->setArgument('$logger', $logger);
+        $container->setAlias(ApiStudioHistoryRetentionInterface::class, DoctrineApiStudioHistoryRetention::class)->setPublic(true);
+
+        if (interface_exists(MessageBusInterface::class)) {
+            $container->register(PurgeApiStudioHistoryHandler::class, PurgeApiStudioHistoryHandler::class)
+                ->setArgument('$retention', new Reference(ApiStudioHistoryRetentionInterface::class))
+                ->addTag('messenger.message_handler', ['handles' => PurgeApiStudioHistory::class]);
+        }
+
+        if (!$userKit || !interface_exists(PersonalDataEraserInterface::class) || !interface_exists(PersonalDataExportProviderInterface::class)) {
+            return;
+        }
+        $container->register(ApiStudioUserKitEraser::class, ApiStudioUserKitEraser::class)
+            ->setArgument('$eraser', new Reference(ApiStudioPersonalDataEraserInterface::class))
+            ->setArgument('$actors', new Reference(ApiStudioHistoryScope::class))
+            ->addTag('nowo_user_kit.personal_data.eraser', ['priority' => ApiStudioUserKitEraser::PRIORITY]);
+        $container->register(ApiStudioUserKitExportProvider::class, ApiStudioUserKitExportProvider::class)
+            ->setArgument('$exporter', new Reference(ApiStudioPersonalDataExporterInterface::class))
+            ->setArgument('$actors', new Reference(ApiStudioHistoryScope::class))
+            ->addTag('nowo_user_kit.personal_data.export_provider', ['priority' => ApiStudioUserKitExportProvider::PRIORITY]);
     }
 
     /**
@@ -541,7 +607,7 @@ final class ApiStudioExtension extends Extension implements PrependExtensionInte
 
     /**
      * @param array<string, mixed> $security
-     * @param array{scope: string, actor_resolver: ?string} $history
+     * @param array{scope: string, actor_resolver: ?string, retention_days: int, purge_batch_size: int} $history
      */
     private function registerPermissions(ContainerBuilder $container, array $security, array $history): void
     {

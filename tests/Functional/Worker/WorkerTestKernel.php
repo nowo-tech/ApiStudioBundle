@@ -140,6 +140,8 @@ final class WorkerTestKernel extends Kernel
             'scripts'  => ['mode' => 'disabled'],
             'secrets'  => ['source' => TestHostSecretSource::class],
             'security' => ['access_roles' => ['ROLE_USER'], 'permission_checker' => TestPermissionChecker::class],
+            // 1.24 GDPR / retention worker test: rows record who executed them.
+            'history' => ['scope' => 'user', 'retention_days' => 30, 'purge_batch_size' => 10],
         ]);
 
         $services = $container->services();
