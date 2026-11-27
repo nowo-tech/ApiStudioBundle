@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.25.0] - 2026-11-27](#1250---2026-11-27)
 - [[1.24.0] - 2026-11-26](#1240---2026-11-26)
 - [[1.23.1] - 2026-11-26](#1231---2026-11-26)
 - [[1.23.0] - 2026-11-24](#1230---2026-11-24)
@@ -78,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-11-27
+
 ### Changed
 
 - **The service Import and Delete dialogs load when they open** (owner rule 2026-11-23, every dialog loads its content on
@@ -91,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenAPI format. The import format switch became two kebab items (OpenAPI, Postman).
 - **Removed** `_service_action_modals.html.twig` and the `data-service-action` handlers of `api-studio-shell.js`; the delete
   button is enabled by a delegated handler (`data-as-delete-expected`). Requires UiKit with `RemoteDialogResponder` (2.28).
+
+[1.25.0]: https://github.com/nowo-tech/ApiStudioBundle/releases/tag/v1.25.0
 
 ## [1.24.0] - 2026-11-26
 
