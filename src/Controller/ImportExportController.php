@@ -310,7 +310,7 @@ final class ImportExportController extends AbstractController
     {
         $response = $this->render('@NowoApiStudioBundle/import_export/_service_import_dialog.html.twig', [
             'form'      => $form->createView(),
-            'action'    => $request->getPathInfo(),
+            'action'    => $request->getBaseUrl() . $request->getPathInfo(),
             'service'   => $service,
             'workspace' => $workspace,
             'error'     => $errorKey,

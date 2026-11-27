@@ -20,6 +20,7 @@ use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
 use Nowo\UiKitBundle\Dialog\RemoteDialogResponder;
+use Nowo\UiKitBundle\Dialog\RemoteDialogTarget;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -252,7 +253,11 @@ final class ApiServiceController extends AbstractController
         // Local paths only: browsers treat "//host" and "/\host" as protocol-relative (open redirect); no control chars.
         $redirect = (string) ($fromQuery ? $request->query->get('redirect') : $request->request->get('redirect'));
         if (preg_match('#^/(?![/\\\\])#', $redirect) === 1 && preg_match('/[\\x00-\\x1F\\x7F]/', $redirect) === 0) {
-            return $redirect;
+            // Audit ZDJ-AS-L1: no dot segments either (the dialog's redirect refuses them, after the delete is committed).
+            $safe = RemoteDialogTarget::tryPath($redirect, null);
+            if ($safe !== null) {
+                return $safe;
+            }
         }
 
         return $this->generateUrl('nowo_api_studio_workspace_show', ['id' => $workspaceId]);
