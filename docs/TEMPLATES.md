@@ -64,7 +64,7 @@ model); the show pages also receive the entities their data blocks read (`worksp
 | `_service_collection_list.html.twig` | Collapsible services with their endpoints (`services`, `workspace`, `bundle`) | — |
 | `_endpoint_expandable_list.html.twig` | Endpoint rows with their saved requests (`endpoints`, `service`, `workspace`) | — |
 | `_service_kebab_menu.html.twig` | Service actions through the UiKit `kebab` partial (Export / Import / Delete open the service dialogs) | — |
-| `_service_action_modals.html.twig` | Export, import and type-to-confirm delete dialogs: UiKit `dialog` partial (native `<dialog>`), filled by `api-studio-shell.js` | Keep the element ids |
+| `_service_dialog_shell.html.twig` | The one empty remote dialog (`as-service-dialog`) of the service pages; Import and Delete load their content when they open (`import_export/_service_import_dialog.html.twig`, `service/_delete_dialog.html.twig`) | Keep the dialog id |
 | `_variable_catalog.html.twig` | Workspace variables (placeholder, description, secret) on the UiKit table slots | — |
 | `import_export/_workspace_panel.html.twig` | Workspace import / export links card | — |
 | `_styles.html.twig`, `_scripts.html.twig` | Asset tags of the `nowo_api_studio` package (scripts deferred, with the request `csp_nonce`) | — |

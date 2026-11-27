@@ -228,26 +228,23 @@ final class StudioPagesTest extends WebTestCase
         );
     }
 
-    public function testServicePageRendersTheServiceDialogsFromForms(): void
+    public function testServicePageRendersOnlyAnEmptyDialogShellAndTheKebabOpeners(): void
     {
         $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/services/%d', $this->ids['workspace'], $this->ids['service']));
         self::assertResponseIsSuccessful();
 
-        foreach ([
-            'dialog#as-service-import-modal[data-nowo-ui-dialog] form#as-service-import-form input#as-service-import-file[name="import_file_form[file]"]',
-            'form#as-service-import-form input[name="import_file_form[_token]"]',
-            'form#as-service-import-form input[name="import_file_form[importVariables]"]',
-            'dialog#as-service-delete-modal[data-nowo-ui-dialog] form#as-service-delete-form input#as-service-delete-csrf[name="_token"]',
-            'form#as-service-delete-form input#as-service-delete-redirect[name="redirect"]',
-            'form#as-service-delete-form input#as-service-delete-input[name="confirmation"]',
-            'label#as-service-delete-label',
-            'dialog#as-service-export-modal[data-nowo-ui-dialog] button#as-service-export-confirm',
-            '[data-nowo-ui-kebab] a[data-service-action="delete"][data-delete-token]',
-        ] as $selector) {
-            self::assertCount(1, $crawler->filter($selector), $selector);
+        // Owner rule 2026-11-23: no import or delete form on the page; one empty remote dialog and the openers.
+        foreach (['form#as-service-import-form', 'form#as-service-delete-form', 'input[name="import_file_form[file]"]', '#as-service-export-modal'] as $selector) {
+            self::assertCount(0, $crawler->filter($selector), $selector);
         }
-        self::assertCount(1, $crawler->filter('input[type="radio"][name="as-export-format"][value="openapi"][checked]'));
-        self::assertCount(2, $crawler->filter('input[type="radio"][name="as-import-format"]'));
+        $dialog = $crawler->filter('dialog#as-service-dialog[data-nowo-ui-remote-form]');
+        self::assertCount(1, $dialog);
+        self::assertSame('', trim($dialog->filter('[data-nowo-ui-dialog-body]')->text()));
+        $delete = $crawler->filter('[data-nowo-ui-kebab] a[data-nowo-ui-dialog-open="as-service-dialog"][href*="/delete?redirect="]');
+        self::assertCount(1, $delete);
+        self::assertSame($delete->attr('href'), $delete->attr('data-nowo-ui-dialog-src'));
+        self::assertCount(2, $crawler->filter('[data-nowo-ui-kebab] a[data-nowo-ui-dialog-open="as-service-dialog"][href*="/import/"]'));
+        self::assertCount(1, $crawler->filter('[data-nowo-ui-kebab] a[href$="/export/openapi"]:not([data-nowo-ui-dialog-open])'));
     }
 
     public function testServiceDeleteFromTheEditPageNeedsTheTypedName(): void
@@ -375,9 +372,9 @@ final class StudioPagesTest extends WebTestCase
     #[DataProvider('serviceDeleteRedirects')]
     public function testServiceDeleteRedirectsOnlyToLocalPaths(string $redirect, bool $kept): void
     {
-        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d', $this->ids['workspace']));
-        // The sidebar script sets the form action per service: post to the delete route directly with the form token.
-        $token = (string) $crawler->filter(sprintf('[data-delete-token][data-delete-url$="/services/%d/delete"]', $this->ids['service']))->first()->attr('data-delete-token');
+        // Since the dialogs load on open the form token comes with the delete dialog (the GET of the delete route).
+        $crawler = $this->client->request('GET', sprintf('/api-studio/workspaces/%d/services/%d/delete', $this->ids['workspace'], $this->ids['service']), server: ['HTTP_X_NOWO_DIALOG' => '1', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', 'HTTP_ACCEPT' => 'text/html']);
+        $token   = (string) $crawler->filter('input[name="_token"]')->attr('value');
         // Wrong confirmation: nothing is deleted, the controller only redirects.
         $this->client->request('POST', sprintf('/api-studio/workspaces/%d/services/%d/delete', $this->ids['workspace'], $this->ids['service']), [
             '_token'       => $token,

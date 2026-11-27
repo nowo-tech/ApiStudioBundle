@@ -1,0 +1,31 @@
+{#
+  Delete service, type-to-confirm. Owner rule 2026-11-23 (every dialog loads its content on demand): the content of the GET of
+  `nowo_api_studio_service_delete` for UiKit's remote dialog (`X-Nowo-Dialog: 1`); the page holds one empty shell
+  (_service_dialog_shell.html.twig). Body: the warning and the confirmation field; the footer, outside the scrolling body,
+  holds Cancel and Delete (bound with form="as-service-delete-form"); the button is enabled while the typed text equals the
+  service name (api-studio-shell.js, delegated). Variables: form (CsrfOnlyType view plus redirect and confirmation),
+  service, mismatch (the server refused the confirmation).
+#}
+{% set _b = bundle|default(null) %}
+<div data-testid="api-studio-service-delete-dialog">
+    <p id="as-service-delete-warning" class="as-modal-warning">{{ 'service.delete_warning'|trans({'%name%': service.name}, 'NowoApiStudioBundle') }}</p>
+    {% if mismatch|default(false) %}
+        <p class="as-modal-warning" role="alert">{{ 'service.delete_confirmation_mismatch'|trans({}, 'NowoApiStudioBundle') }}</p>
+    {% endif %}
+    {% form_theme form 'form_div_layout.html.twig' %}
+    {{ form_start(form, {attr: {id: 'as-service-delete-form', class: nowo_ui_class('form', _b)}}) }}
+        {{ form_widget(form._token) }}
+        {{ form_widget(form.redirect) }}
+        <label class="as-modal-label" for="{{ form.confirmation.vars.id }}">{{ 'service.delete_confirm_label'|trans({'%name%': service.name}, 'NowoApiStudioBundle') }}</label>
+        {{ form_widget(form.confirmation) }}
+        {% for child in form %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+    {{ form_end(form, {render_rest: false}) }}
+</div>
+<div class="{{ nowo_ui_class('form_actions', _b) }}" data-nowo-ui-dialog-actions>
+    <button type="button" class="{{ nowo_ui_class('btn_secondary', _b) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+    <button type="submit" form="as-service-delete-form" id="as-service-delete-submit" class="{{ nowo_ui_class('btn_danger_solid', _b) }}" data-as-delete-submit disabled>{{ 'action.delete'|trans({}, 'NowoApiStudioBundle') }}</button>
+</div>

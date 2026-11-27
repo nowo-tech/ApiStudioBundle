@@ -71,8 +71,9 @@ test.describe('API Studio demo', () => {
     await openReferenceWorkspace(page);
     const collections = page.locator('[data-testid="api-studio-service-collections"]');
     await collections.locator('[data-nowo-ui-kebab] summary').first().click();
-    await collections.locator('[data-service-action="delete"]').first().click();
-    const dialog = page.locator('dialog#as-service-delete-modal');
+    await expect(page.locator('form#as-service-delete-form')).toHaveCount(0);
+    await collections.locator('[data-nowo-ui-dialog-open="as-service-dialog"][href*="/delete"]').first().click();
+    const dialog = page.locator('dialog#as-service-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('#as-service-delete-submit')).toBeDisabled();
     await dialog.locator('[data-nowo-ui-dialog-close]').first().click();

@@ -78,6 +78,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The service Import and Delete dialogs load when they open** (owner rule 2026-11-23, every dialog loads its content on
+  demand). The service pages print one empty remote dialog (`as-service-dialog`, `_service_dialog_shell.html.twig`) and the
+  kebab openers; the content is the GET of `nowo_api_studio_service_delete` (type-to-confirm, `?redirect=` a local path) and of
+  `nowo_api_studio_io_import_openapi_service` / `_postman_service` (the file form, multipart), each with the access of its
+  write (a service of another workspace is a 404). A write from the dialog answers `204` + `X-Nowo-Redirect`, a wrong
+  confirmation or an invalid / failed import `422` / `409` in place; a request without the dialog header is unchanged
+  (the delete GET goes to the service page).
+- **Export is a direct download** (the kebab item links to `export_openapi_service`): the dialog only asked for the single
+  OpenAPI format. The import format switch became two kebab items (OpenAPI, Postman).
+- **Removed** `_service_action_modals.html.twig` and the `data-service-action` handlers of `api-studio-shell.js`; the delete
+  button is enabled by a delegated handler (`data-as-delete-expected`). Requires UiKit with `RemoteDialogResponder` (2.28).
+
 ## [1.24.0] - 2026-11-26
 
 ### Added

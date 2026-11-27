@@ -68,6 +68,9 @@ final class ApiStudioFormsExtension extends AbstractExtension
     }
 
     /**
+     * @deprecated since 1.25: no bundle template uses it any more (the service Import and Delete dialogs load when they open, the
+     *             export is a download); kept for hosts that still print the removed inline dialogs, removed in 2.0
+     *
      * @return array{export_format: FormView, import_format: FormView, import: FormView, delete: FormView}
      */
     public function serviceModalForms(): array
