@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * The workbench UI of the API tree and the service dialogs (api-studio-shell.ts): filter, collections, endpoint rows,
- * the export / import / delete dialogs, console sub-tabs and the folder tree (drag and drop in tree-dnd.test.ts).
+ * the service delete dialog's type-to-confirm button, console sub-tabs and the folder tree (drag and drop in tree-dnd.test.ts).
  */
 const PAGE = `
 <input id="as-tree-filter">
@@ -17,25 +17,9 @@ const PAGE = `
 <div data-endpoint-block><button type="button" data-endpoint-toggle></button></div>
 <div data-tree-endpoint-group><button type="button" data-tree-ep-toggle></button></div>
 
-<details open><summary>menu</summary>
-  <button type="button" data-service-action="export" data-service-name="Billing" data-export-openapi-url="/export/1.json" id="act-export"></button>
-  <button type="button" data-service-action="import" data-service-name="Billing" data-import-openapi-url="/import/openapi" data-import-postman-url="/import/postman" id="act-import"></button>
-  <button type="button" data-service-action="delete" data-service-name="Billing" data-delete-url="/delete/1" data-delete-token="tok" data-delete-redirect="/home" id="act-delete"></button>
-  <button type="button" data-service-action="unknown" id="act-unknown"></button>
-</details>
-<div popover id="pop"><button type="button" data-service-action="unknown" id="act-popover"></button></div>
-
-<dialog id="as-service-export-modal"><span id="as-service-export-subtitle"></span>
-  <label><input type="radio" name="as-export-format" value="openapi" checked></label>
-  <button type="button" id="as-service-export-confirm"></button></dialog>
-<dialog id="as-service-import-modal"><span id="as-service-import-subtitle"></span>
-  <form id="as-service-import-form"><input type="file" id="as-service-import-file">
-    <input type="radio" name="as-import-format" value="openapi" checked><input type="radio" name="as-import-format" value="postman">
-    <div id="as-import-postman-vars" hidden></div></form></dialog>
-<dialog id="as-service-delete-modal" data-warning-template="Delete %name%?" data-confirm-template="Type %name%">
-  <form id="as-service-delete-form"><span id="as-service-delete-warning"></span><label id="as-service-delete-label"></label>
-    <input id="as-service-delete-input"><input id="as-service-delete-csrf"><input id="as-service-delete-redirect">
-    <button id="as-service-delete-submit" disabled></button></form></dialog>
+<form id="as-service-delete-form"><input id="as-service-delete-input" data-as-delete-expected="Billing"></form>
+<button type="submit" form="as-service-delete-form" id="as-service-delete-submit" data-as-delete-submit disabled></button>
+<input id="other-input">
 
 <div class="as-console-request">
   <div class="as-subtabs" data-subtabs>
@@ -114,101 +98,33 @@ describe('api-studio-shell', () => {
     document.querySelectorAll<HTMLButtonElement>('[data-tree-ep-toggle]')[1]!.click();
   });
 
-  it('opens the export dialog and goes to the OpenAPI download on confirm', async () => {
-    const assign = vi.fn();
-    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign } as unknown as Location);
+  it('enables the delete button of the dialog only for the exact service name', async () => {
     await load();
-
-    $('act-export').click();
-    expect($('as-service-export-subtitle').textContent).toBe('Billing');
-    expect($<HTMLDialogElement>('as-service-export-modal').open).toBe(true);
-    expect(document.querySelector('details')!.hasAttribute('open')).toBe(false);
-
-    $('as-service-export-confirm').click();
-    expect(assign).toHaveBeenCalledWith('/export/1.json');
-  });
-
-  it('does not navigate when the format is not OpenAPI or there is no URL', async () => {
-    const assign = vi.fn();
-    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign } as unknown as Location);
-    await load(PAGE.replace('value="openapi" checked></label>', 'value="other" checked></label>'));
-    $('act-export').click();
-    $('as-service-export-confirm').click();
-    expect(assign).not.toHaveBeenCalled();
-
-    await load();
-    $('as-service-export-confirm').click();
-    expect(assign).not.toHaveBeenCalled();
-  });
-
-  it('opens the import dialog and switches the form action with the format', async () => {
-    await load();
-    const form = $<HTMLFormElement>('as-service-import-form');
-
-    $('act-import').click();
-    expect($('as-service-import-subtitle').textContent).toBe('Billing');
-    expect(form.action).toContain('/import/openapi');
-    expect($('as-import-postman-vars').hidden).toBe(true);
-
-    const postman = document.querySelectorAll<HTMLInputElement>('input[name="as-import-format"]')[1]!;
-    postman.checked = true;
-    postman.dispatchEvent(new Event('change'));
-    expect(form.action).toContain('/import/postman');
-    expect($('as-import-postman-vars').hidden).toBe(false);
-  });
-
-  it('opens the delete dialog, fills it and enables the button only for the exact name', async () => {
-    await load();
-
-    $('act-delete').click();
-    expect($<HTMLFormElement>('as-service-delete-form').action).toContain('/delete/1');
-    expect($<HTMLInputElement>('as-service-delete-csrf').value).toBe('tok');
-    expect($<HTMLInputElement>('as-service-delete-redirect').value).toBe('/home');
-    expect($('as-service-delete-warning').textContent).toBe('Delete Billing?');
-    expect($('as-service-delete-label').textContent).toBe('Type Billing');
-    expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(true);
-
     const input = $<HTMLInputElement>('as-service-delete-input');
+
     input.value = 'Billin';
-    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(true);
+
     input.value = 'Billing';
-    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(false);
+
+    input.value = 'billing';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(true);
   });
 
-  it('ignores an unknown action and closes a popover menu', async () => {
-    const hide = vi.fn();
+  it('ignores the other inputs and a field without a form', async () => {
     await load();
-    const pop = $('pop');
-    (pop as unknown as { hidePopover: () => void }).hidePopover = hide;
-    vi.spyOn(pop, 'matches').mockReturnValue(true);
+    const other = $<HTMLInputElement>('other-input');
+    other.value = 'Billing';
+    other.dispatchEvent(new Event('input', { bubbles: true }));
+    expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(true);
 
-    $('act-unknown').click();
-    $('act-popover').click();
-
-    expect(hide).toHaveBeenCalled();
-    expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
-  });
-
-  it('works when the dialogs are missing from the page', async () => {
-    await load(`<button type="button" data-service-action="export" id="e"></button><button type="button" data-service-action="import" id="i"></button><button type="button" data-service-action="delete" id="d"></button>`);
-
-    $('e').click();
-    $('i').click();
-    $('d').click();
-
-    expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
-  });
-
-  it('does not reopen an open dialog', async () => {
-    await load();
-    $<HTMLDialogElement>('as-service-export-modal').setAttribute('open', '');
-    Object.defineProperty($('as-service-export-modal'), 'open', { value: true, configurable: true });
-
-    $('act-export').click();
-
-    expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
+    document.body.insertAdjacentHTML('beforeend', '<input id="loose" data-as-delete-expected="x">');
+    $<HTMLInputElement>('loose').dispatchEvent(new Event('input', { bubbles: true }));
+    expect($<HTMLButtonElement>('as-service-delete-submit').disabled).toBe(true);
   });
 
   it('switches the console sub-tabs and their panels', async () => {

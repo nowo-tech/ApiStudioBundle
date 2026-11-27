@@ -11,6 +11,7 @@ use Nowo\ApiStudioBundle\Entity\ApiService;
 use Nowo\ApiStudioBundle\Entity\ApiWorkspace;
 use Nowo\ApiStudioBundle\Event\ApiStudioResourceChangedEvent;
 use Nowo\ApiStudioBundle\Form\ApiServiceFormType;
+use Nowo\ApiStudioBundle\Form\CsrfOnlyType;
 use Nowo\ApiStudioBundle\Form\RowVersionField;
 use Nowo\ApiStudioBundle\Repository\ApiFolderRepository;
 use Nowo\ApiStudioBundle\Repository\ApiServiceRepository;
@@ -18,7 +19,11 @@ use Nowo\ApiStudioBundle\Repository\ApiWorkspaceRepository;
 use Nowo\ApiStudioBundle\Security\ApiStudioAction;
 use Nowo\ApiStudioBundle\Security\FolderAccess;
 use Nowo\ApiStudioBundle\Service\EnvironmentContextBuilder;
+use Nowo\UiKitBundle\Dialog\RemoteDialogResponder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -40,6 +45,7 @@ final class ApiServiceController extends AbstractController
         private readonly ?ApiFolderRepository $folderRepository = null,
         private readonly ?FolderAccess $folderAccess = null,
         private readonly bool $foldersEnabled = false,
+        private readonly ?RemoteDialogResponder $remoteDialog = null,
     ) {
     }
 
@@ -175,11 +181,25 @@ final class ApiServiceController extends AbstractController
         ], new Response(status: $status, headers: $headers));
     }
 
-    #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['POST'])]
+    /**
+     * GET: the delete confirmation, loaded when the dialog opens (owner rule 2026-11-23, every dialog loads its content on
+     * demand): the fragment for `X-Nowo-Dialog: 1` (type the service name to confirm), the service page otherwise. POST: the
+     * delete; from the dialog it answers 204 + `X-Nowo-Redirect`, a wrong confirmation 422 in place.
+     */
+    #[Route('/{id}/delete', name: 'delete', requirements: ['workspaceId' => '\d+', 'id' => '\d+'], methods: ['GET', 'POST'])]
     public function delete(Request $request, int $workspaceId, int $id): Response
     {
         $workspace = $this->requireWorkspace($workspaceId, ApiStudioAction::WorkspaceEdit);
         $service   = $this->requireService($id, $workspace);
+        $responder = $this->remoteDialog ?? new RemoteDialogResponder();
+
+        if ($request->isMethod('GET')) {
+            if (!$responder->isDialog($request)) {
+                return $this->redirectToRoute('nowo_api_studio_service_show', ['workspaceId' => $workspaceId, 'id' => $id]);
+            }
+
+            return $this->deleteDialog($workspace, $service, $this->resolveDeleteRedirect($request, $workspaceId, true));
+        }
 
         // REQ-TWIG-005: the delete button posts a CsrfOnlyType form (flat `_token`).
         if (!$this->isCsrfOnlyFormValid($request, 'delete' . $service->getId())) {
@@ -188,6 +208,9 @@ final class ApiServiceController extends AbstractController
 
         $confirmation = trim((string) $request->request->get('confirmation'));
         if ($confirmation !== $service->getName()) {
+            if ($responder->isDialog($request)) {
+                return $this->deleteDialog($workspace, $service, $this->resolveDeleteRedirect($request, $workspaceId), true);
+            }
             $this->flash('error', 'service.delete_confirmation_mismatch');
 
             return $this->redirect($this->resolveDeleteRedirect($request, $workspaceId));
@@ -198,13 +221,36 @@ final class ApiServiceController extends AbstractController
         $this->resourceChanged(ApiStudioResourceChangedEvent::TYPE_SERVICE, $id, $workspaceId, ApiStudioResourceChangedEvent::ACTION_DELETED);
         $this->flash('success', 'flash.deleted');
 
-        return $this->redirect($this->resolveDeleteRedirect($request, $workspaceId));
+        $target = $this->resolveDeleteRedirect($request, $workspaceId);
+
+        return $responder->isDialog($request) ? $responder->redirect($target, request: $request) : $this->redirect($target);
     }
 
-    private function resolveDeleteRedirect(Request $request, int $workspaceId): string
+    private function deleteDialog(ApiWorkspace $workspace, ApiService $service, string $redirect, bool $mismatch = false): Response
+    {
+        /** @var FormFactoryInterface $formFactory */
+        $formFactory = $this->container->get('form.factory');
+        $form        = $formFactory->createNamedBuilder('', CsrfOnlyType::class, null, [
+            'csrf_token_id' => 'delete' . $service->getId(),
+            'action'        => $this->generateUrl('nowo_api_studio_service_delete', ['workspaceId' => $workspace->getId(), 'id' => $service->getId()]),
+        ])
+            ->add('redirect', HiddenType::class, ['data' => $redirect, 'mapped' => false])
+            ->add('confirmation', TextType::class, ['label' => false, 'mapped' => false, 'attr' => ['class' => 'as-input', 'autocomplete' => 'off', 'spellcheck' => 'false', 'autofocus' => 'autofocus', 'data-as-delete-expected' => $service->getName()]])
+            ->getForm();
+
+        $response = $this->render('@NowoApiStudioBundle/service/_delete_dialog.html.twig', [
+            'form'     => $form->createView(),
+            'service'  => $service,
+            'mismatch' => $mismatch,
+        ], new Response(status: $mismatch ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+
+        return ($this->remoteDialog ?? new RemoteDialogResponder())->fragment($response);
+    }
+
+    private function resolveDeleteRedirect(Request $request, int $workspaceId, bool $fromQuery = false): string
     {
         // Local paths only: browsers treat "//host" and "/\host" as protocol-relative (open redirect); no control chars.
-        $redirect = (string) $request->request->get('redirect');
+        $redirect = (string) ($fromQuery ? $request->query->get('redirect') : $request->request->get('redirect'));
         if (preg_match('#^/(?![/\\\\])#', $redirect) === 1 && preg_match('/[\\x00-\\x1F\\x7F]/', $redirect) === 0) {
             return $redirect;
         }

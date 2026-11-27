@@ -1,0 +1,34 @@
+{#
+  Import into a service (OpenAPI or Postman). Owner rule 2026-11-23 (every dialog loads its content on demand): the content of
+  the GET of the service import routes for UiKit's remote dialog (`X-Nowo-Dialog: 1`); the page holds one empty shell
+  (_service_dialog_shell.html.twig). The file form posts as multipart to the same route; from the dialog a saved import
+  answers 204 + `X-Nowo-Redirect`, an invalid one or a failed import 422 / 409 in place. Variables: form (ImportFileFormType
+  view), action, service, workspace, error (translation key or null), postman (the Postman form).
+#}
+{% set _b = bundle|default(null) %}
+<div data-testid="api-studio-service-import-dialog">
+    <p class="as-modal-subtitle">{{ service.name }}</p>
+    {% if error|default(null) %}
+        <p class="as-modal-warning" role="alert">{{ error|trans({}, 'NowoApiStudioBundle') }}</p>
+    {% endif %}
+    {% form_theme form 'form_div_layout.html.twig' %}
+    {{ form_start(form, {action: action, attr: {id: 'as-service-import-form', class: nowo_ui_class('form', _b), novalidate: false}}) }}
+        {{ form_label(form.file, null, {label_attr: {class: 'as-modal-label'}}) }}
+        {{ form_widget(form.file, {attr: {class: nowo_ui_class('input', _b) ~ ' as-input-file', accept: '.json,.yaml,.yml', autofocus: 'autofocus'}}) }}
+        {{ form_errors(form.file) }}
+        {% if form.importVariables is defined %}
+            <div class="as-checkbox-label">{{ form_widget(form.importVariables) }} {{ form_label(form.importVariables) }}</div>
+        {% endif %}
+        <p class="{{ nowo_ui_class('muted', _b) }} as-modal-hint">{{ 'import.help'|trans({}, 'NowoApiStudioBundle') }}</p>
+        {% do form.submit.setRendered %}
+        {% for child in form %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+    {{ form_end(form, {render_rest: false}) }}
+</div>
+<div class="{{ nowo_ui_class('form_actions', _b) }}" data-nowo-ui-dialog-actions>
+    <button type="button" class="{{ nowo_ui_class('btn_secondary', _b) }}" data-nowo-ui-dialog-close>{{ 'action.cancel'|trans({}, 'NowoApiStudioBundle') }}</button>
+    <button type="submit" form="as-service-import-form" class="{{ nowo_ui_class('btn_primary', _b) }}">{{ 'import.submit'|trans({}, 'NowoApiStudioBundle') }}</button>
+</div>

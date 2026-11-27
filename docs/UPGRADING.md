@@ -4,7 +4,7 @@
 
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020)
 - [From 1.0.19 to 1.0.20](#from-1019-to-1020-1)
-- [Unreleased](#unreleased)
+- [To 1.25.0](#to-1250)
 - [To 1.24.0](#to-1240)
   - [To 1.24.0](#to-1240-1)
 - [To 1.23.1](#to-1231)
@@ -99,7 +99,14 @@ No breaking changes. **No application upgrade steps.**
 composer update nowo-tech/api-studio-bundle
 ```
 
-## Unreleased
+## To 1.25.0
+
+**Service dialogs.** `_service_action_modals.html.twig` is removed: the service pages include `_service_dialog_shell.html.twig` (one empty
+remote dialog `as-service-dialog`) and `_service_kebab_menu.html.twig` carries the openers (`data-nowo-ui-dialog-open`). A host
+that overrides `_service_action_modals.html.twig`, the kebab menu, `workspace/show` or `service/show`, or that styles the old ids
+(`as-service-export-modal`, `as-service-import-modal`, `as-service-delete-modal`), moves to the new ones; the fragments are
+`service/_delete_dialog.html.twig` and `import_export/_service_import_dialog.html.twig`. Rebuild `api-studio-shell.js` if you
+build your own copy.
 
 ## To 1.24.0
 

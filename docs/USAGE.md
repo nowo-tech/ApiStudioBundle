@@ -911,7 +911,7 @@ path to the namespace), so overrides always win. The namespace is registered onl
 | `_endpoint_expandable_list.html.twig` | Expandable endpoint rows with saved requests |
 | `_service_collection_list.html.twig` | Collapsible services (endpoint collections) |
 | `_service_kebab_menu.html.twig` | Service actions menu (UiKit kebab) |
-| `_service_action_modals.html.twig` | Service export / import / delete dialogs (UiKit `<dialog>`) |
+| `_service_dialog_shell.html.twig` | The empty remote dialog of the service Import / Delete (content loaded on open) |
 | `_variable_catalog.html.twig` | Workspace variable catalogue |
 | `_styles.html.twig`, `_scripts.html.twig` | Api Studio asset tags |
 | `_legacy_layout.html.twig` | Deprecated bridge for a pre-1.10 layout (removed in 2.0) |

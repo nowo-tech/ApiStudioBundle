@@ -21,6 +21,7 @@ use Nowo\ApiStudioBundle\Service\ImportExport\EnvironmentVariableImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiExporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\OpenApiImporter;
 use Nowo\ApiStudioBundle\Service\ImportExport\PostmanCollectionImporter;
+use Nowo\UiKitBundle\Dialog\RemoteDialogResponder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -48,6 +49,7 @@ final class ImportExportController extends AbstractController
         private readonly EnvironmentVariableImporter $variableImporter,
         private readonly EnvironmentVariableExporter $variableExporter,
         private readonly TranslatorInterface $translator,
+        private readonly ?RemoteDialogResponder $remoteDialog = null,
     ) {
     }
 
@@ -250,10 +252,13 @@ final class ImportExportController extends AbstractController
                 ], 'NowoApiStudioBundle'));
 
                 if ($service instanceof ApiService) {
-                    return $this->redirectToRoute('nowo_api_studio_service_show', [
+                    $target = $this->generateUrl('nowo_api_studio_service_show', [
                         'workspaceId' => $workspace->getId(),
                         'id'          => $service->getId(),
                     ]);
+
+                    // Since 1.x (owner rule 2026-11-23): from the on-demand dialog the dialog closes and the page goes there.
+                    return $this->isRemoteDialog($request) ? ($this->remoteDialog ?? new RemoteDialogResponder())->redirect($target, request: $request) : $this->redirect($target);
                 }
                 if ($environment instanceof ApiEnvironment) {
                     return $this->redirectToRoute('nowo_api_studio_environment_show', [
@@ -266,6 +271,9 @@ final class ImportExportController extends AbstractController
             } catch (Throwable $e) {
                 // RJ-D2-L1: a lock conflict is retryable (409), anything else an import error (422), a unique violation
                 // included: under the unit's locks it comes from the file itself, and the same import would fail again.
+                if ($service instanceof ApiService && $this->isRemoteDialog($request)) {
+                    return $this->importDialog($form, $workspace, $service, $request, $titleKey, WorkspaceImportUnit::isRetryable($e) ? 'import.error.busy' : 'import.error', WorkspaceImportUnit::isRetryable($e) ? Response::HTTP_CONFLICT : Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
                 if (WorkspaceImportUnit::isRetryable($e)) {
                     $this->flash('error', 'import.error.busy');
 
@@ -277,9 +285,39 @@ final class ImportExportController extends AbstractController
             }
         }
 
+        if ($service instanceof ApiService && $this->isRemoteDialog($request)) {
+            return $this->importDialog($form, $workspace, $service, $request, $titleKey, null, $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK);
+        }
+
         return $this->renderPage('@NowoApiStudioBundle/import_export/import.html.twig', [
             'page' => $this->pages()->import($workspace, $titleKey, $form->createView(), $service, $environment),
         ], new Response(status: $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+    }
+
+    /**
+     * Owner rule 2026-11-23 (every dialog loads its content on demand): a request of UiKit's remote dialog
+     * (`X-Nowo-Dialog: 1`) to a service import route answers the form as a fragment (`Vary: X-Nowo-Dialog`).
+     */
+    private function isRemoteDialog(Request $request): bool
+    {
+        return ($this->remoteDialog ?? new RemoteDialogResponder())->isDialog($request);
+    }
+
+    /**
+     * @param FormInterface<mixed> $form
+     */
+    private function importDialog(FormInterface $form, ApiWorkspace $workspace, ApiService $service, Request $request, string $titleKey, ?string $errorKey, int $status): Response
+    {
+        $response = $this->render('@NowoApiStudioBundle/import_export/_service_import_dialog.html.twig', [
+            'form'      => $form->createView(),
+            'action'    => $request->getPathInfo(),
+            'service'   => $service,
+            'workspace' => $workspace,
+            'error'     => $errorKey,
+            'postman'   => $form->has('importVariables'),
+        ], new Response(status: $status));
+
+        return ($this->remoteDialog ?? new RemoteDialogResponder())->fragment($response);
     }
 
     /**
