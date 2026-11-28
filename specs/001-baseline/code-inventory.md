@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/api-studio-bundle`  
-**Last audited**: 2026-11-26 (1.24.0: 303/303 against `find src`, spec 012 sources added; 288/288 re-verified against `git ls-files src` before it) (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit, 2026-11-26 GDPR / retention)
+**Last audited**: 2026-11-28 (1.25.0: 305/305 against `find src`, dialog templates remapped; 1.24.0: 303/303 against `find src`, spec 012 sources added; 288/288 re-verified against `git ls-files src` before it) (sweeps: 2026-10-30 baseline, 2026-11-16 and 2026-11-22 later sources, 2026-11-23 import unit, 2026-11-26 GDPR / retention)
 
 This file proves that **every production source artifact** under `src/` is referenced by the baseline specification. Test-only files under `tests/` and demo trees are out of Packagist scope unless promoted in the spec.
 
@@ -274,7 +274,9 @@ This file proves that **every production source artifact** under `src/` is refer
 | `Resources/views/_endpoint_expandable_list.html.twig` | Collapsible endpoint list | FR-TWIG-001 |
 | `Resources/views/_service_collection_list.html.twig` | Service listing partial | FR-TWIG-001 |
 | `Resources/views/_service_kebab_menu.html.twig` | Service actions through the UiKit kebab | FR-TWIG-001, FR-UI-003 |
-| `Resources/views/_service_action_modals.html.twig` | Service export / import / type-to-confirm delete dialogs (UiKit `<dialog>`) | FR-TWIG-001, FR-UI-003 |
+| `Resources/views/_service_dialog_shell.html.twig` | Shared UiKit `<dialog>` shell for the service dialogs | FR-TWIG-001, FR-UI-003 |
+| `Resources/views/import_export/_service_import_dialog.html.twig` | Service import dialog (UiKit `<dialog>`) | FR-TWIG-001, FR-UI-003, FR-IMP-001 |
+| `Resources/views/service/_delete_dialog.html.twig` | Service type-to-confirm delete dialog (UiKit `<dialog>`) | FR-TWIG-001, FR-UI-003 |
 | `Resources/views/dashboard/index.html.twig` | Dashboard overview | FR-TWIG-001 |
 | `Resources/views/workspace/index.html.twig` | Workspace index | FR-TWIG-001 |
 | `Resources/views/workspace/form.html.twig` | Workspace form | FR-TWIG-001, FR-FORM-001 |
@@ -497,9 +499,10 @@ Changed in 1.24 (rows above in this file): `Security/ApiStudioHistoryScope.php` 
 | Sources added in 1.21.1 (workspace import unit) | 1 | 1 |
 | Sources added in 1.23 (`logger.ts` listed, runner value objects split one per row) | 1 | 1 |
 | Sources added in 1.24 (GDPR erasure / export, history retention) | 15 | 15 |
-| **Total production sources** | **303** | **303** |
+| Sources changed in 1.25 (`_service_action_modals` removed; shell, import and delete dialogs added) | 2 | 2 |
+| **Total production sources** | **305** | **305** |
 | Vitest tests under `Resources/assets/tests/` (ship no runtime code, not in the production total) | 24 | 24 |
 
 Built JavaScript under `Resources/public/` is produced from the TypeScript sources listed above; both sides are counted as distinct production artifacts in this inventory.
 
-Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **303** (2026-11-26, 1.24.0; 288 on 2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
+Audit command (production count): `find src -type f ! -name '*.test.ts' | wc -l` → **305** (2026-11-28, 1.25.0; 303 on 2026-11-26, 1.24.0; 288 on 2026-11-24, 1.23.0; 287 on 2026-11-23, 1.21.1; 286 on 2026-11-22 after 1.20.0; 278 at 1.19.1, 138 on 2026-10-30, 191 on 2026-11-16).
