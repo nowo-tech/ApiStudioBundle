@@ -94,7 +94,7 @@ Open `/api-studio` in your browser.
 
 ## Requirements
 
-- PHP >= 8.2 < 8.6
+- PHP >= 8.2 < 8.7
 - Symfony 7.4+ or 8.x
 - Doctrine ORM `^3.7`
 - `ext-json`
