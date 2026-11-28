@@ -86,5 +86,5 @@
 
 {% block nowo_ui_modals %}
     {{ parent() }}
-    {{ include('@NowoApiStudioBundle/_service_action_modals.html.twig', {bundle: page.bundle}, false) }}
+    {{ include('@NowoApiStudioBundle/_service_dialog_shell.html.twig', {bundle: page.bundle}, false) }}
 {% endblock %}

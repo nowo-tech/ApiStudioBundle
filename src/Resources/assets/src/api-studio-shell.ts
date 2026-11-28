@@ -118,145 +118,20 @@ document.querySelectorAll<HTMLButtonElement>('[data-tree-ep-toggle]').forEach((b
 });
 
 /**
- * Open a UiKit dialog (native <dialog>); closing is handled by the UiKit dialog runtime ([data-nowo-ui-dialog-close],
- * Escape, backdrop).
- *
- * @param modal The dialog element.
- * @returns void
+ * The service Delete dialog is loaded when it opens (owner rule 2026-11-23, every dialog loads its content on demand): its
+ * confirmation field carries the service name (`data-as-delete-expected`) and the Delete button (`data-as-delete-submit`,
+ * bound to the form with `form="…"`) is enabled only while the typed text equals it. Delegated, so it also works for the
+ * fragment that is inserted after the page loaded; the server checks the name again.
  */
-function openModal(modal: HTMLElement | null): void {
-  if (modal instanceof HTMLDialogElement && !modal.open) {
-    modal.showModal();
-  }
-}
-
-/**
- * Close the UiKit kebab menu (details-based or popover) that holds an item.
- *
- * @param item The clicked menu item.
- * @returns void
- */
-function closeMenuOf(item: Element): void {
-  item.closest('details')?.removeAttribute('open');
-  const popover = item.closest<HTMLElement>('[popover]');
-  if (popover && typeof popover.hidePopover === 'function' && popover.matches(':popover-open')) {
-    popover.hidePopover();
-  }
-}
-
-const exportModal = document.getElementById('as-service-export-modal');
-const exportSubtitle = document.getElementById('as-service-export-subtitle');
-const exportConfirm = document.getElementById('as-service-export-confirm');
-let exportOpenApiUrl = '';
-
-exportConfirm?.addEventListener('click', () => {
-  const format = document.querySelector<HTMLInputElement>('input[name="as-export-format"]:checked')?.value;
-  if (format === 'openapi' && exportOpenApiUrl) {
-    window.location.assign(exportOpenApiUrl);
-  }
-});
-
-const importModal = document.getElementById('as-service-import-modal');
-const importSubtitle = document.getElementById('as-service-import-subtitle');
-const importForm = document.getElementById('as-service-import-form') as HTMLFormElement | null;
-const importFile = document.getElementById('as-service-import-file') as HTMLInputElement | null;
-const importPostmanVars = document.getElementById('as-import-postman-vars');
-let importOpenApiUrl = '';
-let importPostmanUrl = '';
-
-function syncImportForm(): void {
-  if (!importForm) {
+document.addEventListener('input', (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || !input.hasAttribute('data-as-delete-expected') || !input.form) {
     return;
   }
-
-  const format = document.querySelector<HTMLInputElement>('input[name="as-import-format"]:checked')?.value ?? 'openapi';
-  importForm.action = format === 'postman' ? importPostmanUrl : importOpenApiUrl;
-  if (importPostmanVars) {
-    importPostmanVars.hidden = format !== 'postman';
+  const submit = document.querySelector<HTMLButtonElement>(`button[data-as-delete-submit][form="${CSS.escape(input.form.id)}"]`);
+  if (submit) {
+    submit.disabled = input.value !== input.getAttribute('data-as-delete-expected');
   }
-}
-
-document.querySelectorAll<HTMLInputElement>('input[name="as-import-format"]').forEach((radio) => {
-  radio.addEventListener('change', syncImportForm);
-});
-
-const deleteModal = document.getElementById('as-service-delete-modal');
-const deleteForm = document.getElementById('as-service-delete-form') as HTMLFormElement | null;
-const deleteWarning = document.getElementById('as-service-delete-warning');
-const deleteLabel = document.getElementById('as-service-delete-label');
-const deleteInput = document.getElementById('as-service-delete-input') as HTMLInputElement | null;
-const deleteSubmit = document.getElementById('as-service-delete-submit') as HTMLButtonElement | null;
-const deleteCsrf = document.getElementById('as-service-delete-csrf') as HTMLInputElement | null;
-const deleteRedirect = document.getElementById('as-service-delete-redirect') as HTMLInputElement | null;
-let deleteExpectedName = '';
-
-deleteInput?.addEventListener('input', () => {
-  if (!deleteSubmit) {
-    return;
-  }
-  deleteSubmit.disabled = deleteInput.value !== deleteExpectedName;
-});
-
-document.querySelectorAll<HTMLElement>('[data-service-action]').forEach((btn) => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeMenuOf(btn);
-
-    const action = btn.getAttribute('data-service-action');
-    const serviceName = btn.getAttribute('data-service-name') ?? '';
-
-    if (action === 'export') {
-      exportOpenApiUrl = btn.getAttribute('data-export-openapi-url') ?? '';
-      if (exportSubtitle) {
-        exportSubtitle.textContent = serviceName;
-      }
-      openModal(exportModal);
-      return;
-    }
-
-    if (action === 'import') {
-      importOpenApiUrl = btn.getAttribute('data-import-openapi-url') ?? '';
-      importPostmanUrl = btn.getAttribute('data-import-postman-url') ?? '';
-      if (importSubtitle) {
-        importSubtitle.textContent = serviceName;
-      }
-      if (importFile) {
-        importFile.value = '';
-      }
-      syncImportForm();
-      openModal(importModal);
-      return;
-    }
-
-    if (action === 'delete') {
-      deleteExpectedName = serviceName;
-      if (deleteForm) {
-        deleteForm.action = btn.getAttribute('data-delete-url') ?? '';
-      }
-      if (deleteCsrf) {
-        deleteCsrf.value = btn.getAttribute('data-delete-token') ?? '';
-      }
-      if (deleteRedirect) {
-        deleteRedirect.value = btn.getAttribute('data-delete-redirect') ?? '';
-      }
-      const warningTemplate = deleteModal?.dataset.warningTemplate ?? '';
-      const confirmTemplate = deleteModal?.dataset.confirmTemplate ?? '';
-      if (deleteWarning) {
-        deleteWarning.textContent = warningTemplate.replace('%name%', serviceName);
-      }
-      if (deleteLabel) {
-        deleteLabel.textContent = confirmTemplate.replace('%name%', serviceName);
-      }
-      if (deleteInput) {
-        deleteInput.value = '';
-      }
-      if (deleteSubmit) {
-        deleteSubmit.disabled = true;
-      }
-      openModal(deleteModal);
-      deleteInput?.focus();
-    }
-  });
 });
 
 document.querySelectorAll<HTMLElement>('.as-subtabs[data-subtabs]').forEach((bar) => {

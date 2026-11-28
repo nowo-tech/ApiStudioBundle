@@ -1,0 +1,6 @@
+{#
+  Owner rule 2026-11-23 (every dialog loads its content on demand): the one empty remote dialog of the service pages; the
+  Import and Delete items of _service_kebab_menu.html.twig fill it from the GET of their route when they are used.
+  Variable: bundle (theme exceptions).
+#}
+{{ include(nowo_ui_partial('remote_form_dialog', bundle|default(null)), {id: 'as-service-dialog', size: 'md', bundle: bundle|default(null), attr: {'data-testid': 'api-studio-service-dialog'}}, false) }}

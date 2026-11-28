@@ -118,16 +118,17 @@ final class PageContractTest extends PageContractTestCase
         }
     }
 
-    public function testServiceDialogsAreNativeDialogsOpenedFromTheKebab(): void
+    public function testServiceDialogsLoadOnOpenFromTheKebab(): void
     {
         $html = $this->renderPage(new PageFixture('@NowoApiStudioBundle/workspace/show.html.twig', ApiStudioPageFixtures::workspaceShow()))->html;
 
+        self::assertMatchesRegularExpression('#<dialog id="as-service-dialog"[^>]*data-nowo-ui-remote-form#', $html);
         foreach (['as-service-export-modal', 'as-service-import-modal', 'as-service-delete-modal'] as $id) {
-            self::assertMatchesRegularExpression('#<dialog id="' . $id . '"[^>]*data-nowo-ui-dialog#', $html);
+            self::assertStringNotContainsString('id="' . $id . '"', $html);
         }
         self::assertStringContainsString('data-nowo-ui-kebab', $html);
-        self::assertStringContainsString('data-service-action="delete"', $html);
-        self::assertStringContainsString('data-delete-token="csrf-delete10"', $html);
+        self::assertStringContainsString('data-nowo-ui-dialog-open="as-service-dialog"', $html);
+        self::assertStringNotContainsString('data-delete-token', $html);
         self::assertStringNotContainsString('as-modal-backdrop', $html);
     }
 
