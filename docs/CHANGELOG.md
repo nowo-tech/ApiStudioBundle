@@ -79,6 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Spec Kit code inventory re-audited at 305/305 `src/` files: removed the stale `_service_action_modals.html.twig` row and
+  mapped the three 1.25.0 dialog templates.
+
 ### Changed
 
 - PHP 8.6: `composer.json` allows PHP below 8.7 (was below 8.6). CI adds a forward-compatibility workflow with a
